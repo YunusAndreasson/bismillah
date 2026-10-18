@@ -102,7 +102,7 @@ Choose a library root; Rust path validation (traversal and symlinks); tree with 
 
 **Accept:** keyboard-only use of every library action; duplicate filenames can be told apart; attempts to escape the root are rejected in tests.
 
-### Phase 2 result (2026-10-18): built, awaiting the author's review
+### Phase 2 result (2026-10-18): accepted by the author
 
 Everything above is in place and `pnpm verify` passes (178 unit and contrast tests, 60 Rust tests, 98 real-app e2e tests in 11 suites, 7 visual checks including two new library baselines), and so does `pnpm test:offline`.
 
@@ -124,7 +124,7 @@ What else came with it: the watcher (another program's change reloads a clean do
 
 **For the author**
 1. **Install and try it:** `cd packaging/arch && makepkg -si`, then *Open folder…* (`Ctrl+Shift+O`) on your writing folder.
-2. **Confirm two choices:** `Delete` for *Move to trash* (above), and file endings shown quietly in the library (`letter` + `.md` in `text-secondary`) rather than hidden.
+2. **Confirmed (2026-10-18):** `Delete` for *Move to trash* (above), and file endings shown quietly in the library (`letter` + `.md` in `text-secondary`) rather than hidden.
 3. **Still open from Phase 1:** the hanging-mark gutter in narrow windows at large text (DESIGN.md §7), and the manual checks listed there.
 4. **Manual checks (live session, about 10 minutes):** Orca reads the tree (levels, open/closed folders, the selected file) and the palette; dropping a folder from the file manager makes it the library; *Move to trash* puts a file in your real trash and *Undo* brings it back, also on a USB disk (its own `.Trash-1000`); `Alt` shows the File menu with the new library items.
 
