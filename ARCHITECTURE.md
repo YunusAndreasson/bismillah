@@ -273,7 +273,7 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 | Real app e2e | `tauri-driver` (WebDriver) on Linux and Windows | Open/edit/save/reload, conflicts, recovery after a killed process, file opening (CLI, drag-drop, second instance), settings, keyboard-only flows, offline run |
 | Visual | Screenshots via `tauri-driver` in the real app: WebKitGTK on Linux now, WebView2 on Windows later; macOS (no WebDriver support) checked by hand before releases | Specimen at window widths 640/1280/1920/2560, both themes, editor and preview, zoom 200% |
 | Contrast | Unit test over the token table | Every semantic pair (DESIGN.md §9.4) |
-| Arabic rendering | `spikes/webview/arabic-rendering.ts` (into `test:visual` in Phase 1) | Ink of every vocalised fixture word against HarfBuzz (ADR-0011) |
+| Arabic rendering | `pnpm test:visual` (`tests/visual/arabic-rendering.visual.ts`) | Ink of every vocalised fixture word against a HarfBuzz reference, per bundled Arabic font; fails when a word gets worse, notes when WebKitGTK improves (ADR-0011) |
 | Supply chain | `cargo deny check`, `pnpm audit` | Banned crates, licences, advisories |
 
 All real-app runs go through `scripts/headless.sh` (private Xvfb, D-Bus and runtime directory), so they never touch the author's desktop; the test harness refuses to start outside it. Native input that WebDriver can't produce (menus, accelerators, dead keys, layout switching, the clipboard) is driven with real X events (`xdotool`, raw XTEST via `spikes/webview/xtest.py`).

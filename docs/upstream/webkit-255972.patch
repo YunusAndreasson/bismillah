@@ -1,0 +1,44 @@
+--- a/Source/WebCore/platform/graphics/skia/FontSkia.cpp
++++ b/Source/WebCore/platform/graphics/skia/FontSkia.cpp
+@@ -231,19 +231,27 @@
+     const auto& font = m_platformData.skFont();
+     auto edging = allowsAntialiasing() ? edgingForFontSmoothingMode(font, smoothingMode) : SkFont::Edging::kAlias;
+     bool isVertical = m_platformData.orientation() == FontOrientation::Vertical;
++    // Shaping can move glyphs vertically as well as horizontally: HarfBuzz positions Arabic, Hebrew and
++    // many Indic marks with y offsets, which ComplexTextController::advance() folds into the heights of the
++    // paint advances (FontCascade::drawGlyphBuffer() honours them too). An x-only run would drop them, so a
++    // horizontal run uses full (x, y) positions whenever any advance has a height.
++    bool hasVerticalOffsets = !isVertical && std::ranges::any_of(advances, [](const auto& advance) {
++        return !!advance.height();
++    });
++    bool usesFullPositions = isVertical || hasVerticalOffsets;
+ 
+     SkTextBlobBuilder builder;
+     const auto& buffer = [&]() {
+         if (font.getEdging() == edging)
+-            return isVertical ? builder.allocRunPos(font, glyphs.size()) : builder.allocRunPosH(font, glyphs.size(), 0);
++            return usesFullPositions ? builder.allocRunPos(font, glyphs.size()) : builder.allocRunPosH(font, glyphs.size(), 0);
+ 
+         SkFont copiedFont = font;
+         copiedFont.setEdging(edging);
+-        return isVertical ? builder.allocRunPos(copiedFont, glyphs.size()) : builder.allocRunPosH(copiedFont, glyphs.size(), 0);
++        return usesFullPositions ? builder.allocRunPos(copiedFont, glyphs.size()) : builder.allocRunPosH(copiedFont, glyphs.size(), 0);
+     }();
+ 
+     auto bufferGlyphs = unsafeMakeSpan<SkGlyphID>(buffer.glyphs, glyphs.size());
+-    auto bufferPositions = unsafeMakeSpan<SkScalar>(buffer.pos, glyphs.size() * (isVertical ? 2 : 1));
++    auto bufferPositions = unsafeMakeSpan<SkScalar>(buffer.pos, glyphs.size() * (usesFullPositions ? 2 : 1));
+ 
+     FloatSize glyphPosition;
+     for (size_t i = 0; i < glyphs.size(); ++i) {
+@@ -253,6 +261,10 @@
+             glyphPosition += advances[i];
+             bufferPositions[2 * i] = glyphPosition.height();
+             bufferPositions[2 * i + 1] = glyphPosition.width();
++        } else if (hasVerticalOffsets) {
++            bufferPositions[2 * i] = glyphPosition.width();
++            bufferPositions[2 * i + 1] = glyphPosition.height();
++            glyphPosition += advances[i];
+         } else {
+             bufferPositions[i] = glyphPosition.width();
+             glyphPosition += advances[i];
