@@ -50,7 +50,7 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | `serde`, `toml`, `thiserror` | Settings and errors |
 | `gtk` (Linux only, already in Tauri's tree) | Focus the native menu bar on `Alt`/`F10` (`platform.rs`) |
 
-**Development only** (never shipped): WebdriverIO + `tauri-driver` (real-app e2e), `pixelmatch` + `pngjs` (screenshot comparison), Vitest + jsdom, ESLint + Prettier, svelte-check. Spike and font tooling run through `uv`: fontTools (font build), `uharfbuzz` (rendering reference), `python-xlib` (raw X input and clipboard).
+**Development only** (never shipped): WebdriverIO + `tauri-driver` (real-app e2e), `pixelmatch` + `pngjs` (screenshot comparison), Vitest + jsdom, ESLint + Prettier, svelte-check. Spike and font tooling run through `uv`: fontTools (font build), `uharfbuzz` (rendering reference, and the pre-shaped Basmallah outlines in `src/editor/basmallahInk.ts`), `python-xlib` (raw X input and clipboard).
 
 No CSS framework, state-management library, layout library, icon font or component kit. CSS is plain and uses tokens (DESIGN.md §9). No browser test stack: bismillah is desktop-only (ADR-0009), so it is tested in the real app.
 

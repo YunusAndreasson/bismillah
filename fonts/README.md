@@ -39,3 +39,11 @@ Phase 0 result (spike "Uthmani + transliteration glyphs", font side; details in 
 - **Duo's and Mono's IJMES gap is closed by a renamed build**, [`build/`](build/README.md): **Bismillah Duo** and **Bismillah Mono** add ḥ ṣ ḍ ṭ ẓ Ḥ Ṣ Ḍ Ṭ Ẓ (the fonts' own letters and dot below, at their own anchors) and ʿ ʾ (halves of the fonts' own ring accent). Built by `tools/build_ijmes.py`, checked by `tools/verify_ijmes.py`. Load these instead of the upstream Duo and Mono.
 - Upstream Duo already has GPOS mark-to-base anchors for U+0323 on h s d t z, so decomposed input (h + U+0323) also renders correctly once shaping reaches the font.
 - **Switch to Amiri Quran only for runs containing U+06D6–U+06ED or U+08D3–U+08FF.** Honorific signs (U+0610–U+061A) stay in the regular Arabic font, which covers them. Spellcheck still skips all three ranges. Amiri Quran, Amiri and Plex Sans Arabic cover every code point in the Tanzil and quran.com Uthmani texts (`tests/fixtures/quran/`).
+
+## The Basmallah opening's outlines (Phase 1)
+
+WebKitGTK misplaces Arabic marks that fonts position with vertical offsets (ADR-0011), so the Basmallah opening is drawn from outlines instead of text. `tools/build_basmallah.py` shapes the opening's exact text (read from `src/editor/basmallah.ts`) with HarfBuzz and `source/amiri/Amiri-Regular.ttf`, places every glyph with its x and y offsets, and writes one SVG path to `src/editor/basmallahInk.ts`. Rerun it if the text or the Amiri version changes; a unit test fails if the text and the generated outlines disagree.
+
+```bash
+uv run --with uharfbuzz --with fonttools python -I fonts/tools/build_basmallah.py
+```

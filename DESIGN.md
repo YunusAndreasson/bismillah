@@ -307,14 +307,19 @@ It is **on by default** and can be turned off in Settings › Appearance (*Show 
 - **A presentation element, never file content.**
   - It is not written to disk, not in CodeMirror's editable text, and not counted, spellchecked or grammar-checked. Opening a file never creates an edit.
   - It is not a heading and not in the outline.
-  - Saving and copying document text preserve the real source; the Basmallah itself can still be selected and copied.
+  - Saving and copying document text preserve the real source; the Basmallah itself can still be selected and copied, and copying it gives exactly the text above.
 - **Typesetting:**
   - Amiri regular, natural shaping, starting at 28px / 1.8 and scaling with the writing-size preference; `text-primary` colour; `lang="ar" dir="rtl"`; centred in the reading column.
+  - **Drawn from pre-shaped outlines** (ADR-0011): WebKitGTK misplaces Arabic marks, so the visible ink is the Basmallah shaped by HarfBuzz with Amiri, every mark at its true height (`fonts/tools/build_basmallah.py` → `src/editor/basmallahInk.ts`). It is laid over the real text on the same baseline and advance box; the text stays in the page, transparent, and is what is selected, copied and read by screen readers. Selecting it shows `selection-background` behind the ink.
+  - Always one line: in a narrow window at a large writing size it shrinks to fit the column instead of wrapping.
   - One body line of space above and one and a half below (less on short windows); enough block and inline padding for every mark.
   - No decorative colour, ornament or image.
 - **Placement:** it scrolls with the document and appears once, at the top, in both editor and preview. It stays visible in Zuhd mode while in view, without being sticky.
-- **Deduplication:** if the document's first content block is already a standalone Basmallah, the presentation element is suppressed. The comparison is narrow and tested, allowing for common vocalisation and whitespace differences. There is no general religious-text detection, and the source is never changed.
-- **Accessibility:** real Unicode text exposed once in reading order with Arabic language metadata. It reflows at enlarged sizes and keeps room for diacritics.
+- **Deduplication:** if the document's first content block (after any frontmatter) is already a standalone Basmallah, the presentation element is suppressed, and it returns as soon as that block changes. The comparison is narrow and tested (`src/editor/basmallah.test.ts`):
+  - the block is a paragraph, an ATX heading or a setext heading containing only the Basmallah; more text in the same block, a quote, a list item or code doesn't count
+  - vocalisation, Qur'anic annotation marks, tatweel, alef wasla (ٱ for ا), whitespace and direction marks are ignored, the ligature ﷽ counts, and one trailing full stop or Arabic comma is allowed
+  - there is no general religious-text detection, and the source is never changed.
+- **Accessibility:** real Unicode text exposed once in reading order with Arabic language metadata; the drawn outlines are hidden from assistive technology. It grows with the writing size and keeps room for diacritics.
 
 ### 11.3 Typing aids
 

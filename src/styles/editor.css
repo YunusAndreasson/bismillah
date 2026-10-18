@@ -156,7 +156,8 @@
   background: var(--selection-background);
 }
 
-/* The Basmallah opening (ADR-0008, DESIGN.md §11.2). */
+/* The Basmallah opening (ADR-0008, DESIGN.md §11.2). The ink is an SVG pre-shaped by
+   HarfBuzz (ADR-0011) laid over the real, transparent text (basmallah.ts). */
 .cm-editor .cm-basmallah {
   font-family: "Amiri", serif;
   font-weight: 400;
@@ -165,7 +166,43 @@
   text-align: center;
   color: var(--text-primary);
   padding-block: var(--L) calc(1.5 * var(--L));
-  padding-inline: var(--hang-gutter);
-  user-select: text;
+  /* Centred, so the side padding only bounds how wide it may grow. */
+  padding-inline: var(--space-4);
   cursor: default;
+  /* The line below sizes itself against this box's width. */
+  container-type: inline-size;
+}
+.cm-editor .cm-basmallah-line {
+  /* One line, never wrapped: narrow windows at large writing sizes shrink it to fit. */
+  font-size: max(12px, min(1em, calc(100cqi / var(--basmallah-advance))));
+  white-space: nowrap;
+  -webkit-user-select: text;
+  user-select: text;
+}
+/* The real text: selectable, copyable and read by screen readers, but drawn by the ink.
+   WebKitGTK rounds glyph advances at small sizes, so the text is set in a box of the
+   ink's exact advance and justified across it; selections then cover the ink. */
+.cm-editor .cm-basmallah-text {
+  display: inline-block;
+  inline-size: calc(var(--basmallah-advance) * 1em);
+  text-align: justify;
+  text-align-last: justify;
+  color: transparent;
+}
+.cm-editor .cm-basmallah-text::selection {
+  color: transparent;
+  /* WebKit lightens an opaque selection colour as if for a white page, which turns the
+     dark theme's green almost black; a hair of transparency makes it use the colour as is. */
+  background-color: color-mix(in srgb, var(--selection-background) 99.6%, transparent);
+}
+/* The ink's box is the text's advance box: its baseline is the text's baseline, and the
+   negative margin of its own width lays the text over it. Marks reach outside the box. */
+.cm-editor .cm-basmallah-ink {
+  inline-size: calc(var(--basmallah-advance) * 1em);
+  block-size: calc((var(--basmallah-ascent) + var(--basmallah-descent)) * 1em);
+  vertical-align: calc(-1em * var(--basmallah-descent));
+  margin-inline-end: calc(-1em * var(--basmallah-advance));
+  overflow: visible;
+  fill: currentColor;
+  pointer-events: none;
 }
