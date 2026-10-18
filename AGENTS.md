@@ -2,7 +2,7 @@
 
 **bismillah** is a free, offline, minimal Markdown editor in the spirit of the original iA Writer, built with Tauri 2, Svelte 5, CodeMirror 6 and a Rust core. It has two features beyond typing (spelling in English and Arabic, grammar suggestions in English), so the quality of its typography, interaction and reliability *is* the product.
 
-**Status:** Phase 1 (writing core) built and awaiting the author's review ([PLAN.md](PLAN.md)): single-file editing under the file-safety contract, recovery, settings, typing aids, Zuhd mode and the desktop basics. Phase 2 (library) starts after the review. Phase 0's spikes were accepted on 2026-10-18 ([docs/spikes/](docs/spikes/README.md)). Keep this file accurate as commands and layout change. bismillah is private and runs only on the author's Linux machine for now: local git, no remote, no CI. `pnpm verify` is the gate.
+**Status:** Phase 2 (library) built and awaiting the author's review ([PLAN.md](PLAN.md)): the library folder with Rust path checks, the docked/overlay tree, quick open, the command palette, rename, new folder, move to trash with undo, and the watcher. Phase 1 (writing core) was built on 2026-10-18 and the author moved on to Phase 2 the same day; its manual checks are still listed in PLAN.md. Phase 3 (spelling and grammar) starts after the review. Phase 0's spikes were accepted on 2026-10-18 ([docs/spikes/](docs/spikes/README.md)). Keep this file accurate as commands and layout change. bismillah is private and runs only on the author's Linux machine for now: local git, no remote, no CI. `pnpm verify` is the gate.
 
 **Working mode:** build each phase end to end (code, tests, specimen screenshots, docs) and stop at the phase's acceptance check for the author's review. Within a phase, proceed without asking about decisions already recorded in DESIGN.md, ARCHITECTURE.md or an ADR.
 
@@ -59,7 +59,7 @@ cd packaging/arch && makepkg -si # build the committed HEAD and install it on th
 
 ## Running and seeing the app
 
-Under the harness the app opens the bundled specimen as a *sample* (never saved) and uses private config and data directories. E2e tests open real files with the `open(path)` test hook and inject save failures with `fault(kind)` (debug builds only; see `src/core/testHooks.ts`).
+Under the harness the app opens the bundled specimen as a *sample* (never saved) and uses private config, data and trash directories. E2e tests open real files with the `open(path)` test hook, make a scratch copy of `tests/fixtures/library` the library with `setLibrary(path)`, answer the next native dialog with `nextDialog(path)` and inject save failures with `fault(kind)` (debug builds only; see `src/core/testHooks.ts`). WebDriver reads any script result with an `error` key as its own failure, so probes name such fields differently.
 
 **Never launch the app outside `scripts/headless.sh` for automated work** (`pnpm app:shot`, `pnpm test:e2e` and the spike scripts already use it); a bare launch opens a window on the author's desktop. Use the `run-app` skill: headless runs by default (`xvfb-run`), webview screenshots via `tauri-driver` that you inspect yourself, window-only captures on the live Hyprland session when native behaviour matters, and offline proof runs (`unshare -rn`, `strace`). Never capture the author's full screen.
 

@@ -1,4 +1,4 @@
-import type { OpenError, SaveError, SettingsNotice } from "./ipc.ts";
+import type { LibraryError, NameProblem, OpenError, SaveError, SettingsNotice } from "./ipc.ts";
 
 /**
  * The interface's sentences, kept in one place so they stay consistent and can be
@@ -26,10 +26,39 @@ const OPEN_REASONS: Record<OpenError["kind"], string> = {
   not_found: "it doesn't exist",
   permission_denied: "bismillah isn't allowed to read it",
   not_a_file: "it isn't a file",
+  outside: "it leads outside the library",
   other: "of an input/output error",
 };
 
+const LIBRARY_REASONS: Record<Exclude<LibraryError["kind"], "invalid_name">, string> = {
+  outside: "it leads outside the library",
+  invalid_path: "that isn't a place in the library",
+  not_found: "it isn't there any more",
+  exists: "something with that name is already there",
+  permission_denied: "bismillah isn't allowed to change that folder",
+  read_only_volume: "the disk is read-only",
+  disk_full: "the disk is full",
+  unavailable: "the library folder isn't available",
+  other: "of an input/output error",
+};
+
+/** Why a typed name can't be used, as a sentence shown under the name field. */
+const NAME_PROBLEMS: Record<NameProblem, string> = {
+  empty: "Type a name.",
+  slash: "A name can't contain “/”.",
+  dot: "A name can't start with a dot: such files are hidden.",
+  too_long: "That name is too long.",
+  control: "A name can't contain control characters.",
+};
+
 export const saveReason = (error: SaveError) => SAVE_REASONS[error.kind];
+export const libraryReason = (error: LibraryError) =>
+  error.kind === "invalid_name" ? NAME_PROBLEMS[error.reason] : LIBRARY_REASONS[error.kind];
+/** A library error as one sentence under a name field. */
+export const nameError = (error: LibraryError) =>
+  error.kind === "invalid_name"
+    ? NAME_PROBLEMS[error.reason]
+    : `That didn't work — ${LIBRARY_REASONS[error.kind]}.`;
 
 export const copy = {
   status: {
@@ -60,6 +89,17 @@ export const copy = {
   openFailed: (name: string, error: OpenError) =>
     `Couldn't open ${quote(name)} — ${OPEN_REASONS[error.kind]}.`,
   newFailed: (error: SaveError) => `Couldn't create the file — ${saveReason(error)}.`,
+  trashed: (name: string) => `Moved ${quote(name)} to the trash.`,
+  trashFailed: (name: string, error: LibraryError) =>
+    `Couldn't move ${quote(name)} to the trash — ${libraryReason(error)}. It wasn't changed.`,
+  untrashFailed: (name: string, error: LibraryError) =>
+    `Couldn't put ${quote(name)} back — ${libraryReason(error)}. It is still in the trash.`,
+  renameFailed: (name: string, error: LibraryError) =>
+    `Couldn't rename ${quote(name)} — ${libraryReason(error)}.`,
+  unsavedFirst: (name: string) =>
+    `${quote(name)} has changes that aren't saved yet, so it stays as it is until they are.`,
+  recoveryFirst: (name: string) =>
+    `Restore or discard the recovered text for ${quote(name)} first.`,
   settingsNotice: (notice: SettingsNotice) =>
     notice.kind === "unreadable"
       ? `settings.toml couldn't be read, so the defaults apply. Your file was kept as ${notice.backup}.`
@@ -77,12 +117,54 @@ export const copy = {
     open: (name: string) => `Open ${quote(name)}`,
     notNow: "Not now",
     dismiss: "OK",
+    undo: "Undo",
   },
   welcome: {
     title: "Nothing open",
+    openFolder: "Open a folder…",
     open: "Open a file…",
     create: "New file…",
-    drop: "Or drop a Markdown file here.",
+    drop: "Or drop a Markdown file or folder here.",
+  },
+  library: {
+    region: "Library",
+    toggle: "Library",
+    none: "No folder is open.",
+    openFolder: "Open a folder…",
+    unavailable: (name: string) =>
+      `${quote(name)} isn't available. It may be on a disk that isn't connected.`,
+    tryAgain: "Try again",
+    chooseFolder: "Choose another folder…",
+    empty: (name: string) => `No Markdown files in ${quote(name)} yet.`,
+    newFile: "New file…",
+    truncated: "Only part of this folder is shown: it holds too many entries.",
+    outside: "outside the library",
+    menu: {
+      open: "Open",
+      rename: "Rename…",
+      trash: "Move to trash",
+      newFile: "New file here…",
+      newFolder: "New folder here…",
+    },
+  },
+  prompt: {
+    rename: (name: string) => `Rename ${quote(name)}`,
+    newFolder: (folder: string) => `New folder in ${quote(folder)}`,
+    name: "Name",
+    fileHint: "Without .md or .markdown at the end, .md is added.",
+    renameAction: "Rename",
+    createAction: "Create",
+    cancel: "Cancel",
+  },
+  picker: {
+    quickOpen: "Quick open",
+    quickOpenPlaceholder: "Find a file by name or folder",
+    noFile: "No file matches.",
+    palette: "Command palette",
+    palettePlaceholder: "Find a command",
+    noCommand: "No command matches.",
+    on: "On",
+    libraryOnly: "in the library",
   },
   settings: {
     title: "Settings",

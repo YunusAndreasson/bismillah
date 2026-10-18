@@ -4,6 +4,8 @@ use std::fs::{self, Permissions};
 use std::io;
 use std::path::Path;
 
+use crate::library::{LibraryError, Trash};
+
 /// Per-platform window setup after the main window is created.
 pub fn configure_main_window(_window: &tauri::WebviewWindow) {}
 
@@ -47,6 +49,111 @@ pub fn sync_dir(dir: &Path) -> io::Result<()> {
 #[cfg(unix)]
 const fn libc_einval() -> i32 {
     22
+}
+
+/// Renames `from` to `to`, refusing with `AlreadyExists` if `to` exists, so a rename can
+/// never replace a file (ARCHITECTURE.md §5.8). On Linux the check and the rename are one
+/// atomic step (`renameat2` with `RENAME_NOREPLACE`); file systems without it, and other
+/// platforms, check first. A rename that only changes case on a case-insensitive file
+/// system finds "itself" at the target and goes ahead.
+pub fn rename_no_replace(from: &Path, to: &Path) -> io::Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::ffi::CString;
+        use std::os::unix::ffi::OsStrExt;
+        let c = |p: &Path| {
+            CString::new(p.as_os_str().as_bytes())
+                .map_err(|_| io::Error::from(io::ErrorKind::InvalidInput))
+        };
+        let (old, new) = (c(from)?, c(to)?);
+        // SAFETY: both arguments are valid NUL-terminated paths that outlive the call.
+        let result = unsafe {
+            libc::renameat2(
+                libc::AT_FDCWD,
+                old.as_ptr(),
+                libc::AT_FDCWD,
+                new.as_ptr(),
+                libc::RENAME_NOREPLACE,
+            )
+        };
+        if result == 0 {
+            return Ok(());
+        }
+        let error = io::Error::last_os_error();
+        match error.raw_os_error() {
+            Some(libc::EINVAL | libc::ENOSYS) => {} // not supported here: check first
+            Some(libc::EEXIST) if same_file(from, to) => return fs::rename(from, to),
+            _ => return Err(error),
+        }
+    }
+    if fs::symlink_metadata(to).is_ok() && !same_file(from, to) {
+        return Err(io::Error::from(io::ErrorKind::AlreadyExists));
+    }
+    fs::rename(from, to)
+}
+
+/// Whether two paths name the same entry (not following a final link).
+fn same_file(a: &Path, b: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        match (fs::symlink_metadata(a), fs::symlink_metadata(b)) {
+            (Ok(x), Ok(y)) => x.dev() == y.dev() && x.ino() == y.ino(),
+            _ => false,
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        a.to_string_lossy().to_lowercase() == b.to_string_lossy().to_lowercase()
+    }
+}
+
+/// The system trash (freedesktop.org trash on Linux), through the `trash` crate.
+/// Moving to the trash is the only way bismillah removes anything (ARCHITECTURE.md §5.8).
+pub struct SystemTrash;
+
+fn trash_error(e: trash::Error) -> LibraryError {
+    match e {
+        trash::Error::FileSystem { source, .. } => LibraryError::from_io(&source),
+        trash::Error::RestoreCollision { .. } => LibraryError::Exists,
+        trash::Error::CouldNotAccess { .. } => LibraryError::PermissionDenied,
+        trash::Error::CanonicalizePath { .. } => LibraryError::NotFound,
+        trash::Error::TargetedRoot => LibraryError::InvalidPath,
+        // Descriptions may name paths, so only the kind of failure is kept.
+        trash::Error::Os { code, .. } => LibraryError::Other {
+            detail: format!("trash: os error {code}"),
+        },
+        _ => LibraryError::Other {
+            detail: "trash".into(),
+        },
+    }
+}
+
+impl Trash for SystemTrash {
+    fn trash(&self, path: &Path) -> Result<(), LibraryError> {
+        trash::delete(path).map_err(trash_error)
+    }
+
+    fn restore(&self, path: &Path, since_s: i64) -> Result<(), LibraryError> {
+        #[cfg(any(windows, all(unix, not(target_os = "macos"))))]
+        {
+            let items = trash::os_limited::list().map_err(trash_error)?;
+            let newest = items
+                .into_iter()
+                .filter(|item| item.original_path() == path && item.time_deleted >= since_s)
+                .max_by_key(|item| item.time_deleted)
+                .ok_or(LibraryError::NotFound)?;
+            trash::os_limited::restore_all([newest]).map_err(trash_error)
+        }
+        #[cfg(not(any(windows, all(unix, not(target_os = "macos")))))]
+        {
+            // macOS builds come later (ARCHITECTURE.md §12.3); its trash has no listing API.
+            let _ = (path, since_s);
+            Err(LibraryError::Other {
+                detail: "trash: restore unsupported".into(),
+            })
+        }
+    }
 }
 
 /// The raw bytes of a path, for stable identifiers.
@@ -278,6 +385,27 @@ mod tests {
             .recv_timeout(Duration::from_secs(5))
             .expect("message arrives");
         assert_eq!(got, b"second launch");
+    }
+
+    #[test]
+    fn renames_never_replace_an_existing_entry() {
+        let scratch = Scratch::new();
+        let a = scratch.file("a.md", b"a");
+        let b = scratch.file("b.md", b"b");
+        let err = rename_no_replace(&a, &b).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read(&b).unwrap(), b"b");
+        fs::create_dir(scratch.path().join("folder")).unwrap();
+        assert_eq!(
+            rename_no_replace(&a, &scratch.path().join("folder"))
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::AlreadyExists
+        );
+        let c = scratch.path().join("c.md");
+        rename_no_replace(&a, &c).unwrap();
+        assert_eq!(fs::read(&c).unwrap(), b"a");
+        assert!(!a.exists());
     }
 
     #[test]

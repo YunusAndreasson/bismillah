@@ -28,7 +28,8 @@ export const AUTOSAVE_DELAY_MS = 500;
 
 export class DocumentSession {
   readonly id: number;
-  readonly name: string;
+  /** Changes when the file is renamed from the library. */
+  name = $state("");
   readonly sample: boolean;
   readonly readOnly: boolean;
   revision = $state(0);

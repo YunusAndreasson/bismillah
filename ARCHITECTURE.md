@@ -2,7 +2,7 @@
 
 This document describes how bismillah is built and the contracts each part must keep. Product and visual decisions live in [DESIGN.md](DESIGN.md). Lasting decisions are recorded as ADRs in [docs/decisions/](docs/decisions/). If code and this document disagree, fix one of them in the same change.
 
-> **Status:** Phase 1 (writing core). Single-file editing with the file-safety contract, the recovery journal, settings and the desktop basics are real (§3 marks what is planned); the library and linting arrive in Phases 2–3.
+> **Status:** Phase 2 (library). The file-safety contract, the recovery journal, settings, the desktop basics and the library (path checks, listing, watcher, file actions) are real (§3 marks what is planned); linting arrives in Phase 3.
 
 ---
 
@@ -40,7 +40,9 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | `harper-core` | English spelling and grammar, offline. Embeds a small chunking model via `burn` (allowed by ADR-0004's AI policy); build without the thesaurus feature |
 | `spellbook` | Arabic spelling behind the `ArabicSpeller` adapter (ADR-0004; chosen in Phase 0) |
 | `notify` | File watching |
-| `trash` | Move to the system trash instead of deleting |
+| `trash` | Move to the system trash instead of deleting, and restore from it for Undo (freedesktop.org trash on Linux) |
+| `icu_normalizer` (already in Tauri's tree, through URL handling) | Canonical decomposition for the library's sort order, on a copy of each name (§6) |
+| `libc` (Linux only, already in the tree) | `renameat2(RENAME_NOREPLACE)`, so a rename can never replace a file (`platform.rs`) |
 | `dirs` / Tauri path API | Platform config, data and cache directories |
 | `tauri-plugin-dialog` | Native open-folder and save-as dialogs |
 | `tauri-plugin-opener` | Reveal in file manager; hand links to the system browser (it makes no requests itself) |
@@ -73,32 +75,40 @@ bismillah/
 │  │  ├─ recovery.rs          the recovery journal (§5.7)
 │  │  ├─ settings.rs          settings.toml (§9)
 │  │  ├─ state.rs             remembered window size and last document
-│  │  ├─ platform.rs          all cfg(target_os) code (menu-bar focus, directory fsync, permissions)
-│  │  └─ library.rs, watch.rs, themes.rs, lint.rs  (planned)
+│  │  ├─ platform.rs          all cfg(target_os) code (menu-bar focus, directory fsync, permissions,
+│  │  │                       no-replace rename, the system trash)
+│  │  ├─ library.rs           the library boundary: path checks, listing, natural order, new folder,
+│  │  │                       rename, trash (§6)
+│  │  ├─ watch.rs             the debounced file watcher (§5.4)
+│  │  ├─ app/library_commands.rs  the library's state and commands (§4)
+│  │  └─ themes.rs, lint.rs  (planned)
 │  └─ capabilities/           minimal Tauri capability set
 ├─ crates/bismillah-lint/     (planned, Phase 3) pure Rust, no Tauri dependency
 ├─ src/
 │  ├─ core/                   command registry, native menu, typed IPC bridge, workspace (open,
-│  │                          save, notices), save session, settings, copy (all interface
-│  │                          sentences), appearance, test hooks (only with BISMILLAH_TEST=1)
+│  │                          save, notices, library actions), save session, settings, copy (all
+│  │                          interface sentences), appearance, library store, tree keyboard model,
+│  │                          fuzzy matching, library layout, test hooks (only with BISMILLAH_TEST=1)
 │  ├─ editor/                 CodeMirror setup + one extension per concern: dialect (frontmatter),
 │  │                          markdownStyling, hangingMarks, bidi, scriptRuns, basmallah, typewriter,
 │  │                          zuhd, typingAids (smart punctuation, transliteration mode); wordCount
 │  ├─ richText/               (planned, Phase 4) markdown-it + DOMPurify for Copy as rich text
-│  ├─ ui/                     Svelte components: status line, notices, first screen, Settings
+│  ├─ ui/                     Svelte components: status line, notices, first screen, Settings,
+│  │                          library panel and tree, quick open / palette, name prompt
 │  └─ styles/                 tokens.css, fonts.css, profiles.css, editor.css
 ├─ fonts/  source/ (upstream) · build/ (Bismillah Duo/Mono) · tools/ (build + verify scripts)
 ├─ dictionaries/              Arabic dictionary + licence
 ├─ scripts/                   headless.sh, verify.sh, offline.sh, app-shot.ts
 ├─ packaging/                 arch/PKGBUILD (local install), linux/bismillah.desktop
-├─ tests/                     e2e/ (incl. spikes/), visual/ (baselines), fixtures/ (bidi, profiles, quran)
+├─ tests/                     e2e/ (incl. spikes/), visual/ (baselines), fixtures/ (bidi, profiles,
+│                             quran, library)
 ├─ spikes/                    Phase 0 experiments: arabic-speller, harper-latency, transliteration, webview
 └─ docs/  decisions/ · spikes/ · specimen.md · reviews/ · interviews/
 ```
 
 ## 4. IPC surface
 
-All commands are typed on both sides (Rust structs ↔ TS types in `src/core/ipc.ts`). **The frontend never sends a path.** Files come from the command line, a native dialog Rust shows, a drop on the window or a second launch; the frontend refers to the open document by an id. Every command that takes a path validates it in Rust (§6). The capability file grants the main window only the core event system, the menu, and the window calls it needs (title, close, fullscreen).
+All commands are typed on both sides (Rust structs ↔ TS types in `src/core/ipc.ts`). **The frontend never sends an absolute path.** Files come from the command line, a native dialog Rust shows, a drop on the window or a second launch; the frontend refers to the open document by an id. Inside the library it names entries by their path relative to the library root (`/`-separated), and every such path is checked in Rust before anything is touched (§6). The capability file grants the main window only the core event system, the menu, and the window calls it needs (title, close, fullscreen).
 
 | Command | Purpose |
 |---|---|
@@ -109,10 +119,15 @@ All commands are typed on both sides (Rust structs ↔ TS types in `src/core/ipc
 | `doc_save_as(id, text)` · `doc_check(id)` · `doc_reload(id, local_text?)` | Save mine as…, the focus check, and reloading (Load theirs keeps the local text in recovery) |
 | `recovery_settle(id)` | The writer restored or discarded recovered text |
 | `settings_get()` / `settings_set(patch)` / `settings_reload()` | Settings (§9) |
-| `library_open`, `library_tree`, file operations *(Phase 2)*; `lint` *(Phase 3)* | |
-| `test_open(path)`, `test_fault(kind)` | Debug builds under the test harness only: stand-ins for the native dialog and fault injection (§13) |
+| `library_get(refresh)` → the listing and whether the library is shown · `library_remember_open(open)` | The panel (refresh: on focus, or *Try again*) |
+| `library_open_dialog()` → listing or `null` | File › Open folder… |
+| `library_open_file(path)` → document | Open a file from the library |
+| `library_new_folder(parent, name)` · `library_rename(path, name)` | New folder…, Rename… (never replaces; the open document, recovered text and remembered files follow a rename) |
+| `library_trash(path)` → token · `library_untrash(token)` | Move to trash and its Undo (the open document closes if it went too) |
+| `lint` *(Phase 3)* | |
+| `test_open(path)`, `test_fault(kind)`, `test_dialog(path)`, `test_library(path)` | Debug builds under the test harness only: stand-ins for the native dialogs and fault injection (§13) |
 
-Events (Rust → UI): `open-requested` (a drop or a second launch). Planned: `file-changed-externally`, `library-changed` (Phase 2).
+Events (Rust → UI): `open-requested` (a drop or a second launch), `library-changed` (a new listing, sent whenever it differs from the last), `document-changed` (the watcher found the open file changed or removed on disk). A listing carries a generation that changes with the folder; within one folder the frontend keeps track of the open file itself, because a listing sent before a file opened may arrive after it.
 
 ## 5. File-safety contract (amanah)
 
@@ -141,7 +156,7 @@ If any step fails, the original file is untouched, the temporary file is removed
 - If they don't:
   - No local edits: reload quietly, keeping the caret and scroll as close as possible.
   - Local edits: **do not overwrite**. Show the persistent conflict bar: *Keep mine* (save over) · *Load theirs* (local text goes to recovery first) · *Save mine as…*
-- Regaining window focus runs the same check (Phase 1); the watcher (`notify`, Phase 2) will run it proactively. The save-time check is the authority.
+- Regaining window focus runs the same check, and the watcher (`watch.rs`, `notify`) runs it as soon as another program changes the library: bursts of events are gathered until the folder is quiet for 150 ms, hidden names and our own save temporaries are ignored, and the open file is reported only if it no longer matches what we last read or wrote, so our own saves never are. No polling: an idle library costs nothing. Links are not followed by the watcher, so changes in a linked folder are found on focus. The save-time check is the authority.
 - A file removed while open is reported (*Save it again* · *Save elsewhere…*), never silently recreated.
 
 ### 5.5 Autosave and Save now
@@ -156,17 +171,23 @@ If any step fails, the original file is untouched, the temporary file is removed
 - Before every save, the text is mirrored to `<app-data>/recovery/<file-id>.<session>.md` plus a small JSON sidecar (original path, revision, timestamp); a clean save removes the mirror, a failed or refused save makes it durable (fsync). So a crash mid-save, a failing disk or a conflict always leaves the text there. Files get `0600` and the folder `0700` permissions where supported.
 - Entries are kept **per app session**, so a new session's mirrors never overwrite text left by an earlier one. *Load theirs* keeps the writer's version as its own entry.
 - When a file is opened, the newest earlier entry that is newer than the file and differs from it is offered (*Restore* · *Discard*); other files with entries are mentioned. *Restore* is one undoable edit, and the entries go only once the restored text is saved.
+- A rename in the library moves the entries of the renamed file, or of every file in a renamed folder, to the new path (`Recovery::moved`), so recovered text is never stranded under an old name.
 - Bounded: per-file and total size caps, and a maximum age.
 - This is the one deliberate exception to "no hidden files". It lives outside the writing folder and is documented in PRIVACY.md.
 
 ### 5.8 Destructive actions
-Delete means move to the system trash (`trash` crate), with an in-app undo for the session. Rename refuses to overwrite an existing file.
+- Delete means move to the system trash (`trash` crate). The session keeps each trashed path and when it went; *Undo* finds the newest trash entry from that path and puts it back, refusing if something new now has its name.
+- Rename never replaces anything: on Linux the check and the rename are one atomic step (`renameat2` with `RENAME_NOREPLACE`); elsewhere it checks first. A file name without `.md` or `.markdown` gets `.md`.
+- Renaming or trashing a link acts on the link, never on what it points to.
+- Before the open document is renamed or trashed, the frontend saves it and refuses if its changes still aren't on disk or recovered text for it is still on offer. A trashed open document closes.
 
 ## 6. Library boundary
 
-- The library root is chosen by the writer through the native dialog, then stored canonicalised.
-- Every incoming path is resolved against the root and canonicalised. It is rejected if it escapes the root (`..`, absolute paths, or **symlinks resolving outside the root**). Symlinks inside the root are followed; symlinks pointing outside are listed but marked unavailable.
-- Only `.md` files (and `.markdown`) are listed as documents. Other files are not shown in v1.
+- The library root is chosen by the writer through the native dialog (or the command line, a dropped folder, a second launch), then stored canonicalised. Opening a file outside it makes the file's folder the library (§12.2). A remembered root that has gone missing is shown as unavailable and tried again on focus.
+- Every incoming path must be made of plain names: no empty parts, `.`, `..`, absolute paths or NUL. It is then resolved against the root and canonicalised, and rejected if it ends up outside (`Outside`), which catches **symlinks resolving outside the root**. Entries that are renamed or trashed resolve their folder this way and act on the final name itself, so a link is never followed for them. Symlinks inside the root are followed; symlinks pointing outside, and links back up the tree, are listed but marked unavailable. Each check happens just before its operation; a race with another program swapping links at that moment is outside the local, single-user threat model.
+- Only folders and `.md`/`.markdown` files are listed. Hidden names (a leading dot: `.git`, our save temporaries) are not, nor are names that aren't UTF-8 (they can't cross the IPC boundary). A listing stops at 20,000 entries or 64 levels and says so.
+- **Order:** folders first, then natural order on a sort key: canonical decomposition, combining marks (Latin diacritics, Arabic vocalisation and Qur'anic marks) dropped, ʿ ʾ, apostrophes and tatweel skipped, lower case, numbers compared by value (ASCII and Arabic-Indic digits). Names equal under that key fall back to their exact text. Quick open folds the same way (`src/core/fuzzy.ts`). Names themselves are never changed.
+- New names are checked (`validate_name`): not empty, no `/`, no leading dot (it would hide the entry), no control characters, at most 255 bytes. Spaces, Arabic and every other printable character are kept exactly as typed.
 - Local images shown by live preview are served through the Tauri asset protocol, scoped at runtime to the library root.
 
 ## 7. Spelling and grammar pipeline
@@ -259,10 +280,11 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 - **Opening files:**
   - `bismillah [file.md | folder]` from the command line.
   - "Open with" from the file manager: a `.desktop` entry with `MimeType=text/markdown;text/x-markdown;` on Linux, and file associations in the bundle config elsewhere.
-  - Dropping a file onto the window (folders arrive with the library in Phase 2).
+  - Dropping a file onto the window opens it; dropping a folder makes it the library.
   - File › Open… (`Mod-O`) and New file… (`Mod-N`) through the native dialogs, shown by Rust.
   - A second launch hands its arguments to the running instance over `$XDG_RUNTIME_DIR/bismillah.sock` and exits; the running app saves, opens the file and focuses its window.
   - Opening a file outside the current library opens its parent folder as the library, so path validation (§6) always has a root.
+- `bismillah folder/` (or a second launch with a folder) makes the folder the library and shows it; the last document opens only if it belongs to it.
 - **Windows:** v1 has one main window. Size and maximised state are remembered (`state.rs`; the window starts hidden and is shown at its remembered size). The minimum window size is 480×360. The title shows `filename — bismillah`.
 - **Native dialogs** for choosing a library folder and for "Save mine as…" (conflicts).
 - **Quitting** flushes pending saves first (§5.5), including from the window manager's close and from `Mod-Q`.
@@ -290,7 +312,7 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 | Arabic rendering | `pnpm test:visual` (`tests/visual/arabic-rendering.visual.ts`) | Ink of every vocalised fixture word against a HarfBuzz reference, per bundled Arabic font; fails when a word gets worse, notes when WebKitGTK improves (ADR-0011) |
 | Supply chain | `cargo deny check`, `pnpm audit` | Banned crates, licences, advisories |
 
-All real-app runs go through `scripts/headless.sh` (private Xvfb, D-Bus, runtime, config and data directories), so they never touch the author's desktop, settings or recovery journal; the test harness refuses to start outside it. File-safety e2e tests open real files with `test_open` and inject failures with `test_fault` (disk full, rename failure), both compiled into debug builds only and refused outside the harness. Native input that WebDriver can't produce (menus, accelerators, dead keys, layout switching, the clipboard) is driven with real X events (`xdotool`, raw XTEST via `spikes/webview/xtest.py`).
+All real-app runs go through `scripts/headless.sh` (private Xvfb, D-Bus, runtime, config and data directories), so they never touch the author's desktop, settings, recovery journal or trash (the freedesktop trash lives under the private data directory); the test harness refuses to start outside it. Rust unit tests use a stand-in trash in their scratch folder, never the system's. The library suite (`tests/e2e/library.e2e.ts`) works on a scratch copy of `tests/fixtures/library` and drives every library action from the keyboard, including attempts to leave the library through the IPC commands directly. File-safety e2e tests open real files with `test_open` and inject failures with `test_fault` (disk full, rename failure), both compiled into debug builds only and refused outside the harness. Native input that WebDriver can't produce (menus, accelerators, dead keys, layout switching, the clipboard) is driven with real X events (`xdotool`, raw XTEST via `spikes/webview/xtest.py`).
 
 Round-trip acceptance checks that must always pass:
 - Vocalised Arabic, mixed-script text and CRLF files save unchanged.

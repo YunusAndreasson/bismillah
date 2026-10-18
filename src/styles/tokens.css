@@ -42,6 +42,11 @@
 
   --motion-fast: 120ms;
   --motion-slow: 180ms;
+
+  /* Stacking: the docked library sits over the writing area's margin; menus, the
+     library overlay and dialogs sit over everything. */
+  --layer-dock: 1;
+  --layer-popover: 10;
 }
 
 :root,

@@ -29,10 +29,11 @@ export async function installMenu(context: CommandContext): Promise<NativeMenu> 
       const items: (MenuItem | CheckMenuItem | PredefinedMenuItem)[] = [];
       for (const c of COMMANDS.filter((command) => command.section === section)) {
         if (c.separatorBefore) items.push(await PredefinedMenuItem.new({ item: "Separator" }));
+        // A library-only key (Delete) is never a menu accelerator: it would act in text.
         const options = {
           id: c.id,
           text: c.label,
-          accelerator: accelerator(c.key),
+          ...(c.keyScope ? {} : { accelerator: accelerator(c.key) }),
           action: () => runCommand(c.id, "menu", context),
         };
         if (c.toggle) {

@@ -14,12 +14,15 @@
  *   --full                capture the whole document by scrolling and stitching
  *   --scroll-to <text>    scroll so the first line containing <text> is near the top
  *   --typewriter          keep typewriter scrolling on (off by default for shots)
+ *   --library <dir>       show a copy of <dir> as the library (docked or overlay, by width)
+ *   --library-file <rel>  open this file from that library instead of the specimen
  *   --out <dir>           output directory (default: <repo>/target/shots)
  *
  * Needs `pnpm app:build` first. Prints the paths of the PNGs it wrote.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { PNG } from "pngjs";
 import { remote } from "webdriverio";
@@ -38,6 +41,8 @@ const { values } = parseArgs({
     full: { type: "boolean", default: false },
     "scroll-to": { type: "string" },
     typewriter: { type: "boolean", default: false },
+    library: { type: "string" },
+    "library-file": { type: "string" },
     out: { type: "string", default: resolve(REPO, "target/shots") },
   },
 });
@@ -92,9 +97,37 @@ async function shootFull(): Promise<PNG> {
   return out;
 }
 
+// The library is a scratch copy, so screenshots never touch the original.
+const scratch = values.library ? mkdtempSync(join(tmpdir(), "bismillah-shot-")) : null;
+if (scratch && values.library) cpSync(resolve(values.library), scratch, { recursive: true });
+
+/** Shows the library at this width, docked or as the overlay. */
+async function showLibrary(): Promise<void> {
+  await browser.execute(async () => {
+    const hooks = window.__bismillah;
+    await hooks?.measure();
+    if (!hooks?.library().visible) hooks?.run("view.toggleLibrary");
+    await hooks?.settle();
+    (document.activeElement as HTMLElement | null)?.blur();
+  });
+}
+
 const written: string[] = [];
 try {
   await waitForApp(browser);
+  if (scratch) {
+    await browser.execute(async (dir: string) => {
+      await window.__bismillah?.setLibrary(dir);
+    }, scratch);
+    if (values["library-file"]) {
+      await browser.execute(
+        async (path: string) => {
+          await window.__bismillah?.open(path);
+        },
+        join(scratch, values["library-file"]),
+      );
+    }
+  }
   await browser.execute(
     (typewriter: boolean, scale: number) => {
       const hooks = window.__bismillah;
@@ -113,6 +146,7 @@ try {
       await browser.execute((t: string) => window.__bismillah?.setTheme(t as "light"), theme);
       for (const width of widths) {
         await setViewport(browser, width, height);
+        if (scratch) await showLibrary();
         if (values["scroll-to"]) {
           await browser.execute((needle: string) => {
             const view = window.__bismillah?.view;
@@ -130,7 +164,8 @@ try {
         }
         await settle(browser);
         const png = values.full ? await shootFull() : await shoot();
-        const name = `${profile}-${theme}-${width}${values.full ? "-full" : ""}.png`;
+        const suffix = `${scratch ? "-library" : ""}${values.full ? "-full" : ""}`;
+        const name = `${profile}-${theme}-${width}${suffix}.png`;
         const path = resolve(outDir, name);
         writeFileSync(path, PNG.sync.write(png));
         written.push(path);
@@ -140,5 +175,6 @@ try {
 } finally {
   await browser.deleteSession().catch(() => undefined);
   driver.kill();
+  if (scratch) rmSync(scratch, { recursive: true, force: true });
 }
 for (const path of written) console.log(path);

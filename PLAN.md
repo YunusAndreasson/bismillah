@@ -72,7 +72,7 @@ Evidence and verdicts per spike: [docs/spikes/](docs/spikes/README.md). Results 
 - A killed process leaves restorable text.
 - Fault-injected saves fail visibly with the text preserved.
 
-### Phase 1 result (2026-10-18): built, awaiting the author's review
+### Phase 1 result (2026-10-18): built; the author moved on to Phase 2 the same day
 
 Everything above is in place and `pnpm verify` passes (159 unit and contrast tests, 39 Rust tests, 84 real-app e2e tests, the visual suite with the Arabic rendering check) and so does `pnpm test:offline`. Acceptance, with its evidence:
 
@@ -101,6 +101,32 @@ Choices made along the way (recorded in ARCHITECTURE.md): the frontend never sen
 Choose a library root; Rust path validation (traversal and symlinks); tree with docked/overlay behaviour (DESIGN.md §7); quick open with parent paths; command palette with aliases; library actions in the native menu; file actions (new, rename, new folder, trash with undo); watcher plus conflict bar.
 
 **Accept:** keyboard-only use of every library action; duplicate filenames can be told apart; attempts to escape the root are rejected in tests.
+
+### Phase 2 result (2026-10-18): built, awaiting the author's review
+
+Everything above is in place and `pnpm verify` passes (178 unit and contrast tests, 60 Rust tests, 98 real-app e2e tests in 11 suites, 7 visual checks including two new library baselines), and so does `pnpm test:offline`.
+
+| Accept | Evidence |
+|---|---|
+| Keyboard-only use of every library action | `tests/e2e/library.e2e.ts`, all through real key presses: `Mod-\` into the tree, arrows, `→`/`←`, type-ahead, `Enter` to open, `F2` rename (taken names explained, nothing replaced), `Mod-Shift-N` new folder, `Delete` then *Undo*, `Mod-P` quick open, `Mod-Shift-P` palette by alias, `Esc` back to the text, and the narrow-window overlay |
+| Duplicate filenames can be told apart | Quick open shows each file's folders (`notes.md · Notes`, `notes.md · Essays`); `src/core/fuzzy.test.ts` |
+| Attempts to escape the root are rejected in tests | `library.rs` unit tests (`..`, absolute paths, empty parts, links out, creating through a link, the root itself) and the e2e suite calling the Rust commands directly with escaping paths: every one refused, nothing outside touched |
+
+What else came with it: the watcher (another program's change reloads a clean document quietly and shows the conflict bar over local edits, with no focus event or polling); trash with *Undo* (the private trash in tests, a stand-in in Rust tests); a rename moves the open document, its recovered text and the remembered files with it; folders from the command line, a drop or a second launch; *Open folder…* on the first screen; natural, catalogue-style order ("ʿIlm" under I, "Ḥadīth" under H, Arabic-Indic numbers by value); matching that ignores diacritics, vocalisation and ʿ ʾ.
+
+**Changed from the plan (DESIGN.md §13)**
+- *Move to trash* is `Delete` in the library, not `Mod-Backspace`: `Ctrl+Backspace` deletes the previous word in every Linux text field and must never trash a file.
+- `Mod-\` from the keyboard moves focus into a library that is already shown; pressed in the library, it hides it. The menu and the status-line button simply show or hide it.
+
+**Not done in Phase 2**
+- Which folders are open in the tree is kept for the session only, not across launches.
+- Changes inside a folder reached through a link are found on focus, not by the watcher, which doesn't follow links.
+
+**For the author**
+1. **Install and try it:** `cd packaging/arch && makepkg -si`, then *Open folder…* (`Ctrl+Shift+O`) on your writing folder.
+2. **Confirm two choices:** `Delete` for *Move to trash* (above), and file endings shown quietly in the library (`letter` + `.md` in `text-secondary`) rather than hidden.
+3. **Still open from Phase 1:** the hanging-mark gutter in narrow windows at large text (DESIGN.md §7), and the manual checks listed there.
+4. **Manual checks (live session, about 10 minutes):** Orca reads the tree (levels, open/closed folders, the selected file) and the palette; dropping a folder from the file manager makes it the library; *Move to trash* puts a file in your real trash and *Undo* brings it back, also on a USB disk (its own `.Trash-1000`); `Alt` shows the File menu with the new library items.
 
 ## Phase 3 — Spelling and grammar
 

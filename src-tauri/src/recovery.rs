@@ -248,6 +248,38 @@ impl Recovery {
         }
     }
 
+    /// A file, or a folder of files, was renamed in the library: its entries follow it,
+    /// so recovered text is still offered under the new name. Times are kept.
+    pub fn moved(&self, from: &Path, to: &Path) {
+        for found in self.entries() {
+            let Ok(rest) = found.sidecar.path.strip_prefix(from) else {
+                continue;
+            };
+            let path = if rest.as_os_str().is_empty() {
+                to.to_path_buf()
+            } else {
+                to.join(rest)
+            };
+            let (text_path, sidecar_path) = self.entry_paths(&path, &found.key);
+            let sidecar = Sidecar {
+                path,
+                ..found.sidecar
+            };
+            let result = (|| {
+                let json = serde_json::to_vec(&sidecar).map_err(io::Error::other)?;
+                fs::rename(&found.text_path, &text_path)?;
+                documents::write_atomic(&sidecar_path, &json, platform::owner_only(), NO_FAULTS)?;
+                fs::remove_file(&found.sidecar_path)
+            })();
+            if let Err(e) = result {
+                eprintln!(
+                    "bismillah: couldn't move recovered text with its file: {:?}",
+                    e.kind()
+                );
+            }
+        }
+    }
+
     /// Other files with text waiting in recovery, newest first.
     pub fn pending(&self, except: Option<&Path>) -> Vec<Pending> {
         let mut paths: Vec<PathBuf> = self
@@ -464,6 +496,42 @@ mod tests {
         fs::write(&sidecar_path, serde_json::to_vec(&stale).unwrap()).unwrap();
         recovery.prune();
         assert!(fs::read_dir(&dir).unwrap().next().is_none());
+    }
+
+    #[test]
+    fn recovered_text_follows_a_renamed_file_or_folder() {
+        let (scratch, dir, file) = setup();
+        Recovery::new(dir.clone())
+            .mirror(&file, "unsaved\n", 2, true)
+            .unwrap();
+        let renamed = scratch.path().join("Letter to Ḥasan.md");
+        fs::rename(&file, &renamed).unwrap();
+        let next = Recovery::new(dir.clone());
+        next.moved(&file, &renamed);
+        assert_eq!(next.offer(&file), None);
+        assert_eq!(
+            next.offer(&renamed).map(|e| e.text),
+            Some("unsaved\n".into())
+        );
+
+        let inside = scratch.path().join("old/inner.md");
+        fs::create_dir(scratch.path().join("old")).unwrap();
+        fs::write(&inside, b"disk\n").unwrap();
+        age(&inside, -60);
+        Recovery::new(dir.clone())
+            .mirror(&inside, "inner unsaved\n", 1, true)
+            .unwrap();
+        fs::rename(scratch.path().join("old"), scratch.path().join("new")).unwrap();
+        next.moved(&scratch.path().join("old"), &scratch.path().join("new"));
+        assert_eq!(
+            next.offer(&scratch.path().join("new/inner.md"))
+                .map(|e| e.text),
+            Some("inner unsaved\n".into())
+        );
+        for entry in fs::read_dir(&dir).unwrap() {
+            let mode = entry.unwrap().metadata().unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600, "moved entries stay private");
+        }
     }
 
     #[test]

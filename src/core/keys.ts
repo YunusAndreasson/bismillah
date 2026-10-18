@@ -9,7 +9,13 @@ function base(event: KeyboardEvent): string {
   const { code, key } = event;
   if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase();
   if (/^Digit[0-9]$/.test(code)) return code.slice(5);
-  const named: Record<string, string> = { Equal: "=", Minus: "-", Comma: ",", Period: "." };
+  const named: Record<string, string> = {
+    Equal: "=",
+    Minus: "-",
+    Comma: ",",
+    Period: ".",
+    Backslash: "\\",
+  };
   return named[code] ?? key;
 }
 

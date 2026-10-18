@@ -5,6 +5,7 @@ import { AUTOSAVE_DELAY_MS, DocumentSession, type SaveIO } from "./session.svelt
 const doc = (overrides: Partial<OpenedDocument> = {}): OpenedDocument => ({
   id: 7,
   name: "letter.md",
+  library_path: null,
   text: "",
   line_ending: "lf",
   mixed_line_endings: false,

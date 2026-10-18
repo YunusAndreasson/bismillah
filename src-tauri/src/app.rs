@@ -2,7 +2,12 @@
 //!
 //! The frontend never names a path: files come from the command line, a native dialog,
 //! a drop on the window or a second launch, and the frontend refers to the open document
-//! by id. Rust decides what is read and written (AGENTS.md, "The writer's trust" rule 5).
+//! by id. Inside the library it names entries by their path relative to the library
+//! root, which Rust validates (library.rs). Rust decides what is read and written
+//! (AGENTS.md, "The writer's trust" rule 5).
+
+mod library_commands;
+pub use library_commands::*;
 
 use serde::Serialize;
 use serde_json::{Map, Value};
@@ -13,9 +18,12 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::documents::{self, Document, LineEnding, NO_FAULTS, OpenError, SaveError};
+use crate::library::Trash;
+use crate::platform;
 use crate::recovery::{self, Recovery};
 use crate::settings::{self, SetError};
 use crate::state;
+use library_commands::{Shelf, Trashed};
 
 /// The bundled specimen, opened as a sample (never saved) in test mode.
 const SPECIMEN: &str = include_str!("../../docs/specimen.md");
@@ -39,6 +47,7 @@ struct Open {
 
 pub struct AppState {
     pub test_mode: bool,
+    handle: AppHandle,
     document: Mutex<Option<Arc<Mutex<Open>>>>,
     next_id: AtomicU64,
     /// A file waiting to be opened: from the command line, a second launch or a drop.
@@ -51,6 +60,15 @@ pub struct AppState {
     memory_path: PathBuf,
     /// Test mode only: a failure injected into every save until cleared.
     fault: Arc<Mutex<Option<TestFault>>>,
+    /// Test mode only: what the next native file dialog answers, without showing it.
+    dialog_answer: Mutex<Option<Option<PathBuf>>>,
+    /// The library folder, its listing and its watcher (library_commands.rs).
+    shelf: Mutex<Shelf>,
+    /// Bumped whenever the library changes, so a watcher of an older one is ignored.
+    generation: AtomicU64,
+    trash: Arc<dyn Trash>,
+    /// Entries moved to the trash this session, by the token the frontend undoes with.
+    trashed: Mutex<Vec<Trashed>>,
 }
 
 /// A save failure the e2e tests inject into the real app (ARCHITECTURE.md §13).
@@ -74,12 +92,18 @@ impl TestFault {
 }
 
 impl AppState {
-    pub fn new(config_dir: &Path, data_dir: &Path, startup: Option<PathBuf>) -> Self {
+    pub fn new(
+        handle: AppHandle,
+        config_dir: &Path,
+        data_dir: &Path,
+        startup: Option<PathBuf>,
+    ) -> Self {
         let recovery = Arc::new(Recovery::new(data_dir.join("recovery")));
         recovery.prune();
         let memory_path = data_dir.join("state.json");
         AppState {
             test_mode: std::env::var_os("BISMILLAH_TEST").is_some(),
+            handle,
             document: Mutex::new(None),
             next_id: AtomicU64::new(1),
             requested: Mutex::new(startup),
@@ -89,7 +113,20 @@ impl AppState {
             memory: Mutex::new(state::State::load(&memory_path)),
             memory_path,
             fault: Arc::new(Mutex::new(None)),
+            dialog_answer: Mutex::new(None),
+            shelf: Mutex::new(Shelf::None),
+            generation: AtomicU64::new(0),
+            trash: Arc::new(platform::SystemTrash),
+            trashed: Mutex::new(Vec::new()),
         }
+    }
+
+    /// Test mode only: the answer queued for the next native file dialog, if any.
+    fn dialog_answer(&self) -> Option<Option<PathBuf>> {
+        if !test_hooks_allowed(self) {
+            return None;
+        }
+        lock(&self.dialog_answer).take()
     }
 
     pub fn memory(&self) -> state::State {
@@ -142,7 +179,9 @@ impl AppState {
             .collect()
     }
 
-    /// Makes `source` the open document and describes it for the frontend.
+    /// Makes `source` the open document and describes it for the frontend. A file
+    /// outside the library makes its folder the library, so every open file has a root
+    /// to check paths against (ARCHITECTURE.md §12.2).
     fn install(&self, source: Source, decoded: documents::Decoded) -> Opened {
         // Text the writer leaves behind unsaved (its last save failed) stays on offer.
         if let Some(previous) = self.current_path() {
@@ -154,13 +193,25 @@ impl AppState {
             Source::Sample => ("specimen.md".to_string(), None, true),
         };
         let recovery = path.as_deref().and_then(|p| self.recovery.offer(p));
-        if let Some(path) = path {
-            self.remember(|m| m.last_document = Some(path));
+        if let Some(path) = &path {
+            self.remember(|m| m.opened(path));
         }
+        let adopt = path
+            .as_deref()
+            .filter(|p| self.library_path_of(p).is_none())
+            .and_then(Path::parent)
+            .map(Path::to_path_buf);
         *lock(&self.document) = Some(Arc::new(Mutex::new(Open { id, source })));
+        // After the document is in place, so the new library's first listing already
+        // names it as the open file.
+        if let Some(folder) = adopt {
+            self.set_library(&folder);
+        }
+        let library_path = path.as_deref().and_then(|p| self.library_path_of(p));
         Opened {
             id,
             name,
+            library_path,
             text: decoded.text,
             line_ending: decoded.line_ending,
             mixed_line_endings: decoded.mixed_line_endings,
@@ -191,6 +242,9 @@ pub struct Opened {
     id: u64,
     /// The file name only, never the full path.
     name: String,
+    /// Where the file is in the library (relative, `/`-separated), so the library can
+    /// show it as the open file. `None` outside the library.
+    library_path: Option<String>,
     /// The text with `\n` line breaks.
     text: String,
     line_ending: LineEnding,
@@ -243,12 +297,18 @@ pub fn app_info(state: State<'_, AppState>) -> AppInfo {
 /// as a sample that is never saved.
 #[tauri::command]
 pub async fn startup(state: State<'_, AppState>) -> Result<Startup, ()> {
-    let requested = lock(&state.requested).take();
+    let mut requested = lock(&state.requested).take();
     let with_pending = |mut document: Opened| {
         let current = state.current_path();
         document.pending_recovery = state.pending_recovery(current.as_deref());
         Startup::Document { document }
     };
+    // `bismillah folder/` opens the folder as the library, and the last document only
+    // if it belongs to it.
+    let folder = requested.take_if(|p| p.is_dir());
+    if let Some(folder) = &folder {
+        state.set_library(folder);
+    }
     if let Some(path) = requested {
         return Ok(match state.open_path(&path) {
             Ok(document) => with_pending(document),
@@ -265,6 +325,7 @@ pub async fn startup(state: State<'_, AppState>) -> Result<Startup, ()> {
         });
     }
     if let Some(last) = state.memory().last_document
+        && (folder.is_none() || state.library_accepts(&last))
         && let Ok(document) = state.open_path(&last)
     {
         return Ok(with_pending(document));
@@ -294,34 +355,56 @@ pub async fn doc_open_dialog(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Option<Opened>, OpenError> {
-    let mut dialog = markdown_filter(app.dialog().file()).set_title("Open");
-    if let Some(dir) = dialog_dir(&state) {
-        dialog = dialog.set_directory(dir);
-    }
-    let Some(chosen) = dialog.blocking_pick_file() else {
-        return Ok(None);
+    let chosen = match state.dialog_answer() {
+        Some(answer) => answer,
+        None => {
+            let mut dialog = markdown_filter(app.dialog().file()).set_title("Open");
+            if let Some(dir) = dialog_dir(&state) {
+                dialog = dialog.set_directory(dir);
+            }
+            match dialog.blocking_pick_file() {
+                Some(chosen) => Some(chosen.into_path().map_err(|_| OpenError::NotAFile)?),
+                None => None,
+            }
+        }
     };
-    let path = chosen.into_path().map_err(|_| OpenError::NotAFile)?;
-    state.open_path(&path).map(Some)
+    match chosen {
+        Some(path) => state.open_path(&path).map(Some),
+        None => Ok(None),
+    }
 }
 
 /// File › New file…: the native save dialog, then a new empty file. `None` if
-/// cancelled. Never replaces an existing file.
+/// cancelled. Never replaces an existing file. `folder` is a library folder to start
+/// the dialog in (the one selected in the library).
 #[tauri::command]
 pub async fn doc_new_dialog(
     app: AppHandle,
     state: State<'_, AppState>,
+    folder: Option<String>,
 ) -> Result<Option<Opened>, SaveError> {
-    let mut dialog = markdown_filter(app.dialog().file())
-        .set_title("New file")
-        .set_file_name("Untitled.md");
-    if let Some(dir) = dialog_dir(&state) {
-        dialog = dialog.set_directory(dir);
-    }
-    let Some(chosen) = dialog.blocking_save_file() else {
+    let chosen = match state.dialog_answer() {
+        Some(answer) => answer,
+        None => {
+            let mut dialog = markdown_filter(app.dialog().file())
+                .set_title("New file")
+                .set_file_name("Untitled.md");
+            let start = folder
+                .as_deref()
+                .and_then(|rel| state.library_folder(rel))
+                .or_else(|| dialog_dir(&state));
+            if let Some(dir) = start {
+                dialog = dialog.set_directory(dir);
+            }
+            match dialog.blocking_save_file() {
+                Some(chosen) => Some(chosen.into_path().map_err(|_| SaveError::Unavailable)?),
+                None => None,
+            }
+        }
+    };
+    let Some(mut path) = chosen else {
         return Ok(None);
     };
-    let mut path = chosen.into_path().map_err(|_| SaveError::Unavailable)?;
     if path.extension().is_none() {
         path.set_extension("md");
     }
@@ -330,10 +413,16 @@ pub async fn doc_new_dialog(
 }
 
 /// Opens the file that a second launch or a drop asked for (after the frontend saved).
+/// A folder becomes the library instead, and the open document stays.
 #[tauri::command]
 pub async fn doc_open_requested(state: State<'_, AppState>) -> Result<Option<Opened>, OpenError> {
     let requested = lock(&state.requested).take();
     match requested {
+        Some(folder) if folder.is_dir() => {
+            state.set_library(&folder);
+            state.remember(|m| m.library_open = true);
+            Ok(None)
+        }
         Some(path) => state.open_path(&path).map(Some),
         None => Ok(None),
     }
@@ -431,16 +520,24 @@ pub async fn doc_save_as(
         Source::File(doc) => (doc.name(), doc.line_ending, doc.bom, Some(doc.path.clone())),
         Source::Sample => ("specimen.md".into(), LineEnding::Lf, false, None),
     };
-    let mut dialog = markdown_filter(app.dialog().file())
-        .set_title("Save as")
-        .set_file_name(&name);
-    if let Some(dir) = old_path.as_deref().and_then(Path::parent) {
-        dialog = dialog.set_directory(dir);
-    }
-    let Some(chosen) = dialog.blocking_save_file() else {
+    let chosen = match state.dialog_answer() {
+        Some(answer) => answer,
+        None => {
+            let mut dialog = markdown_filter(app.dialog().file())
+                .set_title("Save as")
+                .set_file_name(&name);
+            if let Some(dir) = old_path.as_deref().and_then(Path::parent) {
+                dialog = dialog.set_directory(dir);
+            }
+            match dialog.blocking_save_file() {
+                Some(chosen) => Some(chosen.into_path().map_err(|_| SaveError::Unavailable)?),
+                None => None,
+            }
+        }
+    };
+    let Some(path) = chosen else {
         return Ok(None);
     };
-    let path = chosen.into_path().map_err(|_| SaveError::Unavailable)?;
     // The dialog has asked before replacing an existing file.
     let bytes = documents::encode(&text, line_ending, bom);
     let permissions = std::fs::metadata(&path).ok().map(|m| m.permissions());
@@ -453,7 +550,7 @@ pub async fn doc_save_as(
     Ok(Some(state.install(Source::File(doc), decoded)))
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DiskStatus {
     Unchanged,
@@ -545,6 +642,17 @@ pub async fn test_open(state: State<'_, AppState>, path: PathBuf) -> Result<Open
         return Err(OpenError::PermissionDenied);
     }
     state.open_path(&path)
+}
+
+/// Test mode only: the next native file dialog answers `path` (`None`: cancelled)
+/// without being shown, since WebDriver can't drive it.
+#[tauri::command]
+pub fn test_dialog(state: State<'_, AppState>, path: Option<PathBuf>) -> Result<(), OpenError> {
+    if !test_hooks_allowed(&state) {
+        return Err(OpenError::PermissionDenied);
+    }
+    *lock(&state.dialog_answer) = Some(path);
+    Ok(())
 }
 
 /// Test mode only: makes every save fail at one step until called with `None`.

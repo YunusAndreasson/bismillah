@@ -6,7 +6,15 @@ import { remeasure } from "../editor/typography.ts";
 import { setTransliteration } from "../editor/typingAids.ts";
 import { geometry, type Geometry } from "./testGeometry.ts";
 import { commandLog, runCommand, type CommandId } from "./commands.ts";
-import { appInfo, menuState, testFault, testOpen, type MenuState } from "./ipc.ts";
+import {
+  appInfo,
+  menuState,
+  testDialog,
+  testFault,
+  testLibrary,
+  testOpen,
+  type MenuState,
+} from "./ipc.ts";
 import type { SaveState } from "./session.svelte.ts";
 import { settings, type Settings } from "./settings.svelte.ts";
 import type { Workspace } from "./workspace.svelte.ts";
@@ -53,6 +61,31 @@ export interface TestHooks {
   regainFocus(): Promise<void>;
   /** Shows the first screen, as when nothing is open. */
   welcome(): void;
+  /** Makes `path` the library, standing in for the folder dialog. */
+  setLibrary(path: string): Promise<void>;
+  /** The next native file dialog answers `path` (null: cancelled) without showing. */
+  nextDialog(path: string | null): Promise<void>;
+  library(): LibraryProbe;
+  /** The open quick open or palette: its kind and the text of each item. */
+  picker(): { kind: string; items: string[]; selected: string | null } | null;
+  /** The open name prompt; `ready` once its field has focus. `problem`, not `error`:
+   * WebDriver reads a result with an `error` key as a failure of its own. */
+  prompt(): { title: string; value: string; problem: string | null; ready: boolean } | null;
+  /** Lays the library out again for the current window (tests resize the window). */
+  measure(): Promise<void>;
+}
+
+export interface LibraryProbe {
+  kind: string;
+  name: string | null;
+  visible: boolean;
+  mode: "docked" | "overlay";
+  offset: number;
+  focused: string | null;
+  active: string | null;
+  /** The element with keyboard focus is a row of the tree: its path. */
+  focusedRow: string | null;
+  rows: { path: string; level: number; expanded: boolean | null; selected: boolean }[];
 }
 
 declare global {
@@ -153,7 +186,13 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
       await settings.set(patch);
       await settle();
     },
-    status: () => document.querySelector(".status")?.textContent?.replace(/\s+/g, " ").trim() ?? "",
+    // The document's status, without the library toggle at its start.
+    status() {
+      const status = document.querySelector(".status")?.cloneNode(true);
+      if (!(status instanceof HTMLElement)) return "";
+      status.querySelector(".library-toggle")?.remove();
+      return status.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    },
     async fault(kind) {
       await testFault(kind);
     },
@@ -161,6 +200,60 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
     welcome: () => workspace.welcomeForTest(),
     async regainFocus() {
       await workspace.checkOnFocus();
+      await settle();
+    },
+    async setLibrary(path) {
+      workspace.library.apply(await testLibrary(path));
+      await settle();
+    },
+    async nextDialog(path) {
+      await testDialog(path);
+    },
+    library() {
+      const lib = workspace.library;
+      const active = document.activeElement;
+      const row =
+        active instanceof HTMLElement ? active.closest<HTMLElement>('[role="treeitem"]') : null;
+      return {
+        kind: lib.view.kind,
+        name: lib.name,
+        visible: lib.visible,
+        mode: lib.layout.mode,
+        offset: lib.layout.offset,
+        focused: lib.focused,
+        active: lib.active,
+        focusedRow: row?.dataset.path ?? null,
+        rows: [...document.querySelectorAll<HTMLElement>('[role="treeitem"]')].map((el) => ({
+          path: el.dataset.path ?? "",
+          level: Number(el.getAttribute("aria-level")),
+          expanded: el.hasAttribute("aria-expanded")
+            ? el.getAttribute("aria-expanded") === "true"
+            : null,
+          selected: el.getAttribute("aria-selected") === "true",
+        })),
+      };
+    },
+    picker() {
+      const kind = workspace.picker;
+      if (!kind) return null;
+      const text = (el: Element) => el.textContent?.replace(/\s+/g, " ").trim() ?? "";
+      const items = [...document.querySelectorAll(".picker-item")];
+      const selected = document.querySelector(".picker-item[data-selected]");
+      return { kind, items: items.map(text), selected: selected ? text(selected) : null };
+    },
+    prompt() {
+      const dialog = document.querySelector(".prompt");
+      if (!dialog) return null;
+      const input = dialog.querySelector("input");
+      return {
+        title: dialog.querySelector(".prompt-title")?.textContent?.trim() ?? "",
+        value: input?.value ?? "",
+        problem: dialog.querySelector(".error")?.textContent?.trim() ?? null,
+        ready: input !== null && document.activeElement === input,
+      };
+    },
+    async measure() {
+      workspace.measureLayout();
       await settle();
     },
   };

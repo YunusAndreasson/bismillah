@@ -9,6 +9,7 @@
   let { run }: { run: (id: CommandId) => void } = $props();
 
   const actions = [
+    { id: "library.openFolder" as const, label: copy.welcome.openFolder },
     { id: "file.open" as const, label: copy.welcome.open },
     { id: "file.new" as const, label: copy.welcome.create },
   ];

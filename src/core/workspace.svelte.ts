@@ -6,13 +6,22 @@ import { createEditor, type Editor } from "../editor/setup.ts";
 import { remeasure } from "../editor/typography.ts";
 import { toggleTransliteration, transliterationOn } from "../editor/typingAids.ts";
 import { countWords } from "../editor/wordCount.ts";
-import { COMMANDS, runCommand, type CommandContext } from "./commands.ts";
-import { copy, when } from "./copy.ts";
+import { GLOBAL_COMMANDS, runCommand, type CommandContext } from "./commands.ts";
+import { copy, nameError, when } from "./copy.ts";
 import * as ipc from "./ipc.ts";
-import { isError, type OpenedDocument, type OpenError, type SaveError } from "./ipc.ts";
+import {
+  isError,
+  type DiskStatus,
+  type LibraryError,
+  type OpenedDocument,
+  type OpenError,
+  type SaveError,
+} from "./ipc.ts";
 import { keyOf, normalise } from "./keys.ts";
+import { LibraryStore } from "./library.svelte.ts";
 import type { NativeMenu } from "./menu.ts";
 import { DocumentSession } from "./session.svelte.ts";
+import { findNode } from "./tree.ts";
 import {
   applyAppearance,
   clampScale,
@@ -42,6 +51,22 @@ export interface Notice {
   actions: NoticeAction[];
 }
 
+/** The small dialog that asks for a name: Rename…, New folder…. */
+export interface NamePrompt {
+  title: string;
+  value: string;
+  /** How much of `value` starts selected: a file's name without its ending. */
+  select: number;
+  hint: string | null;
+  action: string;
+  /** Where focus goes when it closes. */
+  returnTo: "tree" | "editor";
+  /** Resolves with a sentence explaining why the name didn't work, or null when done. */
+  submit(name: string): Promise<string | null>;
+}
+
+export type Picker = "quickOpen" | "palette";
+
 /** How long quitting waits for a save before leaving the text to recovery. */
 const QUIT_TIMEOUT_MS = 4000;
 const WORD_COUNT_DELAY_MS = 300;
@@ -59,6 +84,9 @@ export class Workspace {
   transliteration = $state(false);
   fullscreen = $state(false);
   settingsOpen = $state(false);
+  readonly library = new LibraryStore();
+  picker = $state<Picker | null>(null);
+  prompt = $state<NamePrompt | null>(null);
   recovery = $state<ipc.RecoveryEntry | null>(null);
   pending = $state<ipc.PendingRecovery[]>([]);
   infos = $state<Notice[]>([]);
@@ -166,18 +194,22 @@ export class Workspace {
   }
 
   #info(id: string, message: string): void {
+    this.#notice(id, "info", message, []);
+  }
+
+  /** Shows a notice that replaces any with the same id; OK dismisses it. */
+  #notice(id: string, tone: Notice["tone"], message: string, actions: NoticeAction[]): void {
     const notice: Notice = {
       id,
-      tone: "info",
+      tone,
       message,
-      actions: [
-        {
-          label: copy.actions.dismiss,
-          run: () => (this.infos = this.infos.filter((n) => n !== notice)),
-        },
-      ],
+      actions: [...actions, { label: copy.actions.dismiss, run: () => this.#dismiss(id) }],
     };
     this.infos = [...this.infos.filter((n) => n.id !== id), notice];
+  }
+
+  #dismiss(id: string): void {
+    this.infos = this.infos.filter((n) => n.id !== id);
   }
 
   /** Starts the window: settings, the first document or screen, menus and events. */
@@ -189,7 +221,12 @@ export class Workspace {
     const [info] = await Promise.all([ipc.appInfo(), settings.load()]);
     this.testMode = info.test_mode;
     applyAppearance(settings.values);
+    // Before startup, which may change the library (a folder on the command line).
+    await listen<ipc.LibraryView>("library-changed", ({ payload }) => this.library.apply(payload));
     const first = await ipc.startup();
+    const panel = await ipc.libraryGet(false);
+    this.library.apply(panel.view);
+    this.library.docked = panel.open;
     if (first.kind === "document") {
       this.#show(first.document);
       // Other files' recovered text is mentioned at launch only, never on every open.
@@ -201,11 +238,17 @@ export class Workspace {
     }
     this.#menu = await menu(this.context);
     this.#listen();
+    this.measureLayout();
   }
 
   #listen(): void {
     const appWindow = getCurrentWindow();
-    void listen<string>("open-requested", () => void this.#openWith(ipc.openRequested));
+    void listen<string>("open-requested", () => void this.#openRequested());
+    void listen<ipc.DocumentChanged>("document-changed", ({ payload }) => {
+      const session = this.session;
+      if (session && session.id === payload.id) void this.#reactToDisk(session, payload.status);
+    });
+    window.addEventListener("resize", () => this.measureLayout());
     void appWindow.onFocusChanged(({ payload: focused }) => {
       if (focused) void this.checkOnFocus();
       else void this.session?.flush();
@@ -217,11 +260,16 @@ export class Workspace {
         new Promise((resolve) => setTimeout(resolve, QUIT_TIMEOUT_MS)),
       ]);
     });
-    // Shortcuts while focus is outside the editor (the first screen, Settings).
+    // Shortcuts while focus is outside the editor (the first screen, the library). They
+    // don't act behind an open dialog, and keys without Ctrl (F2) don't act in a field.
     window.addEventListener("keydown", (event) => {
       if (event.defaultPrevented || this.editor?.view.hasFocus) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('[role="dialog"], [role="alertdialog"]')) return;
       const key = keyOf(event);
-      const command = COMMANDS.find((c) => normalise(c.key) === key && c.section !== "Edit");
+      const field = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+      if (field && !key.startsWith("Mod-")) return;
+      const command = GLOBAL_COMMANDS.find((c) => normalise(c.key) === key && c.section !== "Edit");
       if (command && runCommand(command.id, "keymap", this.context)) event.preventDefault();
     });
     window.addEventListener("mousemove", () => (this.typing = false));
@@ -231,9 +279,19 @@ export class Workspace {
    * checked for changes made by another program (no polling, ARCHITECTURE.md §5.4). */
   async checkOnFocus(): Promise<void> {
     if (await settings.reload()) this.applySettings(settings.values);
+    void ipc
+      .libraryGet(true)
+      .then((panel) => this.library.apply(panel.view))
+      .catch(() => {});
     const session = this.session;
     if (!session?.saveable) return;
     const status = await ipc.checkDisk(session.id).catch(() => "unchanged" as const);
+    await this.#reactToDisk(session, status);
+  }
+
+  /** The open file changed on disk, found on focus or by the library's watcher. */
+  async #reactToDisk(session: DocumentSession, status: DiskStatus): Promise<void> {
+    if (!session.saveable || this.session !== session) return;
     if (status === "changed" && !session.dirty && session.state.kind !== "failed") {
       // No local edits: take the new version quietly (ARCHITECTURE.md §5.4).
       const opened = await ipc.reload(session.id, null).catch(() => null);
@@ -264,6 +322,7 @@ export class Workspace {
       this.#countWords();
     };
     this.session = session;
+    this.library.setActive(opened.library_path);
     this.recovery = opened.recovery;
     this.pending = this.pending.filter((p) => p.name !== opened.name);
     this.infos = [];
@@ -296,11 +355,23 @@ export class Workspace {
     void this.#setTitle(null);
   }
 
+  /** The open document went to the trash: nothing is open now. */
+  #closeDocument(): void {
+    this.session?.dispose();
+    this.session = null;
+    this.recovery = null;
+    this.library.active = null;
+    this.#showWelcome();
+  }
+
   #createEditor(text: string, readOnly: boolean): Editor {
     if (!this.#host) throw new Error("the workspace has not started");
     const keys = Prec.high(
       keymap.of(
-        COMMANDS.map((c) => ({ key: c.key, run: () => runCommand(c.id, "keymap", this.context) })),
+        GLOBAL_COMMANDS.map((c) => ({
+          key: c.key,
+          run: () => runCommand(c.id, "keymap", this.context),
+        })),
       ),
     );
     this.editor = createEditor({
@@ -331,7 +402,10 @@ export class Workspace {
     if (this.editor) {
       this.editor.configure(this.#editorConfig(s));
       const view = this.editor.view;
-      void document.fonts.ready.then(() => remeasure(view));
+      void document.fonts.ready.then(() => {
+        remeasure(view);
+        this.measureLayout();
+      });
     }
     void this.#menu?.sync();
   }
@@ -341,6 +415,33 @@ export class Workspace {
     this.#wordTimer = setTimeout(() => {
       this.words = this.editor ? countWords(this.editor.text()) : 0;
     }, delay);
+  }
+
+  /**
+   * The writer's column width for the library layout: the editor's measure plus its
+   * hanging gutters, as CSS resolves them for the current profile and size.
+   */
+  measureLayout(): void {
+    const content = this.editor?.view.contentDOM;
+    const column = content ? parseFloat(getComputedStyle(content).maxWidth) : NaN;
+    const visible = this.library.visible;
+    this.library.measure(window.innerWidth, Number.isFinite(column) ? column : undefined);
+    // Docked ↔ overlay can show or hide the library: keep the menu's check mark true.
+    if (this.library.visible !== visible) void this.#menu?.sync();
+  }
+
+  /** Moves the writing column clear of a docked library, keeping the reading position
+   * (DESIGN.md §7: opening the library may reflow, but the caret and scroll stay). */
+  applyLibraryOffset(): void {
+    const { layout, visible } = this.library;
+    const offset = visible && layout.mode === "docked" ? layout.offset : 0;
+    const root = document.documentElement.style;
+    const next = `${offset}px`;
+    if (root.getPropertyValue("--library-offset") === next) return;
+    const view = this.editor?.view;
+    const snapshot = view?.scrollSnapshot();
+    root.setProperty("--library-offset", next);
+    if (view && snapshot) view.dispatch({ effects: snapshot });
   }
 
   async #setTitle(name: string | null): Promise<void> {
@@ -363,10 +464,260 @@ export class Workspace {
     return this.#openWith(() => ipc.openRecovered(token));
   }
 
-  async newFile(): Promise<void> {
-    await this.session?.flush();
+  /** Takes the listing as Rust has it now, right after an action changed it. */
+  async #reloadLibrary(): Promise<void> {
+    const panel = await ipc.libraryGet(false);
+    this.library.apply(panel.view);
+  }
+
+  /** A drop or a second launch: a file opens; a folder becomes the library. */
+  async #openRequested(): Promise<void> {
+    await this.#openWith(ipc.openRequested);
+    const panel = await ipc.libraryGet(false);
+    this.library.apply(panel.view);
+    if (panel.open && !this.library.docked) this.showLibrary(false);
+  }
+
+  /** Opens a file from the library, then puts the caret back in the text. */
+  async openFromLibrary(path: string): Promise<void> {
+    this.library.overlay = false;
+    if (path === this.library.active && this.session) {
+      this.editor?.view.focus();
+      return;
+    }
+    await this.#openWith(() => ipc.libraryOpenFile(path));
+  }
+
+  focusEditor(): void {
+    this.library.overlay = false;
+    if (!this.welcome) this.editor?.view.focus();
+  }
+
+  #treeHasFocus(): boolean {
+    const active = document.activeElement;
+    return active instanceof HTMLElement && active.closest('[role="tree"]') !== null;
+  }
+
+  /** The library row that has keyboard focus, read from the page itself (focus events
+   * don't fire while the window is in the background), and remembered as the tree's
+   * tab stop. */
+  #focusedEntry(): string | null {
+    const active = document.activeElement;
+    const row =
+      active instanceof HTMLElement ? active.closest<HTMLElement>('[role="treeitem"]') : null;
+    const path = row?.dataset.path ?? null;
+    if (path !== null) this.library.focused = path;
+    return path;
+  }
+
+  /** What Rename and Move to trash act on: the entry focused in the library, else the
+   * open document (when it is in the library). */
+  #target(): { path: string; name: string; folder: boolean } | null {
+    const lib = this.library;
+    const focused = this.#focusedEntry();
+    if (focused !== null) {
+      const node = findNode(lib.nodes, focused);
+      if (node) return { path: node.path, name: node.name, folder: node.kind === "folder" };
+    }
+    if (lib.active !== null && this.session)
+      return { path: lib.active, name: this.session.name, folder: false };
+    return null;
+  }
+
+  /** Whether `path` is the open document or a folder holding it. */
+  #holdsOpen(path: string): boolean {
+    const active = this.library.active;
+    return (
+      active !== null && this.session !== null && (active === path || active.startsWith(`${path}/`))
+    );
+  }
+
+  /** Before moving the open document: its changes must be on disk and any recovered
+   * text settled, so nothing the writer typed is left behind under the old name. */
+  async #readyToMove(path: string): Promise<boolean> {
+    const session = this.session;
+    if (!session || !this.#holdsOpen(path)) return true;
+    const saved = await session.flush();
+    if (!saved || session.dirty) {
+      this.#notice("unsaved-first", "error", copy.unsavedFirst(session.name), []);
+      return false;
+    }
+    if (this.recovery) {
+      this.#notice("recovery-first", "info", copy.recoveryFirst(session.name), []);
+      return false;
+    }
+    return true;
+  }
+
+  async rename(): Promise<void> {
+    const target = this.#target();
+    if (!target) return;
+    const inTree = this.#treeHasFocus();
+    if (!(await this.#readyToMove(target.path))) return;
+    const dot = target.folder ? -1 : target.name.lastIndexOf(".");
+    this.prompt = {
+      title: copy.prompt.rename(target.name),
+      value: target.name,
+      select: dot > 0 ? dot : target.name.length,
+      hint: target.folder ? null : copy.prompt.fileHint,
+      action: copy.prompt.renameAction,
+      returnTo: inTree ? "tree" : "editor",
+      submit: async (name) => {
+        try {
+          const outcome = await ipc.libraryRename(target.path, name);
+          await this.#reloadLibrary();
+          const moved = outcome.document;
+          if (moved && this.session) {
+            this.session.name = moved.name;
+            void this.#setTitle(moved.name);
+            this.library.setActive(moved.library_path);
+          }
+          if (inTree) this.library.focused = outcome.path;
+          return null;
+        } catch (error) {
+          return isError<LibraryError>(error) ? nameError(error) : String(error);
+        }
+      },
+    };
+  }
+
+  async trash(): Promise<void> {
+    const target = this.#target();
+    if (!target) return;
+    const inTree = this.#treeHasFocus();
+    const reopen = this.#holdsOpen(target.path) ? this.library.active : null;
+    if (!(await this.#readyToMove(target.path))) return;
+    // Focus moves to the next row that isn't going too.
+    const rows = this.library.rows;
+    const at = rows.findIndex((r) => r.node.path === target.path);
+    const staying = (r: (typeof rows)[number]) =>
+      r.node.path !== target.path && !r.node.path.startsWith(`${target.path}/`);
+    const next =
+      rows.slice(at + 1).find(staying) ?? rows.slice(0, Math.max(at, 0)).findLast(staying);
     try {
-      const opened = await ipc.newDialog();
+      const outcome = await ipc.libraryTrash(target.path);
+      if (outcome.closed) this.#closeDocument();
+      await this.#reloadLibrary();
+      if (inTree) {
+        this.library.focused = next?.node.path ?? null;
+        this.library.requestFocus();
+      }
+      this.#notice("trashed", "info", copy.trashed(outcome.name), [
+        {
+          label: copy.actions.undo,
+          primary: true,
+          run: () => this.#untrash(outcome, reopen),
+        },
+      ]);
+    } catch (error) {
+      if (isError<LibraryError>(error))
+        this.#notice("trash-failed", "error", copy.trashFailed(target.name, error), []);
+    }
+  }
+
+  async #untrash(outcome: ipc.TrashOutcome, reopen: string | null): Promise<void> {
+    this.#dismiss("trashed");
+    try {
+      const path = await ipc.libraryUntrash(outcome.token);
+      await this.#reloadLibrary();
+      if (reopen) await this.#openWith(() => ipc.libraryOpenFile(reopen));
+      else if (path) {
+        this.library.reveal(path);
+        this.library.focused = path;
+      }
+    } catch (error) {
+      if (isError<LibraryError>(error))
+        this.#notice("untrash-failed", "error", copy.untrashFailed(outcome.name, error), []);
+    }
+  }
+
+  /** New folder…: in `parent`, else beside the focused entry or the open document. */
+  newFolder(parent?: string): void {
+    const lib = this.library;
+    if (!lib.ready) return;
+    parent ??= lib.folderForNew(this.#treeHasFocus());
+    const where = parent ? (findNode(lib.nodes, parent)?.name ?? parent) : (lib.name ?? "");
+    this.prompt = {
+      title: copy.prompt.newFolder(where),
+      value: "",
+      select: 0,
+      hint: null,
+      action: copy.prompt.createAction,
+      returnTo: "tree",
+      submit: async (name) => {
+        try {
+          const path = await ipc.libraryNewFolder(parent, name);
+          await this.#reloadLibrary();
+          if (parent) lib.expanded.add(parent);
+          lib.focused = path;
+          if (!lib.visible) this.showLibrary(false);
+          return null;
+        } catch (error) {
+          return isError<LibraryError>(error) ? nameError(error) : String(error);
+        }
+      },
+    };
+  }
+
+  /** Called when the name prompt closes: focus goes back where it belongs. */
+  promptClosed(prompt: NamePrompt): void {
+    if (this.prompt === prompt) this.prompt = null;
+    if (prompt.returnTo === "tree" && this.library.visible) this.library.requestFocus();
+    else this.focusEditor();
+  }
+
+  async openFolder(): Promise<void> {
+    try {
+      const view = await ipc.libraryOpenDialog();
+      if (!view) return;
+      this.library.apply(view);
+      this.showLibrary(true);
+    } catch (error) {
+      if (isError<LibraryError>(error)) console.error("bismillah: couldn't open the folder", error);
+    }
+  }
+
+  /** Shows the library (docked, or as the overlay on narrow windows). */
+  showLibrary(focus: boolean): void {
+    const lib = this.library;
+    if (lib.layout.mode === "docked") {
+      lib.docked = true;
+      void ipc.libraryRememberOpen(true);
+    } else lib.overlay = true;
+    if (focus) lib.requestFocus();
+    void this.#menu?.sync();
+  }
+
+  /** Library (Mod-\): shows it and moves focus into it, or hides it. From the keyboard,
+   * a docked library that is shown but doesn't have focus gets focus instead, so the
+   * writer can always reach it; pressed again there, it hides. */
+  toggleLibrary(fromKeyboard = false): void {
+    const lib = this.library;
+    if (!lib.visible) {
+      this.showLibrary(true);
+      return;
+    }
+    const inTree = this.#treeHasFocus();
+    if (fromKeyboard && !inTree) {
+      lib.requestFocus();
+      return;
+    }
+    if (lib.layout.mode === "docked") {
+      lib.docked = false;
+      void ipc.libraryRememberOpen(false);
+    } else lib.overlay = false;
+    if (inTree) this.focusEditor();
+    void this.#menu?.sync();
+  }
+
+  /** New file…: the save dialog starts in `folder`, else beside the focused entry or
+   * the open document. */
+  async newFile(folder?: string): Promise<void> {
+    const inTree = this.#treeHasFocus();
+    await this.session?.flush();
+    folder ??= this.library.ready ? this.library.folderForNew(inTree) : undefined;
+    try {
+      const opened = await ipc.newDialog(folder ?? null);
       if (opened) this.#show(opened);
     } catch (error) {
       if (isError<SaveError>(error)) this.#info("new-failed", copy.newFailed(error));
@@ -428,8 +779,21 @@ export class Workspace {
       },
       openSettings: () => (this.settingsOpen = true),
       quit: () => void getCurrentWindow().close(),
+      hasLibrary: () => this.library.ready,
+      hasTarget: () => this.#target() !== null,
+      newFolder: () => this.newFolder(),
+      openFolder: () => void this.openFolder(),
+      quickOpen: () => {
+        if (this.library.ready) this.picker = "quickOpen";
+      },
+      rename: () => void this.rename(),
+      trash: () => void this.trash(),
+      toggleLibrary: (fromKeyboard) => this.toggleLibrary(fromKeyboard),
+      commandPalette: () => (this.picker = "palette"),
       isOn: (id) => {
         switch (id) {
+          case "view.toggleLibrary":
+            return this.library.visible;
           case "editor.toggleFocus":
             return settings.values.focus_mode;
           case "editor.toggleTypewriter":

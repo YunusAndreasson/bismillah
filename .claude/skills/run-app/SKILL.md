@@ -30,7 +30,7 @@ Stop it when finished (kill the background task). Never leave stray app or dev-s
 
 ## 3. See it
 
-- **Webview screenshots (preferred, deterministic):** `pnpm app:shot -- --widths 1280 --themes light,dark --profiles duo --out <scratchpad dir>` (also `--doc <file>`, `--height`, `--scale`, `--full` to stitch the whole document, `--scroll-to <text>`, `--typewriter`). It prints the PNG paths; **Read them** to inspect. Shots are 2× (the author's display scale).
+- **Webview screenshots (preferred, deterministic):** `pnpm app:shot -- --widths 1280 --themes light,dark --profiles duo --out <scratchpad dir>` (also `--doc <file>`, `--height`, `--scale`, `--full` to stitch the whole document, `--scroll-to <text>`, `--typewriter`, `--library <dir>` to show a scratch copy of a folder as the library, docked or as the overlay by width, and `--library-file <rel>` to open a file from it). It prints the PNG paths; **Read them** to inspect. Shots are 2× (the author's display scale).
 - **Whole-window screenshot on the live session** (native menu, window chrome): capture **only the app window**, never the full screen, because the author's other windows may be private:
   ```bash
   geo=$(hyprctl clients -j | jq -r '.[] | select(.class|test("bismillah";"i")) | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"' | head -1)
@@ -41,7 +41,10 @@ Stop it when finished (kill the background task). Never leave stray app or dev-s
 
 ## 4. Drive it
 
-- **End-to-end:** `pnpm test:e2e` runs WebdriverIO against `tauri-driver` (which uses `/usr/bin/WebKitWebDriver`) on the built app. Use it for typing, shortcuts, file flows, conflicts and recovery after a killed process. Tests drive the app through `window.__bismillah` (see `src/core/testHooks.ts`: view, theme/profile/scale, geometry probes, command log, menu state, `open(path)` for real files, `fault(kind)` to make saves fail, `notices()`/`act(label)`, `saveState()`, `run(commandId)`, `welcome()`).
+- **End-to-end:** `pnpm test:e2e` runs WebdriverIO against `tauri-driver` (which uses `/usr/bin/WebKitWebDriver`) on the built app. Use it for typing, shortcuts, file flows, conflicts and recovery after a killed process. Tests drive the app through `window.__bismillah` (see `src/core/testHooks.ts`: view, theme/profile/scale, geometry probes, command log, menu state, `open(path)` for real files, `fault(kind)` to make saves fail, `notices()`/`act(label)`, `saveState()`, `run(commandId)`, `welcome()`, `setLibrary(path)` in place of the folder dialog, `nextDialog(path)` to answer the next native file dialog, `library()`/`picker()`/`prompt()` probes, `measure()` after a resize).
+- For library tests, copy `tests/fixtures/library` into a scratch folder first (`tests/e2e/library.e2e.ts`); trash goes to the private trash under the run's `XDG_DATA_HOME`.
+- WebDriver treats a script result that has an `error` key as its own failure: name such fields differently (`refused`, `problem`).
+- Focus events don't fire while the window is in the background (always, under Xvfb): read the focused element from `document.activeElement`, not from state set by `onfocus`.
 - Under the harness the app starts on the bundled specimen as a sample that is never saved; open a scratch file with `open(path)` to test saving. Never point a test at a file in the repo.
 - WebKitWebDriver drops the second of two identical keys sent in one `browser.keys` call; send one key per call (`tests/e2e/files.ts` `typeAtEnd`).
 - The driver allows one session at a time: end a session (even a killed one) before starting another with `remote()` (`tests/e2e/recovery.e2e.ts`).

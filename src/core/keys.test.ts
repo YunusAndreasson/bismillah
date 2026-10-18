@@ -13,6 +13,8 @@ describe("shortcuts outside the editor", () => {
     expect(keyOf(press({ key: "=", code: "Equal", ctrlKey: true }), false)).toBe("Mod-=");
     expect(keyOf(press({ key: ",", code: "Comma", ctrlKey: true }), false)).toBe("Mod-,");
     expect(keyOf(press({ key: "F11", code: "F11" }), false)).toBe("F11");
+    expect(keyOf(press({ key: "ذ", code: "Backslash", ctrlKey: true }), false)).toBe("Mod-\\");
+    expect(normalise("Mod-\\")).toBe("Mod-\\");
   });
 
   it("uses Cmd as Mod on macOS", () => {

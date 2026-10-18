@@ -93,6 +93,18 @@ Rules:
 
 Hierarchy is built with spacing, placement, alignment and weight before colour. Quiet text uses the `text-secondary` token, never arbitrary opacity.
 
+### The library, quick open and the palette (Phase 2)
+
+- **The library is one folder** the writer opens (*Open folder…*, a folder on the command line or dropped on the window). Opening a file from elsewhere makes that file's folder the library.
+- **Rows:** folders first, then files, in natural order. Numbers sort by value ("Chapter 2" before "Chapter 10", Arabic-Indic digits too). Letters sort by their base letter, with diacritics, vocalisation and the IJMES ʿ ʾ set aside, as a catalogue would ("ʿIlm" under I, "Ḥadīth" under H). Only `.md` and `.markdown` files are listed, with their ending in `text-secondary`; hidden names (a leading dot) are not.
+- **The open file** is the selected row: a 3px `accent` edge bar, weight 600 and `aria-selected`. Keyboard focus is a separate ring, so the open file and the focused row can differ.
+- **A link that leads outside the library** is listed in `text-secondary` with "· outside the library" and can't be opened.
+- **Its own states, in its own area:** no folder open (*Open a folder…*), an empty folder (*New file…*), a folder that isn't available (*Try again* · *Choose another folder…*), and a listing cut short because the folder holds too many entries.
+- **Quick open** finds files by name or folder and shows each file's folders beside its name, so files with the same name are told apart. Matching ignores case, Latin diacritics, Arabic vocalisation and ʿ ʾ ("hadith" finds "ḥadīth.md"). With nothing typed, recently opened files come first.
+- **The palette** lists every command that can run now, with its shortcut, finds commands by their aliases too, says which switches are *On*, and shows a one-sentence description where the label alone isn't enough.
+- **Names are asked for in a small dialog** (*Rename…*, *New folder…*). A rename starts with the name selected up to its ending. A name that can't be used is explained under the field and nothing changes; a file name without `.md` or `.markdown` gets `.md`, so the file stays in the library.
+- **Move to trash** never asks; it says *Moved “x” to the trash.* with **Undo**. The open document is saved first, and is never renamed or moved while its changes aren't on disk or while recovered text for it is still on offer.
+
 ## 7. Layout and window behaviour
 
 The prose column always has a deliberate, bounded measure. Wider windows add margin, not line length. Empty space is useful.
@@ -108,7 +120,9 @@ Layout responds to the **available content width in CSS pixels** (zoom included)
 | > ~1440px | Same measure. The library docks in the spare margin. The text stays near the window centre (the opposite margin is balanced). |
 | Ultrawide | The same bounded layout. The desktop's own tiling handles side-by-side work. |
 
-- A docked library takes about 240px, plus a 24px gap and at least 24px of edge padding.
+- A docked library takes about 240px, plus a 24px gap and at least 24px of edge padding (288px in all; `src/core/layout.ts`).
+- **Docked, the column never narrows.** The library docks only when the whole column (measure and hanging gutters) fits beside it. While the margin can hold it, the column stays centred in the window, so opening the library moves no text. When the margin is narrower, the column moves just far enough to clear it, which changes smoothly as the window is resized. Otherwise the library is an overlay.
+- The docked library is shown or hidden by the writer, and that choice is remembered. The overlay opens only when asked, traps focus, and closes when a file is chosen, on `Esc` or on a click outside; it is never remembered.
 - A safe gutter is always reserved for hanging Markdown marks, including nested lists and RTL lines.
 - **Fading chrome changes opacity and interactivity only, never layout tracks.** The text must not reflow when the mouse moves. Explicitly opening or closing the docked library may reflow, but the caret and scroll anchor are preserved.
 - Implemented with CSS Grid and a few container/media queries. No layout library.
@@ -360,7 +374,7 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 - Chrome (library toggle, status line) may fade while typing. **Fading is optional** (a setting) and never applies to an element that:
   - has focus or is being used
   - shows a save failure, conflict or recovery notice; these stay until resolved.
-- **Status line:** file name · save state · word count · reading time. Save state is honest: *Saving…* from the first unsaved edit until Rust confirms the durable write, then *Saved*; *Not saved — [reason]* on failure, which stays (in `status-error`) until a save succeeds. Routine saves are not announced to screen readers; failures are, by their notice.
+- **Status line:** the *Library* toggle · file name · save state · word count · reading time. Save state is honest: *Saving…* from the first unsaved edit until Rust confirms the durable write, then *Saved*; *Not saved — [reason]* on failure, which stays (in `status-error`) until a save succeeds. Routine saves are not announced to screen readers; failures are, by their notice.
 - **Notices** (failure, conflict, recovered text) sit in a row above the writing surface, never over the text, inside a `surface-panel` region with a `border-control` boundary; errors add a `status-error` edge. Each says what happened and how the text is protected, and offers its actions as buttons (§14). They never fade.
 - **Motion:** opacity and small transforms only, 120–180ms ease-out. All of it is removed under `prefers-reduced-motion`. Nothing animates while you type.
 
@@ -371,13 +385,15 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 | Command ID | Label | Default |
 |---|---|---|
 | `file.save` | Save now | `Mod-S` (flushes pending changes; confirms visibly) |
-| `file.new` | New file… | `Mod-N` (native save dialog; never replaces a file) |
+| `file.new` | New file… | `Mod-N` (native save dialog, starting in the selected library folder; never replaces a file) |
+| `library.newFolder` | New folder… | `Mod-Shift-N` (in the selected folder) |
 | `file.open` | Open… | `Mod-O` (native dialog) |
-| `file.quickOpen` | Quick open… | `Mod-P` (Phase 2: find a file in the library) |
-| `file.rename` | Rename file | `F2` |
-| `file.trash` | Move to trash | `Mod-Backspace` (undoable) |
+| `library.openFolder` | Open folder… | `Mod-Shift-O` (native dialog; the folder becomes the library) |
+| `file.quickOpen` | Quick open… | `Mod-P` (find a file in the library) |
+| `file.rename` | Rename… | `F2` (the focused library entry, else the open document) |
+| `file.trash` | Move to trash | `Delete` in the library (undoable; also from the menu and palette for the open document) |
 | `app.commandPalette` | Command palette | `Mod-Shift-P` |
-| `view.toggleLibrary` | Library | `Mod-\` |
+| `view.toggleLibrary` | Library | `Mod-\` (shows the library and moves focus to it; pressed in the library, hides it) |
 | `view.toggleMarkdown` | Show all Markdown | `Mod-R` (Phase 4) |
 | `editor.toggleFocus` | Zuhd mode | `Mod-D` |
 | `editor.toggleTypewriter` | Typewriter scrolling | `Mod-T` |
@@ -392,7 +408,9 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 | `app.showMenu` | Show menu bar (Linux and Windows) | `Alt` / `F10` |
 | `app.quit` | Quit (flushes pending saves first) | `Mod-Q` |
 
-- `Esc` closes the topmost overlay and returns focus to where it came from.
+- `Esc` closes the topmost overlay and returns focus to where it came from. In the docked library it returns focus to the text.
+- **No shortcut that edits text elsewhere may act on files.** `Mod-Backspace` deletes the previous word in every Linux text field, so *Move to trash* is `Delete`, and only while the library has focus (changed 2026-10-18 from `Mod-Backspace`; macOS may add `Cmd-Backspace` in the library, as Finder has it).
+- The library follows the WAI-ARIA tree pattern: `↑`/`↓` move, `→` opens a folder or steps into it, `←` closes it or goes to its folder, `Home`/`End`, typing a name's first letters finds it, `Enter` opens a file (and puts the caret in it) or opens and closes a folder.
 - Focus rings appear for keyboard navigation (`:focus-visible`) in `focus-ring`, ≥ 3:1.
 - Tab order follows the visual organisation. Overlays trap focus while open and restore it on close (Bits UI handles this).
 - Ordinary operations keep plain functional names: Open, Save, Rename, Undo, Library, Settings. Arabic terms are used sparingly and only where they carry meaning (Zuhd).
@@ -408,7 +426,7 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 
 ## 15. First screen and attention
 
-- The app opens straight into writing: the last document, or a simple choice to open a folder or create a file.
+- The app opens straight into writing: the last document, or a simple choice: *Open a folder…*, *Open a file…*, *New file…*.
 - Word count is information, not a target. No streaks, scores, celebrations, nudges or unsolicited prompts.
 
 ## 16. Accessibility requirements

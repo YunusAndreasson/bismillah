@@ -200,11 +200,13 @@
 <style>
   :global(.settings-overlay) {
     position: fixed;
+    z-index: var(--layer-popover);
     inset: 0;
     background: color-mix(in srgb, var(--surface-editor) 70%, transparent);
   }
   :global(.settings-dialog) {
     position: fixed;
+    z-index: var(--layer-popover);
     inset-block-start: 50%;
     inset-inline-start: 50%;
     transform: translate(-50%, -50%);

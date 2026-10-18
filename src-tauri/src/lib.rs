@@ -1,17 +1,20 @@
 //! bismillah: a calm, offline Markdown editor.
 //!
 //! Rust owns everything that touches the disk (ARCHITECTURE.md §1): opening and saving
-//! documents under the file-safety contract, the recovery journal, settings and the
-//! remembered window. The frontend owns presentation and editing.
+//! documents under the file-safety contract, the library and its path checks, watching
+//! for outside changes, the recovery journal, settings and the remembered window. The
+//! frontend owns presentation and editing.
 
 mod app;
 mod documents;
+mod library;
 mod platform;
 mod recovery;
 mod settings;
 mod state;
 #[cfg(test)]
 mod testing;
+mod watch;
 
 use serde::Serialize;
 use tauri::{DragDropEvent, Manager, WindowEvent};
@@ -161,15 +164,26 @@ pub fn run() {
             app::settings_get,
             app::settings_set,
             app::settings_reload,
+            app::library_get,
+            app::library_remember_open,
+            app::library_open_dialog,
+            app::library_open_file,
+            app::library_new_folder,
+            app::library_rename,
+            app::library_trash,
+            app::library_untrash,
             app::test_open,
             app::test_fault,
+            app::test_dialog,
+            app::test_library,
             menu_reveal,
             menu_hide,
             menu_state
         ])
         .setup(move |app| {
             let (config_dir, data_dir) = app::dirs(app.handle())?;
-            let state = AppState::new(&config_dir, &data_dir, startup);
+            let state = AppState::new(app.handle().clone(), &config_dir, &data_dir, startup);
+            state.restore_library();
             if let Some(window) = app.get_webview_window("main") {
                 platform::configure_main_window(&window);
                 restore_window(&window, &state);
@@ -195,8 +209,10 @@ pub fn run() {
         .on_window_event(|window, event| {
             let state = window.state::<AppState>();
             match event {
+                // A dropped file opens; a dropped folder becomes the library.
                 WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) => {
-                    if let Some(path) = paths.iter().find(|p| p.is_file()) {
+                    let file = paths.iter().find(|p| p.is_file());
+                    if let Some(path) = file.or_else(|| paths.iter().find(|p| p.is_dir())) {
                         state.request_open(window.app_handle(), path.clone());
                     }
                 }

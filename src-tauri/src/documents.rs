@@ -180,6 +180,8 @@ pub enum OpenError {
     PermissionDenied,
     #[error("it isn't a file")]
     NotAFile,
+    #[error("it is outside the library")]
+    Outside,
     #[error("input/output error ({detail})")]
     Other { detail: String },
 }

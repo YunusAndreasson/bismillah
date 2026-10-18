@@ -91,6 +91,17 @@ describe.each(Object.entries(THEMES))("%s theme contrast", (_name, token) => {
     );
   });
 
+  it("keeps library, quick open and palette rows readable in every state", () => {
+    // Rows sit on the panel (docked) or the editor surface (overlay, pickers); hover and
+    // the picker's selection swap one surface for the other. The open file's edge bar
+    // and the selection bar are accent on either.
+    for (const bg of ["surface-panel", "surface-editor"]) {
+      for (const fg of ["text-primary", "text-secondary"])
+        expect(contrast(token(fg), token(bg))).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(token("accent"), token(bg))).toBeGreaterThanOrEqual(3);
+    }
+  });
+
   it("makes the Settings switch readable in both states", () => {
     // On: the thumb (surface-editor) on the accent track; off: the thumb (border-control)
     // on the panel-coloured track.
