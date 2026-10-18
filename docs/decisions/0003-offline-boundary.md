@@ -15,5 +15,5 @@
 
 ## Consequences
 - Every release includes a dependency and native-feature audit.
-- Links in preview open in the system browser only on explicit `Mod-click`.
+- Links in the editor open in the system browser only on explicit `Mod-click`.
 - Remote images are never loaded.

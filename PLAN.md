@@ -108,11 +108,16 @@ Choose a library root; Rust path validation (traversal and symlinks); tree with 
 
 **Accept:** fixture suites for English, Arabic (with and without diacritics), mixed text and masked regions; a stale-result test; no flagging of unsupported scripts.
 
-## Phase 4 — Preview
+## Phase 4 — Live preview
 
-markdown-it with the shared dialect (ARCHITECTURE.md §11), raw HTML disabled, DOMPurify; preview typography (fuller scale, hyphenation, `text-wrap: pretty` with fallbacks); scoped local images and a placeholder for remote images; Basmallah in preview; footnotes in editor and preview; **Copy as rich text** (HTML and plain text on the clipboard, using the preview pipeline).
+*Changed 2026-10-18 (ADR-0012): live preview in the editor replaces the separate preview mode.*
 
-**Accept:** the specimen in preview at all test widths; an XSS fixture suite renders inert.
+- **Spike first** (WebKitGTK, the specimen): caret motion, selection and mouse placement across hidden marks on RTL and mixed lines; clicking into a rendered paragraph; typewriter scrolling while a block reveals; IME composition at the edge of the revealed block. Verdict recorded in ADR-0012.
+- Rendered state outside the caret's block: styled emphasis without marks, link text only, bullets, quote bars, rules, folded frontmatter, local images below their line (scoped to the library root), placeholders for remote images, footnote references. The caret's block shows its Markdown as in Phase 1.
+- Link and image addresses in a tooltip on hover (moves nothing). "Always show Markdown" setting and `Mod-R` (*Show all Markdown*).
+- **Copy as rich text:** markdown-it with the shared dialect (ARCHITECTURE.md §11), raw HTML disabled, DOMPurify; HTML and plain text on the clipboard.
+
+**Accept:** the specimen at all test widths in both themes, rendered and revealed; caret, selection and mouse placement tests pass on RTL and mixed lines in both states; clicking into a rendered paragraph keeps the caret on the clicked character; "Always show Markdown" matches Phase 1 exactly; an XSS fixture suite stays inert in the editor and on the clipboard.
 
 ## Phase 5 — Themes and settings complete
 
@@ -128,7 +133,6 @@ bismillah stays private and runs only on the author's machine for now (2026-10-1
 - Print / PDF and HTML export.
 - Jump to heading (palette list of headings, `Alt-↑/↓`).
 - Executable plugins, only after an ADR settles isolation (ADR-0005).
-- Side-by-side preview, only as an explicit command with minimum measures for both panes.
 - More writing fonts, only after the first set is excellent.
 - Interface localisation, starting with Arabic.
 

@@ -14,6 +14,6 @@ Because bismillah promises local-only, private writing, we treat these as securi
 
 - any way the app makes a network request, or loads remote content
 - reading or writing files outside the library the user chose (path traversal, symlink escape)
-- script execution from document content (e.g. through preview)
+- script execution from document content (e.g. through live preview or Copy as rich text)
 - document contents appearing in logs
 - data loss or silent modification of saved text.

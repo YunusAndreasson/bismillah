@@ -11,7 +11,7 @@ This document describes how bismillah is built and the contracts each part must 
 ```
 ┌──────────────────────── Tauri window (system webview) ────────────────────────┐
 │  Svelte 5 UI (library, palette, settings, status)   CodeMirror 6 editor       │
-│  Bits UI primitives + plain CSS tokens              markdown-it preview       │
+│  Bits UI primitives + plain CSS tokens              live preview (Phase 4)    │
 │                │                                          │                   │
 │                └──────────── core/ (commands, state, bridge) ─────────────┘    │
 │                                        │  Tauri IPC (typed commands + events)  │
@@ -35,8 +35,8 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | Svelte 5 + TypeScript + Vite | Small UI with compile-time reactivity |
 | Bits UI | Unstyled, accessible primitives (dialog, popover, menu, listbox, select): focus management and keyboard behaviour we would otherwise hand-write |
 | CodeMirror 6 + `@codemirror/lang-markdown` (Lezer) | Editing, IME, bidi, undo, search, accessibility |
-| markdown-it | Preview rendering (raw HTML disabled) |
-| DOMPurify | Sanitises preview HTML after all rendering extensions have run |
+| markdown-it | Copy as rich text: the document as HTML (raw HTML disabled) |
+| DOMPurify | Sanitises that HTML after all rendering extensions have run |
 | `harper-core` | English spelling and grammar, offline. Embeds a small chunking model via `burn` (allowed by ADR-0004's AI policy); build without the thesaurus feature |
 | `spellbook` | Arabic spelling behind the `ArabicSpeller` adapter (ADR-0004; chosen in Phase 0) |
 | `notify` | File watching |
@@ -44,7 +44,7 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | `dirs` / Tauri path API | Platform config, data and cache directories |
 | `tauri-plugin-dialog` | Native open-folder and save-as dialogs |
 | `tauri-plugin-opener` | Reveal in file manager; hand links to the system browser (it makes no requests itself) |
-| `tauri-plugin-clipboard-manager` | "Copy as rich text": put both HTML (rendered with the preview pipeline) and plain text on the clipboard |
+| `tauri-plugin-clipboard-manager` | "Copy as rich text": put both HTML (markdown-it + DOMPurify) and plain text on the clipboard |
 | `serde`, `serde_json`, `thiserror` | IPC payloads, the recovery sidecars and typed errors |
 | `toml_edit` | `settings.toml` rewritten without losing the writer's comments, layout or unknown keys (§9) |
 | `gtk` (Linux only, already in Tauri's tree) | Focus the native menu bar on `Alt`/`F10` (`platform.rs`) |
@@ -84,7 +84,7 @@ bismillah/
 │  ├─ editor/                 CodeMirror setup + one extension per concern: dialect (frontmatter),
 │  │                          markdownStyling, hangingMarks, bidi, scriptRuns, basmallah, typewriter,
 │  │                          zuhd, typingAids (smart punctuation, transliteration mode); wordCount
-│  ├─ preview/                (planned, Phase 4)
+│  ├─ richText/               (planned, Phase 4) markdown-it + DOMPurify for Copy as rich text
 │  ├─ ui/                     Svelte components: status line, notices, first screen, Settings
 │  └─ styles/                 tokens.css, fonts.css, profiles.css, editor.css
 ├─ fonts/  source/ (upstream) · build/ (Bismillah Duo/Mono) · tools/ (build + verify scripts)
@@ -167,7 +167,7 @@ Delete means move to the system trash (`trash` crate), with an in-app undo for t
 - The library root is chosen by the writer through the native dialog, then stored canonicalised.
 - Every incoming path is resolved against the root and canonicalised. It is rejected if it escapes the root (`..`, absolute paths, or **symlinks resolving outside the root**). Symlinks inside the root are followed; symlinks pointing outside are listed but marked unavailable.
 - Only `.md` files (and `.markdown`) are listed as documents. Other files are not shown in v1.
-- Local preview images are served through the Tauri asset protocol, scoped at runtime to the library root.
+- Local images shown by live preview are served through the Tauri asset protocol, scoped at runtime to the library root.
 
 ## 7. Spelling and grammar pipeline
 
@@ -224,7 +224,7 @@ See ADR-0003 and PRIVACY.md. Two claims are kept distinct:
 - **"bismillah works without a network."** Tested: the full e2e suite runs inside a network namespace with no network (`unshare -rn`).
 - **"bismillah contains no networking features."** Supported by:
   - **CSP** (in `tauri.conf.json`): `default-src 'self'`; `connect-src` only Tauri IPC; `img-src 'self' asset: data:`; `font-src 'self'`; `script-src 'self'`; `style-src 'self'`; `object-src 'none'`; `frame-src 'none'`; `base-uri 'none'`; `form-action 'none'`. CodeMirror injects its base styles with a `<style>` element; Tauri gives inline style elements in `index.html` a fresh nonce on each load, and `src/editor/setup.ts` passes that nonce to `EditorView.cspNonce`. Style changes go through CSSOM, never `setAttribute("style")`. An e2e test asserts no CSP violations.
-  - **Navigation guard:** the main webview refuses all navigation away from the app origin, and new windows are denied. Links in preview open in the system browser only on an explicit `Mod-click` (the app makes no request itself).
+  - **Navigation guard:** the main webview refuses all navigation away from the app origin, and new windows are denied. Links in the editor open in the system browser only on an explicit `Mod-click` (the app makes no request itself).
   - **No network-capable Tauri plugins** (http, updater, websocket, upload), enforced by `deny.toml` (`cargo deny check bans`) in `pnpm verify` and a project hook. cargo-deny checks the feature set and desktop targets the app is actually built for: Tauri's optional networking features and its Android/iOS-only `reqwest` dependency are not in that tree.
   - **Native feature audit:** each release reviews the Rust dependency tree for socket use.
   - **Runtime test:** `strace -f -e trace=connect,sendto` over an e2e run shows no non-local connections.
@@ -235,11 +235,11 @@ We do **not** claim that the app *cannot* reach the network: a CSP is not an OS 
 
 ## 11. Markdown dialect
 
-The same dialect is used in the editor and in preview:
+The same dialect is used by the editor (and its live preview, ADR-0012) and by Copy as rich text:
 - CommonMark plus the GFM extensions: tables, strikethrough, task lists, autolinks.
-- Footnotes (markdown-it-footnote in preview; a small Lezer extension in the editor).
+- Footnotes (a small Lezer extension in the editor; markdown-it-footnote for Copy as rich text).
 - YAML frontmatter delimited by `---` on the first line.
-- **Raw HTML is disabled** in preview (shown as text).
+- **Raw HTML is never rendered:** live preview shows it as text, and Copy as rich text disables it.
 - Remote images are not loaded; they render as a placeholder showing their URL.
 
 ## 12. Desktop platform
@@ -285,7 +285,7 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 | Rust unit | `cargo test --workspace` | Save contract (fault injection: disk full, read-only, rename failure), path validation (traversal, symlinks), line endings/BOM round-trip, lint fixtures, UTF-16 offset conversion |
 | Frontend unit | Vitest | Decoration ranges and classes, keymap, command registry, stale-lint discarding, Basmallah deduplication |
 | Real app e2e | `tauri-driver` (WebDriver) on Linux and Windows | Open/edit/save/reload, conflicts, recovery after a killed process, file opening (CLI, drag-drop, second instance), settings, keyboard-only flows, offline run |
-| Visual | Screenshots via `tauri-driver` in the real app: WebKitGTK on Linux now, WebView2 on Windows later; macOS (no WebDriver support) checked by hand before releases | Specimen at window widths 640/1280/1920/2560, both themes, editor and preview, zoom 200% |
+| Visual | Screenshots via `tauri-driver` in the real app: WebKitGTK on Linux now, WebView2 on Windows later; macOS (no WebDriver support) checked by hand before releases | Specimen at window widths 640/1280/1920/2560, both themes, rendered and with all Markdown shown, zoom 200% |
 | Contrast | Unit test over the token table | Every semantic pair (DESIGN.md §9.4) |
 | Arabic rendering | `pnpm test:visual` (`tests/visual/arabic-rendering.visual.ts`) | Ink of every vocalised fixture word against a HarfBuzz reference, per bundled Arabic font; fails when a word gets worse, notes when WebKitGTK improves (ADR-0011) |
 | Supply chain | `cargo deny check`, `pnpm audit` | Banned crates, licences, advisories |

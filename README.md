@@ -7,7 +7,7 @@
 bismillah is a free, open-source writing app in the spirit of the original iA Writer: a typewriter, with only the best of the computer.
 
 - **Plain Markdown files** in folders you choose. Filenames are the organisation; frontmatter is optional.
-- **Typography first.** A bounded reading measure, carefully chosen fonts, and visible Markdown that stays quiet.
+- **Typography first.** A bounded reading measure, carefully chosen fonts, and a document that reads as rendered text: the Markdown shows only in the paragraph you're writing (or everywhere, if you prefer).
 - **Spelling** in English and Arabic, and **grammar suggestions** in English, all computed on your device.
 - **Arabic and right-to-left writing** treated as equals to Latin.
 - **Zuhd mode (زهد):** focus on the current sentence or paragraph.

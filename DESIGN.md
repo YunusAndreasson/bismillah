@@ -56,7 +56,7 @@ Each reference informs a specific decision and is judged in a specific way. Citi
 | Reference | Informs | Judged by |
 |---|---|---|
 | **Dieter Rams** — [ten principles](https://www.vitsoe.com/rw/about/good-design) | Feature restraint, honesty, longevity | Does the feature improve the core writing task? |
-| **iA** — [responsive typography](https://ia.net/topics/bringing-responsiveness-the-app-world), [iA Writer](https://ia.net/writer/) | Bounded measure, visible Markdown, typography as interface | The specimen, with the real fonts, at every test width |
+| **iA** — [responsive typography](https://ia.net/topics/bringing-responsiveness-the-app-world), [iA Writer](https://ia.net/writer/) | Bounded measure, quiet Markdown, typography as interface | The specimen, with the real fonts, at every test width |
 | **Khaled Hosny / Alif Type** — [Amiri](https://aliftype.com/amiri/) | Arabic typesetting, the Basmallah, diacritics | Vocalised Arabic renders without clipping, collisions or broken shaping |
 | **W3C** — [Arabic layout requirements (alreq)](https://www.w3.org/TR/alreq/) | Mixed-script layout, diacritic space, no Arabic letter-spacing | The mixed-script fixtures |
 | **IBM Design / Plex** — [type guidance](https://www.ibm.com/design/language/typography/type-scale/) | Systematic spacing, per-script type adjustments | Consistent interface hierarchy and per-profile type values |
@@ -123,7 +123,7 @@ Layout responds to the **available content width in CSS pixels** (zoom included)
 
 ### 8.1 Two separate type systems
 
-- **Document typography** is the writing surface and preview. It follows the selected writing profile.
+- **Document typography** is the writing surface, rendered and revealed alike. It follows the selected writing profile.
 - **Interface typography** covers the library, palette, settings and status. It uses the platform UI font (`system-ui`) at 14px / 1.45, and it never changes when the writing font changes.
 
 ### 8.2 The font set (bundled, SIL OFL)
@@ -133,7 +133,7 @@ Start small; expand only after these are excellent.
 | Role | Family | Arabic pairing |
 |---|---|---|
 | Writer (default) | **iA Writer Duo** (shipped as Bismillah Duo) | IBM Plex Sans Arabic; **Amiri for now** (ADR-0011) |
-| Serif (writing + preview) | **Source Serif 4** (optical-size axis) | Amiri |
+| Serif | **Source Serif 4** (optical-size axis) | Amiri |
 | Basmallah opening | Amiri | — |
 | Qur'anic (Uthmani) runs | Amiri Quran | — |
 
@@ -171,7 +171,7 @@ Measured in the real webview in Phase 0 (docs/spikes/font-profiles.md) and recor
 
 Real heading levels are always preserved. Levels are told apart by size, weight and spacing. Small caps, italics or colour may support the distinction but never carry it alone (they fail across scripts).
 
-**Editor** (restrained; the text still reads like a manuscript):
+Restrained, so the text still reads like a manuscript. The same scale applies with the Markdown hidden or shown, so revealing a heading moves nothing (ADR-0012):
 
 | Level | Size | Weight | Space above / below |
 |---|---|---|---|
@@ -182,12 +182,7 @@ Real heading levels are always preserved. Levels are told apart by size, weight 
 | h5 | 1.00em | 600 | 1 / 0 |
 | h6 | 1.00em | 600 + `text-secondary` | 1 / 0 |
 
-More space above a heading than below it, so the heading belongs to the text that follows (proximity). The `#` marks hang in the gutter.
-
-**Preview** (fuller):
-- A perfect fourth (1.333) scale for the serif profile and a major third (1.25) for Duo.
-- h1 large, with tight but not negative tracking for Latin and **never any letter-spacing for Arabic**.
-- h3–h6 step down by size and weight; serif italic is an optional extra cue for h3 in Latin text only.
+More space above a heading than below it, so the heading belongs to the text that follows (proximity). The `#` marks hang in the gutter. Never any letter-spacing for Arabic headings.
 
 ### 8.5 Getting the intended quality from each font
 
@@ -196,9 +191,9 @@ More space above a heading than below it, so the heading belongs to the text tha
 3. **Features by role:**
    - Editor: kerning, contextual shaping and required ligatures only, with no discretionary ligatures and caret placement tested through ligatures.
    - Counts and tables: `tnum`.
-   - Old-style figures (`onum`): optional, serif preview only.
+   - Old-style figures (`onum`): not used in the writing surface.
    - Small caps: only where the font and script support them.
-4. **Stable wrapping in the editor:** no hyphenation and no `text-wrap: pretty`. Preview may use `hyphens: auto` and `text-wrap: pretty`, with correct `lang`, falling back gracefully.
+4. **Stable wrapping:** no hyphenation and no `text-wrap: pretty`, so lines don't rebalance as you type.
 5. **Subsetting preserves coverage:** combining marks, shaping tables (GSUB/GPOS), Qur'anic annotation marks where the font has them, extended Latin, numerals and punctuation. Test the actual shipped files.
 6. **Remeasure after fonts load or change:** wait for `document.fonts` to be ready before measuring. Tell CodeMirror when typography changes so the caret, selection, hanging marks and scrolling agree with what is rendered.
 
@@ -270,14 +265,17 @@ There are two separate systems with separate purposes:
 
 ## 11. The writing surface
 
-- **Visible Markdown, iA-style.** Marks stay visible in `syntax-marker`. The `#` of headings, `>` of quotes and list markers hang in the reserved gutter, so text starts on one reading edge. This mirrors on RTL lines.
+- **Live preview** (ADR-0012, Phase 4). The document reads as rendered text: emphasis without its marks, links as their text, bullets for list markers, a bar for quotes, a rule for `---`, folded frontmatter, local images below their line.
+  - **The block with the caret shows its Markdown** in `syntax-marker`. The `#` of headings, `>` of quotes and list markers hang in the reserved gutter, so text starts on one reading edge and revealing them moves nothing. This mirrors on RTL lines.
+  - Reveal follows the caret, never the mouse, so text never moves under the pointer. Hovering a link or image may show its address in a tooltip.
+  - **Always show Markdown** (Settings › Writing, `Mod-R`) keeps every mark visible, iA-style, as Phase 1 draws it.
 - **Caret:** 2px wide, in `accent`. **Selection:** `selection-background` with `text-primary` text.
 - **Typewriter scrolling** is on by default (`Mod-T`). The caret line sits slightly above centre, about 42% from the top of the writing area. Typing and keyboard motion keep it there; a mouse click doesn't scroll, so text never jumps away from the pointer.
 - **Diagnostics** are shown as you write by default; both can be switched off. Spelling uses a **wavy** underline in `diagnostic-spelling`; grammar uses a **dotted** underline in `diagnostic-grammar`.
   - They are hidden while the caret is inside the word being typed. Nothing pops up unasked.
   - The detail popover names the kind ("Spelling" / "Grammar suggestion"), explains it in one sentence, and offers explicit actions.
-- **Frontmatter:** shown in `text-secondary`, collapsible, never rewritten.
-- **Preview** (`Mod-R`): a separate mode in the same column with the fuller typographic hierarchy. Side-by-side preview may come later, only as an explicit command and only when both panes keep a useful measure.
+- **Frontmatter:** shown in `text-secondary`; folded to one quiet line outside the caret, never rewritten.
+- **No separate preview mode.** *Copy as rich text* (`Mod-Shift-C`) puts rendered HTML and plain text on the clipboard.
 
 ### 11.1 Zuhd mode (زهد) — focus mode
 
@@ -314,7 +312,7 @@ It is **on by default** and can be turned off in Settings › Appearance (*Show 
   - Always one line: in a narrow window at a large writing size it shrinks to fit the column instead of wrapping.
   - One body line of space above and one and a half below (less on short windows); enough block and inline padding for every mark.
   - No decorative colour, ornament or image.
-- **Placement:** it scrolls with the document and appears once, at the top, in both editor and preview. It stays visible in Zuhd mode while in view, without being sticky.
+- **Placement:** it scrolls with the document and appears once, at the top. It stays visible in Zuhd mode while in view, without being sticky.
 - **Deduplication:** if the document's first content block (after any frontmatter) is already a standalone Basmallah, the presentation element is suppressed, and it returns as soon as that block changes. The comparison is narrow and tested (`src/editor/basmallah.test.ts`):
   - the block is a paragraph, an ATX heading or a setext heading containing only the Basmallah; more text in the same block, a quote, a list item or code doesn't count
   - vocalisation, Qur'anic annotation marks, tatweel, alef wasla (ٱ for ا), whitespace and direction marks are ignored, the ligature ﷽ counts, and one trailing full stop or Arabic comma is allowed
@@ -380,7 +378,7 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 | `file.trash` | Move to trash | `Mod-Backspace` (undoable) |
 | `app.commandPalette` | Command palette | `Mod-Shift-P` |
 | `view.toggleLibrary` | Library | `Mod-\` |
-| `view.togglePreview` | Preview | `Mod-R` |
+| `view.toggleMarkdown` | Show all Markdown | `Mod-R` (Phase 4) |
 | `editor.toggleFocus` | Zuhd mode | `Mod-D` |
 | `editor.toggleTypewriter` | Typewriter scrolling | `Mod-T` |
 | `view.textBigger` / `textSmaller` / `textReset` | Bigger / Smaller / Default text size | `Mod-=` / `Mod--` / `Mod-0` |
@@ -397,7 +395,7 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 - `Esc` closes the topmost overlay and returns focus to where it came from.
 - Focus rings appear for keyboard navigation (`:focus-visible`) in `focus-ring`, ≥ 3:1.
 - Tab order follows the visual organisation. Overlays trap focus while open and restore it on close (Bits UI handles this).
-- Ordinary operations keep plain functional names: Open, Save, Rename, Undo, Preview, Library, Settings. Arabic terms are used sparingly and only where they carry meaning (Zuhd).
+- Ordinary operations keep plain functional names: Open, Save, Rename, Undo, Library, Settings. Arabic terms are used sparingly and only where they carry meaning (Zuhd).
 
 ## 14. Writing the interface (copy)
 

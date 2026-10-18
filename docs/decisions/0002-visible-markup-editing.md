@@ -1,6 +1,6 @@
 # 0002 — iA-style visible-markup editing with a separate preview
 
-- **Status:** Accepted
+- **Status:** Superseded by [0012](0012-live-preview.md) (2026-10-18). The hanging-marks and bidi results below still hold: the caret's block and "Always show Markdown" draw marks this way.
 - **Date:** 2026-10-18
 - **Amended:** 2026-10-18 (Phase 0). Hanging marks and bidi spikes: go.
 
