@@ -1,84 +1,102 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { getCurrentWindow } from "@tauri-apps/api/window";
-  import { appInfo, initialDocument } from "./core/ipc.ts";
-  import { loadFonts, setTheme, type Theme } from "./core/appearance.ts";
-  import { COMMANDS, runCommand, type CommandContext } from "./core/commands.ts";
+  import { loadFonts } from "./core/appearance.ts";
+  import { runCommand, type CommandId } from "./core/commands.ts";
   import { installMenu } from "./core/menu.ts";
-  import { keymap } from "@codemirror/view";
-  import { Prec } from "@codemirror/state";
+  import { settings } from "./core/settings.svelte.ts";
   import { installTestHooks } from "./core/testHooks.ts";
-  import { createEditor, type Editor } from "./editor/setup.ts";
+  import { workspace } from "./core/workspace.svelte.ts";
   import { remeasure } from "./editor/typography.ts";
+  import Notices from "./ui/Notices.svelte";
+  import SettingsDialog from "./ui/SettingsDialog.svelte";
+  import StatusLine from "./ui/StatusLine.svelte";
+  import Welcome from "./ui/Welcome.svelte";
 
   let host: HTMLElement;
-
-  const THEMES: Theme[] = ["system", "light", "dark"];
-  let theme: Theme = "system";
-  let textScale = 1;
-
-  function commandContext(editor: Editor): CommandContext {
-    return {
-      view: editor.view,
-      toggleTypewriter: () => editor.setTypewriter(!editor.typewriter),
-      changeTextSize(step) {
-        textScale = step === 0 ? 1 : Math.min(3, Math.max(0.5, textScale + step * 0.1));
-        document.documentElement.style.setProperty("--doc-scale", textScale.toFixed(2));
-        remeasure(editor.view);
-      },
-      cycleTheme() {
-        theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length] ?? "system";
-        setTheme(theme);
-      },
-      quit: () => void getCurrentWindow().close(),
-    };
-  }
   let failure = $state<string | null>(null);
+  let started = $state(false);
+
+  const session = $derived(workspace.session);
+  const run = (id: CommandId) => runCommand(id, "ui", workspace.context);
+
+  // Settings apply to the page and the editor whenever they change.
+  $effect(() => {
+    const values = settings.values;
+    if (started) workspace.applySettings(values);
+  });
 
   onMount(() => {
-    let editor: Editor | null = null;
-    const onFonts = () => editor && remeasure(editor.view);
+    const onFonts = () => workspace.editor && remeasure(workspace.editor.view);
     (async () => {
       try {
-        const [info, doc] = await Promise.all([appInfo(), initialDocument()]);
         await loadFonts();
-        let context: CommandContext | null = null;
-        const keys = Prec.high(
-          keymap.of(
-            COMMANDS.map((c) => ({
-              key: c.key,
-              run: () => (context ? runCommand(c.id, "keymap", context) : false),
-            })),
-          ),
-        );
-        editor = createEditor({ parent: host, doc: doc.text, steadyCaret: info.test_mode, keys });
-        context = commandContext(editor);
-        await installMenu(context);
+        await workspace.start(host, installMenu);
         document.fonts.addEventListener("loadingdone", onFonts);
-        document.title = `${doc.name} — bismillah`;
-        await getCurrentWindow().setTitle(document.title);
-        if (info.test_mode) installTestHooks(editor);
-        editor.view.focus();
+        started = true;
+        if (workspace.testMode && workspace.editor) installTestHooks(workspace.editor, workspace);
       } catch (error) {
-        failure = typeof error === "string" ? error : "Couldn't open the document.";
+        console.error("bismillah: couldn't start", error);
+        failure = "bismillah couldn't start. Please restart it.";
       }
     })();
     return () => {
       document.fonts.removeEventListener("loadingdone", onFonts);
-      editor?.view.destroy();
+      workspace.editor?.view.destroy();
     };
   });
 </script>
 
-<main class="writing" bind:this={host}>
-  {#if failure}
-    <p class="failure" role="alert">{failure}</p>
+<div class="window">
+  <div class="notices-row"><Notices notices={workspace.notices} /></div>
+  <main class="writing" class:hidden={workspace.welcome} bind:this={host}>
+    {#if failure}
+      <p class="failure" role="alert">{failure}</p>
+    {/if}
+  </main>
+  {#if workspace.welcome}
+    <div class="first-screen"><Welcome {run} /></div>
   {/if}
-</main>
+  {#if session}
+    <div class="status-row">
+      <StatusLine
+        name={session.name}
+        state={session.state}
+        words={workspace.words}
+        transliteration={workspace.transliteration}
+        faded={settings.values.fade_chrome && workspace.typing}
+      />
+    </div>
+  {/if}
+</div>
+
+<SettingsDialog
+  bind:open={workspace.settingsOpen}
+  values={settings.values}
+  change={(patch) => void settings.set(patch)}
+/>
 
 <style>
-  .writing {
+  .window {
     height: 100%;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+  .notices-row {
+    grid-row: 1;
+  }
+  .status-row {
+    grid-row: 3;
+  }
+  .writing {
+    grid-row: 2;
+    min-height: 0;
+  }
+  .writing.hidden {
+    display: none;
+  }
+  .first-screen {
+    grid-row: 2;
+    min-height: 0;
   }
   .failure {
     margin: var(--space-12) auto;

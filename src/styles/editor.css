@@ -145,7 +145,20 @@
   unicode-bidi: isolate;
 }
 
-/* Caret and selection (DESIGN.md §11, §9.4). */
+/* Zuhd mode (zuhd.ts, DESIGN.md §11.1): text outside the focus uses text-secondary,
+   marks included, never opacity. */
+.cm-editor .cm-zuhd-dim,
+.cm-editor .cm-zuhd-dim * {
+  color: var(--text-secondary);
+}
+
+/* Caret and selection (DESIGN.md §11, §9.4). Selected text, marks and Zuhd-dimmed text
+   included, is drawn in text-primary: syntax-marker and text-secondary fall below 4.5:1
+   on the selection colour. CodeMirror hides the native selection's background only. */
+.cm-editor .cm-line::selection,
+.cm-editor .cm-line ::selection {
+  color: var(--text-primary);
+}
 .cm-editor .cm-cursor,
 .cm-editor .cm-dropCursor {
   border-left: 2px solid var(--accent);

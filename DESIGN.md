@@ -362,7 +362,8 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 - Chrome (library toggle, status line) may fade while typing. **Fading is optional** (a setting) and never applies to an element that:
   - has focus or is being used
   - shows a save failure, conflict or recovery notice; these stay until resolved.
-- **Status line:** file name · save state · word count · reading time. Save state is honest: *Saving…* → *Saved* only after a durable write; *Not saved — [reason]* on failure.
+- **Status line:** file name · save state · word count · reading time. Save state is honest: *Saving…* from the first unsaved edit until Rust confirms the durable write, then *Saved*; *Not saved — [reason]* on failure, which stays (in `status-error`) until a save succeeds. Routine saves are not announced to screen readers; failures are, by their notice.
+- **Notices** (failure, conflict, recovered text) sit in a row above the writing surface, never over the text, inside a `surface-panel` region with a `border-control` boundary; errors add a `status-error` edge. Each says what happened and how the text is protected, and offers its actions as buttons (§14). They never fade.
 - **Motion:** opacity and small transforms only, 120–180ms ease-out. All of it is removed under `prefers-reduced-motion`. Nothing animates while you type.
 
 ## 13. Keyboard and commands
@@ -372,8 +373,9 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 | Command ID | Label | Default |
 |---|---|---|
 | `file.save` | Save now | `Mod-S` (flushes pending changes; confirms visibly) |
-| `file.new` | New file | `Mod-N` |
-| `file.quickOpen` | Open file… | `Mod-P` |
+| `file.new` | New file… | `Mod-N` (native save dialog; never replaces a file) |
+| `file.open` | Open… | `Mod-O` (native dialog) |
+| `file.quickOpen` | Quick open… | `Mod-P` (Phase 2: find a file in the library) |
 | `file.rename` | Rename file | `F2` |
 | `file.trash` | Move to trash | `Mod-Backspace` (undoable) |
 | `app.commandPalette` | Command palette | `Mod-Shift-P` |

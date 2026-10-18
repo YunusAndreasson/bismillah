@@ -1,0 +1,57 @@
+# Local package for the author's machine (ARCHITECTURE.md §12.3). bismillah is private
+# for now: this builds the committed HEAD of the local repository, nothing is fetched
+# from a remote except crates and npm packages the lockfiles pin.
+#
+#   cd packaging/arch && makepkg -si
+#
+# Node and pnpm come from the author's toolchain (mise), so they aren't makedepends.
+
+pkgname=bismillah
+pkgver=0.0.0
+pkgrel=1
+pkgdesc="A calm, offline Markdown editor"
+arch=('x86_64')
+license=('GPL-3.0-or-later' 'OFL-1.1')
+depends=('webkit2gtk-4.1' 'gtk3' 'xdotool' 'hicolor-icon-theme')
+makedepends=('git' 'rust')
+options=('!lto' '!debug')
+source=("bismillah::git+file://$(realpath "$startdir/../..")")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd bismillah
+  printf "0.0.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+  cd bismillah
+  export CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+  pnpm install --frozen-lockfile
+}
+
+build() {
+  cd bismillah
+  export CARGO_TARGET_DIR=target
+  pnpm tauri build --no-bundle
+}
+
+package() {
+  cd bismillah
+  install -Dm755 target/release/bismillah "$pkgdir/usr/bin/bismillah"
+  install -Dm644 packaging/linux/bismillah.desktop "$pkgdir/usr/share/applications/bismillah.desktop"
+  local size
+  for size in 32 64 128; do
+    install -Dm644 "src-tauri/icons/${size}x${size}.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/bismillah.png"
+  done
+  install -Dm644 src-tauri/icons/128x128@2x.png "$pkgdir/usr/share/icons/hicolor/256x256/apps/bismillah.png"
+  install -Dm644 src-tauri/icons/icon.png "$pkgdir/usr/share/icons/hicolor/512x512/apps/bismillah.png"
+  install -Dm644 src-tauri/icons/source.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/bismillah.svg"
+  # The binary embeds the bundled fonts; their licences travel with it (SIL OFL 1.1).
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 fonts/build/LICENSE.md "$pkgdir/usr/share/licenses/$pkgname/fonts/BismillahDuo-Mono.md"
+  install -Dm644 fonts/source/amiri/OFL.txt "$pkgdir/usr/share/licenses/$pkgname/fonts/Amiri.txt"
+  install -Dm644 fonts/source/source-serif-4/LICENSE.md "$pkgdir/usr/share/licenses/$pkgname/fonts/SourceSerif4.md"
+  install -Dm644 fonts/source/ibm-plex-sans-arabic/LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/fonts/IBMPlexSansArabic.txt"
+}

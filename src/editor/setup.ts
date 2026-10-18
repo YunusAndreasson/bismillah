@@ -1,5 +1,5 @@
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { Compartment, EditorState, type Extension } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import { drawSelection, EditorView, keymap } from "@codemirror/view";
 import { basmallah } from "./basmallah.ts";
 import { bidi } from "./bidi.ts";
@@ -9,23 +9,52 @@ import { markdownStyling } from "./markdownStyling.ts";
 import { scriptRuns } from "./scriptRuns.ts";
 import { typewriter } from "./typewriter.ts";
 import { typingAids, typingAidsConfig } from "./typingAids.ts";
+import { focusGranularity, zuhd, type FocusGranularity } from "./zuhd.ts";
+
+/** The writer's switches that change how the editor behaves. */
+export interface EditorConfig {
+  basmallah: boolean;
+  typewriter: boolean;
+  zuhd: boolean;
+  focusGranularity: FocusGranularity;
+  /** Smart punctuation (DESIGN.md §11.3). */
+  smartPunctuation: boolean;
+}
+
+export const DEFAULT_CONFIG: EditorConfig = {
+  basmallah: true,
+  typewriter: true,
+  zuhd: false,
+  focusGranularity: "paragraph",
+  smartPunctuation: true,
+};
 
 export interface EditorOptions {
   parent: HTMLElement;
   doc: string;
+  readOnly?: boolean;
+  config?: Partial<EditorConfig>;
   /** Steady caret for deterministic screenshots. */
   steadyCaret?: boolean;
-  basmallah?: boolean;
-  typewriter?: boolean;
-  /** Smart punctuation (DESIGN.md §11.3); on unless set to false. */
-  smartPunctuation?: boolean;
   /** App-level key bindings from the command registry. */
   keys?: Extension;
+  /** Called after every change to the text (each one is a new revision). */
+  onChange?: () => void;
 }
 
 export interface Editor {
   view: EditorView;
-  typewriter: boolean;
+  readonly config: EditorConfig;
+  configure(patch: Partial<EditorConfig>): void;
+  /** Replaces the document with a newly opened file: fresh history, caret at the top. */
+  load(text: string, readOnly: boolean): void;
+  /** Replaces the text after an external change, keeping the caret and scroll near. */
+  reloadQuietly(text: string): void;
+  /** Replaces the whole text as one undoable edit (restoring recovered text). */
+  replaceAll(text: string): void;
+  text(): string;
+  /** Kept for the test hooks and screenshots. */
+  readonly typewriter: boolean;
   setBasmallah(on: boolean): void;
   setTypewriter(on: boolean): void;
   setSmartPunctuation(on: boolean): void;
@@ -53,10 +82,23 @@ function cspNonce(): Extension {
 }
 
 export function createEditor(options: EditorOptions): Editor {
-  const basmallahSlot = new Compartment();
-  const typewriterSlot = new Compartment();
-  const smartPunctuationSlot = new Compartment();
-  const extensions: Extension[] = [
+  const config: EditorConfig = { ...DEFAULT_CONFIG, ...options.config };
+  const slots = {
+    basmallah: new Compartment(),
+    typewriter: new Compartment(),
+    zuhd: new Compartment(),
+    smartPunctuation: new Compartment(),
+    readOnly: new Compartment(),
+  };
+  const configured = {
+    basmallah: () => (config.basmallah ? basmallah() : []),
+    typewriter: () => (config.typewriter ? typewriter() : []),
+    zuhd: () => (config.zuhd ? [zuhd(), focusGranularity.of(config.focusGranularity)] : []),
+    smartPunctuation: () => typingAidsConfig.of({ smartPunctuation: config.smartPunctuation }),
+    readOnly: (on: boolean) => [EditorState.readOnly.of(on), EditorView.editable.of(!on)],
+  };
+
+  const extensions = (readOnly: boolean): Extension[] => [
     cspNonce(),
     baseTheme,
     history(),
@@ -65,37 +107,72 @@ export function createEditor(options: EditorOptions): Editor {
     keymap.of([...defaultKeymap, ...historyKeymap]),
     EditorView.lineWrapping,
     EditorView.contentAttributes.of({ spellcheck: "false", autocorrect: "off" }),
+    EditorView.updateListener.of((update) => {
+      if (update.docChanged) options.onChange?.();
+    }),
     markdownDialect(),
     markdownStyling(),
     bidi(),
     scriptRuns(),
     hangingMarks(),
     typingAids(),
-    smartPunctuationSlot.of(
-      typingAidsConfig.of({ smartPunctuation: options.smartPunctuation !== false }),
-    ),
-    basmallahSlot.of(options.basmallah === false ? [] : basmallah()),
-    typewriterSlot.of(options.typewriter === false ? [] : typewriter()),
+    slots.smartPunctuation.of(configured.smartPunctuation()),
+    slots.basmallah.of(configured.basmallah()),
+    slots.typewriter.of(configured.typewriter()),
+    slots.zuhd.of(configured.zuhd()),
+    slots.readOnly.of(configured.readOnly(readOnly)),
   ];
+
   const view = new EditorView({
     parent: options.parent,
-    state: EditorState.create({ doc: options.doc, extensions }),
+    state: EditorState.create({ doc: options.doc, extensions: extensions(!!options.readOnly) }),
   });
+
   const editor: Editor = {
     view,
-    typewriter: options.typewriter !== false,
-    setBasmallah(on) {
-      view.dispatch({ effects: basmallahSlot.reconfigure(on ? basmallah() : []) });
+    config,
+    get typewriter() {
+      return config.typewriter;
     },
-    setTypewriter(on) {
-      editor.typewriter = on;
-      view.dispatch({ effects: typewriterSlot.reconfigure(on ? typewriter() : []) });
+    configure(patch) {
+      Object.assign(config, patch);
+      const effects = [];
+      if ("basmallah" in patch) effects.push(slots.basmallah.reconfigure(configured.basmallah()));
+      if ("typewriter" in patch)
+        effects.push(slots.typewriter.reconfigure(configured.typewriter()));
+      if ("zuhd" in patch || "focusGranularity" in patch)
+        effects.push(slots.zuhd.reconfigure(configured.zuhd()));
+      if ("smartPunctuation" in patch)
+        effects.push(slots.smartPunctuation.reconfigure(configured.smartPunctuation()));
+      if (effects.length) view.dispatch({ effects });
     },
-    setSmartPunctuation(on) {
+    load(text, readOnly) {
+      view.setState(EditorState.create({ doc: text, extensions: extensions(readOnly) }));
+      view.scrollDOM.scrollTop = 0;
+    },
+    reloadQuietly(text) {
+      const { head } = view.state.selection.main;
+      const top = view.scrollDOM.scrollTop;
+      const readOnly = view.state.readOnly;
+      view.setState(
+        EditorState.create({
+          doc: text,
+          selection: EditorSelection.cursor(Math.min(head, text.length)),
+          extensions: extensions(readOnly),
+        }),
+      );
+      view.scrollDOM.scrollTop = top;
+    },
+    replaceAll(text) {
       view.dispatch({
-        effects: smartPunctuationSlot.reconfigure(typingAidsConfig.of({ smartPunctuation: on })),
+        changes: { from: 0, to: view.state.doc.length, insert: text },
+        userEvent: "input.restore",
       });
     },
+    text: () => view.state.doc.toString(),
+    setBasmallah: (on) => editor.configure({ basmallah: on }),
+    setTypewriter: (on) => editor.configure({ typewriter: on }),
+    setSmartPunctuation: (on) => editor.configure({ smartPunctuation: on }),
   };
   return editor;
 }

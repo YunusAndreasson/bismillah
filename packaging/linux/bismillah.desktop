@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=bismillah
+GenericName=Markdown Editor
+Comment=A calm, offline Markdown editor
+Exec=bismillah %f
+Icon=bismillah
+Terminal=false
+Categories=Office;TextEditor;
+MimeType=text/markdown;text/x-markdown;
+Keywords=markdown;writing;editor;
+StartupWMClass=bismillah

@@ -2,7 +2,7 @@
 
 This document describes how bismillah is built and the contracts each part must keep. Product and visual decisions live in [DESIGN.md](DESIGN.md). Lasting decisions are recorded as ADRs in [docs/decisions/](docs/decisions/). If code and this document disagree, fix one of them in the same change.
 
-> **Status:** Phase 0 done. The Tauri + Svelte + CodeMirror scaffold, the test harness and the spike extensions exist (§3 marks what is real); file handling, the library and linting arrive in Phases 1–3.
+> **Status:** Phase 1 (writing core). Single-file editing with the file-safety contract, the recovery journal, settings and the desktop basics are real (§3 marks what is planned); the library and linting arrive in Phases 2–3.
 
 ---
 
@@ -44,13 +44,14 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | `dirs` / Tauri path API | Platform config, data and cache directories |
 | `tauri-plugin-dialog` | Native open-folder and save-as dialogs |
 | `tauri-plugin-opener` | Reveal in file manager; hand links to the system browser (it makes no requests itself) |
-| `tauri-plugin-single-instance` | Files opened from the file manager or command line go to the running app |
-| `tauri-plugin-window-state` | Remember window size, position and maximised state |
 | `tauri-plugin-clipboard-manager` | "Copy as rich text": put both HTML (rendered with the preview pipeline) and plain text on the clipboard |
-| `serde`, `toml`, `thiserror` | Settings and errors |
+| `serde`, `serde_json`, `thiserror` | IPC payloads, the recovery sidecars and typed errors |
+| `toml_edit` | `settings.toml` rewritten without losing the writer's comments, layout or unknown keys (§9) |
 | `gtk` (Linux only, already in Tauri's tree) | Focus the native menu bar on `Alt`/`F10` (`platform.rs`) |
 
 **Development only** (never shipped): WebdriverIO + `tauri-driver` (real-app e2e), `pixelmatch` + `pngjs` (screenshot comparison), Vitest + jsdom, ESLint + Prettier, svelte-check. Spike and font tooling run through `uv`: fontTools (font build), `uharfbuzz` (rendering reference, and the pre-shaped Basmallah outlines in `src/editor/basmallahInk.ts`), `python-xlib` (raw X input and clipboard).
+
+A later launch hands its file to the running app over a socket in the user's private runtime directory (`platform.rs`, std only), rather than `tauri-plugin-single-instance`, whose D-Bus stack (`zbus` 5) is flagged unmaintained. Window size and the last document are remembered by `state.rs` in one small JSON file, rather than `tauri-plugin-window-state`, so everything bismillah stores sits in its own two folders (§9); on Wayland the compositor places windows anyway.
 
 No CSS framework, state-management library, layout library, icon font or component kit. CSS is plain and uses tokens (DESIGN.md §9). No browser test stack: bismillah is desktop-only (ADR-0009), so it is tested in the real app.
 
@@ -66,23 +67,30 @@ bismillah/
 ├─ index.html                carries the CSP nonce element CodeMirror's styles need (§10)
 ├─ src-tauri/
 │  ├─ src/
-│  │  ├─ main.rs, lib.rs      app setup, CSP, navigation guard, commands (document, menu)
-│  │  ├─ platform.rs          all cfg(target_os) code (menu-bar focus on Linux)
-│  │  └─ library.rs, documents.rs, recovery.rs, watch.rs, settings.rs, themes.rs, lint.rs  (planned)
+│  │  ├─ main.rs, lib.rs      app setup, navigation guard, window events (drop, close), menu commands
+│  │  ├─ app.rs               app state and the document, recovery and settings commands (§4)
+│  │  ├─ documents.rs         the save contract: decode/encode, atomic write, conflicts (§5)
+│  │  ├─ recovery.rs          the recovery journal (§5.7)
+│  │  ├─ settings.rs          settings.toml (§9)
+│  │  ├─ state.rs             remembered window size and last document
+│  │  ├─ platform.rs          all cfg(target_os) code (menu-bar focus, directory fsync, permissions)
+│  │  └─ library.rs, watch.rs, themes.rs, lint.rs  (planned)
 │  └─ capabilities/           minimal Tauri capability set
 ├─ crates/bismillah-lint/     (planned, Phase 3) pure Rust, no Tauri dependency
 ├─ src/
-│  ├─ core/                   command registry, native menu, typed IPC bridge, appearance,
-│  │                          test hooks (only with BISMILLAH_TEST=1)
+│  ├─ core/                   command registry, native menu, typed IPC bridge, workspace (open,
+│  │                          save, notices), save session, settings, copy (all interface
+│  │                          sentences), appearance, test hooks (only with BISMILLAH_TEST=1)
 │  ├─ editor/                 CodeMirror setup + one extension per concern: dialect (frontmatter),
 │  │                          markdownStyling, hangingMarks, bidi, scriptRuns, basmallah, typewriter,
-│  │                          typingAids (smart punctuation, transliteration mode)
+│  │                          zuhd, typingAids (smart punctuation, transliteration mode); wordCount
 │  ├─ preview/                (planned, Phase 4)
-│  ├─ ui/                     (planned) Svelte components
+│  ├─ ui/                     Svelte components: status line, notices, first screen, Settings
 │  └─ styles/                 tokens.css, fonts.css, profiles.css, editor.css
 ├─ fonts/  source/ (upstream) · build/ (Bismillah Duo/Mono) · tools/ (build + verify scripts)
 ├─ dictionaries/              Arabic dictionary + licence
 ├─ scripts/                   headless.sh, verify.sh, offline.sh, app-shot.ts
+├─ packaging/                 arch/PKGBUILD (local install), linux/bismillah.desktop
 ├─ tests/                     e2e/ (incl. spikes/), visual/ (baselines), fixtures/ (bidi, profiles, quran)
 ├─ spikes/                    Phase 0 experiments: arabic-speller, harper-latency, transliteration, webview
 └─ docs/  decisions/ · spikes/ · specimen.md · reviews/ · interviews/
@@ -90,19 +98,21 @@ bismillah/
 
 ## 4. IPC surface
 
-All commands are typed on both sides (Rust structs ↔ TS types in `src/core/ipc.ts`). Every command that takes a path validates it in Rust (§6). The capability files grant the main window only these commands plus the core event system.
+All commands are typed on both sides (Rust structs ↔ TS types in `src/core/ipc.ts`). **The frontend never sends a path.** Files come from the command line, a native dialog Rust shows, a drop on the window or a second launch; the frontend refers to the open document by an id. Every command that takes a path validates it in Rust (§6). The capability file grants the main window only the core event system, the menu, and the window calls it needs (title, close, fullscreen).
 
 | Command | Purpose |
 |---|---|
-| `library_open(path)` / `library_tree()` | Select the library root (via the native dialog) and list it |
-| `doc_open(path)` → `{text, revision, line_ending, bom, mtime, size, hash}` | Open a document |
-| `doc_save(path, text, base_revision)` → `{revision}` or a typed error | Save (§5) |
-| `file_create`, `file_rename`, `file_trash`, `dir_create`, `reveal_in_file_manager` | File operations |
-| `recovery_list()` / `recovery_restore(id)` / `recovery_discard(id)` | Recovery |
-| `lint(request)` → `LintResponse` | Spelling and grammar (§7) |
-| `settings_get/set`, `keybindings_get`, `themes_list` | Configuration |
+| `startup()` → document, first screen or failure | What to show at launch (DESIGN.md §15) |
+| `doc_open_dialog()` / `doc_new_dialog()` → document or `null` | File › Open… and New file… through the native dialogs (New never replaces a file) |
+| `doc_open_requested()` / `doc_open_recovered(token)` | Open the file a drop or second launch asked for, or one with recovered text |
+| `doc_save(id, text, revision, force)` → `revision` or a typed `SaveError` | Save (§5); `force` is "Keep mine" |
+| `doc_save_as(id, text)` · `doc_check(id)` · `doc_reload(id, local_text?)` | Save mine as…, the focus check, and reloading (Load theirs keeps the local text in recovery) |
+| `recovery_settle(id)` | The writer restored or discarded recovered text |
+| `settings_get()` / `settings_set(patch)` / `settings_reload()` | Settings (§9) |
+| `library_open`, `library_tree`, file operations *(Phase 2)*; `lint` *(Phase 3)* | |
+| `test_open(path)`, `test_fault(kind)` | Debug builds under the test harness only: stand-ins for the native dialog and fault injection (§13) |
 
-Events (Rust → UI): `file-changed-externally`, `library-changed`, `settings-changed`.
+Events (Rust → UI): `open-requested` (a drop or a second launch). Planned: `file-changed-externally`, `library-changed` (Phase 2).
 
 ## 5. File-safety contract (amanah)
 
@@ -127,11 +137,12 @@ If any step fails, the original file is untouched, the temporary file is removed
 - **Encoding:** UTF-8 only. A non-UTF-8 file opens read-only with a clear notice; it is never re-encoded silently.
 
 ### 5.4 External changes and conflicts
-- Before replacing a file, the save checks that its mtime, size and content hash still match what was last read or written.
+- Before replacing a file, the save checks that its mtime and size still match what was last read or written; if either differs, the bytes are read and their hash compared, so a `touch` alone is not a conflict.
 - If they don't:
   - No local edits: reload quietly, keeping the caret and scroll as close as possible.
   - Local edits: **do not overwrite**. Show the persistent conflict bar: *Keep mine* (save over) · *Load theirs* (local text goes to recovery first) · *Save mine as…*
-- The watcher (`notify`) triggers the same check proactively. The save-time check is the authority.
+- Regaining window focus runs the same check (Phase 1); the watcher (`notify`, Phase 2) will run it proactively. The save-time check is the authority.
+- A file removed while open is reported (*Save it again* · *Save elsewhere…*), never silently recreated.
 
 ### 5.5 Autosave and Save now
 - Autosave runs about 500ms after typing pauses, when switching documents, on window blur and when quitting.
@@ -142,8 +153,9 @@ If any step fails, the original file is untouched, the temporary file is removed
 - The failure state persists until a save succeeds or the writer acts. Text is placed in recovery.
 
 ### 5.7 Recovery journal
-- Unsaved content is mirrored, debounced, to `<app-data>/recovery/<id>.md` plus a small JSON sidecar (original path, revision, timestamp). Files get `0600` permissions where supported.
-- On launch, entries newer than their target file are offered for restore. Entries are removed after a clean save or an explicit discard.
+- Before every save, the text is mirrored to `<app-data>/recovery/<file-id>.<session>.md` plus a small JSON sidecar (original path, revision, timestamp); a clean save removes the mirror, a failed or refused save makes it durable (fsync). So a crash mid-save, a failing disk or a conflict always leaves the text there. Files get `0600` and the folder `0700` permissions where supported.
+- Entries are kept **per app session**, so a new session's mirrors never overwrite text left by an earlier one. *Load theirs* keeps the writer's version as its own entry.
+- When a file is opened, the newest earlier entry that is newer than the file and differs from it is offered (*Restore* · *Discard*); other files with entries are mentioned. *Restore* is one undoable edit, and the entries go only once the restored text is saved.
 - Bounded: per-file and total size caps, and a maximum age.
 - This is the one deliberate exception to "no hidden files". It lives outside the writing folder and is documented in PRIVACY.md.
 
@@ -200,10 +212,10 @@ See ADR-0005.
 
 ## 9. Settings
 
-- `settings.toml` and `keybindings.toml` live in the platform config dir (`$XDG_CONFIG_HOME/bismillah/` on Linux).
-- The schema is versioned (`schema = 1`) and keys are `snake_case` (e.g. `focus_mode`, `writing_profile`, `measure = "standard"`).
-- Unknown keys are preserved when rewriting. An invalid file falls back to defaults with a visible notice and a backup of the bad file; it never crashes.
-- Changes made in the file while the app runs are picked up live.
+- `settings.toml` and `keybindings.toml` live in the platform config dir (`$XDG_CONFIG_HOME/bismillah/` on Linux). What the app remembers but isn't a setting (window size, the last document) and the recovery journal live in the data dir (`$XDG_DATA_HOME/bismillah/`).
+- The schema is versioned (`schema = 1`) and keys are `snake_case`: `theme`, `writing_profile`, `text_scale`, `measure`, `line_height` (absent = the profile's), `fade_chrome`, `basmallah_opening`, `smart_punctuation`, `typewriter_scrolling`, `focus_mode`, `focus_granularity` (`settings.rs` holds the table with each key's range).
+- Comments, layout and unknown keys are preserved when rewriting (`toml_edit`). An invalid value falls back to its default with a notice; an unreadable file is kept as `settings.toml.invalid` while the defaults apply. It never crashes, and a value the UI sends that fails validation is refused whole.
+- Changes made in the file while the app runs are picked up when the window regains focus (no polling).
 
 ## 10. Privacy and the network boundary
 
@@ -247,10 +259,11 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 - **Opening files:**
   - `bismillah [file.md | folder]` from the command line.
   - "Open with" from the file manager: a `.desktop` entry with `MimeType=text/markdown;text/x-markdown;` on Linux, and file associations in the bundle config elsewhere.
-  - Dropping a `.md` file or a folder onto the window.
-  - A second launch hands its arguments to the running instance (`single-instance`), which opens them and focuses its window.
+  - Dropping a file onto the window (folders arrive with the library in Phase 2).
+  - File › Open… (`Mod-O`) and New file… (`Mod-N`) through the native dialogs, shown by Rust.
+  - A second launch hands its arguments to the running instance over `$XDG_RUNTIME_DIR/bismillah.sock` and exits; the running app saves, opens the file and focuses its window.
   - Opening a file outside the current library opens its parent folder as the library, so path validation (§6) always has a root.
-- **Windows:** v1 has one main window. Size, position and maximised state are remembered. The minimum window size is 480×360. The title shows `filename — bismillah`.
+- **Windows:** v1 has one main window. Size and maximised state are remembered (`state.rs`; the window starts hidden and is shown at its remembered size). The minimum window size is 480×360. The title shows `filename — bismillah`.
 - **Native dialogs** for choosing a library folder and for "Save mine as…" (conflicts).
 - **Quitting** flushes pending saves first (§5.5), including from the window manager's close and from `Mod-Q`.
 
@@ -277,7 +290,7 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 | Arabic rendering | `pnpm test:visual` (`tests/visual/arabic-rendering.visual.ts`) | Ink of every vocalised fixture word against a HarfBuzz reference, per bundled Arabic font; fails when a word gets worse, notes when WebKitGTK improves (ADR-0011) |
 | Supply chain | `cargo deny check`, `pnpm audit` | Banned crates, licences, advisories |
 
-All real-app runs go through `scripts/headless.sh` (private Xvfb, D-Bus and runtime directory), so they never touch the author's desktop; the test harness refuses to start outside it. Native input that WebDriver can't produce (menus, accelerators, dead keys, layout switching, the clipboard) is driven with real X events (`xdotool`, raw XTEST via `spikes/webview/xtest.py`).
+All real-app runs go through `scripts/headless.sh` (private Xvfb, D-Bus, runtime, config and data directories), so they never touch the author's desktop, settings or recovery journal; the test harness refuses to start outside it. File-safety e2e tests open real files with `test_open` and inject failures with `test_fault` (disk full, rename failure), both compiled into debug builds only and refused outside the harness. Native input that WebDriver can't produce (menus, accelerators, dead keys, layout switching, the clipboard) is driven with real X events (`xdotool`, raw XTEST via `spikes/webview/xtest.py`).
 
 Round-trip acceptance checks that must always pass:
 - Vocalised Arabic, mixed-script text and CRLF files save unchanged.

@@ -29,3 +29,12 @@ CLAUDE.local.md
 
 # Tauri-generated capability schemas
 src-tauri/gen/
+
+# makepkg working files (packaging/arch)
+packaging/arch/src/
+packaging/arch/pkg/
+packaging/arch/bismillah/
+packaging/arch/*.pkg.tar.*
+
+# Agent worktrees
+.claude/worktrees/
