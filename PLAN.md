@@ -52,7 +52,6 @@ Evidence and verdicts per spike: [docs/spikes/](docs/spikes/README.md). Results 
 - Press `Alt` alone and `F10`: the menu bar appears with File focused; `Esc` hides it. `Ctrl+Z`, `Ctrl+T` act once.
 - Look at the specimen's Arabic and Qur'anic sections (`pnpm app:shot -- --profiles duo,serif,amiri --scroll-to "## Arabic"` writes screenshots to `target/shots/`).
 
-**Already done for Phase 1:** the scaffold (Tauri 2, Svelte 5, TypeScript strict, Vite, CodeMirror), `pnpm verify` with every check, the token file, bundled fonts with Bismillah Duo/Mono, the editor's visible-markup styling, hanging marks, bidi, Basmallah and typewriter extensions, and the native menu from a command registry. Still to do from the Phase 1 scaffold line: Bits UI and the local `PKGBUILD`.
 
 ## Phase 1 — Writing core
 
@@ -72,6 +71,30 @@ Evidence and verdicts per spike: [docs/spikes/](docs/spikes/README.md). Results 
 - Saving round-trips vocalised Arabic, mixed text and CRLF unchanged.
 - A killed process leaves restorable text.
 - Fault-injected saves fail visibly with the text preserved.
+
+### Phase 1 result (2026-10-18): built, awaiting the author's review
+
+Everything above is in place and `pnpm verify` passes (159 unit and contrast tests, 39 Rust tests, 84 real-app e2e tests, the visual suite with the Arabic rendering check) and so does `pnpm test:offline`. Acceptance, with its evidence:
+
+| Accept | Evidence |
+|---|---|
+| The specimen at 640/1280/1920/2560, both themes | `pnpm app:shot` screenshots; visual baselines re-recorded (headings now hang on the reading edge, status line at the bottom) |
+| Saving round-trips vocalised Arabic, mixed text and CRLF | `tests/e2e/file-safety.e2e.ts` (LF, CRLF, BOM + CRLF, no final newline) and `documents.rs` unit tests |
+| A killed process leaves restorable text | `tests/e2e/recovery.e2e.ts`: SIGKILL while saves fail, restart, *Restore*, saved |
+| Fault-injected saves fail visibly with the text preserved | disk-full and rename faults injected in the real app: notice, *Not saved — …*, original intact, text in recovery, *Try again* saves |
+| Offline | `pnpm test:offline`: the whole e2e suite with no network, loopback-only socket calls |
+
+Choices made along the way (recorded in ARCHITECTURE.md): the frontend never sends a path; recovery entries are kept per session; a Unix socket replaces `tauri-plugin-single-instance` (its `zbus` stack is flagged unmaintained) and `state.rs` replaces `tauri-plugin-window-state`; other files' recovered text is mentioned at launch only. New command: `file.open` (*Open…*, `Mod-O`); `file.quickOpen` is renamed *Quick open…* for Phase 2.
+
+**Not done in Phase 1**
+- Collapsible frontmatter (DESIGN.md §11): styled, not yet foldable; it needs a fold control that fits the visible-markup design.
+- Screen-reader check with Orca: headless runs have no accessibility bus, so it is a manual check below.
+
+**For the author**
+1. **Install and use it:** `cd packaging/arch && makepkg -si` builds the committed HEAD and installs `bismillah` with its desktop entry (Open with… for Markdown files).
+2. **Post the WebKit comment** when you're ready: `docs/upstream/webkit-255972.md` has the text, the steps and the patch.
+3. **A design question (DESIGN.md §7):** a gutter for hanging marks is *always* reserved, sized for `###### `. In a narrow window with very large text (480 px at 3×, or 640 px at 2×), the two gutters take most of the width. Options: keep it; cap the gutter and let only rarer marks overflow; or stop hanging marks below a width. Not changed without your call.
+4. **Manual checks (live session, about 10 minutes):** Orca reads headings, the Settings controls and a save failure; typing with fcitx5 (dead keys, Compose, an Arabic layout); a file dropped from the file manager opens; `bismillah file.md` from a terminal while the app runs hands the file over; the window comes back at its size.
 
 ## Phase 2 — Library
 

@@ -23,7 +23,7 @@ Features from DESIGN.md §3 (accounts, sync, telemetry, AI, networking, engageme
 
 ## Development
 
-Setup instructions arrive with the Phase 1 scaffold. The planned commands are listed in [AGENTS.md](AGENTS.md#commands).
+Run `pnpm install`, then `pnpm tauri dev`. Every command, and `pnpm verify` (the gate before each commit), is listed in [AGENTS.md](AGENTS.md#commands).
 
 Linux prerequisites (Arch):
 

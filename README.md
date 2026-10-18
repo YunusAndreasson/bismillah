@@ -17,7 +17,9 @@ And just as deliberately, it has **no** accounts, subscriptions, ads, telemetry,
 
 ## Status
 
-**Pre-alpha, private.** For now bismillah is a personal project that runs only on its author's Linux machine. Phase 0 (spikes) is done and awaiting review; see the [roadmap](PLAN.md) and [docs/spikes/](docs/spikes/). Publishing, and macOS and Windows builds, come later.
+**Pre-alpha, private.** For now bismillah is a personal project that runs only on its author's Linux machine. Phase 1 (the writing core: one file at a time, safe saving with recovery, settings) is built and awaiting review; see the [roadmap](PLAN.md). Publishing, and macOS and Windows builds, come later.
+
+To install it on Arch Linux from this repository: `cd packaging/arch && makepkg -si`. Some GPU and driver combinations need `WEBKIT_DISABLE_DMABUF_RENDERER=1` in the environment.
 
 ## Inspiration
 

@@ -14,7 +14,7 @@ The machine is Arch/Omarchy with Hyprland on Wayland (`eDP-1`, 3840×2160 at sca
 
 | Goal | How | Disturbs the author's desktop? |
 |---|---|---|
-| Verify in the real webview, take screenshots, e2e tests | **Headless (default):** `scripts/headless.sh <command>` (private Xvfb at 2× scale, private D-Bus and runtime dir, `BISMILLAH_TEST=1`) | No |
+| Verify in the real webview, take screenshots, e2e tests | **Headless (default):** `scripts/headless.sh <command>` (private Xvfb at 2× scale, private D-Bus, runtime, config and data dirs, `BISMILLAH_TEST=1`) | No |
 | Native window behaviour (menu with `Alt`/`F10`, window manager, Wayland input, layout switching) | On the live Hyprland session, sent to its own workspace without stealing focus: `hyprctl dispatch exec "[workspace 9 silent] <command>"` | Minimally; tell the author first if they may be working |
 | Quick manual look by the author | `pnpm tauri dev` | Yes |
 
@@ -41,7 +41,10 @@ Stop it when finished (kill the background task). Never leave stray app or dev-s
 
 ## 4. Drive it
 
-- **End-to-end:** `pnpm test:e2e` runs WebdriverIO against `tauri-driver` (which uses `/usr/bin/WebKitWebDriver`) on the built app. Use it for typing, shortcuts, file flows, conflicts and recovery after a killed process. Tests drive the app through `window.__bismillah` (see `src/core/testHooks.ts`: view, theme/profile/scale, geometry probes, command log, menu state).
+- **End-to-end:** `pnpm test:e2e` runs WebdriverIO against `tauri-driver` (which uses `/usr/bin/WebKitWebDriver`) on the built app. Use it for typing, shortcuts, file flows, conflicts and recovery after a killed process. Tests drive the app through `window.__bismillah` (see `src/core/testHooks.ts`: view, theme/profile/scale, geometry probes, command log, menu state, `open(path)` for real files, `fault(kind)` to make saves fail, `notices()`/`act(label)`, `saveState()`, `run(commandId)`, `welcome()`).
+- Under the harness the app starts on the bundled specimen as a sample that is never saved; open a scratch file with `open(path)` to test saving. Never point a test at a file in the repo.
+- WebKitWebDriver drops the second of two identical keys sent in one `browser.keys` call; send one key per call (`tests/e2e/files.ts` `typeAtEnd`).
+- The driver allows one session at a time: end a session (even a killed one) before starting another with `remote()` (`tests/e2e/recovery.e2e.ts`).
 - **Native input** (menus, accelerators, dead keys, layout switching, clipboard): WebDriver keys bypass GTK, so use real X events inside the headless display: `xdotool key …` for single keys, `spikes/webview/xtest.py` (raw XTEST) when the XKB layout group matters (xdotool resets it). Examples: `spikes/webview/keyboard.ts`, `clipboard.ts`.
 - The editor has no DOM focus under Xvfb (no window manager), so CodeMirror doesn't draw the caret; read caret positions from CodeMirror (`coordsAtPos`) instead.
 - **Typing and keyboard-layout tests** that need real Wayland input run on the live session; ask the author before taking over input.

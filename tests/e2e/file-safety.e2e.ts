@@ -117,7 +117,10 @@ describe("file safety", () => {
     expect((await notices())[0]?.message).toContain("Couldn't save “rename.md”");
   });
 
-  it("explains a read-only folder", async () => {
+  it("explains a read-only folder", async function () {
+    // Root ignores permission bits, and the offline run maps the user to root in its
+    // namespace; the disk-full and rename cases above cover failures there.
+    if (process.getuid?.() === 0) this.skip();
     const path = folder.file("locked.md", "locked\n");
     await open(path);
     folder.lock();
