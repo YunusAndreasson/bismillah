@@ -1,0 +1,38 @@
+ 16:02:47 up 1 day, 21:11,  1 user,  load average: 9.11, 11.91, 11.57
+clock: thread CPU time (/proc/thread-self/schedstat)
+first parse of "## CONTENTS": 10.7 ms
+
+[first call per rule on "## CONTENTS"] slowest:
+        1.2 ms  WordPressDotcom
+        1.0 ms  PhrasalVerbAsCompoundNoun
+        1.0 ms  OverPlus
+        1.0 ms  QuiteQuiet
+        1.0 ms  SendAnEmailTo
+        1.0 ms  ChockFull
+        1.0 ms  PedalToTheMetal
+        1.0 ms  VeryMuchSo
+
+[sample] 40 paragraphs, 5127 words; parse total 242.6 ms (4.73 ms/100 words)
+  all 905 rules, one group: 3055.1 ms (59.59 ms/100 words)
+  sum of single-rule runs: 20703.9 ms (includes per-call group overhead)
+  slowest rules over the sample:
+      551.3 ms    2.7%  SpellCheck
+       40.8 ms    0.2%  BewareOf
+       39.5 ms    0.2%  FellowCoRedundancy
+       38.6 ms    0.2%  ALongTime
+       37.6 ms    0.2%  USUniversities
+       35.1 ms    0.2%  FeelFell
+       34.9 ms    0.2%  EasyGoingCompoundAdjective
+       34.5 ms    0.2%  PluralWrongWordOfPhrase
+       34.4 ms    0.2%  TumblrNames
+       34.4 ms    0.2%  ThieveNoun
+       34.4 ms    0.2%  TurnItOff
+       33.8 ms    0.2%  MakeSense
+       32.6 ms    0.2%  NeverMind
+       32.5 ms    0.2%  LitotesDirectPositive
+       32.4 ms    0.2%  BetterOffWith
+  without the slowest  1: 954.5 ms (18.62 ms/100 words)
+  without the slowest  5: 859.3 ms (16.76 ms/100 words)
+  without the slowest 10: 856.1 ms (16.70 ms/100 words)
+  without the slowest 20: 913.1 ms (17.81 ms/100 words)
+ 16:03:30 up 1 day, 21:11,  1 user,  load average: 5.83, 10.71, 11.18

@@ -26,3 +26,6 @@ coverage/
 # Personal Claude Code files (shared config lives in .claude/settings.json)
 CLAUDE.local.md
 .claude/settings.local.json
+
+# Tauri-generated capability schemas
+src-tauri/gen/

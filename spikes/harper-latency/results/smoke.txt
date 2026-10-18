@@ -1,0 +1,95 @@
+clock: wall time
+  Spelling: I will recieve the letter tomorow.
+    [Spelling] chars 17..24 "recieve": Did you mean to spell `recieve` this way? | →receive, →relieve, →recipe
+    [Spelling] chars 36..43 "tomorow": Did you mean to spell `tomorow` this way? | →tomorrow, →tomorrows, →Comoros
+  Grammar: This is a apple. Their is a problem with the the sentence.
+    [Miscellaneous] chars 17..18 "a": Incorrect indefinite article. | →an
+    [Repetition] chars 50..57 "the the": Did you mean to repeat this word? | →the
+    [Grammar] chars 26..31 "Their": Did you mean `there`? | →There, →There's, →There's
+    [Grammar] chars 26..31 "Their": Did you mean `they're`? | →They're, →They're 
+  Typed with smart punctuation on, these should read: “quoted”, it’s, 10–12, a pause — then … and so on.
+    (no lints)
+  She said “it’s fine” and left — quietly… The pages 10–12 are missing.
+    (no lints)
+  He wrote ‘single quotes’ and don’t, can’t, won’t, o’clock.
+    (no lints)
+  Straight quotes: "quoted", it's, 10-12, a pause -- then ... done.
+    [Formatting] chars 48..50 "--": Replace these two hyphens with an en dash (–). | →–
+    [Formatting] chars 35..36 "-": Use an en dash (–) in ranges of numbers. Ignore this if it is math. | →–
+    [Formatting] chars 56..59 "...": Use the Unicode ellipsis character (…). | →…
+  al-Fātiḥa, Qurʾān, ḥadīth, ʿilm, ṣalāh, ḍalāl, ṭahāra, ẓulm, Ibn Taymiyya, Āl ʿImrān, Ḥanbalī, ʿAbd al-Raḥmān.
+    [Spelling] chars 0..2 "al": Did you mean to spell `al` this way? | →all, →a, →ab
+    [Spelling] chars 3..9 "Fātiḥa": Did you mean `Fatima`? | →Fatima
+    [Spelling] chars 11..14 "Qur": Did you mean to spell `Qur` this way? | →Qr, →Qua, →Quo
+    [Spelling] chars 15..17 "ān": Did you mean to spell `ān` this way? | →an, →in, →on
+    [Spelling] chars 19..25 "ḥadīth": Did you mean `hadith`? | →hadith
+    [Spelling] chars 28..31 "ilm": Did you mean to spell `ilm` this way? | →ill, →ism, →ilk
+    [Spelling] chars 33..38 "ṣalāh": Did you mean to spell `ṣalāh` this way? | →Ralph, →Walsh
+    [Spelling] chars 40..45 "ḍalāl": Did you mean to spell `ḍalāl` this way? | →all, →ball, →call
+    [Spelling] chars 47..53 "ṭahāra": Did you mean `Sahara`? | →Sahara
+    [Spelling] chars 55..59 "ẓulm": Did you mean to spell `ẓulm` this way? | →alum, →bulb, →bulk
+    [Spelling] chars 61..64 "Ibn": Did you mean to spell `Ibn` this way? | →In, →Inn, →Ion
+    [Spelling] chars 65..73 "Taymiyya": Did you mean `Tamika`? | →Tamika
+    [Spelling] chars 75..77 "Āl": Did you mean to spell `Āl` this way? | →Al, →Bl, →Cl
+    [Spelling] chars 79..84 "Imrān": Did you mean to spell `Imrān` this way? | →Iron, →Iran
+    [Spelling] chars 86..93 "Ḥanbalī": Did you mean to spell `Ḥanbalī` this way? | →Anal, →Annals, →Cabal
+    [Spelling] chars 96..99 "Abd": Did you mean to spell `Abd` this way? | →Ab, →Ad, →Add
+    [Spelling] chars 100..102 "al": Did you mean to spell `al` this way? | →all, →a, →ab
+    [Spelling] chars 103..109 "Raḥmān": Did you mean to spell `Raḥmān` this way? | →Ramon, →Ramen
+    [WordChoice] chars 28..31 "ilm": Could this be the negative word you intended? | →dem
+  The scholars of ḥadīth disagreed about the isnād of this report.
+    [Spelling] chars 16..22 "ḥadīth": Did you mean `hadith`? | →hadith
+    [Spelling] chars 43..48 "isnād": Did you mean to spell `isnād` this way? | →isn't, →ind
+  The word أمانة means trust, and زهد is the name of focus mode.
+    [WordChoice] chars 15..20 "means": Insert `to` to complete the infinitive (e.g., `need to talk`). | + to
+  An Arabic phrase with a link: [الصفحة الرئيسية](https://example.com) inside English text.
+    (no lints)
+  A smile 😀 then a mistake: recieve.
+    [Spelling] chars 26..33 "recieve": Did you mean to spell `recieve` this way? | →receive, →relieve, →recipe
+  Inside code, nothing is flagged: `recieve`, and inside a URL: https://example.com/recieve
+    (no lints)
+
+  dialect check: The colour of the organization's favorite theatre.
+   American:
+    [Spelling] chars 4..10 "colour": Did you mean to spell `colour` this way? | →color, →cloud, →collar
+    [Spelling] chars 42..49 "theatre": Did you mean to spell `theatre` this way? | →theater, →they're, →there
+   British:
+    [Spelling] chars 33..41 "favorite": Did you mean to spell `favorite` this way? | →favourite, →favourites, →fluorite
+
+  mixed-script strategies
+  The word أمانة means trust, and زهد is the name of focus mode.
+   (a) raw:
+    [WordChoice] chars 15..20 "means": Insert `to` to complete the infinitive (e.g., `need to talk`). | + to
+   (b) parsers::Mask excluding Arabic runs:
+    [WordChoice] chars 15..20 "means": Insert `to` to complete the infinitive (e.g., `need to talk`). | + to
+   (c) Arabic replaced by spaces:
+    [WordChoice] chars 15..20 "means": Insert `to` to complete the infinitive (e.g., `need to talk`). | + to
+    [Formatting] chars 8..15 "       ": There are 7 spaces where there should be only one. | → 
+    [Formatting] chars 31..36 "     ": There are 5 spaces where there should be only one. | → 
+   (d) placeholder word (Xxxx) per run:
+    [WordChoice] chars 15..20 "means": Insert `to` to complete the infinitive (e.g., `need to talk`). | + to
+    [Spelling] chars 9..14 "Xxxxx": Did you mean to spell `Xxxxx` this way? | →Xxxix, →Xxxi, →Xxix
+  He quoted بسم الله and then continued.
+   (a) raw:
+   (b) parsers::Mask excluding Arabic runs:
+   (c) Arabic replaced by spaces:
+    [Formatting] chars 9..19 "          ": There are 10 spaces where there should be only one. | → 
+   (d) placeholder word (Xxxx) per run:
+    [Spelling] chars 14..18 "Xxxx": Did you mean to spell `Xxxx` this way? | →Xxxi, →Xxix, →Xxxix
+  The concept of توحيد is central.
+   (a) raw:
+   (b) parsers::Mask excluding Arabic runs:
+   (c) Arabic replaced by spaces:
+    [Formatting] chars 14..21 "       ": There are 7 spaces where there should be only one. | → 
+   (d) placeholder word (Xxxx) per run:
+    [Spelling] chars 15..20 "Xxxxx": Did you mean to spell `Xxxxx` this way? | →Xxxix, →Xxxi, →Xxix
+
+  IJMES words added to the personal dictionary:
+  al-Fātiḥa, Qurʾān, ḥadīth, ʿilm, ṣalāh, ḍalāl, ṭahāra, ẓulm, Ibn Taymiyya, Āl ʿImrān, Ḥanbalī, ʿAbd al-Raḥmān.
+    [Spelling] chars 11..14 "Qur": Did you mean to spell `Qur` this way? | →Qr, →Qua, →Quo
+    [Spelling] chars 15..17 "ān": Did you mean to spell `ān` this way? | →an, →in, →on
+    [Spelling] chars 28..31 "ilm": Did you mean to spell `ilm` this way? | →ill, →ism, →ilk
+    [Spelling] chars 79..84 "Imrān": Did you mean to spell `Imrān` this way? | →Iron, →ʿImrān, →Iran
+    [Spelling] chars 96..99 "Abd": Did you mean to spell `Abd` this way? | →Ab, →Ad, →Add
+    [WordChoice] chars 28..31 "ilm": Could this be the negative word you intended? | →dem
+  tokens of "Qurʾān ʿilm": "Qur" "ʾ" "ān" " " "ʿ" "ilm"

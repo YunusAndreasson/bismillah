@@ -1,0 +1,24 @@
+[package]
+name = "arabic-speller-spike"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "GPL-3.0-or-later"
+description = "Phase 0 spike: spellbook vs Hunspell with the Ayaspell dictionary"
+
+# Its own workspace root, so it never joins the app's workspace.
+[workspace]
+
+[features]
+default = []
+# Compile the Hunspell C++ sources vendored in hunspell-sys (1.7.1) instead of
+# linking the system libhunspell (1.7.5) through pkg-config.
+bundled = ["hunspell-rs/bundled"]
+
+[dependencies]
+spellbook = "0.4.2"
+hunspell-rs = { version = "0.4.0", default-features = false }
+libc = "0.2"
+
+[profile.release]
+debug = false

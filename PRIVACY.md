@@ -16,7 +16,7 @@ bismillah is built so that your writing stays yours.
 - No accounts, sign-in or sync.
 - No telemetry, analytics, usage statistics or crash reports.
 - No ads.
-- No AI or language-model features.
+- No generative AI: nothing writes, rewrites or summarises your text. The grammar checker includes a small model that runs on your device like the rest of the checker; it only suggests, and you accept each change.
 - No update checks, remote fonts or remote images. Images in your documents load only if they are files inside your library.
 
 ## Precise claims

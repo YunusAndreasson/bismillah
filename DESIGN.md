@@ -10,7 +10,7 @@ The architecture that supports these decisions lives in [ARCHITECTURE.md](ARCHIT
 
 ## 1. Purpose
 
-bismillah is a Markdown editor for people who want to write. It has no accounts, no subscriptions, no ads, no telemetry, no network features and no AI. Beyond typing, it offers two aids: **spelling** (English and Arabic) and **grammar suggestions** (English). Directories and filenames organise the writing, and YAML frontmatter is the only metadata.
+bismillah is a Markdown editor for people who want to write. It has no accounts, no subscriptions, no ads, no telemetry, no network features and no generative AI: nothing writes, rewrites or summarises for the writer, or does their thinking. Beyond typing, it offers two aids: **spelling** (English and Arabic) and **grammar suggestions** (English). Directories and filenames organise the writing, and YAML frontmatter is the only metadata.
 
 Because the feature set is small, design is the product. Every pixel, word and interaction is held to a high standard.
 
@@ -33,7 +33,7 @@ Each principle states how it is judged. A principle that cannot be judged is dec
 
 ## 3. What bismillah will never have
 
-Accounts or sign-in · sync services · telemetry, analytics or crash reporting · ads or upsells · AI or LLM features · remote fonts, images or resources · auto-updaters that contact servers · engagement mechanics (streaks, goals that nag, badges) · a proprietary file format · prayer scheduling, Qur'an/hadith databases or religious-content classification (each is a separate product).
+Accounts or sign-in · sync services · telemetry, analytics or crash reporting · ads or upsells · generative AI or LLM features (grammar checking that only flags and suggests may use small local models, ADR-0004) · remote fonts, images or resources · auto-updaters that contact servers · engagement mechanics (streaks, goals that nag, badges) · a proprietary file format · prayer scheduling, Qur'an/hadith databases or religious-content classification (each is a separate product).
 
 ## 4. Islamic principles as design constraints
 
@@ -132,27 +132,30 @@ Start small; expand only after these are excellent.
 
 | Role | Family | Arabic pairing |
 |---|---|---|
-| Writer (default) | **iA Writer Duo** | IBM Plex Sans Arabic |
+| Writer (default) | **iA Writer Duo** (shipped as Bismillah Duo) | IBM Plex Sans Arabic; **Amiri for now** (ADR-0011) |
 | Serif (writing + preview) | **Source Serif 4** (optical-size axis) | Amiri |
 | Basmallah opening | Amiri | — |
 | Qur'anic (Uthmani) runs | Amiri Quran | — |
 
-- Code spans and blocks use iA Writer Mono, from the same family as Duo.
-- **Uthmani text:** an Arabic run that contains Qur'anic annotation marks (U+06D6–U+06ED, U+08D3–U+08FF: small high letters, waqf signs, rub' el hizb) is set in **Amiri Quran**, which is designed for Mushaf orthography. The whole run switches, never single characters, so shaping is never split across fonts.
-- **Transliteration coverage:** the Latin fonts must have real glyphs for the IJMES set (ā ī ū ḥ ṣ ḍ ṭ ẓ ʿ ʾ and capitals). A gap is fixed with a matched fallback, never left to the system's fallback font. *Known gap (fonts/README.md):* iA Writer Duo and Mono lack ḥ ṣ ḍ ṭ ẓ and ʿ ʾ. The Phase 0 font spike chooses the fix.
+- Code spans and blocks use iA Writer Mono (shipped as Bismillah Mono), from the same family as Duo.
+- **Bismillah Duo / Bismillah Mono** are iA Writer Duo / Mono with the missing IJMES letters added from their own outlines, renamed as the OFL requires (fonts/build/README.md).
+- **Uthmani text:** an Arabic run that contains alef wasla (U+0671) or Qur'anic annotation marks (U+06D6–U+06ED, U+08D3–U+08FF: small high letters, waqf signs, rub' el hizb) is set in **Amiri Quran**, which is designed for Mushaf orthography. The whole run switches, never single characters, so shaping is never split across fonts.
+- **Transliteration coverage:** the Latin fonts must have real glyphs for the IJMES set (ā ī ū ḥ ṣ ḍ ṭ ẓ ʿ ʾ and capitals). A gap is fixed with a matched fallback, never left to the system's fallback font. Duo and Mono's gap is closed by Bismillah Duo and Mono.
+- **Known platform defect:** WebKitGTK 2.54 misplaces Arabic marks that fonts position with vertical offsets (ADR-0011). IBM Plex Sans Arabic is unusable for vocalised text until that is fixed, so Duo pairs with Amiri for now.
 - Any installed system font can be chosen by name, as an unsupported "custom" profile.
 
 ### 8.3 Writing profiles
 
-These are starting values for Phase 0, not settled conclusions. Each value is checked with real prose in the real Tauri webview before it becomes a token.
+Measured in the real webview in Phase 0 (docs/spikes/font-profiles.md) and recorded as tokens in `src/styles/profiles.css`.
 
 | Profile | Size | Line height | Standard measure |
 |---|---|---|---|
-| iA Writer Duo | 20px | 1.6 (32px) | 66ch, checked for roughly 60–72 characters per line |
-| Source Serif 4 | 21px | 1.6 (33.6px) | 34em (714px) |
+| iA Writer Duo | 20px | 1.6 (32px) | 66ch, 61–65 characters per line |
+| Source Serif 4 | 21px | 1.6 (33.6px) | 30em (630px), 60–68 characters per line |
 | IBM Plex Sans Arabic (Arabic-primary documents) | 22px | 1.7 | 32em (704px) |
 | Amiri (Arabic-primary documents, serif) | 24px | 1.8 | 30em (720px) |
 
+- **Vocalised and Qur'anic runs** get a taller inline box (2–2.1× their own size) where stacked marks would otherwise reach the next row, so only rows that contain them grow; bare Arabic and Latin keep the profile's rhythm.
 - **Measure choices:** Narrow (0.85×), Standard, Wide (1.15×). These are preferences, not exact character counts.
 - **`ch` is the width of the "0" glyph,** not an average letter, so measures are always checked on real text.
 - **Size is stable.** Resizing the window changes margins and wrapping, never the writing size; text size never scales with the viewport.
@@ -269,7 +272,7 @@ There are two separate systems with separate purposes:
 
 - **Visible Markdown, iA-style.** Marks stay visible in `syntax-marker`. The `#` of headings, `>` of quotes and list markers hang in the reserved gutter, so text starts on one reading edge. This mirrors on RTL lines.
 - **Caret:** 2px wide, in `accent`. **Selection:** `selection-background` with `text-primary` text.
-- **Typewriter scrolling** is on by default (`Mod-T`). The caret line sits slightly above centre, about 42% from the top of the writing area.
+- **Typewriter scrolling** is on by default (`Mod-T`). The caret line sits slightly above centre, about 42% from the top of the writing area. Typing and keyboard motion keep it there; a mouse click doesn't scroll, so text never jumps away from the pointer.
 - **Diagnostics** are shown as you write by default; both can be switched off. Spelling uses a **wavy** underline in `diagnostic-spelling`; grammar uses a **dotted** underline in `diagnostic-grammar`.
   - They are hidden while the caret is inside the word being typed. Nothing pops up unasked.
   - The detail popover names the kind ("Spelling" / "Grammar suggestion"), explains it in one sentence, and offers explicit actions.
@@ -331,17 +334,23 @@ Two aids transform characters **as you type them**. Rule 3 of AGENTS.md ("save e
 | `---` (inside a line) | — | — |
 | `...` | … | … |
 
-A `---` on a line of its own stays a Markdown rule. Arabic commas and question marks come from the Arabic keyboard layout and are never converted.
+Dashes convert only after a non-space, non-dash character on the same line and never in a table row, so a `---` at the start of a line (a rule, frontmatter, a setext underline) stays Markdown. Arabic commas and question marks come from the Arabic keyboard layout and are never converted.
 
 **Transliteration mode** (`Mod-Shift-T`, off by default; follows **IJMES**). While it is on, a small *Transliteration* indicator stays visible in the status line (it never fades), and these sequences convert:
 
 | Type | Gets | Type | Gets |
 |---|---|---|---|
-| `a-` `i-` `u-` | ā ī ū | `A-` `I-` `U-` | Ā Ī Ū |
+| `a=` `i=` `u=` | ā ī ū | `A=` `I=` `U=` | Ā Ī Ū |
 | `.h` `.s` `.d` `.t` `.z` | ḥ ṣ ḍ ṭ ẓ | `.H` `.S` `.D` `.T` `.Z` | Ḥ Ṣ Ḍ Ṭ Ẓ |
 | `` ` `` | ʿ (ʿayn) | `''` | ʾ (hamza) |
 
-The dot comes **before** the letter so that sentence ends ("Allāh.") never convert. IJMES writes th, kh, dh, sh and gh as two letters, so they need no sequences. This table is a **proposal**: Phase 0's keyboard-input spike tests it against a corpus of English and transliterated prose for collisions before it is final.
+- `=` reads as the bar of the macron. (`a-` was rejected: it collides with IJMES's own hyphenated particles, *wa-l-ʿilm*, *bi-llāh*.)
+- The dot comes **before** the letter so that sentence ends ("Allāh.") never convert. An upper-case dot sequence directly after a letter doesn't convert, so abbreviations like A.H., U.S. and Ph.D. stay intact.
+- A backtick right after a backtick stays a backtick, and a second backtick after a just-made ʿ turns the pair back into ` `` `, so inline code and fences still type.
+- Sequences match only whole, just-typed keys (an ellipsis made by smart punctuation never supplies a dot), and keys restored by Backspace never convert again.
+- IJMES writes th, kh, dh, sh and gh as two letters, so they need no sequences.
+
+The table was chosen on 1.8M words of English and Islamic-studies prose (docs/spikes/transliteration.md).
 
 ## 12. Chrome, status and motion
 

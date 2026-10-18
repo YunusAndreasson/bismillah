@@ -29,6 +29,31 @@ Each spike ends with a short written result in its ADR: **go**, **adjust** or **
 | Native menu | Can a menu generated from the command registry be hidden on Linux and revealed with `Alt`/`F10`, with accelerators that don't fight CodeMirror's keymap? | Works under Hyprland and GNOME |
 | Keyboard input | Do XKB layout switching (English ↔ Arabic), dead keys and compose sequences behave in the editor? Does the proposed transliteration table (DESIGN.md §11.3) avoid collisions on a corpus of English and transliterated prose? | No lost or doubled characters; transliteration table finalised |
 
+### Phase 0 result (2026-10-18): awaiting the author's review
+
+Evidence and verdicts per spike: [docs/spikes/](docs/spikes/README.md). Results are recorded in ADRs 0002, 0004 and 0007–0010.
+
+| Spike | Verdict |
+|---|---|
+| Hanging marks · Bidi · Basmallah · Real-app testing · Native menu · Keyboard input | **go** |
+| Arabic speller | **go: spellbook** (Hunspell binding rejected) |
+| Font profiles | **adjust**: Serif measure 30em; taller line boxes for vocalised and Qur'anic runs |
+| Harper | **adjust**: p95 over 50 ms; suggestions on demand; masking; curated defaults |
+| Uthmani + transliteration glyphs | **adjust**: Bismillah Duo/Mono close the IJMES gap; WebKitGTK misplaces Arabic marks |
+| Transliteration table | **adjust**: `a=` for macrons, guards for abbreviations and code |
+
+**Decisions for the author**
+1. **Arabic mark rendering** (proposed [ADR-0011](docs/decisions/0011-arabic-mark-rendering.md)): WebKitGTK 2.54 drops the vertical offsets of Arabic marks (WebKit bug 255972, root cause traced). Interim: every profile pairs with Amiri. Choose among upstream report, a locally patched WebKitGTK, font engineering, or accepting the residual errors.
+2. **Filing the WebKit bug comment** with the root cause and patch: an outward action, so it needs the author's go-ahead.
+3. Confirm the transliteration table change (`a=` instead of `a-`) and the alef-wasla Qur'anic trigger (both recorded; easy to revisit).
+
+**Manual checks only the author can do (≈5 minutes, live Hyprland session)**
+- `pnpm tauri dev`, then type with fcitx5 active: Swedish dead keys (´ e → é), Compose (Shift+Caps, - a → ā), and, if an Arabic layout is added, switch layouts mid-word. Nothing should be lost or doubled.
+- Press `Alt` alone and `F10`: the menu bar appears with File focused; `Esc` hides it. `Ctrl+Z`, `Ctrl+T` act once.
+- Look at the specimen's Arabic and Qur'anic sections (`pnpm app:shot -- --profiles duo,serif,amiri --scroll-to "## Arabic"` writes screenshots to `target/shots/`).
+
+**Already done for Phase 1:** the scaffold (Tauri 2, Svelte 5, TypeScript strict, Vite, CodeMirror), `pnpm verify` with every check, the token file, bundled fonts with Bismillah Duo/Mono, the editor's visible-markup styling, hanging marks, bidi, Basmallah and typewriter extensions, and the native menu from a command registry. Still to do from the Phase 1 scaffold line: Bits UI and the local `PKGBUILD`.
+
 ## Phase 1 — Writing core
 
 - Scaffold (Tauri 2 + Svelte 5 + TS + Vite + Bits UI), local git, `pnpm verify` (all checks, `cargo deny` included), lint/format/check.

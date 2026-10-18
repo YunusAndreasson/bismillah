@@ -1,0 +1,171 @@
+/*
+ * The writing surface (DESIGN.md §8, §11). Document typography only; the interface
+ * uses system-ui and never follows the writing profile.
+ */
+
+.cm-editor {
+  --doc-px: calc(var(--doc-size) * var(--doc-scale));
+  --L: calc(var(--doc-px) * var(--doc-line));
+  font-family: var(--doc-font), var(--doc-font-arabic), var(--doc-font-quran);
+  font-size: var(--doc-px);
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures contextual;
+  font-optical-sizing: auto;
+  font-synthesis: none;
+  color: var(--text-primary);
+  background: var(--surface-editor);
+}
+
+.cm-editor .cm-content {
+  /* An absolute line height, so spans in another font or size inherit the same value. */
+  line-height: var(--L);
+  width: 100%;
+  max-width: calc(var(--doc-measure) * var(--measure-scale) + 2 * var(--hang-gutter));
+  flex-grow: 0;
+  margin-inline: auto;
+  padding-block: var(--L) 30vh;
+  caret-color: var(--accent);
+}
+
+.cm-editor.cm-typewriter .cm-content {
+  padding-block: 42vh 58vh;
+}
+
+.cm-editor .cm-line {
+  padding-inline: var(--hang-gutter);
+}
+
+/* Hanging marks (hangingMarks.ts): the prefix sits in the start gutter. */
+.cm-editor .cm-line.cm-hang {
+  padding-inline-start: calc(var(--hang-gutter) + var(--shift));
+  text-indent: calc(-1 * var(--hang));
+}
+
+.cm-hang-measure {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: pre;
+  contain: layout style;
+}
+.cm-hang-measure .cm-line {
+  padding: 0;
+}
+
+/* Visible Markdown (ADR-0002). */
+.cm-editor .cm-mark,
+.cm-editor .cm-url,
+.cm-editor .cm-label {
+  color: var(--syntax-marker);
+}
+.cm-editor .cm-em {
+  font-style: italic;
+}
+.cm-editor .cm-strong {
+  font-weight: 700;
+}
+.cm-editor .cm-strike {
+  text-decoration: line-through;
+  text-decoration-thickness: 0.06em;
+}
+.cm-editor .cm-code,
+.cm-editor .cm-line.cm-codeblock {
+  font-family: var(--doc-font-mono);
+  font-size: calc(var(--doc-mono-scale) * 1em);
+}
+.cm-editor .cm-line.cm-codeblock .cm-code {
+  font-size: 1em;
+}
+.cm-editor .cm-line.cm-frontmatter,
+.cm-editor .cm-line.cm-frontmatter .cm-meta {
+  color: var(--text-secondary);
+}
+
+/* Heading hierarchy, editor scale (DESIGN.md §8.4). Space above counts the blank line
+   that normally precedes a heading. */
+.cm-editor .cm-line.cm-h1,
+.cm-editor .cm-line.cm-h2,
+.cm-editor .cm-line.cm-h3,
+.cm-editor .cm-line.cm-h4,
+.cm-editor .cm-line.cm-h5,
+.cm-editor .cm-line.cm-h6 {
+  line-height: 1.3em;
+  font-weight: 700;
+}
+.cm-editor .cm-h1 {
+  font-size: 1.4em;
+}
+.cm-editor .cm-h2 {
+  font-size: 1.22em;
+}
+.cm-editor .cm-h3 {
+  font-size: 1.08em;
+}
+.cm-editor .cm-h5,
+.cm-editor .cm-h6 {
+  font-weight: 600;
+}
+.cm-editor .cm-line.cm-h6 {
+  color: var(--text-secondary);
+}
+.cm-editor .cm-content > .cm-line.cm-h1 {
+  padding-block-start: var(--L);
+}
+.cm-editor .cm-content > .cm-line.cm-h2 {
+  padding-block-start: calc(0.5 * var(--L));
+}
+.cm-editor .cm-content > .cm-line.cm-h3 {
+  padding-block-start: calc(0.25 * var(--L));
+}
+
+/* Arabic runs (scriptRuns.ts). Never letter-spaced (DESIGN.md §8.6). */
+.cm-editor .cm-ar {
+  font-family: var(--doc-font-arabic);
+  font-size: calc(var(--doc-arabic-scale) * 1em);
+  letter-spacing: normal;
+}
+.cm-editor .cm-ar.cm-ar-voc {
+  line-height: var(--doc-arabic-voc-line);
+}
+.cm-editor .cm-ar.cm-quran {
+  font-family: var(--doc-font-quran);
+  font-size: calc(var(--doc-quran-scale) * 1em);
+  line-height: var(--doc-quran-line);
+}
+/* Arabic families without an italic show emphasis with weight. */
+.cm-editor .cm-em .cm-ar,
+.cm-editor .cm-ar .cm-em {
+  font-weight: 600;
+}
+
+/* Bidi isolation for inline code and URLs (bidi.ts). */
+.cm-editor .cm-isolate {
+  unicode-bidi: isolate;
+}
+
+/* Caret and selection (DESIGN.md §11, §9.4). */
+.cm-editor .cm-cursor,
+.cm-editor .cm-dropCursor {
+  border-left: 2px solid var(--accent);
+  margin-left: -1px;
+}
+.cm-editor .cm-selectionLayer .cm-selectionBackground,
+.cm-editor.cm-focused .cm-selectionLayer .cm-selectionBackground {
+  background: var(--selection-background);
+}
+
+/* The Basmallah opening (ADR-0008, DESIGN.md §11.2). */
+.cm-editor .cm-basmallah {
+  font-family: "Amiri", serif;
+  font-weight: 400;
+  font-size: calc(28px * var(--doc-scale));
+  line-height: 1.8;
+  text-align: center;
+  color: var(--text-primary);
+  padding-block: var(--L) calc(1.5 * var(--L));
+  padding-inline: var(--hang-gutter);
+  user-select: text;
+  cursor: default;
+}

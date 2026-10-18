@@ -3,11 +3,29 @@
 # Bans are a guard rail, not proof: see ARCHITECTURE.md §10 for the runtime tests.
 
 [graph]
-all-features = true
+# Check the feature set the app is actually built with. Tauri has optional networking
+# features (reqwest, hyper) that `all-features` would switch on hypothetically; enabling
+# any of them for real still fails the bans below.
+all-features = false
+# Desktop only (ADR-0009). Tauri pulls reqwest in for Android and iOS, which bismillah
+# never targets.
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "aarch64-unknown-linux-gnu",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+  "aarch64-pc-windows-msvc",
+]
 
 [advisories]
 version = 2
 yanked = "deny"
+ignore = [
+  # proc-macro-error is unmaintained. It is a compile-time dependency of glib-macros in
+  # gtk-rs 0.18, the GTK3 bindings Tauri 2 uses on Linux, and never ships in the binary.
+  { id = "RUSTSEC-2024-0370", reason = "compile-time only, via Tauri's GTK3 bindings" },
+]
 
 [licenses]
 version = 2

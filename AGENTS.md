@@ -2,7 +2,7 @@
 
 **bismillah** is a free, offline, minimal Markdown editor in the spirit of the original iA Writer, built with Tauri 2, Svelte 5, CodeMirror 6 and a Rust core. It has two features beyond typing (spelling in English and Arabic, grammar suggestions in English), so the quality of its typography, interaction and reliability *is* the product.
 
-**Status:** pre-code, with tooling ready: fonts in `fonts/source/`, the Arabic dictionary in `dictionaries/ar/`, and `cargo-deny`, `tauri-driver` and fontTools installed. The next step is Phase 0 (spikes) in [PLAN.md](PLAN.md). Keep this file accurate as commands and layout appear. bismillah is private and runs only on the author's Linux machine for now: local git, no remote, no CI. `pnpm verify` is the gate.
+**Status:** Phase 0 (spikes) done and awaiting the author's review ([PLAN.md](PLAN.md), [docs/spikes/](docs/spikes/README.md)). The scaffold, test harness and editor spike extensions exist; Phase 1 starts after the review, beginning with the Arabic rendering decision (proposed ADR-0011). Keep this file accurate as commands and layout change. bismillah is private and runs only on the author's Linux machine for now: local git, no remote, no CI. `pnpm verify` is the gate.
 
 **Working mode:** build each phase end to end (code, tests, specimen screenshots, docs) and stop at the phase's acceptance check for the author's review. Within a phase, proceed without asking about decisions already recorded in DESIGN.md, ARCHITECTURE.md or an ADR.
 
@@ -29,6 +29,7 @@ These five rules protect the people who write in bismillah. Each one is a promis
 ## Standing decisions
 
 - **Desktop only, never web or mobile** (ADR-0009). Write for the Tauri webviews and use Tauri APIs directly: persistence through Rust, no browser fallbacks or `isTauri()` guards, no responsive mobile layouts or touch handling. Follow desktop conventions (native menu, native dialogs, file opening, window state). Mobile, simulator and browser-automation tooling doesn't apply here; run the real app with `pnpm tauri dev` and test it with `tauri-driver`.
+- **No generative AI** (ADR-0004, author's decision 2026-10-18): nothing may write, rewrite or summarise the writer's text or do their thinking. Grammar checking smarter than a spell checker, including small local models, is fine when it only flags and suggests and the writer accepts each change.
 - **Extensibility is declarative themes only.** Loading user JavaScript would give it the app's full authority, so executable plugins wait for an ADR on isolation (ADR-0005).
 - **Preview renders with raw HTML disabled** and sanitises with DOMPurify after all rendering, so a document can never run script.
 - **The Basmallah opening is a presentation element**, outside the file, the CodeMirror document, counts and linting (ADR-0008).
@@ -38,23 +39,26 @@ These five rules protect the people who write in bismillah. Each one is a promis
 
 ## Commands
 
-Planned; they become real in Phase 1.
+All of these exist. Real-app commands need `pnpm app:build` first and run headless through `scripts/headless.sh`.
 
 ```bash
 pnpm install && pnpm tauri dev   # run the app
 pnpm check && pnpm lint          # svelte-check + tsc strict; eslint + prettier
 pnpm test                        # vitest
 pnpm test:e2e                    # tauri-driver against the real app
-pnpm test:visual                 # screenshot regression in the real app (tauri-driver)
+pnpm test:visual                 # screenshot regression in the real app (UPDATE_BASELINES=1 to rewrite)
+pnpm app:build                   # debug build with the frontend embedded (needed by the real-app commands)
+pnpm app:shot                    # specimen screenshots at 640/1280/1920/2560 (see run-app skill)
+pnpm test:offline                # e2e suite with no network, under strace
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check
 cargo deny check                 # banned crates, licences, advisories
-pnpm verify                      # all of the above; the gate before every commit
+pnpm verify                      # all checks incl. build, e2e and visual; the gate before every commit (--fast skips the real-app suites)
 ```
 
 ## Running and seeing the app
 
-Use the `run-app` skill: headless runs by default (`xvfb-run`), webview screenshots via `tauri-driver` that you inspect yourself, window-only captures on the live Hyprland session when native behaviour matters, and offline proof runs (`unshare -rn`, `strace`). Never capture the author's full screen.
+**Never launch the app outside `scripts/headless.sh` for automated work** (`pnpm app:shot`, `pnpm test:e2e` and the spike scripts already use it); a bare launch opens a window on the author's desktop. Use the `run-app` skill: headless runs by default (`xvfb-run`), webview screenshots via `tauri-driver` that you inspect yourself, window-only captures on the live Hyprland session when native behaviour matters, and offline proof runs (`unshare -rn`, `strace`). Never capture the author's full screen.
 
 ## Definition of done
 

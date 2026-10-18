@@ -1,0 +1,77 @@
+/*
+ * Writing profiles (DESIGN.md §8.3). Phase 0 starting values, checked in the real
+ * webview by the font-profile spike (docs/spikes/font-profiles.md). The writer's text
+ * size preference multiplies `--doc-size` through `--doc-scale`; the window width never
+ * changes it.
+ *
+ * --doc-arabic-scale and --doc-quran-scale size Arabic runs inside a Latin-primary
+ * profile so both scripts read at a similar size. --doc-arabic-voc-line and
+ * --doc-quran-line give vocalised and Qur'anic runs a taller inline box where stacked
+ * marks would otherwise reach the next row (`inherit` keeps the row height).
+ *
+ * Interim (Phase 0 result, docs/spikes/arabic-rendering.md): WebKitGTK 2.54 drops the
+ * vertical mark offsets of IBM Plex Sans Arabic (WebKit bug 255972), so every profile
+ * pairs with Amiri, which it misrenders least, until the author decides the fix.
+ */
+
+:root {
+  --doc-scale: 1;
+  --measure-scale: 1;
+}
+
+:root,
+:root[data-profile="duo"] {
+  --doc-font: "Bismillah Duo";
+  --doc-font-arabic: "Amiri";
+  --doc-font-quran: "Amiri Quran";
+  --doc-font-mono: "Bismillah Mono";
+  --doc-size: 20px;
+  --doc-line: 1.6;
+  --doc-measure: 66ch;
+  --doc-arabic-scale: 1.2;
+  --doc-quran-scale: 1.2;
+  --doc-mono-scale: 1;
+  --doc-arabic-voc-line: 2;
+  --doc-quran-line: 2;
+}
+
+:root[data-profile="serif"] {
+  --doc-font: "Source Serif 4";
+  --doc-font-arabic: "Amiri";
+  --doc-font-quran: "Amiri Quran";
+  --doc-font-mono: "Bismillah Mono";
+  --doc-size: 21px;
+  --doc-line: 1.6;
+  --doc-measure: 30em;
+  --doc-arabic-scale: 1.15;
+  --doc-quran-scale: 1.15;
+  --doc-mono-scale: 0.86;
+  --doc-arabic-voc-line: 2;
+}
+
+:root[data-profile="plex-arabic"] {
+  --doc-font: "IBM Plex Sans Arabic";
+  --doc-font-arabic: "IBM Plex Sans Arabic";
+  --doc-font-quran: "Amiri Quran";
+  --doc-font-mono: "Bismillah Mono";
+  --doc-size: 22px;
+  --doc-line: 1.7;
+  --doc-measure: 32em;
+  --doc-arabic-scale: 1;
+  --doc-quran-scale: 1.1;
+  --doc-mono-scale: 0.9;
+}
+
+:root[data-profile="amiri"] {
+  --doc-font: "Amiri";
+  --doc-font-arabic: "Amiri";
+  --doc-font-quran: "Amiri Quran";
+  --doc-font-mono: "Bismillah Mono";
+  --doc-size: 24px;
+  --doc-line: 1.8;
+  --doc-measure: 30em;
+  --doc-arabic-scale: 1;
+  --doc-quran-scale: 1;
+  --doc-mono-scale: 0.8;
+  --doc-arabic-voc-line: 2.1;
+}

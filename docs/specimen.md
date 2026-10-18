@@ -89,9 +89,9 @@ Footnotes stay quiet until needed.[^1]
 
 ## Qur'anic text (Uthmani)
 
-Pasted Uthmani text with Qur'anic annotation marks. It must render in Amiri Quran, survive saving byte for byte, and never be spellchecked. *Verify against tanzil.net before using this as a golden fixture.*
+Pasted Uthmani text with Qur'anic annotation marks. It must render in Amiri Quran, survive saving byte for byte, and never be spellchecked. *Copied verbatim from Tanzil (Uthmani, without tatweel) on 2026-10-18; never normalise it. More verses are in `tests/fixtures/quran/`.*
 
-ذَٰلِكَ ٱلْكِتَٰبُ لَا رَيْبَ ۛ فِيهِ ۛ هُدًى لِّلْمُتَّقِينَ
+ذَٰلِكَ ٱلْكِتَٰبُ لَا رَيْبَ ۛ فِيهِ ۛ هُدًى لِّلْمُتَّقِينَ
 
 ## Transliteration (IJMES)
 

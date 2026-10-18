@@ -1,6 +1,6 @@
 # Fonts
 
-All bundled fonts are under the **SIL Open Font License 1.1**. Each family's licence file sits next to its fonts. `source/` holds the unmodified upstream masters; the shipped web fonts are built from them in Phase 1 (ADR-0007).
+All bundled fonts are under the **SIL Open Font License 1.1**. Each family's licence file sits next to its fonts. `source/` holds the unmodified upstream masters; the shipped web fonts are built from them in Phase 1 (ADR-0007). `build/` holds generated, renamed fonts (Bismillah Duo and Mono, Phase 0) and `tools/` the scripts that make and check them.
 
 ## Sources
 
@@ -29,15 +29,13 @@ Under the OFL, a **modified version** (which includes a subset, or a merge with 
 
 | Need | Result |
 |---|---|
-| IJMES transliteration in **iA Writer Duo / Mono** | ā ī ū present; **ḥ ṣ ḍ ṭ ẓ (and capitals) and ʿ ʾ missing**. Duo has the combining dot below (U+0323). |
+| IJMES transliteration in **iA Writer Duo / Mono** | ā ī ū present; **ḥ ṣ ḍ ṭ ẓ (and capitals) and ʿ ʾ missing**. Duo has the combining dot below (U+0323). Closed by the Bismillah Duo / Mono build (below). |
 | IJMES in **IBM Plex Mono 2.5.0** (Duo's ancestor; candidate fallback) | ḥ ṣ ḍ ṭ ẓ present; **ʿ ʾ missing** |
 | IJMES in **Source Serif 4** | complete |
 | Smart punctuation “ ” ‘ ’ – — … « » | present in all Latin fonts |
 | Qur'anic marks U+06D6–U+06ED, U+0610–U+061A | Amiri, Plex Sans Arabic: complete. **Amiri Quran lacks U+0610–U+0614 and U+0616** (honorific signs, which are not Qur'anic annotation). |
 
-Consequences for Phase 0 (spike "Uthmani + transliteration glyphs"):
-- **Duo's IJMES gap must be closed with a matched fallback**, never left to the system's fallback font. Candidates:
-  1. A renamed Duo build that adds ḥ ṣ ḍ ṭ ẓ from Plex Mono, or composes them from Duo's own letters and U+0323, plus ʿ ʾ drawn to match Duo's quotes.
-  2. A `unicode-range` fallback chain (Plex Mono for dot-below letters; a matched source for ʿ ʾ).
-  3. Check whether WebKitGTK renders precomposed ḥ by decomposing it to h + U+0323 within Duo.
-- **Switch to Amiri Quran only for runs containing U+06D6–U+06ED or U+08D3–U+08FF.** Honorific signs (U+0610–U+061A) stay in the regular Arabic font, which covers them. Spellcheck still skips all three ranges.
+Phase 0 result (spike "Uthmani + transliteration glyphs", font side; details in [docs/spikes/glyphs.md](../docs/spikes/glyphs.md)):
+- **Duo's and Mono's IJMES gap is closed by a renamed build**, [`build/`](build/README.md): **Bismillah Duo** and **Bismillah Mono** add ḥ ṣ ḍ ṭ ẓ Ḥ Ṣ Ḍ Ṭ Ẓ (the fonts' own letters and dot below, at their own anchors) and ʿ ʾ (halves of the fonts' own ring accent). Built by `tools/build_ijmes.py`, checked by `tools/verify_ijmes.py`. Load these instead of the upstream Duo and Mono.
+- Upstream Duo already has GPOS mark-to-base anchors for U+0323 on h s d t z, so decomposed input (h + U+0323) also renders correctly once shaping reaches the font.
+- **Switch to Amiri Quran only for runs containing U+06D6–U+06ED or U+08D3–U+08FF.** Honorific signs (U+0610–U+061A) stay in the regular Arabic font, which covers them. Spellcheck still skips all three ranges. Amiri Quran, Amiri and Plex Sans Arabic cover every code point in the Tanzil and quran.com Uthmani texts (`tests/fixtures/quran/`).

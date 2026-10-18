@@ -2,7 +2,7 @@
 
 This document describes how bismillah is built and the contracts each part must keep. Product and visual decisions live in [DESIGN.md](DESIGN.md). Lasting decisions are recorded as ADRs in [docs/decisions/](docs/decisions/). If code and this document disagree, fix one of them in the same change.
 
-> **Status:** pre-code. Paths and commands below describe the intended structure; update this file when the scaffold lands.
+> **Status:** Phase 0 done. The Tauri + Svelte + CodeMirror scaffold, the test harness and the spike extensions exist (§3 marks what is real); file handling, the library and linting arrive in Phases 1–3.
 
 ---
 
@@ -37,8 +37,8 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | CodeMirror 6 + `@codemirror/lang-markdown` (Lezer) | Editing, IME, bidi, undo, search, accessibility |
 | markdown-it | Preview rendering (raw HTML disabled) |
 | DOMPurify | Sanitises preview HTML after all rendering extensions have run |
-| `harper-core` | English spelling and grammar, offline |
-| `spellbook` (fallback: `hunspell-rs`) | Arabic spelling behind an adapter (ADR-0004) |
+| `harper-core` | English spelling and grammar, offline. Embeds a small chunking model via `burn` (allowed by ADR-0004's AI policy); build without the thesaurus feature |
+| `spellbook` | Arabic spelling behind the `ArabicSpeller` adapter (ADR-0004; chosen in Phase 0) |
 | `notify` | File watching |
 | `trash` | Move to the system trash instead of deleting |
 | `dirs` / Tauri path API | Platform config, data and cache directories |
@@ -48,40 +48,43 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | `tauri-plugin-window-state` | Remember window size, position and maximised state |
 | `tauri-plugin-clipboard-manager` | "Copy as rich text": put both HTML (rendered with the preview pipeline) and plain text on the clipboard |
 | `serde`, `toml`, `thiserror` | Settings and errors |
+| `gtk` (Linux only, already in Tauri's tree) | Focus the native menu bar on `Alt`/`F10` (`platform.rs`) |
+
+**Development only** (never shipped): WebdriverIO + `tauri-driver` (real-app e2e), `pixelmatch` + `pngjs` (screenshot comparison), Vitest + jsdom, ESLint + Prettier, svelte-check. Spike and font tooling run through `uv`: fontTools (font build), `uharfbuzz` (rendering reference), `python-xlib` (raw X input and clipboard).
 
 No CSS framework, state-management library, layout library, icon font or component kit. CSS is plain and uses tokens (DESIGN.md §9). No browser test stack: bismillah is desktop-only (ADR-0009), so it is tested in the real app.
 
-## 3. Repository layout (intended)
+## 3. Repository layout
+
+Real since Phase 0 unless marked *(planned)*.
 
 ```
 bismillah/
 ├─ AGENTS.md  DESIGN.md  ARCHITECTURE.md  PLAN.md  README.md  CONTRIBUTING.md
-├─ PRIVACY.md  SECURITY.md  LICENSE  deny.toml  .editorconfig
-├─ .claude/                  agent config: path-scoped rules/, hooks/ (offline guard, formatter), skills/design-review
+├─ PRIVACY.md  SECURITY.md  LICENSE  deny.toml  Cargo.toml (workspace)  package.json
+├─ .claude/                  agent config: path-scoped rules/, hooks/, skills/ (design-review, run-app)
+├─ index.html                carries the CSP nonce element CodeMirror's styles need (§10)
 ├─ src-tauri/
 │  ├─ src/
-│  │  ├─ main.rs, lib.rs      app setup, CSP, navigation guard, command registration
-│  │  ├─ library.rs           library root, path validation, tree listing
-│  │  ├─ documents.rs         open/save contract (§5), revisions, line endings
-│  │  ├─ recovery.rs          recovery journal (§5.4)
-│  │  ├─ watch.rs             external change detection
-│  │  ├─ settings.rs          settings.toml, keybindings.toml (§9)
-│  │  ├─ themes.rs            declarative theme loading and validation (§8)
-│  │  ├─ lint.rs              IPC adapter around bismillah-lint
-│  │  └─ platform.rs          all cfg(target_os) code lives here
+│  │  ├─ main.rs, lib.rs      app setup, CSP, navigation guard, commands (document, menu)
+│  │  ├─ platform.rs          all cfg(target_os) code (menu-bar focus on Linux)
+│  │  └─ library.rs, documents.rs, recovery.rs, watch.rs, settings.rs, themes.rs, lint.rs  (planned)
 │  └─ capabilities/           minimal Tauri capability set
-├─ crates/bismillah-lint/     pure Rust, no Tauri dependency, fully unit-tested
+├─ crates/bismillah-lint/     (planned, Phase 3) pure Rust, no Tauri dependency
 ├─ src/
-│  ├─ core/                   command registry, keymap, app state, typed IPC bridge
-│  ├─ editor/                 CodeMirror setup + extensions (styling, hanging marks,
-│  │                          diagnostics, zuhd, typewriter, basmallah, bidi)
-│  ├─ preview/                markdown-it config, sanitising, preview typography
-│  ├─ ui/                     Svelte components (Library, QuickOpen, Palette, Settings, Status)
-│  └─ styles/                 tokens.css (primitive + semantic), typography profiles
-├─ fonts/                     bundled OFL fonts + their licences
-├─ dictionaries/              Arabic dictionary + licence (English comes with Harper)
-├─ tests/                     e2e (real Tauri app), visual regression
-└─ docs/  decisions/ · specimen.md · reviews/
+│  ├─ core/                   command registry, native menu, typed IPC bridge, appearance,
+│  │                          test hooks (only with BISMILLAH_TEST=1)
+│  ├─ editor/                 CodeMirror setup + one extension per concern: dialect (frontmatter),
+│  │                          markdownStyling, hangingMarks, bidi, scriptRuns, basmallah, typewriter
+│  ├─ preview/                (planned, Phase 4)
+│  ├─ ui/                     (planned) Svelte components
+│  └─ styles/                 tokens.css, fonts.css, profiles.css, editor.css
+├─ fonts/  source/ (upstream) · build/ (Bismillah Duo/Mono) · tools/ (build + verify scripts)
+├─ dictionaries/              Arabic dictionary + licence
+├─ scripts/                   headless.sh, verify.sh, offline.sh, app-shot.ts
+├─ tests/                     e2e/ (incl. spikes/), visual/ (baselines), fixtures/ (bidi, profiles, quran)
+├─ spikes/                    Phase 0 experiments: arabic-speller, harper-latency, transliteration, webview
+└─ docs/  decisions/ · spikes/ · specimen.md · reviews/ · interviews/
 ```
 
 ## 4. IPC surface
@@ -171,13 +174,14 @@ Diagnostic   { from_utf16, to_utf16, kind: Spelling|Grammar, message, suggestion
 - Text is segmented into **script runs**: Arabic-script runs go to the Arabic speller; Latin runs go to Harper.
 - Script alone does not establish language, so a frontmatter `lang:` or an explicit setting overrides the routing. Grammar runs only on runs routed to English.
 - Text in other scripts is left unchecked; it is never flagged.
-- **Qur'anic text is skipped automatically.** Any Arabic run containing Qur'anic annotation characters (U+0610–U+061A, U+06D6–U+06ED, U+08D3–U+08FF) is not spellchecked, because Uthmani orthography differs from modern spelling. The test is purely on characters, so no text is ever classified by meaning.
+- **Qur'anic text is skipped automatically.** Any Arabic run containing alef wasla (U+0671) or Qur'anic annotation characters (U+0610–U+061A, U+06D6–U+06ED, U+08D3–U+08FF) is not spellchecked, because Uthmani orthography differs from modern spelling. The test is purely on characters, so no text is ever classified by meaning. (`src/editor/scriptRuns.ts` already uses the same trigger to set such runs in Amiri Quran.)
+- **Harper (Phase 0 findings):** one long-lived lint thread (its group is `Send + Sync` but `lint` takes `&mut self`); offsets come back as Unicode scalar values; ʿ and ʾ split its tokens, so IJMES words are masked or handled by our own dictionary check; spelling suggestions are computed on request, not inline.
 
 ### 7.3 Arabic analysis
 - Lookup normalisation happens on a **temporary analysis copy** with an offset map back to the original. The document is never changed.
 - Strip only what the dictionary's rules allow (diacritics and tatweel, per its `IGNORE`).
 - **No unconditional alef or hamza normalisation**, which would hide real spelling mistakes.
-- The `ArabicSpeller` trait has two implementations, `spellbook` and `hunspell-rs`. The choice is made in Phase 0 by a correctness and suggestion benchmark.
+- The `ArabicSpeller` trait is implemented with `spellbook` (Phase 0 benchmark: same verdicts as Hunspell, faster, pure Rust). The adapter strips the dictionary's `IGNORE` characters on the analysis copy before check *and* suggest, suggests only on request with a ~300 ms budget off the UI thread, and loads the dictionary lazily. The `hunspell` CLI serves as a test oracle.
 
 ### 7.4 Personal dictionary
 `<config>/bismillah/dictionary.txt`, one word per line, shared across languages. *Ignore* is per session and per document.
@@ -206,9 +210,9 @@ See ADR-0003 and PRIVACY.md. Two claims are kept distinct:
 
 - **"bismillah works without a network."** Tested: the full e2e suite runs inside a network namespace with no network (`unshare -rn`).
 - **"bismillah contains no networking features."** Supported by:
-  - **CSP** (in `tauri.conf.json`): `default-src 'self'`; `connect-src` only Tauri IPC; `img-src 'self' asset: data:`; `font-src 'self'`; `script-src 'self'`; `style-src 'self'`; `object-src 'none'`; `frame-src 'none'`; `base-uri 'none'`; `form-action 'none'`.
+  - **CSP** (in `tauri.conf.json`): `default-src 'self'`; `connect-src` only Tauri IPC; `img-src 'self' asset: data:`; `font-src 'self'`; `script-src 'self'`; `style-src 'self'`; `object-src 'none'`; `frame-src 'none'`; `base-uri 'none'`; `form-action 'none'`. CodeMirror injects its base styles with a `<style>` element; Tauri gives inline style elements in `index.html` a fresh nonce on each load, and `src/editor/setup.ts` passes that nonce to `EditorView.cspNonce`. Style changes go through CSSOM, never `setAttribute("style")`. An e2e test asserts no CSP violations.
   - **Navigation guard:** the main webview refuses all navigation away from the app origin, and new windows are denied. Links in preview open in the system browser only on an explicit `Mod-click` (the app makes no request itself).
-  - **No network-capable Tauri plugins** (http, updater, websocket, upload), enforced by `deny.toml` (`cargo deny check bans`) in `pnpm verify` and a project hook.
+  - **No network-capable Tauri plugins** (http, updater, websocket, upload), enforced by `deny.toml` (`cargo deny check bans`) in `pnpm verify` and a project hook. cargo-deny checks the feature set and desktop targets the app is actually built for: Tauri's optional networking features and its Android/iOS-only `reqwest` dependency are not in that tree.
   - **Native feature audit:** each release reviews the Rust dependency tree for socket use.
   - **Runtime test:** `strace -f -e trace=connect,sendto` over an e2e run shows no non-local connections.
 
@@ -236,9 +240,9 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 - Unit tests stub IPC with `@tauri-apps/api/mocks` (`mockIPC`) instead of keeping a browser mode alive.
 
 ### 12.2 Desktop integration
-- **Native application menu**, generated from the command registry (same labels, IDs and accelerators as the palette).
+- **Native application menu**, generated from the command registry (`src/core/commands.ts` → `src/core/menu.ts`, Tauri's JS menu API) with the same labels, IDs and accelerators as the palette and the editor keymap.
   - On macOS it lives in the global menu bar and must include the standard App and Edit menus, because without them `Cmd-C`/`Cmd-V`/`Cmd-Q` do not work in the webview.
-  - On Linux and Windows the menu bar is hidden by default to keep the window calm, and is revealed with `Alt` or `F10`.
+  - On Linux and Windows the menu bar is hidden by default to keep the window calm, and is revealed with `Alt` (pressed and released alone) or `F10`, which also focus its first menu (`menu_reveal` → `platform.rs`); it hides again when it closes. While hidden, GTK fires no menu accelerators, so the editor keymap handles shortcuts exactly once.
 - **Opening files:**
   - `bismillah [file.md | folder]` from the command line.
   - "Open with" from the file manager: a `.desktop` entry with `MimeType=text/markdown;text/x-markdown;` on Linux, and file associations in the bundle config elsewhere.
@@ -269,7 +273,10 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 | Real app e2e | `tauri-driver` (WebDriver) on Linux and Windows | Open/edit/save/reload, conflicts, recovery after a killed process, file opening (CLI, drag-drop, second instance), settings, keyboard-only flows, offline run |
 | Visual | Screenshots via `tauri-driver` in the real app: WebKitGTK on Linux now, WebView2 on Windows later; macOS (no WebDriver support) checked by hand before releases | Specimen at window widths 640/1280/1920/2560, both themes, editor and preview, zoom 200% |
 | Contrast | Unit test over the token table | Every semantic pair (DESIGN.md §9.4) |
+| Arabic rendering | `spikes/webview/arabic-rendering.ts` (into `test:visual` in Phase 1) | Ink of every vocalised fixture word against HarfBuzz (ADR-0011) |
 | Supply chain | `cargo deny check`, `pnpm audit` | Banned crates, licences, advisories |
+
+All real-app runs go through `scripts/headless.sh` (private Xvfb, D-Bus and runtime directory), so they never touch the author's desktop; the test harness refuses to start outside it. Native input that WebDriver can't produce (menus, accelerators, dead keys, layout switching, the clipboard) is driven with real X events (`xdotool`, raw XTEST via `spikes/webview/xtest.py`).
 
 Round-trip acceptance checks that must always pass:
 - Vocalised Arabic, mixed-script text and CRLF files save unchanged.

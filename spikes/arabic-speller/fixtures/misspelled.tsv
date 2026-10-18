@@ -1,0 +1,157 @@
+# Realistic Arabic misspellings with the intended word.
+# Columns: misspelled<TAB>expected<TAB>type<TAB>policy<TAB>note
+# policy   = "policy": whether this is an error depends on an orthographic convention
+#            (bare alef for أ/إ, Egyptian dotless final ى for ي). Scored separately.
+# type "realword": the misspelling is itself a valid word, so no speller can flag it.
+#            Kept to quantify the problem; excluded from the detection score.
+# Expected corrections are compared after removing the dictionary's IGNORE marks.
+misspelled	expected	type	policy	note
+مدرشة	مدرسة	substitution		س→ش adjacent key
+جامهة	جامعة	substitution		ع→ه adjacent key
+مكتلة	مكتبة	substitution		ب→ل adjacent key
+كناب	كتاب	realword		= ك+ناب (like a fang) (reclassified after review)
+مدينو	مدينة	realword		= مدينو construct plural (debtors of) (reclassified after review)
+سيارى	سيارة	substitution		ة→ى adjacent key
+تاريح	تاريخ	substitution		dot error خ→ح
+حديق	حديث	substitution		ث→ق adjacent key
+مسجذ	مسجد	substitution		د→ذ
+صديث	صديق	substitution		ق→ث adjacent key
+طعاك	طعام	substitution		م→ك adjacent key
+شمش	شمس	substitution		س→ش adjacent key
+غمل	عمل	substitution		ع→غ adjacent key
+وقن	وقت	realword		= و+قنّ (and a bondsman) (reclassified after review)
+فلب	قلب	realword		= ف+لبّ (then the core) (reclassified after review)
+جديج	جديد	substitution		د→ج adjacent key
+إنسام	إنسان	substitution		ن→م adjacent key
+طريث	طريق	substitution		ق→ث adjacent key
+مدسرة	مدرسة	transposition
+طابل	طالب	transposition
+جاعمة	جامعة	transposition
+مكبتة	مكتبة	transposition
+رسلاة	رسالة	transposition
+ترايخ	تاريخ	transposition
+كملة	كلمة	realword		= ك+ملّة (like a creed) (reclassified after review)
+سيراة	سيارة	transposition
+مستفشى	مستشفى	transposition
+إسالم	إسلام	transposition
+مدسة	مدرسة	deletion
+مستشى	مستشفى	deletion
+مكتة	مكتبة	deletion
+رسلة	رسالة	deletion
+تريخ	تاريخ	deletion
+معلمن	معلمون	deletion
+استخم	استخدم	deletion
+اجتاع	اجتماع	deletion
+مسلمن	مسلمين	deletion
+الطاب	الطالب	deletion
+إسلمية	إسلامية	deletion
+تفير	تفسير	deletion
+كتابب	كتاب	insertion
+مدرسةة	مدرسة	insertion
+الكتتاب	الكتاب	insertion
+مدرسسة	مدرسة	insertion
+جاامعة	جامعة	insertion
+طالبب	طالب	insertion
+معلمم	معلم	insertion
+مدينةة	مدينة	insertion
+الللغة	اللغة	insertion
+مكتبتة	مكتبة	insertion
+يكتبوون	يكتبون	insertion
+مسجدد	مسجد	insertion
+كلممة	كلمة	insertion
+مسءول	مسؤول	hamza		wrong seat
+سءال	سؤال	hamza		wrong seat
+رءيس	رئيس	hamza		wrong seat
+مءمن	مؤمن	hamza		wrong seat
+رءية	رؤية	hamza		wrong seat
+شئ	شيء	hamza		very common error
+شيئ	شيء	hamza		final hamza on a seat
+مساءل	مسائل	hamza
+أسألة	أسئلة	hamza
+فأة	فئة	hamza
+تفائل	تفاؤل	hamza		very common error
+قاءد	قائد	hamza
+بءر	بئر	hamza
+مسؤل	مسؤول	hamza		missing و after ؤ
+ضوئ	ضوء	hamza
+امانة	أمانة	hamza	policy	bare alef
+اسلام	إسلام	hamza	policy	bare alef
+ايمان	إيمان	hamza	policy	bare alef
+انسان	إنسان	hamza	policy	bare alef
+اخذ	أخذ	hamza	policy	bare alef
+الى	إلى	hamza	policy	bare alef
+اية	آية	hamza	policy	bare alef for madda
+قران	قرآن	hamza	policy	bare alef for madda
+اكل	أكل	hamza	policy	bare alef
+اخر	آخر	hamza	policy	bare alef for madda
+المدرسه	المدرسة	taa-marbuta		ة→ه; impossible with ال
+الجامعه	الجامعة	taa-marbuta
+المكتبه	المكتبة	taa-marbuta
+الحياه	الحياة	taa-marbuta
+الصلاه	الصلاة	taa-marbuta
+الرحمه	الرحمة	taa-marbuta
+الكلمه	الكلمة	taa-marbuta
+فية	فيه	taa-marbuta		ه→ة
+لدية	لديه	taa-marbuta		ه→ة
+عندة	عنده	taa-marbuta		ه→ة
+معة	معه	taa-marbuta		ه→ة
+اللة	الله	taa-marbuta		ه→ة
+مدرسةها	مدرستها	taa-marbuta		ة kept before suffix (learner error)
+جامعةنا	جامعتنا	taa-marbuta
+كلمةكم	كلمتكم	taa-marbuta
+رسالةهم	رسالتهم	taa-marbuta
+مدرسه	مدرسة	realword		= مدرّسه (his teacher)
+رحمه	رحمة	realword		= رحمه (he had mercy on him)
+حياه	حياة	realword		= حيّاه (he greeted him)
+مكتبه	مكتبة	realword		= مكتبه (his office)
+حتي	حتى	alif-maqsura
+متي	متى	alif-maqsura
+مستشفي	مستشفى	alif-maqsura
+مصطفي	مصطفى	alif-maqsura
+موسي	موسى	alif-maqsura
+عيسي	عيسى	alif-maqsura
+الذى	الذي	alif-maqsura	policy	Egyptian dotless final ya
+فى	في	alif-maqsura	policy	Egyptian dotless final ya
+عربى	عربي	alif-maqsura	policy	Egyptian dotless final ya
+يمشى	يمشي	alif-maqsura	policy	Egyptian dotless final ya
+التى	التي	alif-maqsura	policy	Egyptian dotless final ya
+قالو	قالوا	alif		missing alif al-fariqa
+كتبو	كتبوا	alif		missing alif al-fariqa
+ذهبو	ذهبوا	alif		missing alif al-fariqa
+هاذا	هذا	alif		hidden alif written out
+هاذه	هذه	alif		hidden alif written out
+لاكن	لكن	alif		hidden alif written out
+ذالك	ذلك	alif		hidden alif written out
+هاكذا	هكذا	alif		hidden alif written out
+الرحمان	الرحمن	alif		hidden alif written out
+إلاه	إله	alif		hidden alif written out
+ضلام	ظلام	dad-zaa
+عضيم	عظيم	dad-zaa
+حظارة	حضارة	dad-zaa
+انتضار	انتظار	dad-zaa
+مريظ	مريض	dad-zaa
+ضهر	ظهر	dad-zaa
+بيظ	بيض	dad-zaa
+تلاتة	ثلاثة	phonetic		ث→ت (colloquial)
+زهب	ذهب	phonetic		ذ→ز
+هزا	هذا	realword		= هزًّا (shaking, accusative) (reclassified after review)
+كزلك	كذلك	phonetic		ذ→ز
+سقافة	ثقافة	phonetic		ث→س
+اتنين	اثنين	phonetic		ث→ت
+دهب	ذهب	phonetic		ذ→د
+تعلب	ثعلب	phonetic		ث→ت
+كدب	كذب	phonetic		ذ→د
+خياة	حياة	dots
+محتلف	مختلف	dots
+حطأ	خطأ	dots
+أحلاق	أخلاق	dots
+جديث	حديث	dots
+مدررس	مدرس	doubling		doubled letter for shadda
+محممد	محمد	doubling
+اشمس	الشمس	sun-letter		unpronounced lam dropped
+فيالبيت	في البيت	merged
+منالمدرسة	من المدرسة	merged
+إنشاءالله	إن شاء الله	merged		three words
+كِتَابَبٌ	كتاب	vocalised		misspelling typed with marks
+الْمَدْرَسَه	المدرسة	vocalised
+سُءَال	سؤال	vocalised

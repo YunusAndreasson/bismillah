@@ -8,13 +8,13 @@ when_to_use: Whenever a change must be verified in the real app rather than only
 
 The machine is Arch/Omarchy with Hyprland on Wayland (`eDP-1`, 3840×2160 at scale 2). The app is Tauri 2 on WebKitGTK 4.1. Browser-only checks don't count as real-app verification (AGENTS.md, Definition of done).
 
-> Phase 0 builds the helper scripts named below (`pnpm app:shot`, `pnpm test:e2e`). Until they exist, use the manual commands, and once they do, keep this file in sync.
+> The helpers below exist since Phase 0. Build first with `pnpm app:build` (debug build with the frontend embedded). Keep this file in sync with `scripts/` and `package.json`.
 
 ## 1. Choose how to run it
 
 | Goal | How | Disturbs the author's desktop? |
 |---|---|---|
-| Verify in the real webview, take screenshots, e2e tests | **Headless (default):** `xvfb-run -a -s "-screen 0 2560x1600x24" env GDK_BACKEND=x11 …` | No |
+| Verify in the real webview, take screenshots, e2e tests | **Headless (default):** `scripts/headless.sh <command>` (private Xvfb at 2× scale, private D-Bus and runtime dir, `BISMILLAH_TEST=1`) | No |
 | Native window behaviour (menu with `Alt`/`F10`, window manager, Wayland input, layout switching) | On the live Hyprland session, sent to its own workspace without stealing focus: `hyprctl dispatch exec "[workspace 9 silent] <command>"` | Minimally; tell the author first if they may be working |
 | Quick manual look by the author | `pnpm tauri dev` | Yes |
 
@@ -30,7 +30,7 @@ Stop it when finished (kill the background task). Never leave stray app or dev-s
 
 ## 3. See it
 
-- **Webview screenshots (preferred, deterministic):** `pnpm app:shot -- --doc docs/specimen.md --width 1280 --theme light --out <scratchpad>/shot.png`. This uses `tauri-driver` + WebDriver's screenshot of the webview. Then **Read the PNG** to inspect it.
+- **Webview screenshots (preferred, deterministic):** `pnpm app:shot -- --widths 1280 --themes light,dark --profiles duo --out <scratchpad dir>` (also `--doc <file>`, `--height`, `--scale`, `--full` to stitch the whole document, `--scroll-to <text>`, `--typewriter`). It prints the PNG paths; **Read them** to inspect. Shots are 2× (the author's display scale).
 - **Whole-window screenshot on the live session** (native menu, window chrome): capture **only the app window**, never the full screen, because the author's other windows may be private:
   ```bash
   geo=$(hyprctl clients -j | jq -r '.[] | select(.class|test("bismillah";"i")) | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"' | head -1)
@@ -41,14 +41,15 @@ Stop it when finished (kill the background task). Never leave stray app or dev-s
 
 ## 4. Drive it
 
-- **End-to-end:** `pnpm test:e2e` runs WebdriverIO against `tauri-driver` (which uses `/usr/bin/WebKitWebDriver`) on the built app. Use it for typing, shortcuts, file flows, conflicts and recovery after a killed process.
+- **End-to-end:** `pnpm test:e2e` runs WebdriverIO against `tauri-driver` (which uses `/usr/bin/WebKitWebDriver`) on the built app. Use it for typing, shortcuts, file flows, conflicts and recovery after a killed process. Tests drive the app through `window.__bismillah` (see `src/core/testHooks.ts`: view, theme/profile/scale, geometry probes, command log, menu state).
+- **Native input** (menus, accelerators, dead keys, layout switching, clipboard): WebDriver keys bypass GTK, so use real X events inside the headless display: `xdotool key …` for single keys, `spikes/webview/xtest.py` (raw XTEST) when the XKB layout group matters (xdotool resets it). Examples: `spikes/webview/keyboard.ts`, `clipboard.ts`.
+- The editor has no DOM focus under Xvfb (no window manager), so CodeMirror doesn't draw the caret; read caret positions from CodeMirror (`coordsAtPos`) instead.
 - **Typing and keyboard-layout tests** that need real Wayland input run on the live session; ask the author before taking over input.
 
 ## 5. Prove it's offline
 
 ```bash
-unshare -rn <app or test command>                                 # no network at all: everything must still work
-strace -f -e trace=connect,sendto -o <scratchpad>/net.log <cmd>   # then confirm no non-local connections
+pnpm test:offline [log]   # e2e suite inside unshare --net (loopback only) under strace; fails on any non-loopback connect
 ```
 
 ## 6. Troubleshooting

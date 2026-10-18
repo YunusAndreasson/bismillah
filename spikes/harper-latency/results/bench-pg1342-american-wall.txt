@@ -1,0 +1,39 @@
+ 15:45:59 up 1 day, 20:54,  1 user,  load average: 1.39, 4.48, 11.99
+clock: wall time
+harper-core 2.13.0 latency spike
+corpus: /tmp/claude-1000/-home-yunus-Work-bismillah/95cea444-72a3-4f2f-83f1-3961465f56d8/scratchpad/harper-corpus/pg1342.txt
+  memory at start                             VmRSS=    3.9 MB  VmHWM=    4.0 MB
+
+[init] dialect=American
+  FstDictionary::curated() first call        458.9 ms
+  MergedDictionary (curated + personal)         0.0 ms
+  LintGroup::new_curated (first)              132.4 ms
+  LintGroup::new_curated (second)               5.2 ms
+  rules: 917 total, 905 enabled by default
+  memory after init                           VmRSS=  135.2 MB  VmHWM=  146.1 MB
+
+[corpus] 1101 blocks (33 headings), 50218 words, 287462 chars, longest block 569 words
+
+[full pass] parse + lint every block with one LintGroup
+  cold: parse (Document::new_markdown)         n=1101  p50=  1.303ms p95=  7.613ms p99= 14.399ms max=  31.601ms total=   2478.6ms
+  cold: lint (LintGroup::lint)                 n=1101  p50=  5.305ms p95= 31.068ms p99= 63.445ms max=1421.717ms total=  11458.5ms
+  cold: parse + lint per block                 n=1101  p50=  6.713ms p95= 37.959ms p99= 77.844ms max=1421.948ms total=  13937.2ms
+  first pass wall time 13938.4 ms, 1715 lints
+  worst block: #33 (3 words, 23 chars) 1421.95 ms
+  memory after first pass                     VmRSS=  269.1 MB  VmHWM=  269.1 MB
+  cold by size: 0..50 words                    n=787   p50=  4.099ms p95= 12.938ms p99= 18.446ms max=1421.948ms total=   5386.7ms
+  cold by size: 50..150 words                  n=252   p50= 18.923ms p95= 35.790ms p99= 44.958ms max=  51.682ms total=   5165.8ms
+  cold by size: 150..300 words                 n=49    p50= 46.071ms p95= 63.026ms p99= 87.062ms max=  87.062ms total=   2219.9ms
+  cold by size: 300..600 words                 n=13    p50= 85.241ms p95=113.668ms p99=147.393ms max= 147.393ms total=   1164.8ms
+  reused group, full pass #2 (wall 11506 ms)   n=1101  p50=  6.145ms p95= 34.324ms p99= 64.053ms max= 112.195ms total=  11505.5ms
+  reused group, full pass #3 (wall 11266 ms)   n=1101  p50=  6.187ms p95= 33.026ms p99= 70.204ms max= 145.042ms total=  11265.5ms
+  fresh group per block (lint only, every 10th) n=111   p50=  7.749ms p95= 53.046ms p99= 88.912ms max=  93.064ms total=   1610.4ms
+
+[typical batch] 1–3 consecutive paragraphs totalling 100–400 words
+  warm group, one word edited (steady state)   n=300   p50= 26.653ms p95= 58.722ms p99= 69.592ms max=  82.468ms total=   8874.9ms
+  warm group, unchanged batch re-sent          n=300   p50=  8.510ms p95= 14.544ms p99= 17.918ms max=  20.707ms total=   2711.3ms
+  fresh group (no cache), excl. construction   n=300   p50= 36.018ms p95= 67.501ms p99= 80.541ms max=  95.658ms total=  11523.9ms
+
+[thread] build group + lint 200 blocks on a worker thread: 3265.5 ms
+  memory at end                               VmRSS=  305.2 MB  VmHWM=  437.4 MB
+ 15:47:08 up 1 day, 20:55,  1 user,  load average: 1.51, 3.87, 11.23

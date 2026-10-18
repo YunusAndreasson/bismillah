@@ -1,0 +1,7 @@
+# esbuild verifies its platform binary. The browser-driver packages pulled in by
+# WebdriverIO download Firefox/Edge drivers at install time; bismillah tests the real
+# app through tauri-driver only (ADR-0009), so they stay unbuilt.
+allowBuilds:
+  esbuild: true
+  edgedriver: false
+  geckodriver: false

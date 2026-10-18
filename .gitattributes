@@ -4,3 +4,4 @@
 *.woff2 binary
 dictionaries/**/*.dic -diff -text
 dictionaries/**/*.aff -diff -text
+tests/fixtures/** -text

@@ -13,11 +13,11 @@ bismillah is a free, open-source writing app in the spirit of the original iA Wr
 - **Zuhd mode (زهد):** focus on the current sentence or paragraph.
 - **Keyboard first.** Every action has a shortcut and a place in the command palette.
 
-And just as deliberately, it has **no** accounts, subscriptions, ads, telemetry, cloud sync, AI, or networking features. See [PRIVACY.md](PRIVACY.md).
+And just as deliberately, it has **no** accounts, subscriptions, ads, telemetry, cloud sync, generative AI, or networking features. Nothing writes for you. See [PRIVACY.md](PRIVACY.md).
 
 ## Status
 
-**Pre-alpha, private.** For now bismillah is a personal project that runs only on its author's Linux machine. The design and architecture foundation is in place, and implementation starts with Phase 0 of the [roadmap](PLAN.md). Publishing, and macOS and Windows builds, come later.
+**Pre-alpha, private.** For now bismillah is a personal project that runs only on its author's Linux machine. Phase 0 (spikes) is done and awaiting review; see the [roadmap](PLAN.md) and [docs/spikes/](docs/spikes/). Publishing, and macOS and Windows builds, come later.
 
 ## Inspiration
 

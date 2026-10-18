@@ -1,0 +1,92 @@
+/*
+ * Design tokens (DESIGN.md §9). Primitives feed semantic tokens; components use only
+ * the semantic tokens. Light is the default; Dark applies under the system preference
+ * unless the writer chose Light, or whenever the writer chose Dark.
+ */
+
+:root {
+  /* Primitives */
+  --paper-50: #f7f6f2;
+  --paper-100: #eeede8;
+  --ink-900: #1e1e1e;
+  --ink-600: #62625e;
+  --ink-550: #6b6b65;
+  --ink-450: #84847c;
+  --green-700: #1e6b4a;
+  --green-100: #d6eadf;
+  --red-700: #9f3c36;
+  --ochre-700: #805d12;
+
+  --charcoal-950: #151515;
+  --charcoal-900: #202020;
+  --mist-200: #d4d4d2;
+  --mist-400: #a2a29b;
+  --mist-500: #94948d;
+  --mist-600: #74746e;
+  --green-300: #6fbf95;
+  --green-900: #23432f;
+  --red-300: #f08b82;
+  --ochre-300: #d5b56a;
+
+  /* Interface type and spacing (DESIGN.md §8.1, §10) */
+  --ui-font: system-ui, sans-serif;
+  --ui-size: 14px;
+  --ui-line: 1.45;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  --motion-fast: 120ms;
+  --motion-slow: 180ms;
+}
+
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+  --surface-editor: var(--paper-50);
+  --surface-panel: var(--paper-100);
+  --text-primary: var(--ink-900);
+  --text-secondary: var(--ink-600);
+  --syntax-marker: var(--ink-550);
+  --accent: var(--green-700);
+  --selection-background: var(--green-100);
+  --border-control: var(--ink-450);
+  --diagnostic-spelling: var(--red-700);
+  --diagnostic-grammar: var(--ochre-700);
+  --status-error: var(--diagnostic-spelling);
+  --focus-ring: var(--accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-editor: var(--charcoal-950);
+    --surface-panel: var(--charcoal-900);
+    --text-primary: var(--mist-200);
+    --text-secondary: var(--mist-400);
+    --syntax-marker: var(--mist-500);
+    --accent: var(--green-300);
+    --selection-background: var(--green-900);
+    --border-control: var(--mist-600);
+    --diagnostic-spelling: var(--red-300);
+    --diagnostic-grammar: var(--ochre-300);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-editor: var(--charcoal-950);
+  --surface-panel: var(--charcoal-900);
+  --text-primary: var(--mist-200);
+  --text-secondary: var(--mist-400);
+  --syntax-marker: var(--mist-500);
+  --accent: var(--green-300);
+  --selection-background: var(--green-900);
+  --border-control: var(--mist-600);
+  --diagnostic-spelling: var(--red-300);
+  --diagnostic-grammar: var(--ochre-300);
+}

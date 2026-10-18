@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-18
 - **Amended:** 2026-10-18 (interview). On by default, with a setting to turn it off.
+- **Amended:** 2026-10-18 (Phase 0). Block-widget spike: go.
 
 ## Context
 Every document should open with a beautifully typeset, centred بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ. Writing it into files would change the writer's documents, create edits just by opening a file, and pollute counts, linting and exports.
@@ -17,3 +18,7 @@ Every document should open with a beautifully typeset, centred بِسْمِ ال
 ## Consequences
 - The Phase 0 spike must confirm the block widget works with scrolling, typewriter mode, caret placement at the start, and scroll restoration.
 - Any future export feature must state whether it exports the source or the composed presentation.
+
+## Phase 0 result (2026-10-18)
+
+**Go.** Evidence: [docs/spikes/basmallah.md](../spikes/basmallah.md). The block widget at position 0 (from a state field) stays out of the text and the undo history; `Mod-Home`, `ArrowUp` and clicks keep the caret at position 0; it scrolls with the document and appears once; scroll snapshots restore exactly; in typewriter mode line 1 sits at 42% with the Basmallah visible above it. Its *rendering* suffers from the WebKitGTK mark bug (ADR-0011); drawing it from pre-shaped outlines, with the real text kept for selection and screen readers, would make it exact. Selecting and copying the Basmallah itself is left for Phase 1.
