@@ -7,7 +7,7 @@
 # Node and pnpm come from the author's toolchain (mise), so they aren't makedepends.
 
 pkgname=bismillah
-pkgver=0.0.0
+pkgver=0.0.0.r10.g248f563
 pkgrel=1
 pkgdesc="A calm, offline Markdown editor"
 arch=('x86_64')
@@ -32,7 +32,8 @@ prepare() {
 
 build() {
   cd bismillah
-  export CARGO_TARGET_DIR=target
+  # The workspace's own target/ (package() installs from there).
+  export CARGO_TARGET_DIR="$srcdir/bismillah/target"
   pnpm tauri build --no-bundle
 }
 
