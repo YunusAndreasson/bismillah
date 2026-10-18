@@ -1,0 +1,64 @@
+# cargo-deny configuration — run with `cargo deny check`.
+# Enforces part of bismillah's offline boundary (ADR-0003) and licence hygiene.
+# Bans are a guard rail, not proof: see ARCHITECTURE.md §10 for the runtime tests.
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+# All compatible with distributing bismillah under GPL-3.0-or-later.
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Zlib",
+  "Unicode-3.0",
+  "Unicode-DFS-2016",
+  "CC0-1.0",
+  "BSL-1.0",
+  "MPL-2.0",
+  "LGPL-2.1-or-later",
+  "LGPL-3.0-or-later",
+  "GPL-3.0-or-later",
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+# No networking features, telemetry or update channels. Ever.
+deny = [
+  # HTTP clients and servers
+  { crate = "reqwest", reason = "bismillah has no networking features (ADR-0003)" },
+  { crate = "ureq", reason = "bismillah has no networking features (ADR-0003)" },
+  { crate = "hyper", reason = "bismillah has no networking features (ADR-0003)" },
+  { crate = "isahc", reason = "bismillah has no networking features (ADR-0003)" },
+  { crate = "curl", reason = "bismillah has no networking features (ADR-0003)" },
+  { crate = "surf", reason = "bismillah has no networking features (ADR-0003)" },
+  { crate = "attohttpc", reason = "bismillah has no networking features (ADR-0003)" },
+  { crate = "tungstenite", reason = "bismillah has no networking features (ADR-0003)" },
+  { crate = "native-tls", reason = "TLS implies networking (ADR-0003)" },
+  { crate = "rustls", reason = "TLS implies networking (ADR-0003)" },
+  # Network-capable Tauri plugins
+  { crate = "tauri-plugin-http", reason = "no networking (ADR-0003)" },
+  { crate = "tauri-plugin-updater", reason = "no update checks (ADR-0003)" },
+  { crate = "tauri-plugin-websocket", reason = "no networking (ADR-0003)" },
+  { crate = "tauri-plugin-upload", reason = "no networking (ADR-0003)" },
+  # Telemetry and crash reporting
+  { crate = "sentry", reason = "no telemetry or crash reporting" },
+  { crate = "opentelemetry", reason = "no telemetry" },
+  { crate = "tauri-plugin-aptabase", reason = "no telemetry" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

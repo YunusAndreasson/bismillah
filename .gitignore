@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+target/
+src-tauri/target/
+
+# Test output
+test-results/
+playwright-report/
+coverage/
+
+# Editors and OS
+.DS_Store
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local env
+.env
+.env.*
+*.log
+
+# Personal Claude Code files (shared config lives in .claude/settings.json)
+CLAUDE.local.md
+.claude/settings.local.json
