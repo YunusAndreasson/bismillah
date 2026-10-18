@@ -134,7 +134,7 @@ What else came with it: the watcher (another program's change reloads a clean do
 
 **Accept:** fixture suites for English, Arabic (with and without diacritics), mixed text and masked regions; a stale-result test; no flagging of unsupported scripts.
 
-### Phase 3 result (2026-10-18): built, waiting for the author's acceptance
+### Phase 3 result (2026-10-18): accepted by the author
 
 Everything above is in place (ARCHITECTURE.md §7, ADR-0004 "Phase 3 result"), and `pnpm verify` passes (210 unit tests, 113 Rust tests including the checking fixtures and the Arabic benchmark, 112 real-app e2e tests in 12 suites, 7 visual checks with the specimen baselines re-recorded for the new underlines), and so does `pnpm test:offline`.
 
@@ -164,9 +164,9 @@ What else came with it:
 - Spelling for transliterated words (IJMES letters): they are never marked, so a typo in *ḥadīth* goes unnoticed.
 
 **For the author**
-1. **Try it:** `cd packaging/arch && makepkg -si`, open your writing folder, press `F7`. Add your recurring names and terms with *Add to dictionary* (or list them in `~/.config/bismillah/dictionary.txt`, one per line).
-2. **Check the defaults:** British spelling, both switches on (Settings › Language & checking).
-3. **Manual checks (live session, about 10 minutes):** the first correction is highlighted when the suggestions open (headless runs can't show focus); Orca reads a marked word as a spelling or grammar issue and announces the menu's kind and explanation; a right-click on a marked word opens the suggestions rather than WebKit's menu; the underline under Arabic words in your own text, in both themes.
+1. **Confirmed (2026-10-18):** it looks right in the real app, with the defaults as built (British spelling, both switches on).
+2. **Add your recurring names and terms** with *Add to dictionary*, or list them in `~/.config/bismillah/dictionary.txt`, one per line.
+3. **Manual checks (live session, a few minutes):** the first correction is highlighted when the suggestions open (headless runs can't show focus); Orca reads a marked word as a spelling or grammar issue and announces the menu's kind and explanation; a right-click on a marked word opens the suggestions rather than WebKit's menu.
 4. **Still open from earlier phases:** the hanging-mark gutter question (Phase 1, item 3) and the manual checks of Phases 1 and 2.
 
 ## Phase 4 — Live preview
