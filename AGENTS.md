@@ -2,7 +2,7 @@
 
 **bismillah** is a free, offline, minimal Markdown editor in the spirit of the original iA Writer, built with Tauri 2, Svelte 5, CodeMirror 6 and a Rust core. It has two features beyond typing (spelling in English and Arabic, grammar suggestions in English), so the quality of its typography, interaction and reliability *is* the product.
 
-**Status:** pre-code. The next step is Phase 0 (spikes) in [PLAN.md](PLAN.md). Keep this file accurate as commands and layout appear. bismillah is private and runs only on the author's Linux machine for now: local git, no remote, no CI. `pnpm verify` is the gate.
+**Status:** pre-code, with tooling ready: fonts in `fonts/source/`, the Arabic dictionary in `dictionaries/ar/`, and `cargo-deny`, `tauri-driver` and fontTools installed. The next step is Phase 0 (spikes) in [PLAN.md](PLAN.md). Keep this file accurate as commands and layout appear. bismillah is private and runs only on the author's Linux machine for now: local git, no remote, no CI. `pnpm verify` is the gate.
 
 **Working mode:** build each phase end to end (code, tests, specimen screenshots, docs) and stop at the phase's acceptance check for the author's review. Within a phase, proceed without asking about decisions already recorded in DESIGN.md, ARCHITECTURE.md or an ADR.
 

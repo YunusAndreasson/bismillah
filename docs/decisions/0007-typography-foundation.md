@@ -19,3 +19,5 @@ Revision 1 proposed thirteen families and viewport-scaled body text. More famili
 - The starting values must be validated in Phase 0 on real text in each real webview.
 - Subsetting must preserve shaping tables and combining marks, and is tested on the shipped files.
 - Adding a font later requires a full profile and a pass through the visual suite.
+- iA Writer, Plex and Source have OFL Reserved Font Names, so any subset or merged build of them must be renamed (fonts/README.md).
+- iA Writer Duo lacks part of the IJMES set (ḥ ṣ ḍ ṭ ẓ ʿ ʾ). Phase 0 picks a matched fallback.

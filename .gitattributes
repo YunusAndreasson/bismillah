@@ -1,0 +1,6 @@
+# Bundled assets: never diff or normalise them
+*.ttf binary
+*.otf binary
+*.woff2 binary
+dictionaries/**/*.dic -diff -text
+dictionaries/**/*.aff -diff -text

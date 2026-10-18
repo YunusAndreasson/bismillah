@@ -138,8 +138,8 @@ Start small; expand only after these are excellent.
 | Qur'anic (Uthmani) runs | Amiri Quran | — |
 
 - Code spans and blocks use iA Writer Mono, from the same family as Duo.
-- **Uthmani text:** an Arabic run that contains Qur'anic annotation marks (small high letters, waqf signs, rub' el hizb) is set in **Amiri Quran**, which is designed for Mushaf orthography. The whole run switches, never single characters, so shaping is never split across fonts.
-- **Transliteration coverage:** the Latin fonts must have real glyphs for the IJMES set (ā ī ū ḥ ṣ ḍ ṭ ẓ ʿ ʾ and capitals), checked on the shipped files in Phase 0. A gap is fixed with a matched fallback, never left to the system's fallback font.
+- **Uthmani text:** an Arabic run that contains Qur'anic annotation marks (U+06D6–U+06ED, U+08D3–U+08FF: small high letters, waqf signs, rub' el hizb) is set in **Amiri Quran**, which is designed for Mushaf orthography. The whole run switches, never single characters, so shaping is never split across fonts.
+- **Transliteration coverage:** the Latin fonts must have real glyphs for the IJMES set (ā ī ū ḥ ṣ ḍ ṭ ẓ ʿ ʾ and capitals). A gap is fixed with a matched fallback, never left to the system's fallback font. *Known gap (fonts/README.md):* iA Writer Duo and Mono lack ḥ ṣ ḍ ṭ ẓ and ʿ ʾ. The Phase 0 font spike chooses the fix.
 - Any installed system font can be chosen by name, as an unsupported "custom" profile.
 
 ### 8.3 Writing profiles

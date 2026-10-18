@@ -25,7 +25,19 @@ Features from DESIGN.md §3 (accounts, sync, telemetry, AI, networking, engageme
 
 Setup instructions arrive with the Phase 1 scaffold. The planned commands are listed in [AGENTS.md](AGENTS.md#commands).
 
-Linux prerequisites (Arch): `rust`, `nodejs`, `pnpm`, `webkit2gtk-4.1`. See the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for other distributions.
+Linux prerequisites (Arch):
+
+```bash
+sudo pacman -S --needed rust nodejs pnpm webkit2gtk-4.1 webkitgtk-6.0 xdotool base-devel hunspell
+cargo install --locked --root ~/.local cargo-deny tauri-driver   # ~/.local/bin is on PATH
+uv tool install fonttools --with brotli                           # font subsetting and inspection
+```
+
+- `webkitgtk-6.0` provides `WebKitWebDriver`, which `tauri-driver` needs.
+- `xdotool` provides `libxdo`, which Tauri's native menus link against on Linux.
+- `hunspell` is used for the Arabic speller benchmark.
+
+See the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for other distributions.
 
 ## Pull requests
 
