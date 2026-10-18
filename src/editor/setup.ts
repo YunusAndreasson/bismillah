@@ -8,6 +8,7 @@ import { hangingMarks } from "./hangingMarks.ts";
 import { markdownStyling } from "./markdownStyling.ts";
 import { scriptRuns } from "./scriptRuns.ts";
 import { typewriter } from "./typewriter.ts";
+import { typingAids, typingAidsConfig } from "./typingAids.ts";
 
 export interface EditorOptions {
   parent: HTMLElement;
@@ -16,6 +17,8 @@ export interface EditorOptions {
   steadyCaret?: boolean;
   basmallah?: boolean;
   typewriter?: boolean;
+  /** Smart punctuation (DESIGN.md §11.3); on unless set to false. */
+  smartPunctuation?: boolean;
   /** App-level key bindings from the command registry. */
   keys?: Extension;
 }
@@ -25,6 +28,7 @@ export interface Editor {
   typewriter: boolean;
   setBasmallah(on: boolean): void;
   setTypewriter(on: boolean): void;
+  setSmartPunctuation(on: boolean): void;
 }
 
 /**
@@ -51,6 +55,7 @@ function cspNonce(): Extension {
 export function createEditor(options: EditorOptions): Editor {
   const basmallahSlot = new Compartment();
   const typewriterSlot = new Compartment();
+  const smartPunctuationSlot = new Compartment();
   const extensions: Extension[] = [
     cspNonce(),
     baseTheme,
@@ -65,6 +70,10 @@ export function createEditor(options: EditorOptions): Editor {
     bidi(),
     scriptRuns(),
     hangingMarks(),
+    typingAids(),
+    smartPunctuationSlot.of(
+      typingAidsConfig.of({ smartPunctuation: options.smartPunctuation !== false }),
+    ),
     basmallahSlot.of(options.basmallah === false ? [] : basmallah()),
     typewriterSlot.of(options.typewriter === false ? [] : typewriter()),
   ];
@@ -81,6 +90,11 @@ export function createEditor(options: EditorOptions): Editor {
     setTypewriter(on) {
       editor.typewriter = on;
       view.dispatch({ effects: typewriterSlot.reconfigure(on ? typewriter() : []) });
+    },
+    setSmartPunctuation(on) {
+      view.dispatch({
+        effects: smartPunctuationSlot.reconfigure(typingAidsConfig.of({ smartPunctuation: on })),
+      });
     },
   };
   return editor;

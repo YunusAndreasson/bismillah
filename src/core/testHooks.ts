@@ -3,6 +3,7 @@ import type { EditorView } from "@codemirror/view";
 import { setProfile, setTheme, type Profile, type Theme } from "./appearance.ts";
 import type { Editor } from "../editor/setup.ts";
 import { remeasure } from "../editor/typography.ts";
+import { setTransliteration } from "../editor/typingAids.ts";
 import { geometry, type Geometry } from "./testGeometry.ts";
 import { commandLog } from "./commands.ts";
 import { menuState, type MenuState } from "./ipc.ts";
@@ -19,6 +20,8 @@ export interface TestHooks {
   setScale(scale: number): Promise<void>;
   setBasmallah(on: boolean): void;
   setTypewriter(on: boolean): void;
+  setTransliteration(on: boolean): void;
+  setSmartPunctuation(on: boolean): void;
   commandLog: typeof commandLog;
   menuState(): Promise<MenuState>;
   /** Replaces the whole document (spike tests load their own fixtures). */
@@ -71,6 +74,8 @@ export function installTestHooks(editor: Editor): void {
     },
     setBasmallah: (on) => editor.setBasmallah(on),
     setTypewriter: (on) => editor.setTypewriter(on),
+    setTransliteration: (on) => view.dispatch({ effects: setTransliteration.of(on) }),
+    setSmartPunctuation: (on) => editor.setSmartPunctuation(on),
     async setDoc(text) {
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
       await settle();

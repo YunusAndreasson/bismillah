@@ -75,7 +75,8 @@ bismillah/
 │  ├─ core/                   command registry, native menu, typed IPC bridge, appearance,
 │  │                          test hooks (only with BISMILLAH_TEST=1)
 │  ├─ editor/                 CodeMirror setup + one extension per concern: dialect (frontmatter),
-│  │                          markdownStyling, hangingMarks, bidi, scriptRuns, basmallah, typewriter
+│  │                          markdownStyling, hangingMarks, bidi, scriptRuns, basmallah, typewriter,
+│  │                          typingAids (smart punctuation, transliteration mode)
 │  ├─ preview/                (planned, Phase 4)
 │  ├─ ui/                     (planned) Svelte components
 │  └─ styles/                 tokens.css, fonts.css, profiles.css, editor.css

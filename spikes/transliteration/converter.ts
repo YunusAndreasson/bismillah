@@ -2,7 +2,7 @@
 //
 // Keys are fed one at a time, as the editor would see them. After each key, a rule may
 // replace only the characters just typed at the caret (never earlier text), and an
-// immediate Backspace restores the typed keys. Phase 1 ports this logic into src/editor/.
+// immediate Backspace restores the typed keys. Phase 1 ported this logic to src/editor/typingAids.ts.
 //
 // Text is modelled as a list of units: each unit is what one conversion (or one plain key)
 // inserted, together with the keys that produced it. Rules match the raw keys of the most

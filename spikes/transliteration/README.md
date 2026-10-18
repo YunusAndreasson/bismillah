@@ -4,7 +4,7 @@ Phase 0 "Keyboard input" spike, corpus half: does the transliteration table in D
 
 | File | Job |
 |---|---|
-| `converter.ts` | Typing simulator: smart punctuation and transliteration acting only on just-typed keys at the caret, with Backspace restoring the typed keys. Phase 1 ports it to `src/editor/`. |
+| `converter.ts` | Typing simulator: smart punctuation and transliteration acting only on just-typed keys at the caret, with Backspace restoring the typed keys. Ported in Phase 1 to `src/editor/typingAids.ts`, which gives the same output on both fixtures. |
 | `tables.ts` | Candidate tables per component (macrons, dots below, ʿayn, hamza), the DESIGN.md proposal and the recommended `FINAL` table. |
 | `harness.ts` | Types each corpus as a writer would under each table and counts unwanted conversions, misses and mismatches. |
 | `converter.test.ts` | Unit tests for the final table and the undo contract. |
