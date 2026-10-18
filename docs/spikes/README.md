@@ -15,4 +15,4 @@ Each spike answers one question from PLAN.md with evidence from the real app (We
 | Native menu | **go** (GTK/X11; GNOME untested) | [native-menu.md](native-menu.md) | 0009 |
 | Keyboard input | **go** (X11/GTK); transliteration table **adjust** | [keyboard-input.md](keyboard-input.md), [transliteration.md](transliteration.md) | 0010 |
 
-**Blocking finding:** WebKitGTK drops the vertical offsets HarfBuzz gives Arabic marks ([arabic-rendering.md](arabic-rendering.md), proposed ADR-0011). It needs the author's decision before Phase 1's typography work.
+**Main finding:** WebKitGTK drops the vertical offsets HarfBuzz gives Arabic marks ([arabic-rendering.md](arabic-rendering.md)). The author's decision is recorded in ADR-0011 (accepted 2026-10-18).

@@ -29,7 +29,7 @@ Each spike ends with a short written result in its ADR: **go**, **adjust** or **
 | Native menu | Can a menu generated from the command registry be hidden on Linux and revealed with `Alt`/`F10`, with accelerators that don't fight CodeMirror's keymap? | Works under Hyprland and GNOME |
 | Keyboard input | Do XKB layout switching (English ↔ Arabic), dead keys and compose sequences behave in the editor? Does the proposed transliteration table (DESIGN.md §11.3) avoid collisions on a corpus of English and transliterated prose? | No lost or doubled characters; transliteration table finalised |
 
-### Phase 0 result (2026-10-18): awaiting the author's review
+### Phase 0 result (2026-10-18): accepted by the author
 
 Evidence and verdicts per spike: [docs/spikes/](docs/spikes/README.md). Results are recorded in ADRs 0002, 0004 and 0007–0010.
 
@@ -42,10 +42,10 @@ Evidence and verdicts per spike: [docs/spikes/](docs/spikes/README.md). Results 
 | Uthmani + transliteration glyphs | **adjust**: Bismillah Duo/Mono close the IJMES gap; WebKitGTK misplaces Arabic marks |
 | Transliteration table | **adjust**: `a=` for macrons, guards for abbreviations and code |
 
-**Decisions for the author**
-1. **Arabic mark rendering** (proposed [ADR-0011](docs/decisions/0011-arabic-mark-rendering.md)): WebKitGTK 2.54 drops the vertical offsets of Arabic marks (WebKit bug 255972, root cause traced). Interim: every profile pairs with Amiri. Choose among upstream report, a locally patched WebKitGTK, font engineering, or accepting the residual errors.
-2. **Filing the WebKit bug comment** with the root cause and patch: an outward action, so it needs the author's go-ahead.
-3. Confirm the transliteration table change (`a=` instead of `a-`) and the alef-wasla Qur'anic trigger (both recorded; easy to revisit).
+**The author's decisions (2026-10-18)**
+1. **Arabic mark rendering:** [ADR-0011](docs/decisions/0011-arabic-mark-rendering.md) accepted as proposed: Amiri pairing everywhere, the Basmallah opening drawn from pre-shaped outlines, the rendering check in `pnpm test:visual`, and a choice between a patched WebKitGTK and accepting the errors after daily use.
+2. **WebKit bug 255972:** we draft the comment and patch; the author posts it.
+3. **Typing aids:** `a=` for macrons and the alef-wasla Qur'anic trigger confirmed.
 
 **Manual checks only the author can do (≈5 minutes, live Hyprland session)**
 - `pnpm tauri dev`, then type with fcitx5 active: Swedish dead keys (´ e → é), Compose (Shift+Caps, - a → ā), and, if an Arabic layout is added, switch layouts mid-word. Nothing should be lost or doubled.

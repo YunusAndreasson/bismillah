@@ -19,7 +19,7 @@ Short records of decisions with lasting consequences. Each one says what was dec
 | [0008](0008-basmallah-opening.md) | Basmallah as a presentation element | Accepted |
 | [0009](0009-desktop-only.md) | Desktop only | Accepted |
 | [0010](0010-typing-aids.md) | Typing aids: smart punctuation and transliteration mode | Accepted |
-| [0011](0011-arabic-mark-rendering.md) | Arabic mark rendering in WebKitGTK | Proposed |
+| [0011](0011-arabic-mark-rendering.md) | Arabic mark rendering in WebKitGTK | Accepted |
 
 ## Template
 
