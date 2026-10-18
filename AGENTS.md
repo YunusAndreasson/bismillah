@@ -52,6 +52,10 @@ cargo deny check                 # banned crates, licences, advisories
 pnpm verify                      # all of the above; the gate before every commit
 ```
 
+## Running and seeing the app
+
+Use the `run-app` skill: headless runs by default (`xvfb-run`), webview screenshots via `tauri-driver` that you inspect yourself, window-only captures on the live Hyprland session when native behaviour matters, and offline proof runs (`unshare -rn`, `strace`). Never capture the author's full screen.
+
 ## Definition of done
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.

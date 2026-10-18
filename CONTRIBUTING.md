@@ -28,7 +28,7 @@ Setup instructions arrive with the Phase 1 scaffold. The planned commands are li
 Linux prerequisites (Arch):
 
 ```bash
-sudo pacman -S --needed rust nodejs pnpm webkit2gtk-4.1 webkitgtk-6.0 xdotool base-devel hunspell
+sudo pacman -S --needed rust nodejs pnpm webkit2gtk-4.1 webkitgtk-6.0 xdotool base-devel hunspell xorg-server-xvfb strace
 cargo install --locked --root ~/.local cargo-deny tauri-driver   # ~/.local/bin is on PATH
 uv tool install fonttools --with brotli                           # font subsetting and inspection
 ```
@@ -36,6 +36,7 @@ uv tool install fonttools --with brotli                           # font subsett
 - `webkitgtk-6.0` provides `WebKitWebDriver`, which `tauri-driver` needs.
 - `xdotool` provides `libxdo`, which Tauri's native menus link against on Linux.
 - `hunspell` is used for the Arabic speller benchmark.
+- `xorg-server-xvfb` gives headless test runs that don't touch your desktop; `strace` is used for the offline proof (ARCHITECTURE.md §10).
 
 See the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for other distributions.
 
