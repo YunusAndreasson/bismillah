@@ -31,6 +31,8 @@ export interface Settings {
   basmallah_opening: boolean;
   smart_punctuation: boolean;
   typewriter_scrolling: boolean;
+  /** Every Markdown mark visible, as in Phase 1 (ADR-0012); off: live preview. */
+  always_show_markdown: boolean;
   focus_mode: boolean;
   focus_granularity: FocusGranularity;
   check_spelling: boolean;
@@ -48,6 +50,7 @@ export const DEFAULTS: Settings = {
   basmallah_opening: true,
   smart_punctuation: true,
   typewriter_scrolling: true,
+  always_show_markdown: false,
   focus_mode: false,
   focus_granularity: "paragraph",
   check_spelling: true,

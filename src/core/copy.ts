@@ -239,10 +239,23 @@ export const copy = {
       "Typed quotes, dashes and ellipses become “ ” ‘ ’ – — …, and « » in Arabic.",
     typewriter: "Typewriter scrolling",
     typewriterHint: "Keeps the line you're writing near the middle of the window.",
+    alwaysShowMarkdown: "Always show Markdown",
+    alwaysShowMarkdownHint:
+      "Every mark stays visible. Off: the text reads as rendered, and Markdown shows only in the paragraph you're writing.",
     zuhd: "Zuhd mode",
     zuhdHint: "Focus on the current sentence or paragraph.",
     focusOn: "Focus on",
     granularities: { sentence: "Sentence", paragraph: "Paragraph" },
+  },
+  preview: {
+    frontmatter: "Frontmatter",
+    imageWeb: "Images from the web are never loaded.",
+    imageMissing: "Image not shown: there's no image file at this address inside the library.",
+  },
+  copyRich: {
+    done: "Copied as rich text.",
+    doneSelection: "Copied the selection as rich text.",
+    failed: "Couldn't copy as rich text: the clipboard didn't take it.",
   },
   lineEndings: {
     lf: "LF (Unix) line endings",

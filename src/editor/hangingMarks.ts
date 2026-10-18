@@ -215,12 +215,24 @@ const hangingPlugin = ViewPlugin.fromClass(
       return builder.finish();
     }
 
+    width(text: string): number {
+      return this.measurer.width(0, text);
+    }
+
     destroy() {
       this.measurer.destroy();
     }
   },
   { decorations: (v) => v.decorations },
 );
+
+/**
+ * The rendered width of a line's leading `text` in body type, from the same measurer the
+ * hanging uses; null before the plugin exists. Live preview draws quote bars with it.
+ */
+export function prefixWidth(view: EditorView, text: string): number | null {
+  return view.plugin(hangingPlugin)?.width(text) ?? null;
+}
 
 /** Hanging heading, quote and list marks, mirrored on RTL lines. */
 export function hangingMarks(): Extension {

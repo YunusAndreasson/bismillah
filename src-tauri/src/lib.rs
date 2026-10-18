@@ -7,6 +7,7 @@
 
 mod app;
 mod documents;
+mod images;
 mod library;
 mod lint;
 mod platform;
@@ -62,6 +63,47 @@ async fn menu_state(window: tauri::WebviewWindow) -> Result<MenuState, String> {
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())?;
     Ok(MenuState { visible, active })
+}
+
+/// Copy as rich text: the HTML (already sanitised by the frontend) and its plain text.
+#[tauri::command]
+async fn clipboard_write(
+    window: tauri::WebviewWindow,
+    html: String,
+    text: String,
+) -> Result<(), String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    window
+        .run_on_main_thread(move || {
+            let _ = tx.send(platform::write_clipboard(html, text));
+        })
+        .map_err(|e| e.to_string())?;
+    rx.recv().map_err(|e| e.to_string())?
+}
+
+/// The scheme live preview loads local images from (images.rs). Its URLs are
+/// `bismillah-image://localhost/<document id>/<destination as written>`.
+const IMAGE_SCHEME: &str = "bismillah-image";
+
+/// Answers one image request: the bytes of a checked image, or an empty "not found".
+fn image_response(app: &tauri::AppHandle, path: &str) -> tauri::http::Response<Vec<u8>> {
+    let found = images::percent_decode(path.trim_start_matches('/')).and_then(|request| {
+        let (id, src) = request.split_once('/')?;
+        let state = app.try_state::<AppState>()?;
+        state.image(id.parse().ok()?, src).ok()
+    });
+    let builder = tauri::http::Response::builder()
+        .header("Cache-Control", "no-store")
+        // An SVG opened on its own could run script; it never may.
+        .header(
+            "Content-Security-Policy",
+            "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+        );
+    let response = match found {
+        Some((bytes, kind)) => builder.status(200).header("Content-Type", kind).body(bytes),
+        None => builder.status(404).body(Vec::new()),
+    };
+    response.unwrap_or_else(|_| tauri::http::Response::new(Vec::new()))
 }
 
 /// Only the app's own origin may load in the webview (ARCHITECTURE.md §10).
@@ -150,6 +192,12 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(navigation_guard)
+        .register_asynchronous_uri_scheme_protocol(IMAGE_SCHEME, |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            let path = request.uri().path().to_owned();
+            // Off the main thread: a large image is read from disk.
+            std::thread::spawn(move || responder.respond(image_response(&app, &path)));
+        })
         .invoke_handler(tauri::generate_handler![
             app::app_info,
             app::startup,
@@ -181,9 +229,11 @@ pub fn run() {
             app::test_fault,
             app::test_dialog,
             app::test_library,
+            app::test_clipboard,
             menu_reveal,
             menu_hide,
-            menu_state
+            menu_state,
+            clipboard_write
         ])
         .setup(move |app| {
             let (config_dir, data_dir) = app::dirs(app.handle())?;

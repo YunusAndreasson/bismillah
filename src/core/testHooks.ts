@@ -11,6 +11,7 @@ import { commandLog, runCommand, type CommandId } from "./commands.ts";
 import {
   appInfo,
   menuState,
+  testClipboard,
   testDialog,
   testFault,
   testLibrary,
@@ -85,6 +86,10 @@ export interface TestHooks {
    * item. */
   /** Whether the suggestions menu is open in the app's state (drawn or not). */
   menuOpen(): boolean;
+  /** The system clipboard under an X target ("text/html", "UTF8_STRING"). */
+  clipboard(target: string): Promise<string | null>;
+  /** The status line's passing message. */
+  note(): string;
   suggestions(): {
     kind: string;
     explanation: string;
@@ -301,6 +306,8 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
       view.focus();
     },
     menuOpen: () => workspace.checking.menu !== null,
+    clipboard: (target) => testClipboard(target),
+    note: () => document.querySelector(".status .note")?.textContent?.trim() ?? "",
     suggestions() {
       const menu = document.querySelector(".suggestions");
       if (!menu) return null;

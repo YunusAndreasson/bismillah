@@ -12,6 +12,7 @@ use tauri_plugin_dialog::DialogExt;
 
 use super::{AppState, DiskStatus, Opened, Source, lock, test_hooks_allowed};
 use crate::documents::{self, OpenError};
+use crate::images::{self, ImageError};
 use crate::library::{Library, LibraryError, Node, Tree};
 use crate::watch::Watch;
 
@@ -194,6 +195,18 @@ impl AppState {
             Shelf::Ready { library, .. } => Ok(library.clone()),
             _ => Err(LibraryError::Unavailable),
         }
+    }
+
+    /// A local image for live preview: `src` as the open document `id` writes it,
+    /// resolved against that document and checked against the library (images.rs).
+    pub fn image(&self, id: u64, src: &str) -> Result<(Vec<u8>, &'static str), ImageError> {
+        let open = self.current(id).ok_or(ImageError::NotFound)?;
+        let document = match &lock(&open).source {
+            Source::File(doc) => doc.path.clone(),
+            Source::Sample => return Err(ImageError::NotFound),
+        };
+        let library = self.library().map_err(|_| ImageError::NotFound)?;
+        images::read(&images::resolve(&library, &document, src)?)
     }
 
     /// Where `path` (canonical) is in the library; `None` outside it.

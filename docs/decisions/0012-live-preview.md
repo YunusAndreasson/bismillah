@@ -31,3 +31,12 @@ Phase 0 showed that heading, quote and list marks hang in a reserved gutter thro
   - clicking into a rendered paragraph
   - typewriter scrolling while a block reveals
   - IME composition at the edge of the revealed block.
+
+## Phase 4 spike result (2026-10-19): go
+In WebKitGTK, on the specimen's RTL and mixed lines ([docs/spikes/live-preview.md](../spikes/live-preview.md)): clicks into rendered text leave the caret on the clicked side of the clicked letter after the reveal, selections and keyboard motion match what is drawn, typewriter scrolling holds at 42%, and dead-key composition is exact at every block edge tried. Settled on the way:
+- Inline marks are removed from the line; marks that hang or fill their own line are only painted out, with bullets, bars, boxes and rules drawn as backgrounds, so revealing them moves nothing.
+- The reveal waits for the mouse button's release, and the caret's row keeps its height on screen (except on a document's last screen, where it can't scroll further). A double-click after a revealing click selects the word the first click chose.
+- A bracketed `[sic]` keeps its brackets: reference links and footnotes render only when defined.
+
+## Phase 4 result (2026-10-19)
+Built as decided (PLAN.md, "Phase 4 result"). Two details settled while building: the command is labelled *Always show Markdown*, the setting's own name, rather than *Show all Markdown* (DESIGN.md §6); and tables and fenced code keep their Markdown in both states, with only inline marks inside table cells hidden, since this ADR's rendered list doesn't include a table grid.

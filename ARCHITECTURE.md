@@ -2,7 +2,7 @@
 
 This document describes how bismillah is built and the contracts each part must keep. Product and visual decisions live in [DESIGN.md](DESIGN.md). Lasting decisions are recorded as ADRs in [docs/decisions/](docs/decisions/). If code and this document disagree, fix one of them in the same change.
 
-> **Status:** Phase 3 (spelling and grammar). The file-safety contract, the recovery journal, settings, the desktop basics, the library (path checks, listing, watcher, file actions) and checking (`bismillah-lint`, its thread, the suggestions and the personal dictionary) are real (§3 marks what is planned).
+> **Status:** Phase 4 (live preview). The file-safety contract, the recovery journal, settings, the desktop basics, the library (path checks, listing, watcher, file actions), checking (`bismillah-lint`, its thread, the suggestions and the personal dictionary), live preview (with local images) and Copy as rich text are real (§3 marks what is planned).
 
 ---
 
@@ -35,8 +35,9 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | Svelte 5 + TypeScript + Vite | Small UI with compile-time reactivity |
 | Bits UI | Unstyled, accessible primitives (dialog, popover, menu, listbox, select): focus management and keyboard behaviour we would otherwise hand-write |
 | CodeMirror 6 + `@codemirror/lang-markdown` (Lezer) | Editing, IME, bidi, undo, search, accessibility |
-| markdown-it | Copy as rich text: the document as HTML (raw HTML disabled) |
-| DOMPurify | Sanitises that HTML after all rendering extensions have run |
+| markdown-it | Copy as rich text: the document as HTML (raw HTML disabled, no typographer); loaded on first use |
+| markdown-it-footnote | Footnotes in that HTML, from the same project |
+| DOMPurify | Sanitises that HTML after all rendering extensions have run (an allow-list of tags and attributes; styles only for table alignment) |
 | `harper-core` | English spelling and grammar, offline. Embeds a small chunking model via `burn` (allowed by ADR-0004's AI policy); build without the thesaurus feature. Its `zip` and `burn` dependencies carry advisories that can't apply here (`deny.toml` gives the reason for each ignore; drop them when Harper updates) |
 | `spellbook` | Arabic spelling behind the `ArabicSpeller` adapter (ADR-0004; chosen in Phase 0). The Ayaspell dictionary (`dictionaries/ar/`, 7 MB) is compiled into the binary and parsed on the first Arabic word that needs checking |
 | `notify` | File watching |
@@ -45,11 +46,10 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | `libc` (Linux only, already in the tree) | `renameat2(RENAME_NOREPLACE)`, so a rename can never replace a file (`platform.rs`) |
 | `dirs` / Tauri path API | Platform config, data and cache directories |
 | `tauri-plugin-dialog` | Native open-folder and save-as dialogs |
-| `tauri-plugin-opener` | Reveal in file manager; hand links to the system browser (it makes no requests itself) |
-| `tauri-plugin-clipboard-manager` | "Copy as rich text": put both HTML (markdown-it + DOMPurify) and plain text on the clipboard |
+| `tauri-plugin-opener` (planned) | Reveal in file manager; hand links to the system browser on `Mod-click` (it makes no requests itself) |
 | `serde`, `serde_json`, `thiserror` | IPC payloads, the recovery sidecars and typed errors |
 | `toml_edit` | `settings.toml` rewritten without losing the writer's comments, layout or unknown keys (§9) |
-| `gtk` (Linux only, already in Tauri's tree) | Focus the native menu bar on `Alt`/`F10` (`platform.rs`) |
+| `gtk` (Linux only, already in Tauri's tree) | Focus the native menu bar on `Alt`/`F10`, and put Copy as rich text on the clipboard as `text/html` and text (`platform.rs`), instead of `tauri-plugin-clipboard-manager` |
 
 **Development only** (never shipped): WebdriverIO + `tauri-driver` (real-app e2e), `pixelmatch` + `pngjs` (screenshot comparison), Vitest + jsdom, ESLint + Prettier, svelte-check. Spike and font tooling run through `uv`: fontTools (font build), `uharfbuzz` (rendering reference, and the pre-shaped Basmallah outlines in `src/editor/basmallahInk.ts`), `python-xlib` (raw X input and clipboard).
 
@@ -82,6 +82,7 @@ bismillah/
 │  │  ├─ watch.rs             the debounced file watcher (§5.4)
 │  │  ├─ app/library_commands.rs  the library's state and commands (§4)
 │  │  ├─ lint.rs              the checker's thread and the personal dictionary file (§7)
+│  │  ├─ images.rs            local images for live preview: resolved and checked (§6)
 │  │  └─ themes.rs            (planned)
 │  └─ capabilities/           minimal Tauri capability set
 ├─ crates/bismillah-lint/     spelling and grammar, pure Rust with no Tauri dependency (§7): offsets
@@ -97,8 +98,10 @@ bismillah/
 │  ├─ editor/                 CodeMirror setup + one extension per concern: dialect (frontmatter),
 │  │                          markdownStyling, hangingMarks, bidi, scriptRuns, basmallah, typewriter,
 │  │                          zuhd, typingAids (smart punctuation, transliteration mode), lintBlocks
-│  │                          (what is prose), linter (when to check), diagnostics; wordCount
-│  ├─ richText/               (planned, Phase 4) markdown-it + DOMPurify for Copy as rich text
+│  │                          (what is prose), linter (when to check), diagnostics, livePreview
+│  │                          (what is revealed, the rendered look, the mouse), previewBlocks
+│  │                          (folded frontmatter, images, addresses on hover); wordCount
+│  ├─ richText/               markdown-it + DOMPurify for Copy as rich text, and its plain text
 │  ├─ ui/                     Svelte components: status line, notices, first screen, Settings,
 │  │                          library panel and tree, quick open / palette, name prompt, suggestions
 │  └─ styles/                 tokens.css, fonts.css, profiles.css, editor.css
@@ -133,7 +136,10 @@ All commands are typed on both sides (Rust structs ↔ TS types in `src/core/ipc
 | `lint_check(request)` → one list of diagnostics per block, with the request's revision | Spelling and grammar for some blocks, as the settings say (§7) |
 | `lint_suggest(word, lang, doc_lang)` → corrections | Spelling corrections, only when the writer asks (an Arabic search stops after ~300 ms) |
 | `lint_add_word(word)` · `lint_refresh()` → changed | *Add to dictionary*; re-reading `dictionary.txt` on focus |
-| `test_open(path)`, `test_fault(kind)`, `test_dialog(path)`, `test_library(path)` | Debug builds under the test harness only: stand-ins for the native dialogs and fault injection (§13) |
+| `clipboard_write(html, text)` | Copy as rich text: the sanitised HTML and its plain text, through GTK |
+| `test_open(path)`, `test_fault(kind)`, `test_dialog(path)`, `test_library(path)`, `test_clipboard(target)` | Debug builds under the test harness only: stand-ins for the native dialogs, fault injection and reading the clipboard back (§13) |
+
+Images reach the webview through one custom scheme, not a command: `bismillah-image://localhost/<document id>/<destination as written>` (built with `convertFileSrc`). Rust answers with the checked image or an empty 404 (§6).
 
 Events (Rust → UI): `open-requested` (a drop or a second launch), `library-changed` (a new listing, sent whenever it differs from the last), `document-changed` (the watcher found the open file changed or removed on disk). A listing carries a generation that changes with the folder; within one folder the frontend keeps track of the open file itself, because a listing sent before a file opened may arrive after it.
 
@@ -196,7 +202,7 @@ If any step fails, the original file is untouched, the temporary file is removed
 - Only folders and `.md`/`.markdown` files are listed. Hidden names (a leading dot: `.git`, our save temporaries) are not, nor are names that aren't UTF-8 (they can't cross the IPC boundary). A listing stops at 20,000 entries or 64 levels and says so.
 - **Order:** folders first, then natural order on a sort key: canonical decomposition, combining marks (Latin diacritics, Arabic vocalisation and Qur'anic marks) dropped, ʿ ʾ, apostrophes and tatweel skipped, lower case, numbers compared by value (ASCII and Arabic-Indic digits). Names equal under that key fall back to their exact text. Quick open folds the same way (`src/core/fuzzy.ts`). Names themselves are never changed.
 - New names are checked (`validate_name`): not empty, no `/`, no leading dot (it would hide the entry), no control characters, at most 255 bytes. Spaces, Arabic and every other printable character are kept exactly as typed.
-- Local images shown by live preview are served through the Tauri asset protocol, scoped at runtime to the library root.
+- **Local images shown by live preview** come through the `bismillah-image` scheme (`images.rs`), not Tauri's asset protocol, so they pass the same checks as every other path: the destination as the document writes it (relative to the document, absolute, or a `file:` URL; `%`-escapes decoded) is canonicalised and served only if it is inside the library root and has an image ending (PNG, JPEG, GIF, WebP, AVIF, BMP, SVG), up to 64 MiB. Links out of the library are refused like `..`. Anything refused gets the same empty "not found", so a document can't probe what lies outside the library. Responses carry `Cache-Control: no-store` and a sandboxing CSP. Web addresses never reach Rust: the editor shows a note instead (DESIGN.md §11).
 
 ## 7. Spelling and grammar pipeline
 
@@ -261,7 +267,7 @@ See ADR-0005.
 ## 9. Settings
 
 - `settings.toml` and `keybindings.toml` live in the platform config dir (`$XDG_CONFIG_HOME/bismillah/` on Linux). What the app remembers but isn't a setting (window size, the last document) and the recovery journal live in the data dir (`$XDG_DATA_HOME/bismillah/`).
-- The schema is versioned (`schema = 1`) and keys are `snake_case`: `theme`, `writing_profile`, `text_scale`, `measure`, `line_height` (absent = the profile's), `fade_chrome`, `basmallah_opening`, `smart_punctuation`, `typewriter_scrolling`, `focus_mode`, `focus_granularity`, `check_spelling`, `check_grammar`, `english_dialect` (`settings.rs` holds the table with each key's range).
+- The schema is versioned (`schema = 1`) and keys are `snake_case`: `theme`, `writing_profile`, `text_scale`, `measure`, `line_height` (absent = the profile's), `fade_chrome`, `basmallah_opening`, `smart_punctuation`, `typewriter_scrolling`, `always_show_markdown`, `focus_mode`, `focus_granularity`, `check_spelling`, `check_grammar`, `english_dialect` (`settings.rs` holds the table with each key's range).
 - Comments, layout and unknown keys are preserved when rewriting (`toml_edit`). An invalid value falls back to its default with a notice; an unreadable file is kept as `settings.toml.invalid` while the defaults apply. It never crashes, and a value the UI sends that fails validation is refused whole.
 - Changes made in the file while the app runs are picked up when the window regains focus (no polling).
 
@@ -271,8 +277,8 @@ See ADR-0003 and PRIVACY.md. Two claims are kept distinct:
 
 - **"bismillah works without a network."** Tested: the full e2e suite runs inside a network namespace with no network (`unshare -rn`).
 - **"bismillah contains no networking features."** Supported by:
-  - **CSP** (in `tauri.conf.json`): `default-src 'self'`; `connect-src` only Tauri IPC; `img-src 'self' asset: data:`; `font-src 'self'`; `script-src 'self'`; `style-src 'self'`; `object-src 'none'`; `frame-src 'none'`; `base-uri 'none'`; `form-action 'none'`. CodeMirror injects its base styles with a `<style>` element; Tauri gives inline style elements in `index.html` a fresh nonce on each load, and `src/editor/setup.ts` passes that nonce to `EditorView.cspNonce`. Style changes go through CSSOM, never `setAttribute("style")`. An e2e test asserts no CSP violations.
-  - **Navigation guard:** the main webview refuses all navigation away from the app origin, and new windows are denied. Links in the editor open in the system browser only on an explicit `Mod-click` (the app makes no request itself).
+  - **CSP** (in `tauri.conf.json`): `default-src 'self'`; `connect-src` only Tauri IPC; `img-src 'self' bismillah-image: data:` (plus `http://bismillah-image.localhost`, the scheme's form on Windows); `font-src 'self'`; `script-src 'self'`; `style-src 'self'`; `object-src 'none'`; `frame-src 'none'`; `base-uri 'none'`; `form-action 'none'`. CodeMirror injects its base styles with a `<style>` element; Tauri gives inline style elements in `index.html` a fresh nonce on each load, and `src/editor/setup.ts` passes that nonce to `EditorView.cspNonce`. Style changes go through CSSOM, never `setAttribute("style")`. An e2e test asserts no CSP violations.
+  - **Navigation guard:** the main webview refuses all navigation away from the app origin, and new windows are denied. Links in the editor are never followed by the webview; opening one in the system browser on an explicit `Mod-click` is planned (`tauri-plugin-opener`, which makes no request itself).
   - **No network-capable Tauri plugins** (http, updater, websocket, upload), enforced by `deny.toml` (`cargo deny check bans`) in `pnpm verify` and a project hook. cargo-deny checks the feature set and desktop targets the app is actually built for: Tauri's optional networking features and its Android/iOS-only `reqwest` dependency are not in that tree.
   - **Native feature audit:** each release reviews the Rust dependency tree for socket use.
   - **Runtime test:** `strace -f -e trace=connect,sendto` over an e2e run shows no non-local connections.
@@ -285,9 +291,10 @@ We do **not** claim that the app *cannot* reach the network: a CSP is not an OS 
 
 The same dialect is used by the editor (and its live preview, ADR-0012) and by Copy as rich text:
 - CommonMark plus the GFM extensions: tables, strikethrough, task lists, autolinks.
-- Footnotes (a small Lezer extension in the editor; markdown-it-footnote for Copy as rich text).
+- Footnotes: the editor recognises `[^label]` references and `[^label]:` notes from its link syntax (live preview raises a reference only when its note exists); markdown-it-footnote renders them for Copy as rich text.
+- **Links follow CommonMark:** a reference or shortcut link is a link only when its label is defined, so `[sic]` stays text in both live preview and Copy as rich text.
 - YAML frontmatter delimited by `---` on the first line.
-- **Raw HTML is never rendered:** live preview shows it as text, and Copy as rich text disables it.
+- **Raw HTML is never rendered:** live preview shows it as text, and Copy as rich text disables it and sanitises the result. `tests/fixtures/xss.md` is the fixture for both.
 - Remote images are not loaded; they render as a placeholder showing their URL.
 
 ## 12. Desktop platform
@@ -335,7 +342,8 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 | Checking fixtures | `cargo test -p bismillah-lint` | One block per line with the expected marks (`crates/bismillah-lint/tests/fixtures/`): English, Arabic with and without diacritics, mixed text, masked regions, routing; the Arabic benchmark and the hunspell oracle |
 | Frontend unit | Vitest | Decoration ranges and classes, keymap, command registry, what is sent to the checker, stale-lint discarding, Basmallah deduplication |
 | Real app e2e | `tauri-driver` (WebDriver) on Linux and Windows | Open/edit/save/reload, conflicts, recovery after a killed process, file opening (CLI, drag-drop, second instance), settings, keyboard-only flows, offline run |
-| Visual | Screenshots via `tauri-driver` in the real app: WebKitGTK on Linux now, WebView2 on Windows later; macOS (no WebDriver support) checked by hand before releases | Specimen at window widths 640/1280/1920/2560, both themes, rendered and with all Markdown shown, zoom 200% |
+| Visual | Screenshots via `tauri-driver` in the real app: WebKitGTK on Linux now, WebView2 on Windows later; macOS (no WebDriver support) checked by hand before releases | The specimen rendered (live preview) and with all Markdown shown, whose baselines are Phase 1's own; `pnpm app:shot` covers the four widths, both themes and zoom for review |
+| Live preview | `tests/e2e/spikes/live-preview.e2e.ts`, `tests/e2e/live-preview.e2e.ts`, `spikes/webview/composition.ts` | Clicks, selection, keyboard motion and typewriter scrolling on RTL and mixed lines while blocks reveal; the fold, images (with links out of the library), hover addresses, `Mod-R`; the XSS fixture inert in the editor and on the clipboard |
 | Contrast | Unit test over the token table | Every semantic pair (DESIGN.md §9.4) |
 | Arabic rendering | `pnpm test:visual` (`tests/visual/arabic-rendering.visual.ts`) | Ink of every vocalised fixture word against a HarfBuzz reference, per bundled Arabic font; fails when a word gets worse, notes when WebKitGTK improves (ADR-0011) |
 | Supply chain | `cargo deny check`, `pnpm audit` | Banned crates, licences, advisories |

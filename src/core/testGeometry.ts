@@ -56,6 +56,8 @@ export function geometry(view: EditorView): Geometry {
         } catch {
           continue;
         }
+        // A mark hidden by live preview has no text of its own in the DOM.
+        if (range.toString() === "") continue;
         const rects = [...range.getClientRects()].filter((r) => r.width > 0);
         const rect = rects[0] ?? range.getBoundingClientRect();
         out.push({ ...toBox(rect), from: start, to: end, text: segment });

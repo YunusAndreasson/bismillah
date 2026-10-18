@@ -9,6 +9,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
+import { revealed } from "./livePreview.ts";
 
 /**
  * Per-line direction and bidi isolation (DESIGN.md §8.6, ARCHITECTURE.md §2).
@@ -19,6 +20,11 @@ import type { SyntaxNode } from "@lezer/common";
  * share its direction. Code, frontmatter and URLs are always left-to-right, and inline
  * code and URLs are isolated so they don't reorder the Arabic around them. The isolates
  * are registered with CodeMirror so caret motion follows the visible order.
+ *
+ * With live preview, a rendered line isolates only what is still drawn: the code
+ * without its hidden backticks, an autolink without its brackets, and nothing for a
+ * link's hidden address. An isolate whose edges are hidden marks is measured from
+ * those marks, and the selection would miss its first letters (Phase 4 spike).
  */
 
 const RTL_CHAR = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/u;
@@ -126,10 +132,24 @@ function previousDirection(state: EditorState, line: Line): Dir {
   return "ltr";
 }
 
+/** The part of an isolated node that is drawn in a rendered line, or null for none. */
+function drawnPart(node: SyntaxNode): { from: number; to: number } | null {
+  if (node.name === "InlineCode") {
+    const marks = node.getChildren("CodeMark");
+    const first = marks[0];
+    const last = marks.at(-1);
+    return first && last && last !== first ? { from: first.to, to: last.from } : node;
+  }
+  if (node.name === "Autolink") return node.getChild("URL") ?? node;
+  if (node.parent?.name === "Link" || node.parent?.name === "Image") return null;
+  return node;
+}
+
 function build(view: EditorView): { lines: DecorationSet; isolates: DecorationSet } {
   const lines = new RangeSetBuilder<Decoration>();
   const isolates = new RangeSetBuilder<Decoration>();
   const { state } = view;
+  const open = state.field(revealed, false)?.lines;
   for (const { from, to } of view.visibleRanges) {
     let last: Dir | null = null;
     for (let pos = from; pos <= to;) {
@@ -146,7 +166,9 @@ function build(view: EditorView): { lines: DecorationSet; isolates: DecorationSe
       enter(node) {
         if (ALWAYS_LTR.has(node.name)) return false;
         if (ISOLATE.has(node.name)) {
-          if (node.to > node.from) isolates.add(node.from, node.to, isolateDeco);
+          const rendered = open && !(node.from >= open.from && node.to <= open.to);
+          const part = rendered ? drawnPart(node.node) : node;
+          if (part && part.to > part.from) isolates.add(part.from, part.to, isolateDeco);
           return false;
         }
       },
@@ -166,7 +188,8 @@ const bidiPlugin = ViewPlugin.fromClass(
       if (
         update.docChanged ||
         update.viewportChanged ||
-        syntaxTree(update.state) !== syntaxTree(update.startState)
+        syntaxTree(update.state) !== syntaxTree(update.startState) ||
+        update.state.field(revealed, false) !== update.startState.field(revealed, false)
       )
         ({ lines: this.lines, isolates: this.isolates } = build(update.view));
     }

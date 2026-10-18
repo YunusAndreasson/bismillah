@@ -1,5 +1,7 @@
 # bismillah — Design
 
+Because everybody needs some time, one their own. Yeah, everybody needs some time all alone.
+
 > A typewriter, with only the best of the computer.
 
 This document is the design foundation of bismillah. It defines what the product is, how it should look and behave, and how design work is judged. When a design question is not answered here, decide in the spirit of this document and then add the answer here.
@@ -281,8 +283,12 @@ There are two separate systems with separate purposes:
 
 - **Live preview** (ADR-0012, Phase 4). The document reads as rendered text: emphasis without its marks, links as their text, bullets for list markers, a bar for quotes, a rule for `---`, folded frontmatter, local images below their line.
   - **The block with the caret shows its Markdown** in `syntax-marker`. The `#` of headings, `>` of quotes and list markers hang in the reserved gutter, so text starts on one reading edge and revealing them moves nothing. This mirrors on RTL lines.
-  - Reveal follows the caret, never the mouse, so text never moves under the pointer. Hovering a link or image may show its address in a tooltip.
-  - **Always show Markdown** (Settings › Writing, `Mod-R`) keeps every mark visible, iA-style, as Phase 1 draws it.
+  - **What stands in for the marks**, all in `text-secondary` and drawn where the marks stand: a dot for `-`, `*` and `+`; the number of an ordered item as written; an outlined box for `[ ]`, with a filled centre for `[x]`; a 2px bar on the place of every `>`, through every row of the quote; a short centred rule (6em) for `---`. Inline code gets a `surface-panel` ground in place of its backticks, a link's text a thin `text-secondary` underline (solid, so it never reads as a diagnostic), a footnote reference is raised and small. Fenced code, tables, raw HTML, entities and link definitions keep their Markdown in both states.
+  - **Brackets mean what CommonMark says.** `[text](url)` is a link; `[text][label]` and `[label]` are links only when the label is defined in the document, and `[^1]` is a footnote only when its note exists, so a scholarly `[sic]` or `[emphasis added]` keeps its brackets.
+  - **The frontmatter** folds to one quiet line of its keys (`title: Specimen · lang: en`); a newly opened document puts the caret on its first line of text, below it.
+  - **Images** appear below their line, within the measure: a file inside the library (Rust checks every image path as it does every other, ARCHITECTURE.md §6), or one embedded as `data:`. An image from the web is never loaded: a quiet note says so and shows its address. So does a note for a file that is missing, outside the library or not an image.
+  - **Reveal follows the caret, never the mouse,** so text never moves under the pointer. A press of the mouse button reveals nothing until its release; then the clicked block reveals and the caret's row keeps its height on screen. A double-click selects the word that was clicked, although the first click moved it. Hovering a link or image shows its address in a tooltip (`surface-editor`, `border-control`), which moves nothing; the same address is in the source once the caret is in the block.
+  - **Always show Markdown** (Settings › Writing, View menu, `Mod-R`) keeps every mark visible, iA-style, exactly as Phase 1 draws it.
 - **Caret:** 2px wide, in `accent`. **Selection:** `selection-background` with `text-primary` text.
 - **Typewriter scrolling** is on by default (`Mod-T`). The caret line sits slightly above centre, about 42% from the top of the writing area. Typing and keyboard motion keep it there; a mouse click doesn't scroll, so text never jumps away from the pointer.
 - **Diagnostics** are shown as you write by default; both can be switched off (Settings › Language & checking, the menu and the palette). Spelling uses a **wavy** underline in `diagnostic-spelling`; grammar uses a **dotted** underline in `diagnostic-grammar`. The underline sits below descenders and Arabic dots (lower still under an Arabic word) and never moves the text. Each marked word carries `aria-invalid="spelling"` or `"grammar"`.
@@ -293,7 +299,7 @@ There are two separate systems with separate purposes:
   - *Replace* is one undoable edit, the caret after the new text. A correction that would delete a Markdown mark is never offered. *Ignore* lasts for this document and session and writes nothing; *Add to dictionary* writes the word to the writer's own `dictionary.txt`, which they may also edit by hand.
   - Asked where there is nothing to find, the status line says so for a moment (*No spelling or grammar issues.*, *Nothing to suggest here.*, *Spelling and grammar checking are off.*), announced politely to screen readers.
 - **Frontmatter:** shown in `text-secondary`; folded to one quiet line outside the caret, never rewritten.
-- **No separate preview mode.** *Copy as rich text* (`Mod-Shift-C`) puts rendered HTML and plain text on the clipboard.
+- **No separate preview mode.** *Copy as rich text* (`Mod-Shift-C`) puts the selection, or the whole document without its frontmatter, on the clipboard as HTML and as plain text (paragraphs apart, list markers kept), and says so for a moment in the status line. Local images paste as their description, since the paste target can't reach them; nothing typographic is changed.
 
 ### 11.1 Zuhd mode (زهد) — focus mode
 
@@ -398,7 +404,7 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 | `file.trash` | Move to trash | `Delete` in the library (undoable; also from the menu and palette for the open document) |
 | `app.commandPalette` | Command palette | `Mod-Shift-P` |
 | `view.toggleLibrary` | Library | `Mod-\` (shows the library and moves focus to it; pressed in the library, hides it) |
-| `view.toggleMarkdown` | Show all Markdown | `Mod-R` (Phase 4) |
+| `view.toggleMarkdown` | Always show Markdown | `Mod-R` (a switch; the same name as the setting, §6) |
 | `editor.toggleFocus` | Zuhd mode | `Mod-D` |
 | `editor.toggleTypewriter` | Typewriter scrolling | `Mod-T` |
 | `view.textBigger` / `textSmaller` / `textReset` | Bigger / Smaller / Default text size | `Mod-=` / `Mod--` / `Mod-0` |

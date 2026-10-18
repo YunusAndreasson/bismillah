@@ -33,10 +33,18 @@ for (const profile of ["duo", "serif"] as const) {
       await waitForApp(browser);
       await setViewport(browser, 1280, 900);
       await loadDoc(fixture("bidi.md"));
+      // The Phase 1 view, which "Always show Markdown" keeps (ADR-0012).
       await browser.execute(async (p: string) => {
         window.__bismillah?.setTypewriter(false);
         await window.__bismillah?.setProfile(p as "duo");
+        await window.__bismillah?.changeSettings({ always_show_markdown: true });
       }, profile);
+    });
+
+    after(async () => {
+      await browser.execute(async () => {
+        await window.__bismillah?.changeSettings({ always_show_markdown: false });
+      });
     });
 
     it("starts LTR heading, list, quote and ordered text on the paragraph's edge", async () => {

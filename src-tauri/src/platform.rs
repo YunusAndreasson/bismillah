@@ -28,6 +28,30 @@ pub fn menu_state(window: &tauri::WebviewWindow) -> tauri::Result<(bool, bool)> 
     Ok((visible, active))
 }
 
+/// Puts `html` and its plain-text alternative on the system clipboard (Copy as rich
+/// text). Must run on the main thread.
+pub fn write_clipboard(html: String, text: String) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    return linux::write_clipboard(html, text);
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (html, text);
+        Err("rich text copying isn't available on this platform yet".into())
+    }
+}
+
+/// What the clipboard holds under `target`, as UTF-8 (the test hooks read back what
+/// Copy as rich text offered). Must run on the main thread.
+pub fn read_clipboard(target: &str) -> Option<String> {
+    #[cfg(target_os = "linux")]
+    return linux::read_clipboard(target);
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = target;
+        None
+    }
+}
+
 /// Makes a rename in `dir` durable (ARCHITECTURE.md §5.2, step 5). Filesystems that
 /// can't sync a directory say so with `EINVAL`, which is not a failure of the save.
 pub fn sync_dir(dir: &Path) -> io::Result<()> {
@@ -356,6 +380,44 @@ mod linux {
 
     pub fn menu_bar_active(window: &tauri::WebviewWindow) -> bool {
         menu_bar(window).is_some_and(|bar| bar.selected_item().is_some())
+    }
+
+    pub fn read_clipboard(target: &str) -> Option<String> {
+        let clipboard = gtk::Clipboard::get(&gtk::gdk::SELECTION_CLIPBOARD);
+        let data = clipboard.wait_for_contents(&gtk::gdk::Atom::intern(target))?;
+        String::from_utf8(data.data()).ok()
+    }
+
+    const HTML: u32 = 0;
+    const TEXT: u32 = 1;
+
+    /// Offers the HTML as `text/html` and the text under the usual text targets, on X11
+    /// and Wayland alike, until something else is copied.
+    pub fn write_clipboard(html: String, text: String) -> Result<(), String> {
+        let entry = |name: &str, info| gtk::TargetEntry::new(name, gtk::TargetFlags::empty(), info);
+        let targets = [
+            entry("text/html", HTML),
+            entry("UTF8_STRING", TEXT),
+            entry("text/plain;charset=utf-8", TEXT),
+            entry("text/plain", TEXT),
+            entry("STRING", TEXT),
+            entry("TEXT", TEXT),
+        ];
+        // Paste targets read text/html as UTF-8 only when it says so.
+        let html = format!("<meta charset=\"utf-8\">{html}");
+        let clipboard = gtk::Clipboard::get(&gtk::gdk::SELECTION_CLIPBOARD);
+        let offered = clipboard.set_with_data(&targets, move |_, selection, info| {
+            if info == HTML {
+                selection.set(&gtk::gdk::Atom::intern("text/html"), 8, html.as_bytes());
+            } else {
+                selection.set_text(&text);
+            }
+        });
+        if offered {
+            Ok(())
+        } else {
+            Err("the clipboard refused the text".into())
+        }
     }
 }
 

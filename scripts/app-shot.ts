@@ -14,6 +14,8 @@
  *   --full                capture the whole document by scrolling and stitching
  *   --scroll-to <text>    scroll so the first line containing <text> is near the top
  *   --typewriter          keep typewriter scrolling on (off by default for shots)
+ *   --markdown <mode>     rendered (live preview, the default) or shown (Always show Markdown)
+ *   --caret <text>        put the caret at the first <text>, revealing that block
  *   --library <dir>       show a copy of <dir> as the library (docked or overlay, by width)
  *   --library-file <rel>  open this file from that library instead of the specimen
  *   --out <dir>           output directory (default: <repo>/target/shots)
@@ -41,6 +43,8 @@ const { values } = parseArgs({
     full: { type: "boolean", default: false },
     "scroll-to": { type: "string" },
     typewriter: { type: "boolean", default: false },
+    markdown: { type: "string", default: "rendered" },
+    caret: { type: "string" },
     library: { type: "string" },
     "library-file": { type: "string" },
     out: { type: "string", default: resolve(REPO, "target/shots") },
@@ -129,14 +133,18 @@ try {
     }
   }
   await browser.execute(
-    (typewriter: boolean, scale: number) => {
+    async (typewriter: boolean, scale: number, shown: boolean, caret: string | null) => {
       const hooks = window.__bismillah;
       hooks?.setTypewriter(typewriter);
+      await hooks?.changeSettings({ always_show_markdown: shown });
+      if (caret !== null) hooks?.caretAt(caret);
       hooks?.view.contentDOM.blur();
       void hooks?.setScale(scale);
     },
     values.typewriter,
     Number(values.scale),
+    values.markdown === "shown",
+    values.caret ?? null,
   );
   for (const profile of list(values.profiles)) {
     await browser.execute(async (p: string) => {
@@ -165,7 +173,8 @@ try {
         await settle(browser);
         const png = values.full ? await shootFull() : await shoot();
         const suffix = `${scratch ? "-library" : ""}${values.full ? "-full" : ""}`;
-        const name = `${profile}-${theme}-${width}${suffix}.png`;
+        const mode = values.markdown === "shown" ? "-shown" : "";
+        const name = `${profile}-${theme}-${width}${mode}${suffix}.png`;
         const path = resolve(outDir, name);
         writeFileSync(path, PNG.sync.write(png));
         written.push(path);

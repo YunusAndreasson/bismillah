@@ -17,7 +17,7 @@ And just as deliberately, it has **no** accounts, subscriptions, ads, telemetry,
 
 ## Status
 
-**Pre-alpha, private.** For now bismillah is a personal project that runs only on its author's Linux machine. Phase 1 (the writing core: safe saving with recovery, settings), Phase 2 (the library: a folder of files, quick open, the command palette, rename, new folder and move to trash with undo) and Phase 3 (spelling in English and Arabic, grammar suggestions in English, a personal dictionary) are built; Phase 4 (live preview) is next. See the [roadmap](PLAN.md). Publishing, and macOS and Windows builds, come later.
+**Pre-alpha, private.** For now bismillah is a personal project that runs only on its author's Linux machine. Phase 1 (the writing core: safe saving with recovery, settings), Phase 2 (the library: a folder of files, quick open, the command palette, rename, new folder and move to trash with undo), Phase 3 (spelling in English and Arabic, grammar suggestions in English, a personal dictionary) and Phase 4 (live preview: the text reads rendered and shows its Markdown only where you write, with *Always show Markdown* on `Ctrl+R`; Copy as rich text) are built; Phase 5 (themes and the full settings screen) is next. See the [roadmap](PLAN.md). Publishing, and macOS and Windows builds, come later.
 
 To install it on Arch Linux from this repository: `cd packaging/arch && makepkg -si`. Some GPU and driver combinations need `WEBKIT_DISABLE_DMABUF_RENDERER=1` in the environment.
 

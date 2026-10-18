@@ -35,9 +35,18 @@ describe("bidi", () => {
     await waitForApp(browser);
     await setViewport(browser, 1600, 900);
     await loadDoc(fixture("bidi.md"));
+    // The Phase 1 view, which "Always show Markdown" keeps (ADR-0012); live preview has
+    // its own spike (live-preview.e2e.ts).
     await browser.execute(async () => {
       window.__bismillah?.setTypewriter(false);
       await window.__bismillah?.setProfile("duo");
+      await window.__bismillah?.changeSettings({ always_show_markdown: true });
+    });
+  });
+
+  after(async () => {
+    await browser.execute(async () => {
+      await window.__bismillah?.changeSettings({ always_show_markdown: false });
     });
   });
 

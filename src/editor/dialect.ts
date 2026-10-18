@@ -37,6 +37,27 @@ export const frontmatter: MarkdownConfig = {
   ],
 };
 
+/**
+ * Where the frontmatter ends (after its closing fence, before the line break), or null
+ * when the text has none: the same rule as the parser above, for code that works on
+ * plain text (the caret's starting place, Copy as rich text). Without a closing fence
+ * the frontmatter runs to the end, as it does in the editor.
+ */
+export function frontmatterEnd(text: string): number | null {
+  const first = /^---[ \t]*(?:\n|$)/.exec(text);
+  if (!first) return null;
+  let pos = first[0].length;
+  if (!first[0].endsWith("\n")) return text.length;
+  while (pos <= text.length) {
+    const next = text.indexOf("\n", pos);
+    const end = next < 0 ? text.length : next;
+    if (FENCE.test(text.slice(pos, end))) return end;
+    if (next < 0) return text.length;
+    pos = next + 1;
+  }
+  return text.length;
+}
+
 /** The shared dialect: CommonMark + GFM + frontmatter (ARCHITECTURE.md §11). */
 export function markdownDialect(): Extension {
   return markdown({ base: markdownLanguage, extensions: [frontmatter] });

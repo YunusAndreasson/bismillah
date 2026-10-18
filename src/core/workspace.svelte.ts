@@ -1,3 +1,4 @@
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { keymap } from "@codemirror/view";
@@ -325,6 +326,8 @@ export class Workspace {
   /** Shows a newly opened document (replacing the current one, already flushed). */
   #show(opened: OpenedDocument, options: { quiet?: boolean } = {}): void {
     this.session?.dispose();
+    // Before the text loads: its images are asked for by this id.
+    this.#documentId = opened.id;
     this.welcome = false;
     const existing = this.editor;
     const editor = existing ?? this.#createEditor(opened.text, opened.read_only);
@@ -382,6 +385,9 @@ export class Workspace {
     this.#showWelcome();
   }
 
+  /** The open document's id in Rust, set before its text reaches the editor. */
+  #documentId: number | null = null;
+
   #createEditor(text: string, readOnly: boolean): Editor {
     if (!this.#host) throw new Error("the workspace has not started");
     const keys = Prec.high(
@@ -402,6 +408,12 @@ export class Workspace {
       onChange: () => this.#onChange?.(),
       lint: { check: (request) => ipc.lintCheck(request) },
       onContextMenu: (pos) => this.checking.contextMenu(pos),
+      // The open document's id and the destination as written; Rust resolves and checks
+      // it against the library (images.rs).
+      imageAddress: (src) => {
+        const id = this.#documentId;
+        return id === null ? null : convertFileSrc(`${id}/${src}`, "bismillah-image");
+      },
     });
     this.#dialect = settings.values.english_dialect;
     return this.editor;
@@ -414,6 +426,7 @@ export class Workspace {
       zuhd: s.focus_mode,
       focusGranularity: s.focus_granularity,
       smartPunctuation: s.smart_punctuation,
+      livePreview: !s.always_show_markdown,
       spelling: s.check_spelling,
       grammar: s.check_grammar,
     };
@@ -782,6 +795,26 @@ export class Workspace {
     if (await session.save()) await ipc.settleRecovery(session.id);
   }
 
+  /**
+   * Copy as rich text (DESIGN.md §11): the selection, or the whole document without its
+   * frontmatter, as sanitised HTML and plain text. The renderer loads on first use.
+   */
+  async copyRich(): Promise<void> {
+    const view = this.editor?.view;
+    if (!view) return;
+    const { from, to } = view.state.selection.main;
+    const whole = from === to;
+    const source = whole ? view.state.doc.toString() : view.state.sliceDoc(from, to);
+    const { richText } = await import("../richText/render.ts");
+    const { html, text } = richText(source, whole || from === 0);
+    try {
+      await ipc.clipboardWrite(html, text);
+      this.checking.say(whole ? copy.copyRich.done : copy.copyRich.doneSelection);
+    } catch {
+      this.checking.say(copy.copyRich.failed);
+    }
+  }
+
   async discardRecovered(): Promise<void> {
     const session = this.session;
     this.recovery = null;
@@ -825,6 +858,8 @@ export class Workspace {
             return settings.values.focus_mode;
           case "editor.toggleTypewriter":
             return settings.values.typewriter_scrolling;
+          case "view.toggleMarkdown":
+            return settings.values.always_show_markdown;
           case "editor.toggleTransliteration":
             return this.transliteration;
           case "view.fullscreen":
@@ -842,6 +877,9 @@ export class Workspace {
       toggleFocus: () => void settings.set({ focus_mode: !settings.values.focus_mode }),
       toggleTypewriter: () =>
         void settings.set({ typewriter_scrolling: !settings.values.typewriter_scrolling }),
+      toggleMarkdown: () =>
+        void settings.set({ always_show_markdown: !settings.values.always_show_markdown }),
+      copyRich: () => void this.copyRich(),
       toggleTransliteration: () => {
         const view = this.editor?.view;
         if (!view) return;

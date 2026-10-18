@@ -768,6 +768,26 @@ pub fn test_fault(state: State<'_, AppState>, fault: Option<TestFault>) -> Resul
     Ok(())
 }
 
+/// Test mode only: what the clipboard holds under `target` (`text/html`,
+/// `UTF8_STRING`), read back through GTK, for the Copy as rich text tests.
+#[tauri::command]
+pub async fn test_clipboard(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+    target: String,
+) -> Result<Option<String>, OpenError> {
+    if !test_hooks_allowed(&state) {
+        return Err(OpenError::PermissionDenied);
+    }
+    let (tx, rx) = std::sync::mpsc::channel();
+    window
+        .run_on_main_thread(move || {
+            let _ = tx.send(platform::read_clipboard(&target));
+        })
+        .map_err(|_| OpenError::PermissionDenied)?;
+    Ok(rx.recv().ok().flatten())
+}
+
 /// Resolves a path given on the command line of this or a second launch.
 pub fn cli_path(args: &[String], cwd: &Path) -> Option<PathBuf> {
     let arg = args.iter().skip(1).find(|a| !a.starts_with('-'))?;

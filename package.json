@@ -61,6 +61,9 @@
     "@lezer/highlight": "1.2.5",
     "@lezer/markdown": "1.8.0",
     "@tauri-apps/api": "2.12.4",
-    "bits-ui": "2.19.5"
+    "bits-ui": "2.19.5",
+    "dompurify": "3.4.17",
+    "markdown-it": "15.0.3",
+    "markdown-it-footnote": "4.0.0"
   }
 }

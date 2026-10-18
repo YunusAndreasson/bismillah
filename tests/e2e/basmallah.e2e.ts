@@ -160,6 +160,10 @@ describe("the Basmallah opening", () => {
       await browser.execute(async (t: "light" | "dark") => {
         await window.__bismillah?.changeSettings({ theme: t });
       }, theme);
+      // A newly opened document's caret is on its first line of text (ADR-0012).
+      const before = await browser.execute(
+        () => window.__bismillah?.view.state.selection.main.head,
+      );
       expect(await selectOpening()).toBe(BASMALLAH);
       await settle(browser);
       // CodeMirror leaves a selection inside the widget alone, and its own is unchanged.
@@ -168,7 +172,7 @@ describe("the Basmallah opening", () => {
         window.__bismillah?.view.state.selection.main.head,
       ]);
       expect(kept).toBe(BASMALLAH);
-      expect(head).toBe(0);
+      expect(head).toBe(before);
 
       const [rect, ratio] = await browser.execute(() => {
         const r = document.querySelector(".cm-basmallah-text")?.getBoundingClientRect();
@@ -211,6 +215,9 @@ describe("the Basmallah opening", () => {
     expect(r).not.toBeNull();
     if (!r) return;
     const y = Math.round(r.y);
+    const before = await browser.execute(() =>
+      window.__bismillah?.view.state.selection.main.toJSON(),
+    );
     await browser
       .action("pointer", { parameters: { pointerType: "mouse" } })
       .move({ x: Math.round(r.right - 3), y })
@@ -224,7 +231,7 @@ describe("the Basmallah opening", () => {
       text: document.getSelection()?.toString(),
       editor: window.__bismillah?.view.state.selection.main.toJSON(),
     }));
-    expect(dragged).toEqual({ text: BASMALLAH, editor: { anchor: 0, head: 0 } });
+    expect(dragged).toEqual({ text: BASMALLAH, editor: before });
 
     await browser
       .action("pointer", { parameters: { pointerType: "mouse" } })

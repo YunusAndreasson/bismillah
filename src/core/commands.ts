@@ -20,6 +20,7 @@ export type CommandId =
   | "edit.undo"
   | "edit.redo"
   | "edit.selectAll"
+  | "edit.copyRich"
   | "editor.toggleTransliteration"
   | "check.suggestions"
   | "check.next"
@@ -28,6 +29,7 @@ export type CommandId =
   | "check.toggleGrammar"
   | "editor.toggleFocus"
   | "editor.toggleTypewriter"
+  | "view.toggleMarkdown"
   | "view.textBigger"
   | "view.textSmaller"
   | "view.textReset"
@@ -40,6 +42,7 @@ export type CommandId =
 export type ToggleId =
   | "editor.toggleFocus"
   | "editor.toggleTypewriter"
+  | "view.toggleMarkdown"
   | "editor.toggleTransliteration"
   | "check.toggleSpelling"
   | "check.toggleGrammar"
@@ -102,6 +105,10 @@ export interface CommandContext {
   commandPalette(): void;
   toggleFocus(): void;
   toggleTypewriter(): void;
+  /** Always show Markdown, or live preview (ADR-0012). */
+  toggleMarkdown(): void;
+  /** Puts the selection, or the whole document, on the clipboard as HTML and text. */
+  copyRich(): void;
   toggleTransliteration(): void;
   /** Opens the suggestions for the issue at the caret (Mod-.). */
   showSuggestions(): void;
@@ -228,6 +235,16 @@ export const COMMANDS: readonly Command[] = [
     run: (c) => withView(c, selectAll),
   },
   {
+    id: "edit.copyRich",
+    label: "Copy as rich text",
+    section: "Edit",
+    key: "Mod-Shift-c",
+    aliases: ["html", "export", "formatted", "email"],
+    description: "Copies the selection, or the whole document, formatted for pasting elsewhere.",
+    available: (c) => c.view !== null,
+    run: (c) => c.copyRich(),
+  },
+  {
     id: "editor.toggleTransliteration",
     label: "Transliteration mode",
     section: "Edit",
@@ -323,6 +340,16 @@ export const COMMANDS: readonly Command[] = [
     description: "Keeps the line you're writing near the middle of the window.",
     toggle: (c) => c.isOn("editor.toggleTypewriter"),
     run: (c) => c.toggleTypewriter(),
+  },
+  {
+    id: "view.toggleMarkdown",
+    label: "Always show Markdown",
+    section: "View",
+    key: "Mod-r",
+    aliases: ["markup", "source", "live preview", "rendered", "marks", "syntax"],
+    description: "Shows every Markdown mark, not only in the paragraph you're writing.",
+    toggle: (c) => c.isOn("view.toggleMarkdown"),
+    run: (c) => c.toggleMarkdown(),
   },
   {
     id: "view.textBigger",

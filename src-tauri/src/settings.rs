@@ -84,6 +84,11 @@ const SPECS: &[Spec] = &[
         default: || true.into(),
     },
     Spec {
+        key: "always_show_markdown",
+        kind: Kind::Bool,
+        default: || false.into(),
+    },
+    Spec {
         key: "focus_mode",
         kind: Kind::Bool,
         default: || false.into(),
@@ -349,6 +354,7 @@ mod tests {
         assert_eq!(s.values["writing_profile"], "duo");
         assert_eq!(s.values["line_height"], Value::Null);
         assert_eq!(s.values["basmallah_opening"], true);
+        assert_eq!(s.values["always_show_markdown"], false);
         assert!(s.notices.is_empty());
         assert!(scratch.entries().is_empty());
     }

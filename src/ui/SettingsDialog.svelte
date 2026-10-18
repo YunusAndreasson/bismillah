@@ -178,6 +178,13 @@
           values.typewriter_scrolling,
           (typewriter_scrolling) => change({ typewriter_scrolling }),
         )}
+        {@render toggle(
+          "set-markdown",
+          t.alwaysShowMarkdown,
+          t.alwaysShowMarkdownHint,
+          values.always_show_markdown,
+          (always_show_markdown) => change({ always_show_markdown }),
+        )}
         {@render toggle("set-zuhd", t.zuhd, t.zuhdHint, values.focus_mode, (focus_mode) =>
           change({ focus_mode }),
         )}

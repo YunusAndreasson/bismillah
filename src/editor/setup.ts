@@ -5,8 +5,10 @@ import { basmallah } from "./basmallah.ts";
 import { bidi } from "./bidi.ts";
 import { forgetWord, setDisplay, setIgnored } from "./diagnostics.ts";
 import { linter, recheck, type LintSource } from "./linter.ts";
-import { markdownDialect } from "./dialect.ts";
+import { frontmatterEnd, markdownDialect } from "./dialect.ts";
 import { hangingMarks } from "./hangingMarks.ts";
+import { livePreview } from "./livePreview.ts";
+import { imageAddress, previewBlocks, type ImageAddress } from "./previewBlocks.ts";
 import { markdownStyling } from "./markdownStyling.ts";
 import { scriptRuns } from "./scriptRuns.ts";
 import { typewriter } from "./typewriter.ts";
@@ -21,6 +23,8 @@ export interface EditorConfig {
   focusGranularity: FocusGranularity;
   /** Smart punctuation (DESIGN.md §11.3). */
   smartPunctuation: boolean;
+  /** Rendered text outside the caret's block (ADR-0012); off: Always show Markdown. */
+  livePreview: boolean;
   /** Which diagnostics are shown (DESIGN.md §11); Rust also stops looking. */
   spelling: boolean;
   grammar: boolean;
@@ -32,6 +36,7 @@ export const DEFAULT_CONFIG: EditorConfig = {
   zuhd: false,
   focusGranularity: "paragraph",
   smartPunctuation: true,
+  livePreview: true,
   spelling: true,
   grammar: true,
 };
@@ -51,6 +56,8 @@ export interface EditorOptions {
   lint?: LintSource;
   /** A right-click at `pos`; true if it was handled (the suggestions opened). */
   onContextMenu?: (pos: number) => boolean;
+  /** Where live preview loads a local image from (Rust checks it against the library). */
+  imageAddress?: ImageAddress;
 }
 
 export interface Editor {
@@ -75,6 +82,17 @@ export interface Editor {
   recheck(): void;
   /** A word went into the personal dictionary: unmarked now, then checked again. */
   wordAdded(word: string): void;
+}
+
+/**
+ * Where the caret starts in a newly opened document with live preview: the first line
+ * of text after any frontmatter, so the frontmatter opens folded (ADR-0012).
+ */
+export function startOfText(text: string): number {
+  const end = frontmatterEnd(text);
+  if (end === null) return 0;
+  const rest = /^(?:[ \t]*\n)*/.exec(text.slice(end + 1))?.[0].length ?? 0;
+  return Math.min(text.length, end + 1 + rest);
 }
 
 /**
@@ -105,6 +123,7 @@ export function createEditor(options: EditorOptions): Editor {
     typewriter: new Compartment(),
     zuhd: new Compartment(),
     smartPunctuation: new Compartment(),
+    livePreview: new Compartment(),
     readOnly: new Compartment(),
   };
   const configured = {
@@ -112,6 +131,7 @@ export function createEditor(options: EditorOptions): Editor {
     typewriter: () => (config.typewriter ? typewriter() : []),
     zuhd: () => (config.zuhd ? [zuhd(), focusGranularity.of(config.focusGranularity)] : []),
     smartPunctuation: () => typingAidsConfig.of({ smartPunctuation: config.smartPunctuation }),
+    livePreview: () => (config.livePreview ? [livePreview(), previewBlocks()] : []),
     readOnly: (on: boolean) => [EditorState.readOnly.of(on), EditorView.editable.of(!on)],
   };
 
@@ -142,7 +162,9 @@ export function createEditor(options: EditorOptions): Editor {
     hangingMarks(),
     typingAids(),
     options.lint ? linter(options.lint) : [],
+    options.imageAddress ? imageAddress.of(options.imageAddress) : [],
     slots.smartPunctuation.of(configured.smartPunctuation()),
+    slots.livePreview.of(configured.livePreview()),
     slots.basmallah.of(configured.basmallah()),
     slots.typewriter.of(configured.typewriter()),
     slots.zuhd.of(configured.zuhd()),
@@ -151,7 +173,11 @@ export function createEditor(options: EditorOptions): Editor {
 
   const view = new EditorView({
     parent: options.parent,
-    state: EditorState.create({ doc: options.doc, extensions: extensions(!!options.readOnly) }),
+    state: EditorState.create({
+      doc: options.doc,
+      selection: EditorSelection.cursor(config.livePreview ? startOfText(options.doc) : 0),
+      extensions: extensions(!!options.readOnly),
+    }),
   });
   let ignored: ReadonlySet<string> = new Set();
   /** A new state starts with the writer's checking switches and ignored words. */
@@ -177,6 +203,7 @@ export function createEditor(options: EditorOptions): Editor {
       const typewriterChanged = changed("typewriter");
       const zuhdChanged = changed("zuhd") || changed("focusGranularity");
       const smartChanged = changed("smartPunctuation");
+      const previewChanged = changed("livePreview");
       Object.assign(config, patch);
       const effects = [];
       if (basmallahChanged) effects.push(slots.basmallah.reconfigure(configured.basmallah()));
@@ -184,6 +211,7 @@ export function createEditor(options: EditorOptions): Editor {
       if (zuhdChanged) effects.push(slots.zuhd.reconfigure(configured.zuhd()));
       if (smartChanged)
         effects.push(slots.smartPunctuation.reconfigure(configured.smartPunctuation()));
+      if (previewChanged) effects.push(slots.livePreview.reconfigure(configured.livePreview()));
       if (
         options.lint &&
         (config.spelling !== shown.spelling || config.grammar !== shown.grammar)
@@ -195,7 +223,13 @@ export function createEditor(options: EditorOptions): Editor {
       if (effects.length) view.dispatch({ effects });
     },
     load(text, readOnly) {
-      view.setState(EditorState.create({ doc: text, extensions: extensions(readOnly) }));
+      view.setState(
+        EditorState.create({
+          doc: text,
+          selection: EditorSelection.cursor(config.livePreview ? startOfText(text) : 0),
+          extensions: extensions(readOnly),
+        }),
+      );
       if (options.lint) view.dispatch({ effects: checkingEffects() });
       view.scrollDOM.scrollTop = 0;
     },

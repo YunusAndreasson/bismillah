@@ -14,5 +14,6 @@ Each spike answers one question from PLAN.md with evidence from the real app (We
 | Uthmani + transliteration glyphs | **adjust**: fonts go, WebKit misplaces Arabic marks | [glyphs.md](glyphs.md), [arabic-rendering.md](arabic-rendering.md) | 0007, 0011 |
 | Native menu | **go** (GTK/X11; GNOME untested) | [native-menu.md](native-menu.md) | 0009 |
 | Keyboard input | **go** (X11/GTK); transliteration table **adjust** | [keyboard-input.md](keyboard-input.md), [transliteration.md](transliteration.md) | 0010 |
+| Live preview (Phase 4) | **go** | [live-preview.md](live-preview.md) | 0012 |
 
 **Main finding:** WebKitGTK drops the vertical offsets HarfBuzz gives Arabic marks ([arabic-rendering.md](arabic-rendering.md)). The author's decision is recorded in ADR-0011 (accepted 2026-10-18).

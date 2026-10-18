@@ -241,6 +241,9 @@ export const testDialog = (path: string | null) => invoke<null>("test_dialog", {
 /** Test mode only: makes `path` the library, in place of the folder dialog. */
 export const testLibrary = (path: string) => invoke<LibraryView>("test_library", { path });
 /** Test mode only: makes every save fail at one step until cleared with null. */
+/** Test mode only: the clipboard's contents under an X target ("text/html"). */
+export const testClipboard = (target: string) =>
+  invoke<string | null>("test_clipboard", { target });
 export const testFault = (fault: "disk_full" | "rename_fails" | null) =>
   invoke<null>("test_fault", { fault });
 
@@ -250,5 +253,8 @@ export interface MenuState {
 }
 
 export const menuReveal = () => invoke<null>("menu_reveal");
+/** Copy as rich text: sanitised HTML and its plain text on the system clipboard. */
+export const clipboardWrite = (html: string, text: string) =>
+  invoke<null>("clipboard_write", { html, text });
 export const menuHide = () => invoke<null>("menu_hide");
 export const menuState = () => invoke<MenuState>("menu_state");

@@ -1,10 +1,13 @@
-"""Print the X CLIPBOARD's UTF8_STRING contents as JSON (used by clipboard.ts)."""
+"""Print the X CLIPBOARD's contents as JSON, as another app would receive them.
+Args: the target to ask for (default UTF8_STRING; e.g. text/html). Used by clipboard.ts
+and rich-text-clipboard.ts."""
 import json
 import sys, time
-from Xlib import X, Xatom, display
+from Xlib import X, display
+target = sys.argv[1] if len(sys.argv) > 1 else "UTF8_STRING"
 d = display.Display(); w = d.screen().root.create_window(0, 0, 1, 1, 0, X.CopyFromParent)
-clip, utf8, prop = d.intern_atom("CLIPBOARD"), d.intern_atom("UTF8_STRING"), d.intern_atom("BISMILLAH_CLIP")
-w.convert_selection(clip, utf8, prop, X.CurrentTime); d.flush()
+clip, kind, prop = d.intern_atom("CLIPBOARD"), d.intern_atom(target), d.intern_atom("BISMILLAH_CLIP")
+w.convert_selection(clip, kind, prop, X.CurrentTime); d.flush()
 deadline = time.time() + 3
 while time.time() < deadline:
     if d.pending_events():
