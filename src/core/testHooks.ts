@@ -3,6 +3,8 @@ import type { EditorView } from "@codemirror/view";
 import { setProfile, setTheme, type Profile, type Theme } from "./appearance.ts";
 import type { Editor } from "../editor/setup.ts";
 import { remeasure } from "../editor/typography.ts";
+import { visibleDiagnostics } from "../editor/diagnostics.ts";
+import { lintIdle } from "../editor/linter.ts";
 import { setTransliteration } from "../editor/typingAids.ts";
 import { geometry, type Geometry } from "./testGeometry.ts";
 import { commandLog, runCommand, type CommandId } from "./commands.ts";
@@ -73,6 +75,22 @@ export interface TestHooks {
   prompt(): { title: string; value: string; problem: string | null; ready: boolean } | null;
   /** Lays the library out again for the current window (tests resize the window). */
   measure(): Promise<void>;
+  /** Resolves once checking has caught up with the document (or after `timeoutMs`). */
+  lintSettled(timeoutMs?: number): Promise<boolean>;
+  /** The diagnostics the writer can see, and which of them are drawn now. */
+  diagnostics(): { text: string; kind: string; lang: string; drawn: boolean }[];
+  /** Puts the caret at the first occurrence of `text` (plus `offset`). */
+  caretAt(text: string, offset?: number): void;
+  /** The open suggestions menu, as drawn: its kind, explanation, items and the focused
+   * item. */
+  /** Whether the suggestions menu is open in the app's state (drawn or not). */
+  menuOpen(): boolean;
+  suggestions(): {
+    kind: string;
+    explanation: string;
+    items: string[];
+    focused: string | null;
+  } | null;
 }
 
 export interface LibraryProbe {
@@ -255,6 +273,45 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
     async measure() {
       workspace.measureLayout();
       await settle();
+    },
+    async lintSettled(timeoutMs = 15_000) {
+      const end = Date.now() + timeoutMs;
+      // Idle twice in a row, a frame apart: a response may schedule the next request.
+      for (let calm = 0; Date.now() < end;) {
+        calm = lintIdle(view) ? calm + 1 : 0;
+        if (calm >= 2) return true;
+        await frames(2);
+      }
+      return false;
+    },
+    diagnostics() {
+      const state = view.state;
+      const drawn = new Set(
+        [...view.contentDOM.querySelectorAll(".cm-diag")].map((el) => el.textContent ?? ""),
+      );
+      return visibleDiagnostics(state).map(({ from, to, diagnostic: d }) => {
+        const text = state.sliceDoc(from, to);
+        return { text, kind: d.kind, lang: d.lang, drawn: drawn.has(text) };
+      });
+    },
+    caretAt(text, offset = 0) {
+      const at = view.state.doc.toString().indexOf(text);
+      if (at < 0) throw new Error(`"${text}" isn't in the document`);
+      view.dispatch({ selection: { anchor: at + offset } });
+      view.focus();
+    },
+    menuOpen: () => workspace.checking.menu !== null,
+    suggestions() {
+      const menu = document.querySelector(".suggestions");
+      if (!menu) return null;
+      const text = (el: Element | null) => el?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+      const focused = document.activeElement?.closest('[role="menuitem"]') ?? null;
+      return {
+        kind: text(menu.querySelector(".kind")),
+        explanation: text(menu.querySelector(".why")),
+        items: [...menu.querySelectorAll('[role="menuitem"]')].map(text),
+        focused: focused ? text(focused) : null,
+      };
     },
   };
   document.documentElement.dataset.ready = "true";

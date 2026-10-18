@@ -2,7 +2,7 @@
 
 This document describes how bismillah is built and the contracts each part must keep. Product and visual decisions live in [DESIGN.md](DESIGN.md). Lasting decisions are recorded as ADRs in [docs/decisions/](docs/decisions/). If code and this document disagree, fix one of them in the same change.
 
-> **Status:** Phase 2 (library). The file-safety contract, the recovery journal, settings, the desktop basics and the library (path checks, listing, watcher, file actions) are real (§3 marks what is planned); linting arrives in Phase 3.
+> **Status:** Phase 3 (spelling and grammar). The file-safety contract, the recovery journal, settings, the desktop basics, the library (path checks, listing, watcher, file actions) and checking (`bismillah-lint`, its thread, the suggestions and the personal dictionary) are real (§3 marks what is planned).
 
 ---
 
@@ -37,8 +37,8 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | CodeMirror 6 + `@codemirror/lang-markdown` (Lezer) | Editing, IME, bidi, undo, search, accessibility |
 | markdown-it | Copy as rich text: the document as HTML (raw HTML disabled) |
 | DOMPurify | Sanitises that HTML after all rendering extensions have run |
-| `harper-core` | English spelling and grammar, offline. Embeds a small chunking model via `burn` (allowed by ADR-0004's AI policy); build without the thesaurus feature |
-| `spellbook` | Arabic spelling behind the `ArabicSpeller` adapter (ADR-0004; chosen in Phase 0) |
+| `harper-core` | English spelling and grammar, offline. Embeds a small chunking model via `burn` (allowed by ADR-0004's AI policy); build without the thesaurus feature. Its `zip` and `burn` dependencies carry advisories that can't apply here (`deny.toml` gives the reason for each ignore; drop them when Harper updates) |
+| `spellbook` | Arabic spelling behind the `ArabicSpeller` adapter (ADR-0004; chosen in Phase 0). The Ayaspell dictionary (`dictionaries/ar/`, 7 MB) is compiled into the binary and parsed on the first Arabic word that needs checking |
 | `notify` | File watching |
 | `trash` | Move to the system trash instead of deleting, and restore from it for Undo (freedesktop.org trash on Linux) |
 | `icu_normalizer` (already in Tauri's tree, through URL handling) | Canonical decomposition for the library's sort order, on a copy of each name (§6) |
@@ -81,20 +81,26 @@ bismillah/
 │  │  │                       rename, trash (§6)
 │  │  ├─ watch.rs             the debounced file watcher (§5.4)
 │  │  ├─ app/library_commands.rs  the library's state and commands (§4)
-│  │  └─ themes.rs, lint.rs  (planned)
+│  │  ├─ lint.rs              the checker's thread and the personal dictionary file (§7)
+│  │  └─ themes.rs            (planned)
 │  └─ capabilities/           minimal Tauri capability set
-├─ crates/bismillah-lint/     (planned, Phase 3) pure Rust, no Tauri dependency
+├─ crates/bismillah-lint/     spelling and grammar, pure Rust with no Tauri dependency (§7): offsets
+│                             (UTF-16 ↔ chars ↔ bytes), segment (script runs, Qur'anic trigger,
+│                             transliteration), routing (lang:), english (Harper), arabic
+│                             (spellbook), personal; fixture suites in tests/
 ├─ src/
 │  ├─ core/                   command registry, native menu, typed IPC bridge, workspace (open,
 │  │                          save, notices, library actions), save session, settings, copy (all
 │  │                          interface sentences), appearance, library store, tree keyboard model,
-│  │                          fuzzy matching, library layout, test hooks (only with BISMILLAH_TEST=1)
+│  │                          fuzzy matching, library layout, checking (the suggestions and what
+│  │                          was ignored), test hooks (only with BISMILLAH_TEST=1)
 │  ├─ editor/                 CodeMirror setup + one extension per concern: dialect (frontmatter),
 │  │                          markdownStyling, hangingMarks, bidi, scriptRuns, basmallah, typewriter,
-│  │                          zuhd, typingAids (smart punctuation, transliteration mode); wordCount
+│  │                          zuhd, typingAids (smart punctuation, transliteration mode), lintBlocks
+│  │                          (what is prose), linter (when to check), diagnostics; wordCount
 │  ├─ richText/               (planned, Phase 4) markdown-it + DOMPurify for Copy as rich text
 │  ├─ ui/                     Svelte components: status line, notices, first screen, Settings,
-│  │                          library panel and tree, quick open / palette, name prompt
+│  │                          library panel and tree, quick open / palette, name prompt, suggestions
 │  └─ styles/                 tokens.css, fonts.css, profiles.css, editor.css
 ├─ fonts/  source/ (upstream) · build/ (Bismillah Duo/Mono) · tools/ (build + verify scripts)
 ├─ dictionaries/              Arabic dictionary + licence
@@ -124,7 +130,9 @@ All commands are typed on both sides (Rust structs ↔ TS types in `src/core/ipc
 | `library_open_file(path)` → document | Open a file from the library |
 | `library_new_folder(parent, name)` · `library_rename(path, name)` | New folder…, Rename… (never replaces; the open document, recovered text and remembered files follow a rename) |
 | `library_trash(path)` → token · `library_untrash(token)` | Move to trash and its Undo (the open document closes if it went too) |
-| `lint` *(Phase 3)* | |
+| `lint_check(request)` → one list of diagnostics per block, with the request's revision | Spelling and grammar for some blocks, as the settings say (§7) |
+| `lint_suggest(word, lang, doc_lang)` → corrections | Spelling corrections, only when the writer asks (an Arabic search stops after ~300 ms) |
+| `lint_add_word(word)` · `lint_refresh()` → changed | *Add to dictionary*; re-reading `dictionary.txt` on focus |
 | `test_open(path)`, `test_fault(kind)`, `test_dialog(path)`, `test_library(path)` | Debug builds under the test harness only: stand-ins for the native dialogs and fault injection (§13) |
 
 Events (Rust → UI): `open-requested` (a drop or a second launch), `library-changed` (a new listing, sent whenever it differs from the last), `document-changed` (the watcher found the open file changed or removed on disk). A listing carries a generation that changes with the folder; within one folder the frontend keeps track of the open file itself, because a listing sent before a file opened may arrive after it.
@@ -192,33 +200,52 @@ If any step fails, the original file is untouched, the temporary file is removed
 
 ## 7. Spelling and grammar pipeline
 
-Detailed in ADR-0004.
+Detailed in ADR-0004. The checker is the `bismillah-lint` crate (pure Rust, no Tauri); the app runs it on one long-lived thread (`src-tauri/src/lint.rs`), because Harper's rule group mutates its caches as it works.
 
 ### 7.1 Request and response
 ```text
-LintRequest  { doc_id, revision, blocks: [{ block_id, text, lang_hint? }] }
-LintResponse { doc_id, revision, blocks: [{ block_id, diagnostics: [Diagnostic] }] }
-Diagnostic   { from_utf16, to_utf16, kind: Spelling|Grammar, message, suggestions[], rule_id }
+LintRequest  { revision, lang?, blocks: [{ text, skip: [[from, to]], marks: [[from, to]] }] }
+LintResponse { revision, blocks: [[Diagnostic]] }          // one list per block, in order
+Diagnostic   { from_utf16, to_utf16, kind: spelling|grammar, lang: en|ar, message, suggestions[], rule_id }
 ```
-- The frontend sends only **changed blocks** (paragraphs, headings, list items), debounced at about 400ms. Code, inline code, URLs, link targets, frontmatter and the Basmallah presentation element are never sent or are masked.
-- **Offsets crossing the boundary are UTF-16 code units, relative to the block.** Rust converts internally (bytes/chars ↔ UTF-16) in one tested module. Tests cover emoji, combining marks, Arabic diacritics and CRLF.
-- **Stale results are discarded:** a response whose `revision` is older than the document's current revision for that block is dropped, and never mapped onto newer text.
+- **The editor decides what is prose** (`src/editor/lintBlocks.ts`), from its own syntax tree, so the checker and the editor share one dialect (§11). Paragraphs, headings, task items and table cells are sent, each as its exact text with two kinds of ranges: `skip` for text that stands for words but isn't prose (inline code, URLs, autolinks, HTML, entities, link labels and titles, footnote references) and `marks` for Markdown punctuation (`#`, `**`, `>`, `[`, `](`, `|`, task boxes, hard breaks, the backslash of an escape). Code blocks, frontmatter, HTML blocks and link definitions are never sent, and the Basmallah isn't in the document. `lang` is the frontmatter `lang:`.
+- **When** (`src/editor/linter.ts`): a newly opened document is checked from the visible blocks outwards, about 6,000 UTF-16 units per request, so a long document never holds up the first results; afterwards only blocks that changed, about 300 ms after typing pauses. A change to fences, HTML or frontmatter marks everything after it (unchanged blocks come from the cache), and text that stopped being prose loses its results.
+- **At most one request is in flight.** What changes meanwhile waits for the next request, so nothing superseded is ever queued in Rust.
+- **Offsets crossing the boundary are UTF-16 code units, relative to the block.** Rust converts (UTF-16 ↔ chars ↔ bytes) in one tested module, `offsets.rs`, with tests for emoji, combining marks, Arabic diacritics and CRLF.
+- **Stale results are discarded:** the editor keeps the edits made while a request was out; a block they touched is dropped (and checked again), and an untouched block's results are moved to where it now is. A diagnostic is mapped through later edits only while its own text is untouched; an edit touching it removes it. A result is never put on text it didn't see.
+- **Cache:** results are kept per block (text, ranges, settings, dictionary generation) for the session, so reopening a document or undoing costs nothing.
+- A checker panic costs that block's underlines, never the app (`catch_unwind` per block).
+- **Size limits:** grammar is checked in blocks up to 20,000 UTF-16 units (about 3,000 words, under half a second) and spelling up to 100,000; a longer block isn't checked. Harper's cost grows faster than the text (8,000 words in one block: 1.1 s; a whole novel pasted as one paragraph: minutes), and only pasted text without blank lines makes paragraphs this long.
 
 ### 7.2 Language routing
-- Text is segmented into **script runs**: Arabic-script runs go to the Arabic speller; Latin runs go to Harper.
-- Script alone does not establish language, so a frontmatter `lang:` or an explicit setting overrides the routing. Grammar runs only on runs routed to English.
-- Text in other scripts is left unchecked; it is never flagged.
-- **Qur'anic text is skipped automatically.** Any Arabic run containing alef wasla (U+0671) or Qur'anic annotation characters (U+0610–U+061A, U+06D6–U+06ED, U+08D3–U+08FF) is not spellchecked, because Uthmani orthography differs from modern spelling. The test is purely on characters, so no text is ever classified by meaning. (`src/editor/scriptRuns.ts` already uses the same trigger to set such runs in Amiri Quran.)
-- **Harper (Phase 0 findings):** one long-lived lint thread (its group is `Send + Sync` but `lint` takes `&mut self`); offsets come back as Unicode scalar values; ʿ and ʾ split its tokens, so IJMES words are masked or handled by our own dictionary check; spelling suggestions are computed on request, not inline.
+- Text is segmented into **script runs** (`segment.rs`): Arabic-script runs go to the Arabic speller; the rest of the prose goes to Harper.
+- Script alone does not establish language, so a frontmatter `lang:` routes **the runs of its own script**: `lang: fa` (or another Arabic-script language) leaves Arabic-script runs unchecked, `lang: de` leaves Latin runs unchecked, and `lang: en-US`/`en-GB`/`en-CA`/`en-AU`/`en-IN` chooses the English dialect over the setting (`english_dialect`, British by default). An English document still has its Arabic phrases checked. Grammar runs only on English.
+- Text in other scripts (Greek, Cyrillic, Hebrew, Devanagari, CJK…) is left unchecked; it is never flagged.
+- **Qur'anic text is skipped automatically.** Any Arabic run containing alef wasla (U+0671) or Qur'anic annotation characters (U+0610–U+061A, U+06D6–U+06ED, U+08D3–U+08FF) is not spellchecked, because Uthmani orthography differs from modern spelling. The test is purely on characters, so no text is ever classified by meaning. (`src/editor/scriptRuns.ts` uses the same alef wasla and annotation-mark trigger to set such runs in Amiri Quran.)
+- **IJMES transliteration is the writer's own:** a word (with its hyphenated compound, *al-Raḥmān*, *wa-l-ʿilm*) containing ʿ ʾ, a macron or a letter with a dot, line or breve below is never checked as English. ʿ and ʾ split Harper's tokens, and its suggestions for such words are absurd (Fātiḥa → Fatima). Plain Latin names (*Ibn*, *Taymiyya*) are ordinary words: unknown until added to the dictionary. The article of "al-Jawziyya" is never flagged.
+- **Harper sees only allowed text** (`english.rs`): its `Mask` parser reads the block minus skipped text, marks, Arabic runs, transliterated words and other scripts, with spans still in block offsets. Grammar suggestions that touch text standing for words (skipped text, an Arabic run, a transliterated word), spaces included, are dropped: "The word أمانة means trust" would otherwise read as a missing "to". A correction whose span contains a Markdown mark is offered without replacements, so applying it can never delete the mark.
+- **English spelling** is our own pass over Harper's word tokens, with Harper's own test (in the dictionary, in this dialect, in this case or lower case) plus the personal dictionary. Words in capitals (acronyms), single letters and words with digits are never flagged. Of a possessive only the word is flagged, so *Add to dictionary* adds "Taymiyya", not "Taymiyya’s". Corrections are computed only when the writer asks, from the same dictionary, in the dialect, capitalised like the word.
+- **Grammar** is Harper's curated rule set without its opinionated rules: `SpellCheck` (replaced above), `UseTitleCase`, `OxfordComma`, `NoOxfordComma`, `LongSentences`, `BoringWords`, `AvoidCurses`, `CompoundNouns` (open compounds such as "lower case" are standard British usage), and the dash and ellipsis rules that duplicate smart punctuation. Lints of kind Enhancement, Readability or Style ("very good" → "excellent") are advice on style, not grammar, and are dropped. Two lints on one span ("Their is": there / they're) become one diagnostic with both corrections; a grammar hint on exactly a misspelled word ("blockquote" → "block quote") becomes one more correction of the spelling diagnostic.
 
 ### 7.3 Arabic analysis
-- Lookup normalisation happens on a **temporary analysis copy** with an offset map back to the original. The document is never changed.
-- Strip only what the dictionary's rules allow (diacritics and tatweel, per its `IGNORE`).
-- **No unconditional alef or hamza normalisation**, which would hide real spelling mistakes.
-- The `ArabicSpeller` trait is implemented with `spellbook` (Phase 0 benchmark: same verdicts as Hunspell, faster, pure Rust). The adapter strips the dictionary's `IGNORE` characters on the analysis copy before check *and* suggest, suggests only on request with a ~300 ms budget off the UI thread, and loads the dictionary lazily. The `hunspell` CLI serves as a test oracle.
+- Lookup normalisation happens on a **temporary analysis copy**. The document is never changed, and a diagnostic keeps the word's own range, so no offset map is needed for whole-word lookups.
+- Strip only what the dictionary's rules allow: the `.aff` file's `IGNORE` characters (harakat, tatweel, dagger alif), read from the file.
+- **No unconditional alef or hamza normalisation**, which would hide real spelling mistakes. Ayaspell spells hamza strictly, so a bare alef for أ or إ is flagged.
+- The `ArabicSpeller` trait is implemented with `spellbook` (Phase 0 benchmark: same verdicts as Hunspell, faster, pure Rust). Words are letters, marks, tatweel and joiners; Arabic punctuation and digits end a word.
+- **Common misspellings** that Ayaspell's affix rules accept by accident (حتي، متي، ذالك، الرحمان، قالو…, also after و or ف) are refused, with their correction offered first. Only forms that are no word in any reading are listed; real words such as لدية or مدرسه are left alone.
+- Corrections run off the request thread: the quick edit-based search first, the thorough similarity search only if it finds nothing, the whole within ~300 ms; whatever hasn't finished is left out.
+- The dictionary is compiled into the binary and parsed (about 0.5 s, 45 MiB) on the first Arabic word that needs checking, never at launch.
+- Tests: the Phase 0 benchmark (414 correct words, all accepted; 157 misspellings, the known misses listed; corrections for at least 80%) and a differential test against the system `hunspell` CLI as oracle, where installed.
 
 ### 7.4 Personal dictionary
-`<config>/bismillah/dictionary.txt`, one word per line, shared across languages. *Ignore* is per session and per document.
+- `<config>/bismillah/dictionary.txt`, one word per line, shared across languages; blank lines and lines starting with `#` are the writer's notes. bismillah only appends to it (atomically, keeping the rest byte for byte) and re-reads it when the window regains focus.
+- A lower-case entry also accepts the word capitalised; any entry accepts the word in capitals; an Arabic entry matches with or without vocalisation.
+- A failed write shows a notice and changes nothing.
+- *Ignore* is per document and per app session, in memory only: the word (spelling) or the rule and text (grammar).
+
+### 7.5 Threads and warm-up
+- The checker's thread builds Harper's dictionary and rule group on the first request, or after a second with nothing to check, and then warms the parser's model (2–4 s of CPU in all, off the UI path). Memory: about 200 MiB after warm-up (§14), plus 45 MiB once Arabic is checked.
+- Corrections are found on a second long-lived thread through a `Suggester` handle that shares the dictionaries. Harper keeps its search automata per thread (1–2 s to build), so that thread is warmed once the dictionary exists and serves every popover; a fresh thread per request would pay the cost again.
 
 ## 8. Extensibility
 
@@ -234,7 +261,7 @@ See ADR-0005.
 ## 9. Settings
 
 - `settings.toml` and `keybindings.toml` live in the platform config dir (`$XDG_CONFIG_HOME/bismillah/` on Linux). What the app remembers but isn't a setting (window size, the last document) and the recovery journal live in the data dir (`$XDG_DATA_HOME/bismillah/`).
-- The schema is versioned (`schema = 1`) and keys are `snake_case`: `theme`, `writing_profile`, `text_scale`, `measure`, `line_height` (absent = the profile's), `fade_chrome`, `basmallah_opening`, `smart_punctuation`, `typewriter_scrolling`, `focus_mode`, `focus_granularity` (`settings.rs` holds the table with each key's range).
+- The schema is versioned (`schema = 1`) and keys are `snake_case`: `theme`, `writing_profile`, `text_scale`, `measure`, `line_height` (absent = the profile's), `fade_chrome`, `basmallah_opening`, `smart_punctuation`, `typewriter_scrolling`, `focus_mode`, `focus_granularity`, `check_spelling`, `check_grammar`, `english_dialect` (`settings.rs` holds the table with each key's range).
 - Comments, layout and unknown keys are preserved when rewriting (`toml_edit`). An invalid value falls back to its default with a notice; an unreadable file is kept as `settings.toml.invalid` while the defaults apply. It never crashes, and a value the UI sends that fails validation is refused whole.
 - Changes made in the file while the app runs are picked up when the window regains focus (no polling).
 
@@ -304,8 +331,9 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 
 | Layer | Tool | Covers |
 |---|---|---|
-| Rust unit | `cargo test --workspace` | Save contract (fault injection: disk full, read-only, rename failure), path validation (traversal, symlinks), line endings/BOM round-trip, lint fixtures, UTF-16 offset conversion |
-| Frontend unit | Vitest | Decoration ranges and classes, keymap, command registry, stale-lint discarding, Basmallah deduplication |
+| Rust unit | `cargo test --workspace` | Save contract (fault injection: disk full, read-only, rename failure), path validation (traversal, symlinks), line endings/BOM round-trip, UTF-16 offset conversion, the personal dictionary file (failed writes included) |
+| Checking fixtures | `cargo test -p bismillah-lint` | One block per line with the expected marks (`crates/bismillah-lint/tests/fixtures/`): English, Arabic with and without diacritics, mixed text, masked regions, routing; the Arabic benchmark and the hunspell oracle |
+| Frontend unit | Vitest | Decoration ranges and classes, keymap, command registry, what is sent to the checker, stale-lint discarding, Basmallah deduplication |
 | Real app e2e | `tauri-driver` (WebDriver) on Linux and Windows | Open/edit/save/reload, conflicts, recovery after a killed process, file opening (CLI, drag-drop, second instance), settings, keyboard-only flows, offline run |
 | Visual | Screenshots via `tauri-driver` in the real app: WebKitGTK on Linux now, WebView2 on Windows later; macOS (no WebDriver support) checked by hand before releases | Specimen at window widths 640/1280/1920/2560, both themes, rendered and with all Markdown shown, zoom 200% |
 | Contrast | Unit test over the token table | Every semantic pair (DESIGN.md §9.4) |
@@ -323,7 +351,7 @@ Round-trip acceptance checks that must always pass:
 
 - Launch to an editable caret: under 400ms on a mid-range Linux laptop.
 - No dropped frames while typing in a 1MB document.
-- Lint results within 500ms of a typing pause.
+- Lint results within 500ms of a typing pause. Measured 2026-10-18 (`cargo run -p bismillah-lint --release --example bench -- <corpus>`, 8 cores at load ≈ 4): one edited paragraph takes 8–25 ms at the median and 46–163 ms at p95 on 50,000-word Gutenberg texts, after the 300 ms pause; a first pass over 50,000 words takes 16–38 s of background CPU, visible blocks first; the session cache answers a reopened document in 2 ms. The checker holds about 200 MiB after warm-up and 260 MiB after a 50,000-word pass, plus 45 MiB once Arabic is checked.
 - No CPU use when idle (no polling).
 
 All budgets are measured, not assumed. Package size is a tracked number; "small" is the goal, not a promise.

@@ -1,0 +1,41 @@
+# Arabic spelling with Ayaspell (ADR-0004, ARCHITECTURE.md §7.3). See tests/fixtures.rs
+# for the notation. Grammar is English only, so only spelling is ever flagged here.
+
+# The specimen's Arabic: vocalised, partly vocalised and bare.
+الكتابةُ أمانةٌ، والكلمةُ مسؤوليةٌ. هذه فقرةٌ عربيةٌ طويلةٌ بما يكفي لتلتفَّ على أكثرِ من سطرٍ، حتى نتمكّنَ من الحكمِ على طولِ السطرِ وارتفاعِه ومساحةِ الحركاتِ بين الأسطر.
+نصٌّ بلا تشكيل: الكتابة رحلة هادئة بين القلب والقلم، والصفحة البيضاء بداية كل شيء.
+الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ
+عنصرٌ ثانٍ أطولُ قليلًا حتى يلتفَّ على سطرٍ آخرَ ونرى المسافةَ البادئةَ المعلّقة
+اقتباسٌ عربيٌّ قصير.
+
+# Misspellings, bare and vocalised, with a clitic attached.
+هذا ⟦كتابب⟧ جميل ⟦ومدرشة⟧ كبيرة.
+⟦الْكِتَابَبُ⟧ مُفِيدٌ ⟦وَمَدْرَسَةَة⟧ قَرِيبَةٌ.
+ذهبنا إلى ⟦الجامهة⟧ صباحًا.
+
+# Hamza is spelled strictly: a bare alef for أ or إ is flagged.
+⟦امانة⟧ ⟦واسلام⟧ ولكن أمانة وإسلام صحيحتان.
+
+# Common misspellings the dictionary's affix rules would accept (with و or ف too).
+ذهبت ⟦حتي⟧ المدرسة ⟦وقالو⟧ ⟦ذالك⟧ ⟦فهاذا⟧ ⟦لاكن⟧ ⟦شيئ⟧.
+ذهبت حتى المدرسة وقالوا ذلك فهذا لكن شيء.
+
+# Tatweel, joiners, punctuation and digits.
+الكتـــاب مفيد، والمكتبة قريبة؛ هل قرأت ١٢٣ صفحة؟ «اقتباس» و٢٠٢٦.
+سُجِّلت 1234 كلمة في 2026.
+
+# Qur'anic runs (alef wasla or annotation marks) are never spellchecked, even where
+# modern spelling would object; the decision is made on characters alone.
+ذَٰلِكَ ٱلْكِتَٰبُ لَا رَيْبَ ۛ فِيهِ ۛ هُدًى لِّلْمُتَّقِينَ
+بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
+مُحَمَّدٌ رَسُولُ ٱللَّهِ وَٱلَّذِينَ مَعَهُۥٓ أَشِدَّآءُ عَلَى ٱلْكُفَّارِ
+# …but a separate modern run on the same line is still checked.
+ٱلْحَمْدُ لِلَّهِ. Then English, then a modern run: ⟦كتابب⟧ هنا.
+
+# Ligatures and single letters.
+قال النبي ﷺ: إنما الأعمال بالنيات.
+
+# The personal dictionary matches with or without vocalisation.
+@personal كتابب
+هذا كتابب وهذا كِتَابَب.
+@personal

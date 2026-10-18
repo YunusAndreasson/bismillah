@@ -16,6 +16,7 @@
   import Picker from "./ui/Picker.svelte";
   import SettingsDialog from "./ui/SettingsDialog.svelte";
   import StatusLine from "./ui/StatusLine.svelte";
+  import Suggestions from "./ui/Suggestions.svelte";
   import Welcome from "./ui/Welcome.svelte";
 
   let host: HTMLElement;
@@ -99,6 +100,7 @@
         state={session?.state ?? null}
         words={workspace.words}
         transliteration={workspace.transliteration}
+        note={workspace.checking.note}
         faded={settings.values.fade_chrome && workspace.typing}
         libraryShown={library.visible}
         toggleLibrary={() => workspace.toggleLibrary()}
@@ -146,6 +148,8 @@
 />
 
 <NamePrompt prompt={workspace.prompt} closed={(p) => workspace.promptClosed(p)} />
+
+<Suggestions checking={workspace.checking} />
 
 <style>
   .window {

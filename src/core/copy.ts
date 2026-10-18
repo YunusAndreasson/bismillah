@@ -1,4 +1,11 @@
-import type { LibraryError, NameProblem, OpenError, SaveError, SettingsNotice } from "./ipc.ts";
+import type {
+  AddWordError,
+  LibraryError,
+  NameProblem,
+  OpenError,
+  SaveError,
+  SettingsNotice,
+} from "./ipc.ts";
 
 /**
  * The interface's sentences, kept in one place so they stay consistent and can be
@@ -166,10 +173,45 @@ export const copy = {
     on: "On",
     libraryOnly: "in the library",
   },
+  checking: {
+    spelling: "Possible spelling mistake",
+    grammar: "Grammar suggestion",
+    /** Follows the word, which is shown in quotes before it. */
+    notInDictionary: {
+      en: "isn't in the English dictionary.",
+      ar: "isn't in the Arabic dictionary.",
+    },
+    replaceWith: "Replace with",
+    remove: (text: string) => `Remove ${quote(text)}`,
+    noSuggestions: "No corrections found.",
+    ignore: "Ignore",
+    addToDictionary: "Add to dictionary",
+    noIssues: "No spelling or grammar issues.",
+    noIssueHere: "Nothing to suggest here.",
+    off: "Spelling and grammar checking are off.",
+    addFailed: (word: string, error: AddWordError) =>
+      error.kind === "not_saved"
+        ? `Couldn't add ${quote(word)} to your dictionary — ${saveReason(error.error)}.`
+        : `${quote(word)} can't be added: the dictionary holds single words.`,
+  },
   settings: {
     title: "Settings",
     appearance: "Appearance",
     writing: "Writing",
+    checking: "Language & checking",
+    spelling: "Check spelling",
+    spellingHint: "English and Arabic. Qur’anic text and IJMES transliteration are never marked.",
+    grammar: "Grammar suggestions",
+    grammarHint: "English only. A suggestion can be wrong; every change is yours to make.",
+    dialect: "English spelling",
+    dialects: {
+      british: "British",
+      american: "American",
+      canadian: "Canadian",
+      australian: "Australian",
+      indian: "Indian",
+    },
+    dialectHint: "A document whose frontmatter says lang: en-US or en-GB uses that instead.",
     done: "Done",
     reset: "Reset",
     smaller: "Smaller",

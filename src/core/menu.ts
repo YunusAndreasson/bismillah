@@ -33,7 +33,7 @@ export async function installMenu(context: CommandContext): Promise<NativeMenu> 
         const options = {
           id: c.id,
           text: c.label,
-          ...(c.keyScope ? {} : { accelerator: accelerator(c.key) }),
+          ...(c.keyScope || !c.key ? {} : { accelerator: accelerator(c.key) }),
           action: () => runCommand(c.id, "menu", context),
         };
         if (c.toggle) {

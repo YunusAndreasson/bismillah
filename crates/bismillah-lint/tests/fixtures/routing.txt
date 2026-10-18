@@ -1,0 +1,31 @@
+# Routing by the document's language (ARCHITECTURE.md §7.2): the declared language
+# decides the runs of its own script; the other script keeps the default routing.
+
+# No language: Latin is English, Arabic script is Arabic.
+A ⟦mistaek⟧ and ⟦كتابب⟧.
+
+@lang en-US
+The color was gray, and the ⟦colour⟧ is ⟦grey⟧. Arabic is still checked: ⟦كتابب⟧.
+
+@lang en-GB
+The colour was grey, and the ⟦color⟧ is ⟦gray⟧.
+
+@lang ar
+⟦كتابب⟧ and a ⟦mistaek⟧.
+
+# Persian or Urdu: Arabic-script runs have no dictionary and are left alone.
+@lang fa
+این یک متن فارسی است و کتابب. English is still checked: ⟦mistaek⟧.
+@lang ur
+یہ اردو ہے۔ And a ⟦mistaek⟧.
+
+# German or Swedish: Latin runs aren't English and are left alone.
+@lang de
+Das ist ein deutscher Satz mit Fehlre, und ⟦كتابب⟧ wird geprüft.
+@lang sv-SE
+Det här är en svensk mening.
+
+# A malformed tag keeps the default routing.
+@lang not-a-language-tag!
+A ⟦mistaek⟧ and ⟦كتابب⟧.
+@lang

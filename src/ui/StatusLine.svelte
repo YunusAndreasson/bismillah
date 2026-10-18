@@ -14,11 +14,14 @@
     state: SaveState | null;
     words: number;
     transliteration: boolean;
+    /** A passing message ("No spelling or grammar issues."). */
+    note: string | null;
     faded: boolean;
     libraryShown: boolean;
     toggleLibrary: () => void;
   }
-  let { name, state, words, transliteration, faded, libraryShown, toggleLibrary }: Props = $props();
+  let { name, state, words, transliteration, note, faded, libraryShown, toggleLibrary }: Props =
+    $props();
 
   const failed = $derived(state?.kind === "failed");
   const saveText = $derived.by(() => {
@@ -66,9 +69,13 @@
       {/if}
     {/if}
   </div>
-  {#if transliteration}
-    <span class="mode" role="status">{copy.status.transliteration}</span>
-  {/if}
+  <div class="end">
+    <!-- Always present, so a screen reader announces each new message. -->
+    <span class="note" role="status">{note ?? ""}</span>
+    {#if transliteration}
+      <span class="mode" role="status">{copy.status.transliteration}</span>
+    {/if}
+  </div>
 </footer>
 
 <style>
@@ -121,6 +128,16 @@
   }
   .error {
     color: var(--status-error);
+  }
+  .end {
+    display: flex;
+    gap: var(--space-4);
+    min-width: 0;
+  }
+  .note {
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .mode {
     color: var(--accent);

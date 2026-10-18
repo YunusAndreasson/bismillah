@@ -155,7 +155,11 @@ describe("the Basmallah opening", () => {
       dark: { selection: [0x23, 0x43, 0x2f], ink: [0xd4, 0xd4, 0xd2] },
     } as const;
     for (const theme of ["light", "dark"] as const) {
-      await browser.execute((t: "light" | "dark") => window.__bismillah?.setTheme(t), theme);
+      // The theme applies once Rust has saved it, and then remeasures (redrawing the
+      // opening): select only after that, or the redraw drops the selection.
+      await browser.execute(async (t: "light" | "dark") => {
+        await window.__bismillah?.changeSettings({ theme: t });
+      }, theme);
       expect(await selectOpening()).toBe(BASMALLAH);
       await settle(browser);
       // CodeMirror leaves a selection inside the widget alone, and its own is unchanged.

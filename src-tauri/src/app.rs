@@ -19,6 +19,7 @@ use tauri_plugin_dialog::DialogExt;
 
 use crate::documents::{self, Document, LineEnding, NO_FAULTS, OpenError, SaveError};
 use crate::library::Trash;
+use crate::lint::{AddWordError, Checking, LintError};
 use crate::platform;
 use crate::recovery::{self, Recovery};
 use crate::settings::{self, SetError};
@@ -69,6 +70,8 @@ pub struct AppState {
     trash: Arc<dyn Trash>,
     /// Entries moved to the trash this session, by the token the frontend undoes with.
     trashed: Mutex<Vec<Trashed>>,
+    /// Spelling and grammar: the checker's thread and the personal dictionary.
+    checking: Checking,
 }
 
 /// A save failure the e2e tests inject into the real app (ARCHITECTURE.md §13).
@@ -101,6 +104,8 @@ impl AppState {
         let recovery = Arc::new(Recovery::new(data_dir.join("recovery")));
         recovery.prune();
         let memory_path = data_dir.join("state.json");
+        let settings = settings::Store::load(config_dir.join("settings.toml"));
+        let checking = Checking::start(config_dir.join("dictionary.txt"), dialect(&settings));
         AppState {
             test_mode: std::env::var_os("BISMILLAH_TEST").is_some(),
             handle,
@@ -109,7 +114,7 @@ impl AppState {
             requested: Mutex::new(startup),
             recovered: Mutex::new(Vec::new()),
             recovery,
-            settings: Mutex::new(settings::Store::load(config_dir.join("settings.toml"))),
+            settings: Mutex::new(settings),
             memory: Mutex::new(state::State::load(&memory_path)),
             memory_path,
             fault: Arc::new(Mutex::new(None)),
@@ -118,6 +123,7 @@ impl AppState {
             generation: AtomicU64::new(0),
             trash: Arc::new(platform::SystemTrash),
             trashed: Mutex::new(Vec::new()),
+            checking,
         }
     }
 
@@ -626,6 +632,103 @@ pub fn settings_set(
 #[tauri::command]
 pub fn settings_reload(state: State<'_, AppState>) -> Option<settings::Snapshot> {
     lock(&state.settings).reload_if_changed()
+}
+
+/// The English dialect setting.
+fn dialect(settings: &settings::Store) -> bismillah_lint::Dialect {
+    settings
+        .value("english_dialect")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default()
+}
+
+/// Blocks of the open document to check (ARCHITECTURE.md §7.1), with the editor's
+/// revision and the document's frontmatter `lang:`.
+#[derive(serde::Deserialize)]
+pub struct LintRequest {
+    revision: u64,
+    lang: Option<String>,
+    blocks: Vec<bismillah_lint::Block>,
+}
+
+/// One list of diagnostics per block, in the request's order, for `revision`.
+#[derive(Serialize)]
+pub struct LintResponse {
+    revision: u64,
+    blocks: Vec<Vec<bismillah_lint::Diagnostic>>,
+}
+
+impl AppState {
+    fn lint_options(&self, lang: Option<String>) -> bismillah_lint::Options {
+        let settings = lock(&self.settings);
+        let on = |key: &str| settings.value(key).and_then(Value::as_bool).unwrap_or(true);
+        bismillah_lint::Options {
+            spelling: on("check_spelling"),
+            grammar: on("check_grammar"),
+            dialect: dialect(&settings),
+            lang,
+        }
+    }
+}
+
+/// Checks spelling and grammar in some blocks of the open document, as the settings
+/// say. Off the async runtime: the checker's thread answers.
+#[tauri::command]
+pub async fn lint_check(
+    state: State<'_, AppState>,
+    request: LintRequest,
+) -> Result<LintResponse, LintError> {
+    let options = state.lint_options(request.lang);
+    let count = request.blocks.len();
+    if !options.spelling && !options.grammar {
+        return Ok(LintResponse {
+            revision: request.revision,
+            blocks: vec![Vec::new(); count],
+        });
+    }
+    let answer = state.checking.check(request.blocks, options)?;
+    let blocks = tauri::async_runtime::spawn_blocking(move || answer.recv())
+        .await
+        .map_err(|_| LintError::Unavailable)?
+        .map_err(|_| LintError::Unavailable)?;
+    Ok(LintResponse {
+        revision: request.revision,
+        blocks,
+    })
+}
+
+/// Corrections for a misspelled word, found only when the writer asks (an Arabic
+/// search stops after about 300 ms). `doc_lang` is the document's frontmatter `lang:`,
+/// which may choose the English dialect.
+#[tauri::command]
+pub async fn lint_suggest(
+    state: State<'_, AppState>,
+    word: String,
+    lang: bismillah_lint::Lang,
+    doc_lang: Option<String>,
+) -> Result<Vec<String>, LintError> {
+    let options = state.lint_options(doc_lang);
+    let dialect = bismillah_lint::routing::routes(options.lang.as_deref(), options.dialect)
+        .latin
+        .unwrap_or(options.dialect);
+    let answer = state.checking.suggest(word, lang, dialect)?;
+    tauri::async_runtime::spawn_blocking(move || answer.recv())
+        .await
+        .map_err(|_| LintError::Unavailable)?
+        .map_err(|_| LintError::Unavailable)
+}
+
+/// Adds a word to the personal dictionary (`dictionary.txt`, ARCHITECTURE.md §7.4).
+#[tauri::command]
+pub async fn lint_add_word(state: State<'_, AppState>, word: String) -> Result<(), AddWordError> {
+    state.checking.add_word(&word)
+}
+
+/// Re-reads `dictionary.txt` if the writer edited it elsewhere (on window focus). True
+/// if its words changed, so the editor checks the document again.
+#[tauri::command]
+pub fn lint_refresh(state: State<'_, AppState>) -> bool {
+    state.checking.refresh()
 }
 
 /// Test-only commands exist in debug builds under the test harness only, never in the

@@ -11,8 +11,11 @@ export async function waitForApp(browser: Browser): Promise<void> {
   await settle(browser);
 }
 
+/** Waits for layout and for spelling and grammar to catch up with the document, so a
+ * screenshot never catches underlines half-arrived. */
 export async function settle(browser: Browser): Promise<void> {
   await browser.execute(async () => {
+    await window.__bismillah?.lintSettled();
     await window.__bismillah?.settle();
   });
 }

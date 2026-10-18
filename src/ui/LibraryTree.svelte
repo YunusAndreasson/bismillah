@@ -126,7 +126,7 @@
     run(id);
   }
 
-  const key = (id: CommandId) => shortcutLabel(commandById(id)?.key ?? "");
+  const key = (id: CommandId) => shortcutLabel(commandById(id)?.key);
 
   function split(name: string, file: boolean): [string, string] {
     const match = file ? /\.(md|markdown)$/i.exec(name) : null;
@@ -304,40 +304,5 @@
   }
   :global([dir="rtl"]) .chevron:not(.open) {
     transform: scaleX(-1);
-  }
-  :global(.menu) {
-    z-index: var(--layer-popover);
-    min-inline-size: 13rem;
-    padding: var(--space-1);
-    background: var(--surface-editor);
-    color: var(--text-primary);
-    border: 1px solid var(--border-control);
-    border-radius: 6px;
-    box-shadow: 0 6px 20px color-mix(in srgb, var(--text-primary) 14%, transparent);
-    font: var(--ui-size) / var(--ui-line) var(--ui-font);
-    outline: none;
-  }
-  :global(.menu-item) {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-6);
-    padding: var(--space-1) var(--space-3);
-    border-inline-start: 3px solid transparent;
-    border-radius: 4px;
-    cursor: default;
-    outline: none;
-  }
-  :global(.menu-item[data-highlighted]) {
-    background: var(--surface-panel);
-    border-inline-start-color: var(--accent);
-  }
-  :global(.menu-item kbd) {
-    font: inherit;
-    color: var(--text-secondary);
-  }
-  :global(.menu-separator) {
-    block-size: 1px;
-    margin-block: var(--space-1);
-    background: var(--border-control);
   }
 </style>

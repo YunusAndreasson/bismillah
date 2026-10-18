@@ -12,8 +12,9 @@
   } from "../core/settings.svelte.ts";
 
   /**
-   * Settings (DESIGN.md §6): one screen, labelled sections. Phase 1 has Appearance and
-   * Writing. Every change applies at once and is saved by Rust; there is no Apply.
+   * Settings (DESIGN.md §6): one screen, labelled sections: Appearance, Writing, and
+   * Language & checking. Every change applies at once and is saved by Rust; there is
+   * no Apply.
    * Bits UI provides the modal focus trap, Esc and focus return.
    */
   interface Props {
@@ -188,6 +189,35 @@
           t.granularities,
           (focus_granularity) => change({ focus_granularity }),
         )}
+      </section>
+
+      <section aria-labelledby="settings-checking">
+        <h2 id="settings-checking">{t.checking}</h2>
+        {@render toggle(
+          "set-spelling",
+          t.spelling,
+          t.spellingHint,
+          values.check_spelling,
+          (check_spelling) => change({ check_spelling }),
+        )}
+        {@render toggle(
+          "set-grammar",
+          t.grammar,
+          t.grammarHint,
+          values.check_grammar,
+          (check_grammar) => change({ check_grammar }),
+        )}
+        <div>
+          {@render choice(
+            "set-dialect",
+            t.dialect,
+            values.english_dialect,
+            ["british", "american", "canadian", "australian", "indian"],
+            t.dialects,
+            (english_dialect) => change({ english_dialect }),
+          )}
+          <p class="hint">{t.dialectHint}</p>
+        </div>
       </section>
 
       <div class="footer">

@@ -1,0 +1,20 @@
+[package]
+name = "bismillah-lint"
+version = "0.0.0"
+description = "Spelling (English, Arabic) and grammar suggestions (English) for bismillah"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+# No Tauri dependency (.claude/rules/rust.md): tested and benchmarked on its own.
+[dependencies]
+# English spelling data and grammar (ADR-0004). Without the thesaurus feature: it only
+# feeds BoringWords, which is off, and costs 4.4 MB (docs/spikes/harper-latency.md).
+harper-core = { version = "2.13.0", default-features = false, features = ["concurrent"] }
+# Arabic spelling with the bundled Ayaspell dictionary (ADR-0004, docs/spikes/arabic-speller.md).
+spellbook = "0.4.2"
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"

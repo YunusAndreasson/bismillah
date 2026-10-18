@@ -6,7 +6,7 @@ import { createEditor, type Editor } from "../editor/setup.ts";
 import { remeasure } from "../editor/typography.ts";
 import { toggleTransliteration, transliterationOn } from "../editor/typingAids.ts";
 import { countWords } from "../editor/wordCount.ts";
-import { GLOBAL_COMMANDS, runCommand, type CommandContext } from "./commands.ts";
+import { BOUND_COMMANDS, runCommand, type CommandContext } from "./commands.ts";
 import { copy, nameError, when } from "./copy.ts";
 import * as ipc from "./ipc.ts";
 import {
@@ -18,6 +18,7 @@ import {
   type SaveError,
 } from "./ipc.ts";
 import { keyOf, normalise } from "./keys.ts";
+import { Checking } from "./checking.svelte.ts";
 import { LibraryStore } from "./library.svelte.ts";
 import type { NativeMenu } from "./menu.ts";
 import { DocumentSession } from "./session.svelte.ts";
@@ -85,6 +86,13 @@ export class Workspace {
   fullscreen = $state(false);
   settingsOpen = $state(false);
   readonly library = new LibraryStore();
+  /** Spelling and grammar suggestions (checking.svelte.ts). */
+  readonly checking = new Checking({
+    editor: () => this.editor,
+    documentKey: () => this.library.active ?? this.session?.name ?? null,
+    checking: () => settings.values.check_spelling || settings.values.check_grammar,
+    failed: (message) => this.#notice("add-word-failed", "error", message, []),
+  });
   picker = $state<Picker | null>(null);
   prompt = $state<NamePrompt | null>(null);
   recovery = $state<ipc.RecoveryEntry | null>(null);
@@ -96,6 +104,8 @@ export class Workspace {
   #menu: NativeMenu | null = null;
   #wordTimer: ReturnType<typeof setTimeout> | undefined;
   #onChange: (() => void) | null = null;
+  /** The dialect the document was last checked in. */
+  #dialect: Settings["english_dialect"] | null = null;
 
   /** Everything the writer must see now, most important first. */
   notices = $derived.by((): Notice[] => {
@@ -269,7 +279,7 @@ export class Workspace {
       const key = keyOf(event);
       const field = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
       if (field && !key.startsWith("Mod-")) return;
-      const command = GLOBAL_COMMANDS.find((c) => normalise(c.key) === key && c.section !== "Edit");
+      const command = BOUND_COMMANDS.find((c) => normalise(c.key) === key && c.section !== "Edit");
       if (command && runCommand(command.id, "keymap", this.context)) event.preventDefault();
     });
     window.addEventListener("mousemove", () => (this.typing = false));
@@ -279,6 +289,13 @@ export class Workspace {
    * checked for changes made by another program (no polling, ARCHITECTURE.md §5.4). */
   async checkOnFocus(): Promise<void> {
     if (await settings.reload()) this.applySettings(settings.values);
+    // The writer may have edited dictionary.txt in another program.
+    void ipc
+      .lintRefresh()
+      .then((changed) => {
+        if (changed) this.editor?.recheck();
+      })
+      .catch(() => {});
     void ipc
       .libraryGet(true)
       .then((panel) => this.library.apply(panel.view))
@@ -333,6 +350,7 @@ export class Workspace {
         copy.mixedLineEndings(opened.name, copy.lineEndings[opened.line_ending]),
       );
     this.transliteration = false;
+    this.checking.documentShown();
     this.#countWords(0);
     void this.#setTitle(opened.name);
     if (!options.quiet) editor.view.focus();
@@ -368,7 +386,7 @@ export class Workspace {
     if (!this.#host) throw new Error("the workspace has not started");
     const keys = Prec.high(
       keymap.of(
-        GLOBAL_COMMANDS.map((c) => ({
+        BOUND_COMMANDS.map((c) => ({
           key: c.key,
           run: () => runCommand(c.id, "keymap", this.context),
         })),
@@ -382,7 +400,10 @@ export class Workspace {
       keys,
       config: this.#editorConfig(settings.values),
       onChange: () => this.#onChange?.(),
+      lint: { check: (request) => ipc.lintCheck(request) },
+      onContextMenu: (pos) => this.checking.contextMenu(pos),
     });
+    this.#dialect = settings.values.english_dialect;
     return this.editor;
   }
 
@@ -393,6 +414,8 @@ export class Workspace {
       zuhd: s.focus_mode,
       focusGranularity: s.focus_granularity,
       smartPunctuation: s.smart_punctuation,
+      spelling: s.check_spelling,
+      grammar: s.check_grammar,
     };
   }
 
@@ -401,6 +424,10 @@ export class Workspace {
     applyAppearance(s);
     if (this.editor) {
       this.editor.configure(this.#editorConfig(s));
+      if (s.english_dialect !== this.#dialect) {
+        this.#dialect = s.english_dialect;
+        this.editor.recheck();
+      }
       const view = this.editor.view;
       void document.fonts.ready.then(() => {
         remeasure(view);
@@ -802,8 +829,16 @@ export class Workspace {
             return this.transliteration;
           case "view.fullscreen":
             return this.fullscreen;
+          case "check.toggleSpelling":
+            return settings.values.check_spelling;
+          case "check.toggleGrammar":
+            return settings.values.check_grammar;
         }
       },
+      showSuggestions: () => void this.checking.atCaret(),
+      nextIssue: (direction) => void this.checking.next(direction),
+      toggleSpelling: () => void settings.set({ check_spelling: !settings.values.check_spelling }),
+      toggleGrammar: () => void settings.set({ check_grammar: !settings.values.check_grammar }),
       toggleFocus: () => void settings.set({ focus_mode: !settings.values.focus_mode }),
       toggleTypewriter: () =>
         void settings.set({ typewriter_scrolling: !settings.values.typewriter_scrolling }),

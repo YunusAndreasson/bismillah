@@ -1,0 +1,57 @@
+# English spelling and grammar suggestions (ADR-0004). See tests/fixtures.rs for the
+# notation: ⟦…⟧ spelling, ⟪…⟫ grammar; nothing else in a line may be flagged.
+# The dialect is British unless @dialect says otherwise.
+
+# The specimen's deliberate mistakes.
+Spelling: I will ⟦recieve⟧ the letter ⟦tomorow⟧.
+Grammar: This is ⟪a⟫ apple. ⟪Their⟫ is a problem with ⟪the the⟫ sentence.
+
+# Ordinary prose stays quiet.
+A writer sits down with nothing but a blank page and a quiet mind. The page fills slowly, one sentence at a time, and the sentences find their order.
+Each heading level must be distinguishable by size, weight and spacing, and not by colour or small caps alone.
+Text can be emphasised, strong, both, struck through, or contain inline code. Numbers in prose: 1,234 words, 3.14, 2026.
+
+# Opinionated rules are off: sentence-case headings, the Oxford comma either way, long
+# sentences, wording judged boring, swearing.
+A third-level heading
+Bread, butter and jam. Bread, butter, and jam.
+This sentence goes on for a long time because it has many clauses joined together with commas and conjunctions, and it keeps going well past the point where a style checker would complain about its length, which is a matter of style and not a mistake that anyone needs to be told about while writing.
+It was very good and very nice, and its colour was free of charge.
+Damn, the deadline is tomorrow.
+
+# Smart punctuation and its straight forms are both left alone.
+Typed with smart punctuation on, these should read: “quoted”, it’s, 10–12, a pause — then … and so on.
+Straight forms are deliberate: "quoted", it's, 10-12, a pause -- then ... done.
+
+# British by default; American spellings are flagged, and the other way round.
+The colour of the organisation's favourite theatre was grey.
+The ⟦color⟧ of the organization's ⟦favorite⟧ ⟦theater⟧ was ⟦gray⟧.
+@dialect american
+The color of the organization's favorite theater was gray.
+The ⟦colour⟧ of the ⟦organisation⟧'s ⟦favourite⟧ ⟦theatre⟧ was ⟦grey⟧.
+@dialect british
+
+# Capitals (acronyms), single letters and words with digits are never flagged.
+IJMES, UNESCO and the ALA-LC tables are acronyms.
+Write x or y, then the 3rd and the 21st item.
+
+# Of a possessive only the word is flagged, so Add to dictionary adds the word.
+⟦Taymiyya⟧’s student wrote extensively, and ⟦Qayyim⟧'s too.
+@personal Taymiyya bismillah
+Taymiyya’s student wrote extensively, and TAYMIYYA in capitals.
+Bismillah opens the sentence, and bismillah is lower case.
+⟦taymiyya⟧ in lower case is not the entry.
+@personal
+
+# Grammar suggestions.
+⟪Its⟫ a common mistake.
+I ⟪could of⟫ done it better.
+We need to ⟪discuss about⟫ the problem.
+
+# The switches.
+@off grammar
+I will ⟦recieve⟧ the letter. This is a apple.
+@on
+@off spelling
+I will recieve the letter. This is ⟪a⟫ apple.
+@on

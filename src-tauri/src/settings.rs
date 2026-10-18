@@ -93,6 +93,21 @@ const SPECS: &[Spec] = &[
         kind: Kind::Choice(&["paragraph", "sentence"]),
         default: || "paragraph".into(),
     },
+    Spec {
+        key: "check_spelling",
+        kind: Kind::Bool,
+        default: || true.into(),
+    },
+    Spec {
+        key: "check_grammar",
+        kind: Kind::Bool,
+        default: || true.into(),
+    },
+    Spec {
+        key: "english_dialect",
+        kind: Kind::Choice(&["british", "american", "canadian", "australian", "indian"]),
+        default: || "british".into(),
+    },
 ];
 
 /// Something the writer should know about their settings file.
@@ -220,6 +235,11 @@ impl Store {
             );
         }
         name.into()
+    }
+
+    /// One setting's current value (its default when absent or invalid).
+    pub fn value(&self, key: &str) -> Option<&Value> {
+        self.values.get(key)
     }
 
     pub fn snapshot(&self) -> Snapshot {

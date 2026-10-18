@@ -25,6 +25,18 @@ ignore = [
   # proc-macro-error is unmaintained. It is a compile-time dependency of glib-macros in
   # gtk-rs 0.18, the GTK3 bindings Tauri 2 uses on Linux, and never ships in the binary.
   { id = "RUSTSEC-2024-0370", reason = "compile-time only, via Tauri's GTK3 bindings" },
+  # harper-core 2.13 (the newest) depends on zip 8. These three advisories concern
+  # ZipArchive::extract / ZipStreamReader::extract writing an attacker's archive to disk.
+  # Harper only reads its rule packs from bytes in memory (Weirpack::from_bytes) and
+  # bismillah loads none. Drop these once harper-core moves to zip >= 9.
+  { id = "RUSTSEC-2026-0367", reason = "extract() is never called: harper-core reads zips in memory only" },
+  { id = "RUSTSEC-2026-0368", reason = "extract() is never called: harper-core reads zips in memory only" },
+  { id = "RUSTSEC-2026-0369", reason = "extract() is never called: harper-core reads zips in memory only" },
+  # Unmaintained, no vulnerability. bincode decodes the weights of Harper's embedded
+  # chunker model, which are compiled into the binary (burn-core); paste is a macro used
+  # at compile time.
+  { id = "RUSTSEC-2025-0141", reason = "bincode only decodes model weights compiled into the binary" },
+  { id = "RUSTSEC-2024-0436", reason = "paste is a compile-time macro" },
 ]
 
 [licenses]

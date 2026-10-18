@@ -2,12 +2,13 @@
 //!
 //! Rust owns everything that touches the disk (ARCHITECTURE.md §1): opening and saving
 //! documents under the file-safety contract, the library and its path checks, watching
-//! for outside changes, the recovery journal, settings and the remembered window. The
-//! frontend owns presentation and editing.
+//! for outside changes, the recovery journal, settings, the remembered window, and
+//! spelling and grammar (`bismillah-lint`). The frontend owns presentation and editing.
 
 mod app;
 mod documents;
 mod library;
+mod lint;
 mod platform;
 mod recovery;
 mod settings;
@@ -172,6 +173,10 @@ pub fn run() {
             app::library_rename,
             app::library_trash,
             app::library_untrash,
+            app::lint_check,
+            app::lint_suggest,
+            app::lint_add_word,
+            app::lint_refresh,
             app::test_open,
             app::test_fault,
             app::test_dialog,

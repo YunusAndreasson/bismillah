@@ -285,9 +285,13 @@ There are two separate systems with separate purposes:
   - **Always show Markdown** (Settings › Writing, `Mod-R`) keeps every mark visible, iA-style, as Phase 1 draws it.
 - **Caret:** 2px wide, in `accent`. **Selection:** `selection-background` with `text-primary` text.
 - **Typewriter scrolling** is on by default (`Mod-T`). The caret line sits slightly above centre, about 42% from the top of the writing area. Typing and keyboard motion keep it there; a mouse click doesn't scroll, so text never jumps away from the pointer.
-- **Diagnostics** are shown as you write by default; both can be switched off. Spelling uses a **wavy** underline in `diagnostic-spelling`; grammar uses a **dotted** underline in `diagnostic-grammar`.
-  - They are hidden while the caret is inside the word being typed. Nothing pops up unasked.
-  - The detail popover names the kind ("Spelling" / "Grammar suggestion"), explains it in one sentence, and offers explicit actions.
+- **Diagnostics** are shown as you write by default; both can be switched off (Settings › Language & checking, the menu and the palette). Spelling uses a **wavy** underline in `diagnostic-spelling`; grammar uses a **dotted** underline in `diagnostic-grammar`. The underline sits below descenders and Arabic dots (lower still under an Arabic word) and never moves the text. Each marked word carries `aria-invalid="spelling"` or `"grammar"`.
+  - They are hidden while the caret is inside the word being typed, and appear once typing pauses (about 300 ms) or the caret leaves. Nothing pops up unasked.
+  - **What is checked:** English spelling (British by default; Settings › Language & checking › English spelling, or `lang: en-US` in a document's frontmatter), Arabic spelling with and without vocalisation, and English grammar. Never checked: Qur'anic runs (recognised by their characters, ADR-0004), IJMES transliteration (words with ʿ ʾ, macrons or dots below), other scripts, code, URLs and Markdown marks. Plain Latin names (*Ibn*, *Taymiyya*) are unknown words until added to the dictionary.
+  - Grammar suggestions are about grammar: no advice on style (title case, the Oxford comma, long sentences, "very good" → "excellent"), and nothing smart punctuation already does.
+  - **The suggestions menu** opens on `Mod-.` (the issue at the caret), `F7` / `Shift-F7` (the next or previous issue, selected and scrolled into view, wrapping round the document) or a right-click on a marked word. It is placed against the word and names the kind ("Possible spelling mistake" / "Grammar suggestion", underlined in the kind's own pattern), explains it in one sentence, then lists the corrections under *Replace with* (set in the writing font) and *Ignore*, plus *Add to dictionary* for spelling. The first action has focus; arrows, `Enter` and type-ahead work as in any menu; `F7` / `Shift-F7` move on from inside it; `Esc` returns to the text with the word still selected.
+  - *Replace* is one undoable edit, the caret after the new text. A correction that would delete a Markdown mark is never offered. *Ignore* lasts for this document and session and writes nothing; *Add to dictionary* writes the word to the writer's own `dictionary.txt`, which they may also edit by hand.
+  - Asked where there is nothing to find, the status line says so for a moment (*No spelling or grammar issues.*, *Nothing to suggest here.*, *Spelling and grammar checking are off.*), announced politely to screen readers.
 - **Frontmatter:** shown in `text-secondary`; folded to one quiet line outside the caret, never rewritten.
 - **No separate preview mode.** *Copy as rich text* (`Mod-Shift-C`) puts rendered HTML and plain text on the clipboard.
 
@@ -401,6 +405,7 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 | `view.cycleTheme` | Theme: System / Light / Dark | `Mod-Shift-L` |
 | `check.suggestions` | Show suggestions | `Mod-.` |
 | `check.next` / `check.previous` | Next / Previous issue | `F7` / `Shift-F7` |
+| `check.toggleSpelling` / `check.toggleGrammar` | Check spelling / Grammar suggestions | none (switches in the Edit menu, the palette and Settings) |
 | `app.settings` | Settings | `Mod-,` |
 | `view.fullscreen` | Fullscreen | `F11` |
 | `editor.toggleTransliteration` | Transliteration mode | `Mod-Shift-T` |

@@ -1,0 +1,27 @@
+# Mixed-script blocks (ARCHITECTURE.md §7.2): Arabic runs go to the Arabic speller,
+# Latin runs to English, other scripts are never flagged, and grammar never judges text
+# around words it can't read. See tests/fixtures.rs for the notation.
+
+# The specimen's mixed lines.
+The word أمانة means ⦅*⦆trust⦅*⦆, and زهد is the name of focus mode.
+نستخدم Markdown لكتابة النصوص، ويُحفظ كلُّ ملفٍّ باسمٍ مثل ⦃`notes.md`⦄ في مجلدٍ تختاره.
+An Arabic phrase with a link: ⦅[⦆الصفحة الرئيسية⦅](⦆⦃https://example.com⦄⦅)⦆ inside English text.
+He quoted بسم الله and then continued.
+The concept of توحيد is central to the theology of the Ashʿarīs and the Māturīdīs.
+
+# A mistake in either script, beside the other.
+The word ⟦أمانهة⟧ is misspelled, and so is ⟦mistaek⟧ beside كتاب.
+
+# IJMES transliteration is the writer's own: never flagged, whole hyphenated compounds
+# included. Plain Latin names are ordinary words: unknown until added.
+al-Fātiḥa, Qurʾān, ḥadīth, ʿilm, ṣalāh, ḍalāl, ṭahāra, ẓulm, ⟦Ibn⟧ ⟦Taymiyya⟧, Āl ʿImrān, Ḥanbalī, ʿAbd al-Raḥmān.
+The scholars of ḥadīth disagreed about the isnād of this report, wa-l-ʿilm bi-llāh.
+⟦Ibn⟧ ⟦Qayyim⟧ al-⟦Jawziyya⟧ and el-Said: the article is never flagged.
+
+# Other scripts have no checker and are never flagged.
+Russian слово, Greek λόγος, Hebrew שלום, Hindi शब्द and Japanese 言葉 are left alone.
+
+# Offsets: an emoji (two UTF-16 units), a combining mark, Arabic diacritics.
+A smile 😀 then a mistake: ⟦recieve⟧, and 😀😀 ⟦tomorow⟧.
+A combining café, then ⟦recieve⟧.
+كَتَبَ الطالبُ ثم ⟦recieve⟧ ثم ⟦كتابب⟧.

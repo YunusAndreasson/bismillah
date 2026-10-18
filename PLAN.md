@@ -134,6 +134,41 @@ What else came with it: the watcher (another program's change reloads a clean do
 
 **Accept:** fixture suites for English, Arabic (with and without diacritics), mixed text and masked regions; a stale-result test; no flagging of unsupported scripts.
 
+### Phase 3 result (2026-10-18): built, waiting for the author's acceptance
+
+Everything above is in place (ARCHITECTURE.md §7, ADR-0004 "Phase 3 result"), and `pnpm verify` passes (210 unit tests, 113 Rust tests including the checking fixtures and the Arabic benchmark, 112 real-app e2e tests in 12 suites, 7 visual checks with the specimen baselines re-recorded for the new underlines), and so does `pnpm test:offline`.
+
+| Accept | Evidence |
+|---|---|
+| Fixture suites: English, Arabic (with and without diacritics), mixed text, masked regions | `crates/bismillah-lint/tests/fixtures/*.txt`, one block per line with the expected marks: `english`, `arabic`, `mixed`, `masked`, `routing`; plus the Phase 0 Arabic benchmark (all 414 correct words accepted, corrections for ≥ 80% of misspellings) and the `hunspell` oracle |
+| A stale-result test | `src/editor/linter.test.ts`: a block edited while its request is out drops its results and is checked again, and an untouched block's results move with the text; `diagnostics.test.ts`: an edit touching a mark removes it |
+| No flagging of unsupported scripts | `mixed.txt` (Greek, Cyrillic, Hebrew, Devanagari, Japanese), `routing.txt` (`lang: fa`, `ur`, `de`, `sv`), and the Qur'anic and IJMES lines in the fixtures and the real app |
+
+In the real app (`tests/e2e/checking.e2e.ts`): marks in both scripts and none on Qur'anic text, transliteration, code or URLs; `F7`, `Shift-F7`, `Mod-.` and a right-click open the suggestions, all by keyboard; *Replace* is undoable; *Ignore*; *Add to dictionary* writes `dictionary.txt`, and edits made to it elsewhere apply on focus; the switches and the dialect in Settings.
+
+What else came with it:
+- **What is prose is decided by the editor's own syntax tree**, so code, URLs, link targets, HTML, footnote references and Markdown marks are never read, and a correction can never delete a mark.
+- **`lang:` in frontmatter routes the runs of its own script** (`lang: fa` leaves Arabic-script runs alone, `en-US` chooses American spelling); British spelling by default, as the docs are written.
+- **Grammar means grammar:** no style advice (title case, the Oxford comma, long sentences, "very good" → "excellent"), nothing smart punctuation already does, no judging of words.
+- **Common Arabic misspellings** that the dictionary's affix rules accept (حتي، متي، ذالك، الرحمان، قالو…) are caught, with the correction first.
+- Measured: one edited paragraph takes 8–25 ms at the median and up to 160 ms at p95 on 50,000-word texts, so results land within 500 ms of a typing pause (ARCHITECTURE.md §14). A first pass over 50,000 words runs in the background, visible blocks first; a reopened document is answered from the session cache.
+- Fixed on the way: a settings change rebuilt every editor switch (and the Basmallah opening, dropping a selection in it) even when nothing about it had changed.
+
+**Changed from the plan**
+- Superseded requests are never queued in Rust rather than dropped there: the editor keeps one request in flight (ADR-0004, Phase 3 result).
+- A paragraph longer than about 3,000 words (only pasted text makes one) gets spelling only, and one longer than about 16,000 words isn't checked: Harper's cost grows faster than the text.
+- Two switches were added to the Edit menu and the palette, *Check spelling* and *Grammar suggestions* (no default shortcut), beside the commands of DESIGN.md §13.
+
+**Not done in Phase 3**
+- Words written in plain Latin letters but taken from Arabic (*Ibn*, *Taymiyya*, *Uthmani*, *Qur'anic* with a straight apostrophe) are unknown words until added to the dictionary; no list of them ships, because each entry would be a guess about how the writer spells.
+- Spelling for transliterated words (IJMES letters): they are never marked, so a typo in *ḥadīth* goes unnoticed.
+
+**For the author**
+1. **Try it:** `cd packaging/arch && makepkg -si`, open your writing folder, press `F7`. Add your recurring names and terms with *Add to dictionary* (or list them in `~/.config/bismillah/dictionary.txt`, one per line).
+2. **Check the defaults:** British spelling, both switches on (Settings › Language & checking).
+3. **Manual checks (live session, about 10 minutes):** the first correction is highlighted when the suggestions open (headless runs can't show focus); Orca reads a marked word as a spelling or grammar issue and announces the menu's kind and explanation; a right-click on a marked word opens the suggestions rather than WebKit's menu; the underline under Arabic words in your own text, in both themes.
+4. **Still open from earlier phases:** the hanging-mark gutter question (Phase 1, item 3) and the manual checks of Phases 1 and 2.
+
 ## Phase 4 — Live preview
 
 *Changed 2026-10-18 (ADR-0012): live preview in the editor replaces the separate preview mode.*

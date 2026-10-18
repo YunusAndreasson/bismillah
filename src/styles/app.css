@@ -26,6 +26,47 @@ body {
   white-space: nowrap;
 }
 
+/* Menus (Bits UI): the library's context menu and the suggestions (DESIGN.md §17:
+   surface-editor with a border-control boundary and a restrained shadow). */
+.menu {
+  z-index: var(--layer-popover);
+  min-inline-size: 13rem;
+  padding: var(--space-1);
+  background: var(--surface-editor);
+  color: var(--text-primary);
+  border: 1px solid var(--border-control);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--text-primary) 14%, transparent);
+  font: var(--ui-size) / var(--ui-line) var(--ui-font);
+  outline: none;
+}
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-1) var(--space-3);
+  border-inline-start: 3px solid transparent;
+  border-radius: 4px;
+  cursor: default;
+  outline: none;
+}
+/* The item with focus is the highlighted one, also when focus was moved there for the
+   writer (the first action of the suggestions). */
+.menu-item[data-highlighted],
+.menu-item:focus {
+  background: var(--surface-panel);
+  border-inline-start-color: var(--accent);
+}
+.menu-item kbd {
+  font: inherit;
+  color: var(--text-secondary);
+}
+.menu-separator {
+  block-size: 1px;
+  margin-block: var(--space-1);
+  background: var(--border-control);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -6,7 +6,7 @@ bismillah is built so that your writing stays yours.
 
 - **Reads and writes only the files and folders you choose.** The library is the one folder you open. bismillah lists the Markdown files in it, refuses any path that leads outside it (a link included), and notices changes other programs make there through your system's change notifications; to check the open file it reads only that file.
 - **Never deletes anything outright.** *Move to trash* puts a file or folder in your system's trash, where you can get it back; *Undo* puts it back straight away.
-- **Checks spelling and grammar entirely on your device.** No text is sent anywhere.
+- **Checks spelling and grammar entirely on your device.** No text is sent anywhere. Words you *Ignore* are remembered only until you quit; words you *Add to dictionary* go into your own `dictionary.txt` (below), which you can read and edit.
 - **Stores its own small set of files on your computer:**
   - **Settings:** `settings.toml`, `keybindings.toml`, your personal `dictionary.txt` and any theme files, in your configuration folder (on Linux `~/.config/bismillah/`).
   - **Recovery copies:** while a save is in progress, and whenever one fails or is refused because the file changed elsewhere, the text being saved is kept in the app's data folder (on Linux `~/.local/share/bismillah/recovery/`), so a crash or a full disk never loses it. Access is restricted to your user where the system supports it. A copy is deleted after a successful save or when you discard it, and copies are limited in size and kept for at most 30 days. They never go inside your writing folders.

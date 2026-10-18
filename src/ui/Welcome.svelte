@@ -21,7 +21,7 @@
     {#each actions as action (action.id)}
       <button type="button" onclick={() => run(action.id)}>
         <span>{action.label}</span>
-        <kbd>{shortcutLabel(commandById(action.id)?.key ?? "")}</kbd>
+        <kbd>{shortcutLabel(commandById(action.id)?.key)}</kbd>
       </button>
     {/each}
   </div>

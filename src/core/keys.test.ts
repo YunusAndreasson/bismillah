@@ -23,9 +23,11 @@ describe("shortcuts outside the editor", () => {
   });
 
   it("matches every registry shortcut in its normal form", () => {
-    for (const command of COMMANDS) {
-      expect(normalise(command.key)).toBe(command.key.replace(/[A-Z]$/, (c) => c.toLowerCase()));
+    for (const { key } of COMMANDS) {
+      if (key) expect(normalise(key)).toBe(key.replace(/[A-Z]$/, (c) => c.toLowerCase()));
     }
+    expect(keyOf(press({ key: ".", code: "Period", ctrlKey: true }), false)).toBe("Mod-.");
+    expect(keyOf(press({ key: "F7", code: "F7", shiftKey: true }), false)).toBe("Shift-F7");
     expect(normalise("Mod-Shift-L")).toBe("Mod-Shift-l");
     expect(normalise("Mod--")).toBe("Mod--");
   });

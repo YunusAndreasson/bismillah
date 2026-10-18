@@ -55,4 +55,7 @@ package() {
   install -Dm644 fonts/source/amiri/OFL.txt "$pkgdir/usr/share/licenses/$pkgname/fonts/Amiri.txt"
   install -Dm644 fonts/source/source-serif-4/LICENSE.md "$pkgdir/usr/share/licenses/$pkgname/fonts/SourceSerif4.md"
   install -Dm644 fonts/source/ibm-plex-sans-arabic/LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/fonts/IBMPlexSansArabic.txt"
+  # The Arabic dictionary is compiled into the binary (crates/bismillah-lint).
+  install -Dm644 dictionaries/ar/COPYING.txt "$pkgdir/usr/share/licenses/$pkgname/dictionaries/Ayaspell-COPYING.txt"
+  install -Dm644 dictionaries/ar/AUTHORS.txt "$pkgdir/usr/share/licenses/$pkgname/dictionaries/Ayaspell-AUTHORS.txt"
 }

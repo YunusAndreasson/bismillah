@@ -21,6 +21,11 @@ export type CommandId =
   | "edit.redo"
   | "edit.selectAll"
   | "editor.toggleTransliteration"
+  | "check.suggestions"
+  | "check.next"
+  | "check.previous"
+  | "check.toggleSpelling"
+  | "check.toggleGrammar"
   | "editor.toggleFocus"
   | "editor.toggleTypewriter"
   | "view.textBigger"
@@ -36,6 +41,8 @@ export type ToggleId =
   | "editor.toggleFocus"
   | "editor.toggleTypewriter"
   | "editor.toggleTransliteration"
+  | "check.toggleSpelling"
+  | "check.toggleGrammar"
   | "view.fullscreen"
   | "view.toggleLibrary";
 
@@ -45,8 +52,9 @@ export interface Command {
   id: CommandId;
   label: string;
   section: MenuSection;
-  /** CodeMirror key notation; `Mod` is Ctrl on Linux and Windows, Cmd on macOS. */
-  key: string;
+  /** CodeMirror key notation; `Mod` is Ctrl on Linux and Windows, Cmd on macOS. A
+   * command without one is reached from the menu and the palette. */
+  key?: string;
   /**
    * Where the shortcut works. Everywhere by default; "library" binds it only while the
    * library has focus, never in the editor or the menu, for keys that mean something
@@ -95,6 +103,12 @@ export interface CommandContext {
   toggleFocus(): void;
   toggleTypewriter(): void;
   toggleTransliteration(): void;
+  /** Opens the suggestions for the issue at the caret (Mod-.). */
+  showSuggestions(): void;
+  /** Selects the next or previous issue and opens its suggestions (F7 / Shift-F7). */
+  nextIssue(direction: 1 | -1): void;
+  toggleSpelling(): void;
+  toggleGrammar(): void;
   changeTextSize(step: -1 | 0 | 1): void;
   cycleTheme(): void;
   toggleFullscreen(): void;
@@ -226,6 +240,53 @@ export const COMMANDS: readonly Command[] = [
     run: (c) => c.toggleTransliteration(),
   },
   {
+    id: "check.suggestions",
+    label: "Show suggestions",
+    section: "Edit",
+    key: "Mod-.",
+    separatorBefore: true,
+    aliases: ["spelling", "grammar", "correct", "fix"],
+    description: "Corrections for the possible mistake at the caret.",
+    available: (c) => c.view !== null,
+    run: (c) => c.showSuggestions(),
+  },
+  {
+    id: "check.next",
+    label: "Next issue",
+    section: "Edit",
+    key: "F7",
+    aliases: ["spelling", "grammar", "mistake", "proofread"],
+    available: (c) => c.view !== null,
+    run: (c) => c.nextIssue(1),
+  },
+  {
+    id: "check.previous",
+    label: "Previous issue",
+    section: "Edit",
+    key: "Shift-F7",
+    aliases: ["spelling", "grammar", "mistake", "proofread"],
+    available: (c) => c.view !== null,
+    run: (c) => c.nextIssue(-1),
+  },
+  {
+    id: "check.toggleSpelling",
+    label: "Check spelling",
+    section: "Edit",
+    aliases: ["spellcheck", "dictionary", "underline"],
+    description: "Marks possible spelling mistakes in English and Arabic.",
+    toggle: (c) => c.isOn("check.toggleSpelling"),
+    run: (c) => c.toggleSpelling(),
+  },
+  {
+    id: "check.toggleGrammar",
+    label: "Grammar suggestions",
+    section: "Edit",
+    aliases: ["grammar", "harper", "underline"],
+    description: "Marks possible grammar mistakes in English.",
+    toggle: (c) => c.isOn("check.toggleGrammar"),
+    run: (c) => c.toggleGrammar(),
+  },
+  {
     id: "view.toggleLibrary",
     label: "Library",
     section: "View",
@@ -312,6 +373,12 @@ export const COMMANDS: readonly Command[] = [
  * window's own shortcut handler. */
 export const GLOBAL_COMMANDS: readonly Command[] = COMMANDS.filter((c) => !c.keyScope);
 
+/** Commands with a shortcut that works everywhere: the editor keymap, the menu and the
+ * window's own shortcut handler. */
+export const BOUND_COMMANDS = GLOBAL_COMMANDS.filter(
+  (c): c is Command & { key: string } => c.key !== undefined,
+);
+
 /** CodeMirror key notation → Tauri accelerator ("Mod-Shift-l" → "CmdOrCtrl+Shift+L"). */
 export function accelerator(key: string): string {
   return key
@@ -321,6 +388,7 @@ export function accelerator(key: string): string {
       if (part === "=") return "Equal";
       if (part === "-") return "Minus";
       if (part === ",") return "Comma";
+      if (part === ".") return "Period";
       if (part === "\\") return "Backslash";
       return part.length === 1 ? part.toUpperCase() : part;
     })
@@ -328,12 +396,14 @@ export function accelerator(key: string): string {
 }
 
 /** The shortcut as the writer reads it on Linux ("Ctrl+Shift+T"). */
-export function shortcutLabel(key: string): string {
+export function shortcutLabel(key: string | undefined): string {
+  if (!key) return "";
   return accelerator(key)
     .replace("CmdOrCtrl", "Ctrl")
     .replace("Equal", "=")
     .replace("Minus", "-")
     .replace("Comma", ",")
+    .replace("Period", ".")
     .replace("Backslash", "\\");
 }
 

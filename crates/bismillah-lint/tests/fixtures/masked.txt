@@ -1,0 +1,18 @@
+# Masked regions (ARCHITECTURE.md §7.1): code, URLs and HTML (⦃…⦄) are never read, and
+# Markdown marks (⦅…⦆) never split or join words. See tests/fixtures.rs.
+
+Inside code, nothing is flagged: ⦃`recieve`⦄, and inside a URL: ⦃https://example.com/recieve⦄
+⦅## ⦆A ⟦mistaek⟧ in a heading
+Text can be ⦅*⦆emphasised⦅*⦆, ⦅**⦆strong⦅**⦆, ⦅***⦆both⦅***⦆, ⦅~~⦆struck through⦅~~⦆, or contain ⦃`inline code`⦄.
+A ⦅[⦆link with ⟦tekst⟧⦅](⦆⦃https://example.com⦄⦅)⦆ and an ⦅![⦆image ⟦discription⟧⦅](⦆⦃photo.png⦄⦅)⦆.
+A bare address ⦃https://example.com/a/very/long/path/that/should/wrap⦄ and ⦃<https://example.com>⦄.
+Footnotes stay quiet until needed.⦃[^1]⦄
+⦅[ ]⦆ An open task with a ⟦mistaek⟧
+HTML stays text but isn't prose: ⦃<span class="recieve">⦄ here ⦃</span>⦄.
+
+# Grammar reads across marks: "a *apple*" is still "a apple".
+This is ⟪a⟫ ⦅*⦆apple⦅*⦆.
+⦅**⦆⟪Their⟫⦅**⦆ is a problem.
+
+# Grammar next to skipped code is dropped: the code stands for words Harper can't see.
+Run ⦃`ls`⦄ and ⦃`pwd`⦄ to see a ⦃`apple`⦄ there.

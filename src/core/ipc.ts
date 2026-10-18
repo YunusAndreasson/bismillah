@@ -186,6 +186,54 @@ export const settingsSet = (patch: Record<string, SettingValue>) =>
   invoke<SettingsSnapshot>("settings_set", { patch });
 export const settingsReload = () => invoke<SettingsSnapshot | null>("settings_reload");
 
+/** One block of the document for the checker (ARCHITECTURE.md §7.1). Offsets are UTF-16
+ * code units relative to the block. */
+export interface LintBlock {
+  text: string;
+  /** Code, URLs and HTML: they stand for words but aren't prose. */
+  skip: [number, number][];
+  /** Markdown punctuation: `#`, `**`, `[`, `](`… */
+  marks: [number, number][];
+}
+
+export interface LintRequest {
+  /** The editor's revision when the blocks were taken; it comes back with the results. */
+  revision: number;
+  /** The document's frontmatter `lang:`. */
+  lang: string | null;
+  blocks: LintBlock[];
+}
+
+export interface Diagnostic {
+  from_utf16: number;
+  to_utf16: number;
+  kind: "spelling" | "grammar";
+  lang: "en" | "ar";
+  /** Harper's explanation of a grammar suggestion; empty for spelling. */
+  message: string;
+  /** Each the text that would replace the range ("" removes it). Spelling corrections
+   * come from `lintSuggest` when the writer asks. */
+  suggestions: string[];
+  rule_id: string;
+}
+
+export interface LintResponse {
+  revision: number;
+  /** One list per block, in the request's order. */
+  blocks: Diagnostic[][];
+}
+
+export type AddWordError =
+  | { kind: "invalid_word"; reason: "empty" | "not_one_word" | "too_long" }
+  | { kind: "not_saved"; error: SaveError };
+
+export const lintCheck = (request: LintRequest) => invoke<LintResponse>("lint_check", { request });
+export const lintSuggest = (word: string, lang: Diagnostic["lang"], docLang: string | null) =>
+  invoke<string[]>("lint_suggest", { word, lang, docLang });
+export const lintAddWord = (word: string) => invoke<null>("lint_add_word", { word });
+/** True if `dictionary.txt` changed outside the app since it was last read. */
+export const lintRefresh = () => invoke<boolean>("lint_refresh");
+
 /** Test mode only: opens a file by path in place of the native dialog. */
 export const testOpen = (path: string) => invoke<OpenedDocument>("test_open", { path });
 /** Test mode only: the next native file dialog answers `path` (null: cancelled). */

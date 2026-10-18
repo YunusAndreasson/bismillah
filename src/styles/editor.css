@@ -140,6 +140,28 @@
   font-weight: 600;
 }
 
+/* Spelling and grammar (diagnostics.ts, DESIGN.md §11): a wavy underline for spelling
+   and a dotted one for grammar, so the two differ in pattern as well as colour. The
+   underline sits below descenders and Arabic dots, and never moves the text. */
+.cm-editor .cm-diag {
+  text-decoration-line: underline;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 0.22em;
+}
+.cm-editor .cm-diag-spelling {
+  text-decoration-style: wavy;
+  text-decoration-color: var(--diagnostic-spelling);
+  text-decoration-thickness: max(1.5px, 0.075em);
+}
+.cm-editor .cm-diag-grammar {
+  text-decoration-style: dotted;
+  text-decoration-color: var(--diagnostic-grammar);
+  text-decoration-thickness: max(2px, 0.1em);
+}
+.cm-editor .cm-diag-ar {
+  text-underline-offset: 0.45em;
+}
+
 /* Bidi isolation for inline code and URLs (bidi.ts). */
 .cm-editor .cm-isolate {
   unicode-bidi: isolate;

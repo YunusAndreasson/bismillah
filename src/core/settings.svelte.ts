@@ -17,6 +17,7 @@ import type { FocusGranularity } from "../editor/zuhd.ts";
  */
 
 export type Measure = "narrow" | "standard" | "wide";
+export type EnglishDialect = "british" | "american" | "canadian" | "australian" | "indian";
 
 export interface Settings {
   theme: Theme;
@@ -32,6 +33,9 @@ export interface Settings {
   typewriter_scrolling: boolean;
   focus_mode: boolean;
   focus_granularity: FocusGranularity;
+  check_spelling: boolean;
+  check_grammar: boolean;
+  english_dialect: EnglishDialect;
 }
 
 export const DEFAULTS: Settings = {
@@ -46,6 +50,9 @@ export const DEFAULTS: Settings = {
   typewriter_scrolling: true,
   focus_mode: false,
   focus_granularity: "paragraph",
+  check_spelling: true,
+  check_grammar: true,
+  english_dialect: "british",
 };
 
 export const TEXT_SCALE = { min: 0.5, max: 3, step: 0.1 } as const;
