@@ -46,9 +46,8 @@ const FIRST_FAMILIES: Record<Profile, readonly string[]> = {
 
 /**
  * Loads the upright faces the first screen uses, so its first measurement uses the real
- * fonts. The other faces (italics, the other profiles' fonts, Amiri Quran) load when
- * text first needs them, and the editor measures again then (`loadingdone`): loading
- * all sixteen, 5.6 MB, would hold up every launch (ARCHITECTURE.md §14).
+ * fonts. Loading all sixteen, 5.6 MB, would hold up every launch (ARCHITECTURE.md §14);
+ * `loadOtherFonts` loads the rest once the window is ready.
  */
 export async function loadFonts(profile: Profile): Promise<void> {
   const families = FIRST_FAMILIES[profile];
@@ -56,4 +55,14 @@ export async function loadFonts(profile: Profile): Promise<void> {
     (face) => face.style === "normal" && families.includes(face.family.replace(/^["']|["']$/g, "")),
   );
   await Promise.all(first.map((face) => face.load().catch(() => face)));
+}
+
+/**
+ * Loads every other bundled face (italics, the other profiles' fonts, Amiri Quran), so
+ * the first italic or Qur'anic run the writer types never waits for its font, invisible,
+ * and moves the line when it arrives. The editor measures again once they are in
+ * (`loadingdone`).
+ */
+export async function loadOtherFonts(): Promise<void> {
+  await Promise.all([...document.fonts].map((face) => face.load().catch(() => face)));
 }

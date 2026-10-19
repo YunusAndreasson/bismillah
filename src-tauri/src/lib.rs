@@ -279,12 +279,12 @@ pub fn run() {
         .setup(move |app| {
             let (config_dir, data_dir) = app::dirs(app.handle())?;
             let state = AppState::new(app.handle().clone(), &config_dir, &data_dir, startup);
-            state.restore_library();
             if let Some(window) = app.get_webview_window("main") {
                 platform::configure_main_window(&window);
                 restore_window(&window, &state);
             }
             app.manage(state);
+            AppState::restore_library(app.handle());
             watch_config(app.handle(), &config_dir);
             if let Some(listener) = listener {
                 let handle = app.handle().clone();

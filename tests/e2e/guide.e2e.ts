@@ -33,7 +33,7 @@ describe("the guide", () => {
       timeoutMsg: "F1 didn't open the guide",
     });
     expect(await browser.getTitle()).toBe("guide.md — bismillah");
-    expect(await status()).toContain("Sample — changes aren't saved");
+    expect(await status()).toContain("Guide — changes aren't saved");
   });
 
   it("shows no spelling or grammar marks", async () => {

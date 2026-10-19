@@ -1,5 +1,6 @@
 <script lang="ts">
   import { copy } from "../core/copy.ts";
+  import { GUIDE_NAME } from "../core/guide.ts";
   import type { SaveState } from "../core/session.svelte.ts";
   import { readingMinutes } from "../editor/wordCount.ts";
 
@@ -35,7 +36,7 @@
       case "failed":
         return copy.status.notSaved(state.error);
       case "sample":
-        return copy.status.sample;
+        return name === GUIDE_NAME ? copy.status.guide : copy.status.sample;
       case "read_only":
         return copy.status.readOnly;
     }

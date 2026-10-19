@@ -6,7 +6,8 @@
 //! makes, are gathered until the folder has been quiet for a moment and reported once.
 
 use crate::library;
-use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::event::{AccessKind, AccessMode};
+use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Duration;
@@ -55,6 +56,18 @@ pub fn listed(root: &Path, path: &Path) -> bool {
     }
 }
 
+/// Whether an event changed something. Reading isn't changing: `notify` also reports a
+/// file or folder being opened and closed unwritten, and the library's own listing
+/// opens every folder, so counting those would make each listing set off the next,
+/// for as long as the library is open. A file closed after writing is a change.
+fn changes(kind: &EventKind) -> bool {
+    match kind {
+        EventKind::Access(AccessKind::Close(AccessMode::Write)) => true,
+        EventKind::Access(_) => false,
+        _ => true,
+    }
+}
+
 impl Watch {
     /// Watches `root` and everything below it. `changed` gets the paths touched by each
     /// settled burst of changes that `wanted` keeps (`visible` or `listed`), on a thread
@@ -66,7 +79,9 @@ impl Watch {
     ) -> notify::Result<Watch> {
         let (tx, rx) = mpsc::channel::<Vec<PathBuf>>();
         let handler = move |event: notify::Result<Event>| {
-            if let Ok(event) = event {
+            if let Ok(event) = event
+                && changes(&event.kind)
+            {
                 let _ = tx.send(event.paths);
             }
         };
@@ -128,6 +143,51 @@ mod tests {
         // Gone: a folder's name, or a file's.
         assert!(listed(root, &root.join("old-folder")));
         assert!(!listed(root, &root.join("old.rlib")));
+    }
+
+    #[test]
+    fn counts_writes_and_never_reads() {
+        use notify::event::{CreateKind, ModifyKind};
+        assert!(changes(&EventKind::Create(CreateKind::File)));
+        assert!(changes(&EventKind::Modify(ModifyKind::Any)));
+        assert!(changes(&EventKind::Access(AccessKind::Close(
+            AccessMode::Write
+        ))));
+        assert!(!changes(&EventKind::Access(AccessKind::Open(
+            AccessMode::Any
+        ))));
+        assert!(!changes(&EventKind::Access(AccessKind::Close(
+            AccessMode::Read
+        ))));
+        assert!(!changes(&EventKind::Access(AccessKind::Read)));
+    }
+
+    #[test]
+    fn listing_the_library_sets_off_nothing() {
+        let scratch = Scratch::new();
+        let root = fs::canonicalize(scratch.path()).unwrap();
+        fs::create_dir_all(root.join("essays/drafts")).unwrap();
+        fs::write(root.join("essays/a.md"), "a").unwrap();
+        let (tx, rx) = mpsc::channel();
+        let watch = Watch::start(&root, listed, move |paths| {
+            let _ = tx.send(paths);
+        })
+        .unwrap();
+        // Reading every folder and file, as a listing and an open do.
+        let library = crate::library::Library::open(&root).unwrap();
+        library.tree().unwrap();
+        fs::read_to_string(root.join("essays/a.md")).unwrap();
+        assert!(
+            rx.recv_timeout(Duration::from_millis(600)).is_err(),
+            "reading the library reported a change"
+        );
+        // A write still does.
+        fs::write(root.join("essays/b.md"), "b").unwrap();
+        let seen = rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("a write is reported");
+        assert!(seen.contains(&root.join("essays/b.md")), "{seen:?}");
+        drop(watch);
     }
 
     #[test]

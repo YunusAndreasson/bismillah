@@ -75,6 +75,9 @@ pub struct AppState {
     handed: Mutex<Vec<String>>,
     /// The library folder, its listing and its watcher (library_commands.rs).
     shelf: Mutex<Shelf>,
+    /// The thread opening the remembered library at launch, until something waits for
+    /// it (`library_ready`).
+    restoring: Mutex<Option<std::thread::JoinHandle<()>>>,
     /// Bumped whenever the library changes, so a watcher of an older one is ignored.
     generation: AtomicU64,
     trash: Arc<dyn Trash>,
@@ -146,6 +149,7 @@ impl AppState {
             dialog_answer: Mutex::new(None),
             handed: Mutex::new(Vec::new()),
             shelf: Mutex::new(Shelf::None),
+            restoring: Mutex::new(None),
             generation: AtomicU64::new(0),
             trash: Arc::new(platform::SystemTrash),
             trashed: Mutex::new(Vec::new()),
@@ -237,6 +241,8 @@ impl AppState {
     /// outside the library makes its folder the library, so every open file has a root
     /// to check paths against (ARCHITECTURE.md §12.2).
     fn install(&self, source: Source, decoded: documents::Decoded) -> Opened {
+        // Where the document is in the library needs the library.
+        self.library_ready();
         // Text the writer leaves behind unsaved (its last save failed) stays on offer.
         if let Some(previous) = self.current_path() {
             self.recovery.retain_mirror(&previous);
@@ -357,6 +363,8 @@ pub fn app_info(state: State<'_, AppState>) -> AppInfo {
 /// as a sample that is never saved.
 #[tauri::command]
 pub async fn startup(state: State<'_, AppState>) -> Result<Startup, ()> {
+    // The remembered library decides whether the last document still belongs to it.
+    state.library_ready();
     let mut requested = lock(&state.requested).take();
     let with_pending = |mut document: Opened| {
         let current = state.current_path();

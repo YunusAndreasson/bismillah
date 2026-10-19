@@ -7,20 +7,21 @@
  *             [--parts launch,typing,idle]
  *
  * 1. Launch to an editable caret: from the process's start to the `bismillah:editable`
- *    mark (the document is in the editor, which has focus), for a short document and a
- *    50,000-word one. The first launch reads the binary from disk; the rest are warm.
+ *    mark (the document is in the editor, which has focus), for a short document with no
+ *    library and in a remembered library of 1,000 files, and a 50,000-word one. The
+ *    first launch reads the binary from disk; the rest are warm.
  * 2. Typing: keys typed in bursts with pauses between them, so the word count, saving
  *    and checking run as they do for a writer, in a short document and in a 1 MB book
  *    (in prose, and on a line with code). For each key, the time from the key to the
  *    end of the next painted frame; and the frames longer than two refresh intervals.
  * 3. Idle: the CPU time of the app's processes (bismillah and WebKit's) over a quiet
- *    minute once everything has settled, and their resident memory.
+ *    minute with the library open, once everything has settled, and their memory.
  *
  * Measures the release build by default (`pnpm tauri build --no-bundle`), as installed.
  * Under the harness no window has focus, so the caret doesn't blink (a focused window's
  * caret repaints about twice a second).
  */
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -266,18 +267,44 @@ try {
   // 1. Launch.
   const short = join(scratch, "letter.md");
   writeFileSync(short, `# A letter\n\n${body("docs/specimen.md").slice(0, 4000)}\n`);
-  const long = join(scratch, "fifty-thousand-words.md");
+  mkdirSync(join(scratch, "Book"));
+  const long = join(scratch, "Book", "fifty-thousand-words.md");
   const longText = wordsBook(50_000);
   writeFileSync(long, longText);
-  for (const [name, doc] of !parts.has("launch")
+  // A library as a writer keeps one: 1,000 files in 40 folders, two levels deep. The
+  // first launch opens it, so the others start with it remembered, as the writer's do.
+  const library = join(scratch, "Writing");
+  for (let folder = 0; folder < 40; folder++) {
+    const dir = join(library, `Part ${folder + 1}`, folder % 2 ? "Drafts" : "Notes");
+    mkdirSync(dir, { recursive: true });
+    for (let file = 0; file < 25; file++) {
+      writeFileSync(join(dir, `Chapter ${file + 1}.md`), `# Chapter ${file + 1}\n\nText.\n`);
+    }
+  }
+  const inLibrary = join(library, "letter.md");
+  writeFileSync(inLibrary, readFileSync(short, "utf8"));
+  if (parts.has("idle") && !parts.has("launch")) {
+    const { browser } = await launch(library);
+    await browser.deleteSession();
+  }
+  // A document alone in its folder, with nothing remembered: no library to list.
+  const alone = join(scratch, "Alone");
+  mkdirSync(alone);
+  const lone = join(alone, "letter.md");
+  writeFileSync(lone, readFileSync(short, "utf8"));
+  const remembered = join(process.env.XDG_DATA_HOME ?? "", "bismillah", "state.json");
+  for (const [name, doc, fresh] of !parts.has("launch")
     ? []
     : ([
-        ["short document", short],
-        [`${words(longText).toLocaleString("en")}-word document`, long],
+        ["a short document, no library", lone, true],
+        ["a short document in a library of 1,000 files", inLibrary, false],
+        [`a ${words(longText).toLocaleString("en")}-word document, no library`, long, true],
       ] as const)) {
     const times: number[] = [];
     const stages: Record<string, number[]> = {};
     for (let i = 0; i < runs; i++) {
+      if (fresh) rmSync(remembered, { force: true });
+      else if (i === 0) await (await launch(library)).browser.deleteSession();
       const { browser, launchMs, stages: s } = await launch(doc);
       times.push(launchMs);
       if (i > 0) for (const [k, v] of Object.entries(s)) (stages[k] ??= []).push(v);
@@ -321,9 +348,10 @@ try {
     }
   }
 
-  // 3. Idle, with the short document, once checking has settled.
+  // 3. Idle, with the short document in its library of 1,000 files, once checking has
+  // settled.
   if (parts.has("idle")) {
-    const { browser: idle, pid: idlePid } = await launch(short);
+    const { browser: idle, pid: idlePid } = await launch(inLibrary);
     await idle.execute(async () => {
       await window.__bismillah?.lintSettled(30_000);
     });
@@ -339,7 +367,7 @@ try {
       rssMiB: rssMiB(pids),
     };
     lines.push(
-      `Idle for ${idleSeconds} s (${pids.length} processes): ${used} ms of CPU; ${memory(idlePid)}`,
+      `Idle for ${idleSeconds} s with a library of 1,000 files (${pids.length} processes): ${used} ms of CPU; ${memory(idlePid)}`,
     );
     await idle.deleteSession();
   }

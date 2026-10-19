@@ -159,6 +159,13 @@
   background: linear-gradient(var(--text-secondary), var(--text-secondary)) center / 6em 1px
     no-repeat content-box;
 }
+/* CodeMirror puts a zero-width image beside each hidden mark so the caret can stand
+   there. An image is a place a line may break, so a ")" or ";" after hidden code or
+   emphasis marks could start the next line. Out of the line's flow it is no longer
+   one, and it still stands where the caret is drawn. */
+.cm-editor.cm-live .cm-widgetBuffer {
+  position: absolute;
+}
 /* A link's underline is solid and unbroken, so it never reads as the dotted grammar
    mark, and sits below Arabic dots as the diagnostics' does. */
 .cm-editor .cm-md-link {

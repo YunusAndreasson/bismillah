@@ -119,8 +119,14 @@ fn open_error(e: LibraryError) -> OpenError {
 }
 
 impl AppState {
-    /// Makes `folder` the library: lists it, watches it and tells the frontend.
+    /// Makes `folder` the library: lists it, watches it and tells the frontend. Waits
+    /// for the remembered library first, so it can never land after this one.
     pub(super) fn set_library(&self, folder: &Path) {
+        self.library_ready();
+        self.open_library(folder);
+    }
+
+    fn open_library(&self, folder: &Path) {
         let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
         let shelf = match Library::open(folder) {
             Ok(library) => {
@@ -154,10 +160,35 @@ impl AppState {
         self.announce();
     }
 
-    /// The library remembered from the last run, if there was one.
-    pub fn restore_library(&self) {
-        if let Some(root) = self.memory().library {
-            self.set_library(&root);
+    /// Opens the library remembered from the last run, if there was one, on a thread of
+    /// its own: listing and watching a large folder then overlaps the window's start
+    /// rather than holding it up (ARCHITECTURE.md §14). Whatever needs the library
+    /// waits for it (`library_ready`).
+    pub fn restore_library(app: &AppHandle) {
+        let state = app.state::<AppState>();
+        let Some(root) = state.memory().library else {
+            return;
+        };
+        let handle = app.clone();
+        let spawned = std::thread::Builder::new()
+            .name("bismillah-library".into())
+            .spawn(move || handle.state::<AppState>().open_library(&root));
+        match spawned {
+            Ok(thread) => *lock(&state.restoring) = Some(thread),
+            Err(_) => {
+                if let Some(root) = state.memory().library {
+                    state.open_library(&root);
+                }
+            }
+        }
+    }
+
+    /// Waits until the remembered library is open, or returns at once when it is (or
+    /// there was none). The lock is held while waiting, so no caller gets past early.
+    pub(super) fn library_ready(&self) {
+        let mut restoring = lock(&self.restoring);
+        if let Some(thread) = restoring.take() {
+            let _ = thread.join();
         }
     }
 
@@ -340,6 +371,7 @@ impl AppState {
 /// or the writer asked to try an unavailable folder again).
 #[tauri::command]
 pub fn library_get(state: State<'_, AppState>, refresh: bool) -> LibraryPanel {
+    state.library_ready();
     if refresh {
         state.refresh();
     }

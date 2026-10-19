@@ -36,7 +36,7 @@ import {
   TEXT_SCALE,
   type Settings,
 } from "./settings.svelte.ts";
-import { loadFonts, setCustomFont, type Theme } from "./appearance.ts";
+import { loadFonts, loadOtherFonts, setCustomFont, type Theme } from "./appearance.ts";
 
 /**
  * The window's state and every action on it: which document is open, its save state,
@@ -322,16 +322,20 @@ export class Workspace {
     this.measureLayout();
     // The native menu takes some sixty calls to Rust; nothing needs it before the text
     // is editable, so it is built after (ARCHITECTURE.md §14).
-    this.menuReady = menu(this.context).then(
-      (built) => {
-        this.#menu = built;
-      },
-      (error: unknown) => console.error("bismillah: couldn't build the menu", error),
-    );
+    // Then the fonts the first screen didn't need.
+    this.ready = menu(this.context)
+      .then(
+        (built) => {
+          this.#menu = built;
+        },
+        (error: unknown) => console.error("bismillah: couldn't build the menu", error),
+      )
+      .then(loadOtherFonts);
   }
 
-  /** Resolves once the native menu is built (the test hooks wait for it). */
-  menuReady: Promise<void> = Promise.resolve();
+  /** Resolves once the native menu is built and every font loaded, after the text is
+   * editable (the test hooks wait for it). */
+  ready: Promise<void> = Promise.resolve();
 
   #listen(): void {
     const appWindow = getCurrentWindow();

@@ -77,6 +77,7 @@ export const copy = {
     saving: "Saving…",
     notSaved: (error: SaveError) => `Not saved — ${saveReason(error)}`,
     sample: "Sample — changes aren't saved",
+    guide: "Guide — changes aren't saved",
     readOnly: "Read-only",
     words: (n: number) => `${n.toLocaleString()} ${n === 1 ? "word" : "words"}`,
     minutes: (n: number) => `${n} min read`,

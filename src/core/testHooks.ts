@@ -358,8 +358,9 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
       return value;
     },
   };
-  // Ready once the native menu is built too, which the app does after the text.
-  void workspace.menuReady.then(() => {
+  // Ready once the native menu is built and the other fonts loaded, which the app does
+  // after the text is editable.
+  void workspace.ready.then(() => {
     document.documentElement.dataset.ready = "true";
   });
 }

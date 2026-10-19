@@ -9,7 +9,7 @@
 # libraries the binary links against.
 
 pkgname=bismillah
-pkgver=1.0.0.r20.g0a9eb1c
+pkgver=1.0.0.r21.gd534ac3
 pkgrel=1
 pkgdesc="A calm, offline Markdown editor"
 arch=('x86_64')
