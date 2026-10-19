@@ -14,3 +14,9 @@ We want users to extend bismillah. Revision 1 of the plan proposed JS plugins im
 ## Consequences
 - Fewer extension possibilities at 1.0, but every promise we make about extensions is true.
 - The plugin system becomes a dedicated, post-1.0 design task with its own threat model.
+
+## Phase 5 result (2026-10-19)
+Built as decided; nothing here changed. What the building settled (ARCHITECTURE.md §8–9, DESIGN.md §9.5, §13):
+- **A theme sets token values only**, as `[light]` and `[dark]` tables of `#rgb`/`#rrggbb` colours in TOML or JSON. Anything else in the file is reported and ignored; contrast below DESIGN.md §9.4 is a warning, not a refusal, because the theme is the writer's choice.
+- **bismillah's own themes are theme files too** (`src-tauri/themes/`), checked by the same code and held by a test to no problems, so a future set (the author plans one) is added as files, with no code.
+- **Shortcuts are declarative as well:** `keybindings.toml` maps command ids to keys and nothing else. Like themes, it can't add behaviour, only rebind what the command registry already has.

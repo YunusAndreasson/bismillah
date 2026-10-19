@@ -2,7 +2,7 @@
 
 This document describes how bismillah is built and the contracts each part must keep. Product and visual decisions live in [DESIGN.md](DESIGN.md). Lasting decisions are recorded as ADRs in [docs/decisions/](docs/decisions/). If code and this document disagree, fix one of them in the same change.
 
-> **Status:** Phase 4 (live preview). The file-safety contract, the recovery journal, settings, the desktop basics, the library (path checks, listing, watcher, file actions), checking (`bismillah-lint`, its thread, the suggestions and the personal dictionary), live preview (with local images) and Copy as rich text are real (§3 marks what is planned).
+> **Status:** Phase 5 (themes and settings). The file-safety contract, the recovery journal, settings, the desktop basics, the library (path checks, listing, watcher, file actions), checking (`bismillah-lint`, its thread, the suggestions and the personal dictionary), live preview (with local images), Copy as rich text, colour themes, `keybindings.toml` and the watched configuration folder are real (§3 marks what is planned).
 
 ---
 
@@ -53,6 +53,8 @@ A dependency is added only when it replaces difficult correctness, accessibility
 
 **Development only** (never shipped): WebdriverIO + `tauri-driver` (real-app e2e), `pixelmatch` + `pngjs` (screenshot comparison), Vitest + jsdom, ESLint + Prettier, svelte-check. Spike and font tooling run through `uv`: fontTools (font build), `uharfbuzz` (rendering reference, and the pre-shaped Basmallah outlines in `src/editor/basmallahInk.ts`), `python-xlib` (raw X input and clipboard).
 
+Whether the writer's *Another font* is installed is asked of fontconfig's `fc-list -q` (`platform.rs`), a program that comes with fontconfig, which WebKitGTK needs anyway; the webview can't tell, because WebKitGTK draws an unknown family in a substitute font.
+
 A later launch hands its file to the running app over a socket in the user's private runtime directory (`platform.rs`, std only), rather than `tauri-plugin-single-instance`, whose D-Bus stack (`zbus` 5) is flagged unmaintained. Window size and the last document are remembered by `state.rs` in one small JSON file, rather than `tauri-plugin-window-state`, so everything bismillah stores sits in its own two folders (§9); on Wayland the compositor places windows anyway.
 
 No CSS framework, state-management library, layout library, icon font or component kit. CSS is plain and uses tokens (DESIGN.md §9). No browser test stack: bismillah is desktop-only (ADR-0009), so it is tested in the real app.
@@ -83,7 +85,10 @@ bismillah/
 │  │  ├─ app/library_commands.rs  the library's state and commands (§4)
 │  │  ├─ lint.rs              the checker's thread and the personal dictionary file (§7)
 │  │  ├─ images.rs            local images for live preview: resolved and checked (§6)
-│  │  └─ themes.rs            (planned)
+│  │  ├─ themes.rs            colour themes: read, checked, contrast-tested (§8)
+│  │  ├─ keybindings.rs       reading keybindings.toml, and its starting file (§9)
+│  │  └─ config.rs            which configuration file changed; folders named from ~ (§9)
+│  ├─ themes/                 bismillah's built-in colour themes, in the theme-file format
 │  └─ capabilities/           minimal Tauri capability set
 ├─ crates/bismillah-lint/     spelling and grammar, pure Rust with no Tauri dependency (§7): offsets
 │                             (UTF-16 ↔ chars ↔ bytes), segment (script runs, Qur'anic trigger,
@@ -94,7 +99,9 @@ bismillah/
 │  │                          save, notices, library actions), save session, settings, copy (all
 │  │                          interface sentences), appearance, library store, tree keyboard model,
 │  │                          fuzzy matching, library layout, checking (the suggestions and what
-│  │                          was ignored), test hooks (only with BISMILLAH_TEST=1)
+│  │                          was ignored), colour themes, shortcuts (the rules of keybindings.toml)
+│  │                          and keybindings (the writer's shortcuts now), about (the credits),
+│  │                          test hooks (only with BISMILLAH_TEST=1)
 │  ├─ editor/                 CodeMirror setup + one extension per concern: dialect (frontmatter),
 │  │                          markdownStyling, hangingMarks, bidi, scriptRuns, basmallah, typewriter,
 │  │                          zuhd, typingAids (smart punctuation, transliteration mode), lintBlocks
@@ -104,7 +111,8 @@ bismillah/
 │  │                          (tables as grids, clicks and arrows into them); wordCount
 │  ├─ richText/               markdown-it + DOMPurify for Copy as rich text, and its plain text
 │  ├─ ui/                     Svelte components: status line, notices, first screen, Settings,
-│  │                          library panel and tree, quick open / palette, name prompt, suggestions
+│  │                          About, library panel and tree, quick open / palette, name prompt,
+│  │                          suggestions
 │  └─ styles/                 tokens.css, fonts.css, profiles.css, editor.css
 ├─ fonts/  source/ (upstream) · build/ (Bismillah Duo/Mono) · tools/ (build + verify scripts)
 ├─ dictionaries/              Arabic dictionary + licence
@@ -128,7 +136,11 @@ All commands are typed on both sides (Rust structs ↔ TS types in `src/core/ipc
 | `doc_save(id, text, revision, force)` → `revision` or a typed `SaveError` | Save (§5); `force` is "Keep mine" |
 | `doc_save_as(id, text)` · `doc_check(id)` · `doc_reload(id, local_text?)` | Save mine as…, the focus check, and reloading (Load theirs keeps the local text in recovery) |
 | `recovery_settle(id)` | The writer restored or discarded recovered text |
+| `app_info()` → test mode, process id, version, the configuration and data folders as the writer reads them | About and Settings › Files & privacy |
 | `settings_get()` / `settings_set(patch)` / `settings_reload()` | Settings (§9) |
+| `themes_list()` → every colour theme, each with its tokens per variant and its problems | Settings › Appearance and applying the chosen theme (§8) |
+| `keybindings_get()` → the lines of `keybindings.toml` · `keybindings_create(text)` | The writer's shortcuts (§9); the starting file is never written over an existing one |
+| `font_installed(family)` → `true`, `false` or `null` (unknown) | *Another font* (DESIGN.md §8.2) |
 | `library_get(refresh)` → the listing and whether the library is shown · `library_remember_open(open)` | The panel (refresh: on focus, or *Try again*) |
 | `library_open_dialog()` → listing or `null` | File › Open folder… |
 | `library_open_file(path)` → document | Open a file from the library |
@@ -142,7 +154,7 @@ All commands are typed on both sides (Rust structs ↔ TS types in `src/core/ipc
 
 Images reach the webview through one custom scheme, not a command: `bismillah-image://localhost/<document id>/<destination as written>` (built with `convertFileSrc`). Rust answers with the checked image or an empty 404 (§6).
 
-Events (Rust → UI): `open-requested` (a drop or a second launch), `library-changed` (a new listing, sent whenever it differs from the last), `document-changed` (the watcher found the open file changed or removed on disk). A listing carries a generation that changes with the folder; within one folder the frontend keeps track of the open file itself, because a listing sent before a file opened may arrive after it.
+Events (Rust → UI): `open-requested` (a drop or a second launch), `library-changed` (a new listing, sent whenever it differs from the last), `document-changed` (the watcher found the open file changed or removed on disk), `config-changed` (which of `settings.toml`, `keybindings.toml`, `themes/` and `dictionary.txt` another program changed). A listing carries a generation that changes with the folder; within one folder the frontend keeps track of the open file itself, because a listing sent before a file opened may arrive after it.
 
 ## 5. File-safety contract (amanah)
 
@@ -169,7 +181,7 @@ If any step fails, the original file is untouched, the temporary file is removed
 ### 5.4 External changes and conflicts
 - Before replacing a file, the save checks that its mtime and size still match what was last read or written; if either differs, the bytes are read and their hash compared, so a `touch` alone is not a conflict.
 - If they don't:
-  - No local edits: reload quietly, keeping the caret and scroll as close as possible.
+  - No local edits: reload quietly, keeping the caret and scroll as close as possible. Reading the new version takes a moment; text the writer types meanwhile is kept in recovery and the new version opens with it on offer (*Restore* · *Discard*), so it is never replaced unseen (`src/core/reload.ts`; found by the offline run in Phase 5).
   - Local edits: **do not overwrite**. Show the persistent conflict bar: *Keep mine* (save over) · *Load theirs* (local text goes to recovery first) · *Save mine as…*
 - Regaining window focus runs the same check, and the watcher (`watch.rs`, `notify`) runs it as soon as another program changes the library: bursts of events are gathered until the folder is quiet for 150 ms, hidden names and our own save temporaries are ignored, and the open file is reported only if it no longer matches what we last read or wrote, so our own saves never are. No polling: an idle library costs nothing. Links are not followed by the watcher, so changes in a linked folder are found on focus. The save-time check is the authority.
 - A file removed while open is reported (*Save it again* · *Save elsewhere…*), never silently recreated.
@@ -259,8 +271,20 @@ Diagnostic   { from_utf16, to_utf16, kind: spelling|grammar, lang: en|ar, messag
 See ADR-0005.
 
 - **v1 ships declarative themes only.** A theme is a JSON or TOML file in `<config>/bismillah/themes/` that sets **semantic token values** (DESIGN.md §9.2) for light and/or dark.
-  - Rust validates it: known keys only, colours parsed, contrast checked against the rules. Failures produce a warning and are listed in Settings.
+  - Rust validates it (`themes.rs`): known keys only, colours parsed, contrast checked against the rules. Failures produce a warning and are listed in Settings.
   - No CSS, no selectors, no code.
+- **The format** (Phase 5): optional `schema = 1` and `name`, then `[light]` and/or `[dark]` tables of tokens as `#rgb` or `#rrggbb` (opaque, so contrast can be measured):
+  ```toml
+  schema = 1
+  name = "Sepia"
+  [light]
+  surface-editor = "#f4ecdd"
+  text-primary = "#2b2117"
+  ```
+  JSON has the same shape. The file's name without its ending is the theme's id, which `colour_theme` holds. Files up to 64 KiB, at most 100 listed, hidden names skipped.
+- **Checking:** each problem is typed (`Problem` in `themes.rs`, worded by `src/core/copy.ts`): unreadable (with the line where TOML or JSON stopped), too large, another schema, an unknown key, a wrong type, a colour that can't be read, no colours at all, a name another theme has. Unknown keys and bad colours are ignored and the rest applies. Contrast is checked on the theme's colours over bismillah's own (tokens a theme leaves out, aliases following their source), with every pair of DESIGN.md §9.4, and is a warning: the theme still applies.
+- **Built-in themes** (`src-tauri/themes/*.toml`, compiled in) go through the same code, and a Rust test holds them to no problems at all. bismillah's own colours stay in `tokens.css`; a Rust test keeps its copy of them (for merging and contrast) equal to the stylesheet.
+- **Applying** (`src/core/themes.svelte.ts`): the frontend sets the chosen theme's tokens for the variant on screen as custom properties on the root element (CSSOM, for the CSP), and follows the system's light/dark switch under System. `surface-code` is derived in Rust (`text-primary` at the alpha that draws `surface-panel` on the editor) whenever a theme changes one of those. High contrast is a block of `tokens.css` (`data-contrast="high"`); while it is on, no theme tokens are set.
 - **Executable plugins are deferred.** No code path loads user-supplied JavaScript until an ADR settles the isolation model. JS imported into the app context runs with the app's full authority, and a wrapper API cannot enforce per-plugin permissions.
 - Candidates to evaluate: a sandboxed iframe or Web Worker with a message-based API, and WASM. Arbitrary CodeMirror extensions and markdown-it callbacks are incompatible with a restricted API, so a future plugin API is expected to be message-based and narrow (commands, text transforms, export formats).
 - Internally, features are still built against a clean command registry and extension points, so a future plugin API has something solid to expose.
@@ -268,9 +292,10 @@ See ADR-0005.
 ## 9. Settings
 
 - `settings.toml` and `keybindings.toml` live in the platform config dir (`$XDG_CONFIG_HOME/bismillah/` on Linux). What the app remembers but isn't a setting (window size, the last document) and the recovery journal live in the data dir (`$XDG_DATA_HOME/bismillah/`).
-- The schema is versioned (`schema = 1`) and keys are `snake_case`: `theme`, `writing_profile`, `text_scale`, `measure`, `line_height` (absent = the profile's), `fade_chrome`, `basmallah_opening`, `smart_punctuation`, `typewriter_scrolling`, `always_show_markdown`, `focus_mode`, `focus_granularity`, `check_spelling`, `check_grammar`, `english_dialect` (`settings.rs` holds the table with each key's range).
+- The schema is versioned (`schema = 1`) and keys are `snake_case`: `theme`, `colour_theme` (a theme's id, `bismillah` for the app's own), `high_contrast`, `writing_profile` (`custom` for *Another font*), `custom_font` (a family name; no quotes, backslashes, `;`, `{` or `}`, so it can't end the CSS string it is set in), `text_scale`, `measure`, `line_height` (absent = the profile's), `fade_chrome`, `basmallah_opening`, `smart_punctuation`, `typewriter_scrolling`, `always_show_markdown`, `focus_mode`, `focus_granularity`, `focus_dimming` (`quiet` or `faint`), `check_spelling`, `check_grammar`, `english_dialect` (`settings.rs` holds the table with each key's range).
 - Comments, layout and unknown keys are preserved when rewriting (`toml_edit`). An invalid value falls back to its default with a notice; an unreadable file is kept as `settings.toml.invalid` while the defaults apply. It never crashes, and a value the UI sends that fails validation is refused whole.
-- Changes made in the file while the app runs are picked up when the window regains focus (no polling).
+- **The configuration folder is watched** (`watch.rs`, as the library is; `config.rs` sorts what changed): `settings.toml`, `keybindings.toml`, `themes/` and `dictionary.txt` edited in another program apply as soon as they are saved, with no polling. Our own writes are recognised by their modification time and change nothing. Regaining window focus reads them again too, in case the folder couldn't be watched. The folder is created at launch so it can be watched.
+- **`keybindings.toml`** (DESIGN.md §13): Rust reads it (`keybindings.rs`), flattening tables into dotted ids, so `"file.save" = …`, `file.save = …` and `[file]` `save = …` name the same command, and hands over each line with its number. The frontend checks the lines against the command registry, which it owns (`src/core/shortcuts.ts`: the notation, which keys a command may take, two commands given one key), and keeps each command's shortcut now (`src/core/keybindings.svelte.ts`), which the editor keymap (a compartment), the native menu (`setAccelerator`), the palette and the window's own handler follow. A file that can't be read leaves every command its own shortcut. bismillah writes the file only on *Create keybindings.toml*, never over an existing one.
 
 ## 10. Privacy and the network boundary
 
@@ -344,8 +369,9 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 | Frontend unit | Vitest | Decoration ranges and classes, keymap, command registry, what is sent to the checker, stale-lint discarding, Basmallah deduplication |
 | Real app e2e | `tauri-driver` (WebDriver) on Linux and Windows | Open/edit/save/reload, conflicts, recovery after a killed process, file opening (CLI, drag-drop, second instance), settings, keyboard-only flows, offline run |
 | Visual | Screenshots via `tauri-driver` in the real app: WebKitGTK on Linux now, WebView2 on Windows later; macOS (no WebDriver support) checked by hand before releases | The specimen rendered (live preview) and with all Markdown shown, whose baselines are Phase 1's own; `pnpm app:shot` covers the four widths, both themes and zoom for review |
+| Themes and settings | `tests/e2e/settings.e2e.ts`, `tests/visual/settings.visual.ts`, `themes.rs` and `keybindings.rs` unit tests, `src/core/shortcuts.test.ts` | Built-in and file themes applied per variant, problems listed, live reload of a theme file and of `keybindings.toml`, high contrast over any theme, shortcuts that work and stop working in the real editor, the starting file, Settings by keyboard, *Another font*, About |
 | Live preview | `tests/e2e/spikes/live-preview.e2e.ts`, `tests/e2e/live-preview.e2e.ts`, `spikes/webview/composition.ts` | Clicks, selection, keyboard motion and typewriter scrolling on RTL and mixed lines while blocks reveal; the fold, images (with links out of the library), hover addresses, `Mod-R`; the XSS fixture inert in the editor and on the clipboard |
-| Contrast | Unit test over the token table | Every semantic pair (DESIGN.md §9.4) |
+| Contrast | Unit test over the token table (`tokens.test.ts`), and `themes.rs` for built-in themes | Every semantic pair (DESIGN.md §9.4), high contrast at 7:1, Zuhd mode's faint text |
 | Arabic rendering | `pnpm test:visual` (`tests/visual/arabic-rendering.visual.ts`) | Ink of every vocalised fixture word against a HarfBuzz reference, per bundled Arabic font; fails when a word gets worse, notes when WebKitGTK improves (ADR-0011) |
 | Supply chain | `cargo deny check`, `pnpm audit` | Banned crates, licences, advisories |
 

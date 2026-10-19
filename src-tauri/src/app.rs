@@ -17,13 +17,16 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
+use crate::config;
 use crate::documents::{self, Document, LineEnding, NO_FAULTS, OpenError, SaveError};
+use crate::keybindings::{self, Keybindings};
 use crate::library::Trash;
 use crate::lint::{AddWordError, Checking, LintError};
 use crate::platform;
 use crate::recovery::{self, Recovery};
 use crate::settings::{self, SetError};
 use crate::state;
+use crate::themes::{self, Themes};
 use library_commands::{Shelf, Trashed};
 
 /// The bundled specimen, opened as a sample (never saved) in test mode.
@@ -72,6 +75,16 @@ pub struct AppState {
     trashed: Mutex<Vec<Trashed>>,
     /// Spelling and grammar: the checker's thread and the personal dictionary.
     checking: Checking,
+    /// `$XDG_CONFIG_HOME/bismillah/`: settings, shortcuts, themes, the dictionary.
+    config_dir: PathBuf,
+    /// The configuration and data folders as the writer reads them (`~/.config/…`).
+    folders: Folders,
+}
+
+#[derive(Clone, Serialize)]
+pub struct Folders {
+    config: String,
+    data: String,
 }
 
 /// A save failure the e2e tests inject into the real app (ARCHITECTURE.md §13).
@@ -101,6 +114,11 @@ impl AppState {
         data_dir: &Path,
         startup: Option<PathBuf>,
     ) -> Self {
+        let home = handle.path().home_dir().ok();
+        let folders = Folders {
+            config: config::display(config_dir, home.as_deref()),
+            data: config::display(data_dir, home.as_deref()),
+        };
         let recovery = Arc::new(Recovery::new(data_dir.join("recovery")));
         recovery.prune();
         let memory_path = data_dir.join("state.json");
@@ -124,6 +142,8 @@ impl AppState {
             trash: Arc::new(platform::SystemTrash),
             trashed: Mutex::new(Vec::new()),
             checking,
+            config_dir: config_dir.to_path_buf(),
+            folders,
         }
     }
 
@@ -288,6 +308,10 @@ pub struct AppInfo {
     test_mode: bool,
     /// Lets the e2e suite kill exactly this process (the recovery test).
     pid: u32,
+    /// For About.
+    version: &'static str,
+    /// Where bismillah keeps its files, for Settings › Files & privacy.
+    folders: Folders,
 }
 
 #[tauri::command]
@@ -295,6 +319,8 @@ pub fn app_info(state: State<'_, AppState>) -> AppInfo {
     AppInfo {
         test_mode: state.test_mode,
         pid: std::process::id(),
+        version: env!("CARGO_PKG_VERSION"),
+        folders: state.folders.clone(),
     }
 }
 
@@ -626,6 +652,36 @@ pub fn settings_set(
     patch: Map<String, Value>,
 ) -> Result<settings::Snapshot, SetError> {
     lock(&state.settings).set(&patch)
+}
+
+/// bismillah's colour themes and the writer's, each checked (themes.rs).
+#[tauri::command]
+pub async fn themes_list(state: State<'_, AppState>) -> Result<Themes, ()> {
+    Ok(themes::list(&state.config_dir.join("themes")))
+}
+
+/// Whether the writer's "Another font" is installed (platform.rs); `None` if unknown.
+#[tauri::command]
+pub async fn font_installed(family: String) -> Result<Option<bool>, ()> {
+    if family.is_empty() || family.len() > 400 || family.chars().any(char::is_control) {
+        return Ok(Some(false));
+    }
+    Ok(platform::font_installed(&family))
+}
+
+/// The lines of `keybindings.toml`, for the frontend to check against its commands.
+#[tauri::command]
+pub fn keybindings_get(state: State<'_, AppState>) -> Keybindings {
+    keybindings::read(&state.config_dir.join("keybindings.toml"))
+}
+
+/// Writes a starting `keybindings.toml` (the frontend's text), never over an existing one.
+#[tauri::command]
+pub fn keybindings_create(
+    state: State<'_, AppState>,
+    text: String,
+) -> Result<Keybindings, SaveError> {
+    keybindings::create(&state.config_dir.join("keybindings.toml"), &text)
 }
 
 /// Re-reads `settings.toml` if it changed outside the app. `None` if it didn't.

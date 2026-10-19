@@ -2,12 +2,12 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { keymap } from "@codemirror/view";
-import { Prec } from "@codemirror/state";
+import { Compartment, Prec } from "@codemirror/state";
 import { createEditor, type Editor } from "../editor/setup.ts";
 import { remeasure } from "../editor/typography.ts";
 import { toggleTransliteration, transliterationOn } from "../editor/typingAids.ts";
 import { countWords } from "../editor/wordCount.ts";
-import { BOUND_COMMANDS, runCommand, type CommandContext } from "./commands.ts";
+import { runCommand, type CommandContext } from "./commands.ts";
 import { copy, nameError, when } from "./copy.ts";
 import * as ipc from "./ipc.ts";
 import {
@@ -18,10 +18,13 @@ import {
   type OpenError,
   type SaveError,
 } from "./ipc.ts";
+import { shortcuts } from "./keybindings.svelte.ts";
 import { keyOf, normalise } from "./keys.ts";
+import { applyColours, colourThemes, DEFAULT_THEME, onSystemScheme } from "./themes.svelte.ts";
 import { Checking } from "./checking.svelte.ts";
 import { LibraryStore } from "./library.svelte.ts";
 import type { NativeMenu } from "./menu.ts";
+import { quietReload } from "./reload.ts";
 import { DocumentSession } from "./session.svelte.ts";
 import { findNode } from "./tree.ts";
 import {
@@ -31,7 +34,7 @@ import {
   TEXT_SCALE,
   type Settings,
 } from "./settings.svelte.ts";
-import type { Theme } from "./appearance.ts";
+import { setCustomFont, type Theme } from "./appearance.ts";
 
 /**
  * The window's state and every action on it: which document is open, its save state,
@@ -86,6 +89,19 @@ export class Workspace {
   transliteration = $state(false);
   fullscreen = $state(false);
   settingsOpen = $state(false);
+  /** A Settings section to show when it opens ("files": Files & privacy). */
+  settingsSection = $state<"files" | "appearance" | null>(null);
+  aboutOpen = $state(false);
+  /** Where bismillah keeps its files and its version (app_info), for Settings and About. */
+  info = $state<{ version: string; folders: { config: string; data: string } }>({
+    version: "",
+    folders: { config: "", data: "" },
+  });
+  /** The writer's "Another font", and whether it is installed (null: unknown). */
+  customFont = $state<{ name: string; installed: boolean | null }>({ name: "", installed: null });
+  /** The keybindings.toml and colour-theme notices the writer has dismissed, by what
+   * they said: a new problem shows again. */
+  #dismissed = $state<string[]>([]);
   readonly library = new LibraryStore();
   /** Spelling and grammar suggestions (checking.svelte.ts). */
   readonly checking = new Checking({
@@ -152,6 +168,7 @@ export class Workspace {
         actions: [{ label: copy.actions.dismiss, run: () => (settings.notSaved = null) }],
       });
     }
+    list.push(...this.#configNotices());
     for (const n of settings.notices) {
       list.push({
         id: `settings-${n.kind}`,
@@ -204,6 +221,42 @@ export class Workspace {
     };
   }
 
+  /** keybindings.toml that couldn't be used, and a chosen colour theme that can't. */
+  #configNotices(): Notice[] {
+    const out: Notice[] = [];
+    const notice = (id: string, message: string, section: "files" | "appearance") => {
+      if (this.#dismissed.includes(message)) return;
+      out.push({
+        id,
+        tone: "info",
+        message,
+        actions: [
+          {
+            label: copy.actions.showInSettings,
+            primary: true,
+            run: () => this.openSettings(section),
+          },
+          { label: copy.actions.dismiss, run: () => this.#dismissed.push(message) },
+        ],
+      });
+    };
+    if (shortcuts.file.unreadable) {
+      notice("keybindings", copy.shortcuts.unreadable(shortcuts.file.unreadable), "files");
+    } else if (shortcuts.problems.length > 0) {
+      notice("keybindings", copy.shortcuts.problemsNotice, "files");
+    }
+    const chosen = settings.values.colour_theme;
+    if (colourThemes.loaded && chosen !== DEFAULT_THEME && !colourThemes.find(chosen)) {
+      notice("colour-theme", copy.themes.unusableNotice(chosen), "appearance");
+    }
+    return out;
+  }
+
+  openSettings(section: "files" | "appearance" | null = null): void {
+    this.settingsSection = section;
+    this.settingsOpen = true;
+  }
+
   #info(id: string, message: string): void {
     this.#notice(id, "info", message, []);
   }
@@ -229,9 +282,18 @@ export class Workspace {
     menu: (context: CommandContext) => Promise<NativeMenu>,
   ): Promise<void> {
     this.#host = host;
-    const [info] = await Promise.all([ipc.appInfo(), settings.load()]);
+    const [info] = await Promise.all([
+      ipc.appInfo(),
+      settings.load(),
+      shortcuts.load().catch(() => false),
+      colourThemes.load().catch(() => {}),
+    ]);
     this.testMode = info.test_mode;
+    this.info = { version: info.version, folders: info.folders };
     applyAppearance(settings.values);
+    applyColours(settings.values);
+    await this.#checkFont(settings.values.custom_font);
+    onSystemScheme(() => applyColours(settings.values));
     // Before startup, which may change the library (a folder on the command line).
     await listen<ipc.LibraryView>("library-changed", ({ payload }) => this.library.apply(payload));
     const first = await ipc.startup();
@@ -255,6 +317,11 @@ export class Workspace {
   #listen(): void {
     const appWindow = getCurrentWindow();
     void listen<string>("open-requested", () => void this.#openRequested());
+    // A setting, shortcut, theme or dictionary word saved in another program applies
+    // at once (src-tauri/src/config.rs).
+    void listen<ipc.ConfigChanged>("config-changed", ({ payload }) => {
+      void this.#reloadConfig(payload);
+    });
     void listen<ipc.DocumentChanged>("document-changed", ({ payload }) => {
       const session = this.session;
       if (session && session.id === payload.id) void this.#reactToDisk(session, payload.status);
@@ -280,8 +347,10 @@ export class Workspace {
       const key = keyOf(event);
       const field = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
       if (field && !key.startsWith("Mod-")) return;
-      const command = BOUND_COMMANDS.find((c) => normalise(c.key) === key && c.section !== "Edit");
-      if (command && runCommand(command.id, "keymap", this.context)) event.preventDefault();
+      const bound = shortcuts
+        .bound()
+        .find((b) => normalise(b.key) === key && b.command.section !== "Edit");
+      if (bound && runCommand(bound.command.id, "keymap", this.context)) event.preventDefault();
     });
     window.addEventListener("mousemove", () => (this.typing = false));
   }
@@ -289,14 +358,9 @@ export class Workspace {
   /** When the window regains focus: settings edited elsewhere apply, and the file is
    * checked for changes made by another program (no polling, ARCHITECTURE.md §5.4). */
   async checkOnFocus(): Promise<void> {
-    if (await settings.reload()) this.applySettings(settings.values);
-    // The writer may have edited dictionary.txt in another program.
-    void ipc
-      .lintRefresh()
-      .then((changed) => {
-        if (changed) this.editor?.recheck();
-      })
-      .catch(() => {});
+    // The watcher normally reports these at once; on focus they are read again in case
+    // it couldn't watch (each read is cheap and changes nothing that didn't change).
+    await this.#reloadConfig({ settings: true, keybindings: true, themes: true, dictionary: true });
     void ipc
       .libraryGet(true)
       .then((panel) => this.library.apply(panel.view))
@@ -307,13 +371,89 @@ export class Workspace {
     await this.#reactToDisk(session, status);
   }
 
+  /** Uses the writer's "Another font" only if it is installed; otherwise the custom
+   * profile keeps Bismillah Duo, and Settings says why. */
+  async #checkFont(name: string): Promise<void> {
+    if (name === this.customFont.name) return;
+    this.customFont = { name, installed: null };
+    const installed = name ? await ipc.fontInstalled(name).catch(() => null) : false;
+    if (this.customFont.name !== name) return;
+    this.customFont = { name, installed };
+    setCustomFont(installed === false ? "" : name);
+    if (this.editor) remeasure(this.editor.view);
+  }
+
+  /** Reads what changed in the configuration folder and applies it. */
+  async #reloadConfig(changed: ipc.ConfigChanged): Promise<void> {
+    const work: Promise<unknown>[] = [];
+    if (changed.settings)
+      work.push(
+        settings.reload().then((applied) => {
+          if (applied) this.applySettings(settings.values);
+        }),
+      );
+    if (changed.keybindings)
+      work.push(
+        shortcuts.load().then((keysChanged) => {
+          if (keysChanged) this.#applyShortcuts();
+        }),
+      );
+    if (changed.themes) work.push(colourThemes.load().then(() => applyColours(settings.values)));
+    if (changed.dictionary)
+      // The writer may have edited dictionary.txt in another program.
+      work.push(
+        ipc.lintRefresh().then((refreshed) => {
+          if (refreshed) this.editor?.recheck();
+        }),
+      );
+    await Promise.all(work.map((w) => w.catch(() => {})));
+  }
+
+  /** Settings › Files & privacy: writes a starting keybindings.toml. Resolves with why
+   * it couldn't, or null. */
+  async createKeybindings(): Promise<SaveError | null> {
+    try {
+      await shortcuts.create();
+      this.#applyShortcuts();
+      return null;
+    } catch (error) {
+      return isError<SaveError>(error) ? error : { kind: "other", detail: String(error) };
+    }
+  }
+
+  /** The editor keymap and the menu follow the shortcuts the writer has now. */
+  #applyShortcuts(): void {
+    this.editor?.view.dispatch({ effects: this.#keySlot.reconfigure(this.#keymap()) });
+    void this.#menu?.sync();
+  }
+
+  #keySlot = new Compartment();
+
+  #keymap() {
+    return Prec.high(
+      keymap.of(
+        shortcuts.bound().map(({ command, key }) => ({
+          key,
+          run: () => runCommand(command.id, "keymap", this.context),
+        })),
+      ),
+    );
+  }
+
   /** The open file changed on disk, found on focus or by the library's watcher. */
   async #reactToDisk(session: DocumentSession, status: DiskStatus): Promise<void> {
     if (!session.saveable || this.session !== session) return;
     if (status === "changed" && !session.dirty && session.state.kind !== "failed") {
-      // No local edits: take the new version quietly (ARCHITECTURE.md §5.4).
-      const opened = await ipc.reload(session.id, null).catch(() => null);
-      if (opened && this.session === session) this.#show(opened, { quiet: true });
+      // No local edits: take the new version quietly (ARCHITECTURE.md §5.4). Text typed
+      // while it is read is kept in recovery and offered, never replaced unseen.
+      const editor = this.editor;
+      if (!editor) return;
+      const result = await quietReload({
+        id: session.id,
+        text: () => editor.text(),
+        reload: (id, local) => ipc.reload(id, local),
+      }).catch(() => null);
+      if (result && this.session === session) this.#show(result.opened, { quiet: true });
     } else if (status === "changed" || status === "removed") {
       // Local edits: never overwrite. Saving now surfaces the conflict.
       session.state = {
@@ -390,14 +530,7 @@ export class Workspace {
 
   #createEditor(text: string, readOnly: boolean): Editor {
     if (!this.#host) throw new Error("the workspace has not started");
-    const keys = Prec.high(
-      keymap.of(
-        BOUND_COMMANDS.map((c) => ({
-          key: c.key,
-          run: () => runCommand(c.id, "keymap", this.context),
-        })),
-      ),
-    );
+    const keys = this.#keySlot.of(this.#keymap());
     this.editor = createEditor({
       parent: this.#host,
       doc: text,
@@ -435,6 +568,8 @@ export class Workspace {
   /** Applies settings to the page and the editor, and remeasures typography. */
   applySettings(s: Settings): void {
     applyAppearance(s);
+    applyColours(s);
+    void this.#checkFont(s.custom_font);
     if (this.editor) {
       this.editor.configure(this.#editorConfig(s));
       if (s.english_dialect !== this.#dialect) {
@@ -837,7 +972,8 @@ export class Workspace {
         this.typing = false;
         void this.session?.save();
       },
-      openSettings: () => (this.settingsOpen = true),
+      openSettings: () => this.openSettings(),
+      openAbout: () => (this.aboutOpen = true),
       quit: () => void getCurrentWindow().close(),
       hasLibrary: () => this.library.ready,
       hasTarget: () => this.#target() !== null,

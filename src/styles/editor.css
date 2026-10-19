@@ -424,7 +424,12 @@
    marks included, never opacity. */
 .cm-editor .cm-zuhd-dim,
 .cm-editor .cm-zuhd-dim * {
-  color: var(--text-secondary);
+  color: var(--zuhd-dim, var(--text-secondary));
+}
+/* Fainter, by the writer's choice (Settings › Writing, DESIGN.md §11.1): text-secondary
+   halfway to the page, still a measurable colour (tokens.test.ts). */
+:root[data-focus-dimming="faint"] {
+  --zuhd-dim: color-mix(in srgb, var(--text-secondary) 55%, var(--surface-editor));
 }
 
 /* Caret and selection (DESIGN.md §11, §9.4). Selected text, marks and Zuhd-dimmed text

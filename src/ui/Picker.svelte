@@ -2,13 +2,13 @@
   import { Command, Dialog } from "bits-ui";
   import {
     COMMANDS,
-    shortcutLabel,
     type Command as AppCommand,
     type CommandContext,
     type CommandId,
   } from "../core/commands.ts";
   import { copy } from "../core/copy.ts";
   import { rankCommands, rankFiles } from "../core/fuzzy.ts";
+  import { shortcuts } from "../core/keybindings.svelte.ts";
   import type { LibraryStore } from "../core/library.svelte.ts";
   import { parentOf } from "../core/tree.ts";
   import type { Picker } from "../core/workspace.svelte.ts";
@@ -66,8 +66,8 @@
   }
 
   function shortcut(c: AppCommand): string {
-    const key = shortcutLabel(c.key);
-    return c.keyScope === "library" ? `${key} ${t.libraryOnly}` : key;
+    const key = shortcuts.label(c.id);
+    return c.keyScope === "library" && key ? `${key} ${t.libraryOnly}` : key;
   }
 </script>
 

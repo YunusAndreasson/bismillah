@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { commandById, shortcutLabel, type CommandId } from "../core/commands.ts";
+  import type { CommandId } from "../core/commands.ts";
+  import { shortcuts } from "../core/keybindings.svelte.ts";
   import { copy } from "../core/copy.ts";
 
   /**
@@ -21,7 +22,7 @@
     {#each actions as action (action.id)}
       <button type="button" onclick={() => run(action.id)}>
         <span>{action.label}</span>
-        <kbd>{shortcutLabel(commandById(action.id)?.key)}</kbd>
+        <kbd>{shortcuts.label(action.id)}</kbd>
       </button>
     {/each}
   </div>

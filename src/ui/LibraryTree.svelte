@@ -1,7 +1,9 @@
 <script lang="ts">
   import { ContextMenu } from "bits-ui";
   import { tick } from "svelte";
-  import { commandById, shortcutLabel, type CommandId } from "../core/commands.ts";
+  import { commandById, type CommandId } from "../core/commands.ts";
+  import { shortcuts } from "../core/keybindings.svelte.ts";
+  import { keyOf, normalise } from "../core/keys.ts";
   import { copy } from "../core/copy.ts";
   import type { LibraryStore } from "../core/library.svelte.ts";
   import { findNode, folderFor, move, typeahead, type Row, type TreeKey } from "../core/tree.ts";
@@ -95,7 +97,7 @@
     } else if (plain && event.key === "Escape") {
       event.preventDefault();
       escape();
-    } else if (plain && !event.shiftKey && event.key === "Delete" && row) {
+    } else if (row && trashKey && keyOf(event) === normalise(trashKey)) {
       event.preventDefault();
       run("file.trash");
     } else if (plain && event.key.length === 1 && (event.key !== " " || typed)) {
@@ -126,7 +128,9 @@
     run(id);
   }
 
-  const key = (id: CommandId) => shortcutLabel(commandById(id)?.key);
+  const key = (id: CommandId) => shortcuts.label(id);
+  // Move to trash works only here, on its own key (Delete unless keybindings.toml says).
+  const trashKey = $derived(shortcuts.keyFor("file.trash"));
 
   function split(name: string, file: boolean): [string, string] {
     const match = file ? /\.(md|markdown)$/i.exec(name) : null;

@@ -52,6 +52,39 @@ pub fn read_clipboard(target: &str) -> Option<String> {
     }
 }
 
+/// Whether a font family is installed, by its name, as the system's font list has it:
+/// `None` when that can't be asked. The webview can't tell: WebKitGTK quietly draws an
+/// unknown family in a substitute font, so the writer's "Another font" is checked here
+/// and used only when it exists (DESIGN.md §8.2).
+pub fn font_installed(family: &str) -> Option<bool> {
+    #[cfg(target_os = "linux")]
+    {
+        // fontconfig's own list, never its substitutes; `-q` answers by exit status.
+        // A pattern's `-`, `:`, `,` and `\` would otherwise be read as syntax.
+        let pattern: String = family
+            .chars()
+            .flat_map(|c| {
+                let escape = matches!(c, '\\' | '-' | ':' | ',').then_some('\\');
+                escape.into_iter().chain(std::iter::once(c))
+            })
+            .collect();
+        let status = std::process::Command::new("fc-list")
+            .arg("-q")
+            .arg(pattern)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .ok()?;
+        status.code().map(|code| code == 0)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = family;
+        None
+    }
+}
+
 /// Makes a rename in `dir` durable (ARCHITECTURE.md §5.2, step 5). Filesystems that
 /// can't sync a directory say so with `EINVAL`, which is not a failure of the save.
 pub fn sync_dir(dir: &Path) -> io::Result<()> {
@@ -427,6 +460,17 @@ mod tests {
     use crate::testing::Scratch;
     use std::sync::mpsc;
     use std::time::Duration;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn knows_installed_fonts_by_name_and_never_their_substitutes() {
+        // Where fontconfig is missing nothing can be said, which is an answer too.
+        if font_installed("sans-serif").is_none() {
+            return;
+        }
+        assert_eq!(font_installed("bismillah: no such font, ever"), Some(false));
+        assert_eq!(font_installed("No-Such:Font"), Some(false));
+    }
 
     #[test]
     fn a_second_launch_hands_its_message_to_the_first() {

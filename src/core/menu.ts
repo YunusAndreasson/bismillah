@@ -9,42 +9,55 @@ import {
   type MenuSection,
 } from "./commands.ts";
 import { menuHide, menuReveal } from "./ipc.ts";
+import { shortcuts } from "./keybindings.svelte.ts";
 
 /**
  * The native application menu, generated from the command registry (ARCHITECTURE.md
  * §12.2). On Linux it stays hidden to keep the window calm; `Alt` (pressed and released
  * alone) or `F10` reveals it and puts keyboard focus on it, and it hides again when it
  * closes. Clipboard items are GTK's own, so they act on the webview natively. Switches
- * show their state with a check mark; call `sync()` after one changes.
+ * show their state with a check mark and accelerators follow keybindings.toml; call
+ * `sync()` after either changes.
  */
 export interface NativeMenu {
   sync(): Promise<void>;
 }
 
 export async function installMenu(context: CommandContext): Promise<NativeMenu> {
-  const sections: MenuSection[] = ["File", "Edit", "View"];
+  const sections: MenuSection[] = ["File", "Edit", "View", "Help"];
   const checks = new Map<CommandId, CheckMenuItem>();
+  const items = new Map<CommandId, MenuItem | CheckMenuItem>();
+  // A library-only key (Delete) is never a menu accelerator: it would act in text.
+  const acceleratorFor = (id: CommandId, scoped: boolean) => {
+    const key = shortcuts.keyFor(id);
+    return scoped || !key ? null : accelerator(key);
+  };
+  const shown = new Map<CommandId, string | null>();
   const submenus = await Promise.all(
     sections.map(async (section) => {
-      const items: (MenuItem | CheckMenuItem | PredefinedMenuItem)[] = [];
+      const entries: (MenuItem | CheckMenuItem | PredefinedMenuItem)[] = [];
       for (const c of COMMANDS.filter((command) => command.section === section)) {
-        if (c.separatorBefore) items.push(await PredefinedMenuItem.new({ item: "Separator" }));
-        // A library-only key (Delete) is never a menu accelerator: it would act in text.
+        if (c.separatorBefore) entries.push(await PredefinedMenuItem.new({ item: "Separator" }));
+        const key = acceleratorFor(c.id, c.keyScope !== undefined);
+        shown.set(c.id, key);
         const options = {
           id: c.id,
           text: c.label,
-          ...(c.keyScope || !c.key ? {} : { accelerator: accelerator(c.key) }),
+          ...(key ? { accelerator: key } : {}),
           action: () => runCommand(c.id, "menu", context),
         };
+        let item: MenuItem | CheckMenuItem;
         if (c.toggle) {
-          const item = await CheckMenuItem.new({ ...options, checked: c.toggle(context) });
-          checks.set(c.id, item);
-          items.push(item);
+          const check = await CheckMenuItem.new({ ...options, checked: c.toggle(context) });
+          checks.set(c.id, check);
+          item = check;
         } else {
-          items.push(await MenuItem.new(options));
+          item = await MenuItem.new(options);
         }
+        items.set(c.id, item);
+        entries.push(item);
         if (c.id === "edit.redo") {
-          items.push(
+          entries.push(
             await PredefinedMenuItem.new({ item: "Separator" }),
             await PredefinedMenuItem.new({ item: "Cut", text: "Cut" }),
             await PredefinedMenuItem.new({ item: "Copy", text: "Copy" }),
@@ -52,7 +65,7 @@ export async function installMenu(context: CommandContext): Promise<NativeMenu> 
           );
         }
       }
-      return Submenu.new({ text: section, items });
+      return Submenu.new({ text: section, items: entries });
     }),
   );
   const menu = await Menu.new({ items: submenus });
@@ -61,12 +74,19 @@ export async function installMenu(context: CommandContext): Promise<NativeMenu> 
   listenForMenuKeys();
   return {
     async sync() {
-      await Promise.all(
-        [...checks].map(([id, item]) => {
-          const toggle = COMMANDS.find((c) => c.id === id)?.toggle;
-          return toggle ? item.setChecked(toggle(context)) : undefined;
-        }),
-      );
+      const work: Promise<void>[] = [];
+      for (const [id, item] of checks) {
+        const toggle = COMMANDS.find((c) => c.id === id)?.toggle;
+        if (toggle) work.push(item.setChecked(toggle(context)));
+      }
+      for (const [id, item] of items) {
+        const scoped = COMMANDS.find((c) => c.id === id)?.keyScope !== undefined;
+        const key = acceleratorFor(id, scoped);
+        if (shown.get(id) === key) continue;
+        shown.set(id, key);
+        work.push(item.setAccelerator(key));
+      }
+      await Promise.all(work);
     },
   };
 }

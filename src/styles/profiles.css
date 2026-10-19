@@ -75,3 +75,21 @@
   --doc-mono-scale: 0.8;
   --doc-arabic-voc-line: 2.1;
 }
+
+/* A font installed on the system, chosen by name (DESIGN.md §8.2): unsupported, so it
+   borrows Duo's rhythm, measures in em, and falls back to Bismillah Duo for any glyph
+   it lacks (the IJMES letters among them). appearance.ts sets --custom-font. */
+:root[data-profile="custom"] {
+  --doc-font: var(--custom-font, "Bismillah Duo"), "Bismillah Duo";
+  --doc-font-arabic: "Amiri";
+  --doc-font-quran: "Amiri Quran";
+  --doc-font-mono: "Bismillah Mono";
+  --doc-size: 20px;
+  --doc-line: 1.6;
+  --doc-measure: 32em;
+  --doc-arabic-scale: 1.2;
+  --doc-quran-scale: 1.2;
+  --doc-mono-scale: 1;
+  --doc-arabic-voc-line: 2;
+  --doc-quran-line: 2;
+}

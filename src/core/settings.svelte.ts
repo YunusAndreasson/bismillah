@@ -1,4 +1,11 @@
-import { setProfile, setTheme, type Profile, type Theme } from "./appearance.ts";
+import {
+  setFocusDimming,
+  setHighContrast,
+  setProfile,
+  setTheme,
+  type Profile,
+  type Theme,
+} from "./appearance.ts";
 import {
   isError,
   settingsGet,
@@ -19,9 +26,17 @@ import type { FocusGranularity } from "../editor/zuhd.ts";
 export type Measure = "narrow" | "standard" | "wide";
 export type EnglishDialect = "british" | "american" | "canadian" | "australian" | "indian";
 
+export type FocusDimming = "quiet" | "faint";
+
 export interface Settings {
   theme: Theme;
+  /** A colour theme's id (src-tauri/src/themes.rs); "bismillah" is the app's own. */
+  colour_theme: string;
+  /** Black and white, over any colour theme. */
+  high_contrast: boolean;
   writing_profile: Profile;
+  /** The font of the "custom" profile, by name; "" while none is chosen. */
+  custom_font: string;
   /** Multiplies the profile's writing size (Mod-= / Mod-- / Mod-0). */
   text_scale: number;
   measure: Measure;
@@ -35,6 +50,8 @@ export interface Settings {
   always_show_markdown: boolean;
   focus_mode: boolean;
   focus_granularity: FocusGranularity;
+  /** Zuhd mode's other text: text-secondary, or fainter by the writer's choice. */
+  focus_dimming: FocusDimming;
   check_spelling: boolean;
   check_grammar: boolean;
   english_dialect: EnglishDialect;
@@ -42,7 +59,10 @@ export interface Settings {
 
 export const DEFAULTS: Settings = {
   theme: "system",
+  colour_theme: "bismillah",
+  high_contrast: false,
   writing_profile: "duo",
+  custom_font: "",
   text_scale: 1,
   measure: "standard",
   line_height: null,
@@ -53,6 +73,7 @@ export const DEFAULTS: Settings = {
   always_show_markdown: false,
   focus_mode: false,
   focus_granularity: "paragraph",
+  focus_dimming: "quiet",
   check_spelling: true,
   check_grammar: true,
   english_dialect: "british",
@@ -66,6 +87,7 @@ export const PROFILE_LINE_HEIGHT: Record<Profile, number> = {
   serif: 1.6,
   amiri: 1.8,
   "plex-arabic": 1.7,
+  custom: 1.6,
 };
 
 export function clampLineHeight(n: number): number {
@@ -100,7 +122,9 @@ export function clampScale(n: number): number {
 /** Applies the appearance settings to the document root (CSSOM only, for the CSP). */
 export function applyAppearance(s: Settings): void {
   setTheme(s.theme);
+  setHighContrast(s.high_contrast);
   setProfile(s.writing_profile);
+  setFocusDimming(s.focus_dimming);
   const root = document.documentElement.style;
   root.setProperty("--doc-scale", String(s.text_scale));
   root.setProperty("--measure-scale", String(MEASURE_SCALE[s.measure]));

@@ -6,8 +6,10 @@
 //! spelling and grammar (`bismillah-lint`). The frontend owns presentation and editing.
 
 mod app;
+mod config;
 mod documents;
 mod images;
+mod keybindings;
 mod library;
 mod lint;
 mod platform;
@@ -16,10 +18,11 @@ mod settings;
 mod state;
 #[cfg(test)]
 mod testing;
+mod themes;
 mod watch;
 
 use serde::Serialize;
-use tauri::{DragDropEvent, Manager, WindowEvent};
+use tauri::{DragDropEvent, Emitter, Manager, WindowEvent};
 
 use app::AppState;
 
@@ -160,6 +163,31 @@ fn remember_window(window: &tauri::Window, state: &AppState) {
     });
 }
 
+struct ConfigWatch(#[allow(dead_code)] std::sync::Mutex<watch::Watch>);
+
+/// Watches the configuration folder, so settings, shortcuts, themes and the dictionary
+/// edited in another program apply as soon as they are saved (config.rs). Without a
+/// watcher (the folder can't be made, or inotify refuses), they apply on focus instead.
+fn watch_config(app: &tauri::AppHandle, dir: &std::path::Path) {
+    if std::fs::create_dir_all(dir).is_err() {
+        return;
+    }
+    let handle = app.clone();
+    let root = dir.to_path_buf();
+    match watch::Watch::start(dir, move |paths| {
+        let changed = config::classify(&root, &paths);
+        if changed.any() {
+            let _ = handle.emit("config-changed", changed);
+        }
+    }) {
+        // Kept for the app's lifetime: dropping it would stop the watching.
+        Ok(watch) => {
+            app.manage(ConfigWatch(std::sync::Mutex::new(watch)));
+        }
+        Err(e) => eprintln!("bismillah: not watching the settings folder: {e:?}"),
+    }
+}
+
 /// What a launch hands to the running app: its working directory and arguments.
 #[derive(Serialize, serde::Deserialize)]
 struct Launch {
@@ -213,6 +241,10 @@ pub fn run() {
             app::settings_get,
             app::settings_set,
             app::settings_reload,
+            app::themes_list,
+            app::font_installed,
+            app::keybindings_get,
+            app::keybindings_create,
             app::library_get,
             app::library_remember_open,
             app::library_open_dialog,
@@ -244,6 +276,7 @@ pub fn run() {
                 restore_window(&window, &state);
             }
             app.manage(state);
+            watch_config(app.handle(), &config_dir);
             if let Some(listener) = listener {
                 let handle = app.handle().clone();
                 listener.serve(move |message| {

@@ -15,6 +15,13 @@ function base(event: KeyboardEvent): string {
     Comma: ",",
     Period: ".",
     Backslash: "\\",
+    Slash: "/",
+    Semicolon: ";",
+    Quote: "'",
+    BracketLeft: "[",
+    BracketRight: "]",
+    Backquote: "`",
+    Space: "Space",
   };
   return named[code] ?? key;
 }

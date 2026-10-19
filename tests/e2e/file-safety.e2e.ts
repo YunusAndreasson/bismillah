@@ -26,6 +26,19 @@ import {
 const VOCALISED =
   "# بِسْمِ ٱللَّهِ\n\nقُلْ هُوَ ٱللَّهُ أَحَدٌ — *ḥadīth*, ʿilm and “quotes”.\nMixed: Allāh (ٱللَّه) said.\n";
 
+/**
+ * Unsaved edits, then another program writes the file. Saves are held back while the
+ * writer types, so the edits are still unsaved when the file changes, however slowly
+ * the keys arrive (the offline run is slow): otherwise the change could come first and
+ * be taken quietly, and the typing would land on the new version.
+ */
+async function editThenChangeOnDisk(path: string, typed: string, theirs: string): Promise<void> {
+  await fault("rename_fails");
+  await typeAtEnd(typed);
+  writeFileSync(path, theirs);
+  await fault(null);
+}
+
 describe("file safety", () => {
   let folder: Folder;
 
@@ -137,8 +150,7 @@ describe("file safety", () => {
   it("never overwrites a file changed by another program; Keep mine saves over it", async () => {
     const path = folder.file("shared.md", "ours\n");
     await open(path);
-    writeFileSync(path, "theirs, from another editor\n");
-    await typeAtEnd("mine");
+    await editThenChangeOnDisk(path, "mine", "theirs, from another editor\n");
     expect(await flush()).toBe(false);
     expect(await saveError()).toBe("conflict");
     expect((await notices())[0]?.actions).toEqual(["Keep mine", "Load theirs", "Save mine as…"]);
@@ -151,8 +163,7 @@ describe("file safety", () => {
   it("Load theirs reloads the file and keeps the writer's version in recovery", async () => {
     const path = folder.file("theirs.md", "ours\n");
     await open(path);
-    writeFileSync(path, "theirs\n");
-    await typeAtEnd("my words");
+    await editThenChangeOnDisk(path, "my words", "theirs\n");
     await flush();
     await act("Load theirs");
     expect(await docText()).toBe("theirs\n");

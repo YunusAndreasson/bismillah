@@ -1,11 +1,15 @@
 import type {
   AddWordError,
+  KeybindingsFile,
   LibraryError,
   NameProblem,
   OpenError,
   SaveError,
   SettingsNotice,
+  ThemeProblem,
 } from "./ipc.ts";
+import type { ShortcutProblem } from "./shortcuts.ts";
+import { commandById, shortcutLabel, type CommandId } from "./commands.ts";
 
 /**
  * The interface's sentences, kept in one place so they stay consistent and can be
@@ -125,6 +129,7 @@ export const copy = {
     notNow: "Not now",
     dismiss: "OK",
     undo: "Undo",
+    showInSettings: "Show in Settings",
   },
   welcome: {
     title: "Nothing open",
@@ -194,11 +199,89 @@ export const copy = {
         ? `Couldn't add ${quote(word)} to your dictionary — ${saveReason(error.error)}.`
         : `${quote(word)} can't be added: the dictionary holds single words.`,
   },
+  shortcuts: {
+    title: "Keyboard shortcuts",
+    problemsNotice:
+      "Some lines in keybindings.toml couldn't be used, so those commands keep their own shortcuts.",
+    none: "Every command has its own shortcut. To change them, create keybindings.toml and edit it in any text editor.",
+    create: "Create keybindings.toml",
+    changed: (n: number) =>
+      n === 0
+        ? "keybindings.toml changes no shortcuts yet."
+        : `keybindings.toml changes ${n === 1 ? "one shortcut" : `${n} shortcuts`}.`,
+    editHint: (folder: string) =>
+      `It's in ${folder}/. Edit it in any text editor: changes apply as soon as it's saved.`,
+    unreadable: (u: NonNullable<KeybindingsFile["unreadable"]>) =>
+      `keybindings.toml ${unreadable(u)}, so every command keeps its own shortcut.`,
+    createFailed: (error: SaveError) => `Couldn't create keybindings.toml — ${saveReason(error)}.`,
+    problem: (p: ShortcutProblem) => `Line ${p.line}: ${shortcutProblem(p)}`,
+  },
+  themes: {
+    builtin: "bismillah",
+    unusableNotice: (id: string) =>
+      `The colour theme ${quote(id)} can't be used, so bismillah's own colours apply.`,
+    lightOnly: "light only",
+    darkOnly: "dark only",
+    hint: (folder: string) =>
+      `Your own themes are TOML or JSON files in ${folder}/themes/, and apply as soon as they're saved.`,
+    truncated: "Only the first 100 theme files are listed.",
+    /** One sentence per problem, a colour's contrast on every background in one. */
+    problems: themeProblems,
+    /** Follows a theme file's name, shown in quotes before it. */
+    inFolder: "in the themes folder:",
+  },
+  about: {
+    title: "About bismillah",
+    tagline: "A calm Markdown editor. Just you and your words.",
+    version: (v: string) => `Version ${v}`,
+    inspiration: "Inspiration",
+    inspirationText: [
+      "bismillah is inspired by Islamic ethics: the writer's words are a trust (amanah), their privacy is kept, and the tool practises restraint. These shape how it saves, what it refuses to collect, and how little it asks of your attention.",
+      "Zuhd (زهد) inspires a quieter space for writing. And the original iA Writer showed the way: a typewriter, with only the best of the computer.",
+    ],
+    licences: "Licences",
+    licenceText:
+      "bismillah is free software: you may use, study, share and change it under the GNU General Public License, version 3 or later. It is made with:",
+    fonts: "Fonts",
+    language: "Spelling and grammar",
+    software: "Software",
+    installed:
+      "The fonts' and the dictionary's licences are installed with bismillah, in /usr/share/licenses/bismillah/.",
+    close: "Close",
+  },
   settings: {
     title: "Settings",
     appearance: "Appearance",
     writing: "Writing",
     checking: "Language & checking",
+    files: "Files & privacy",
+    sections: "Settings sections",
+    colours: "Colours",
+    highContrast: "High contrast",
+    highContrastHint: "Black and white, with the most contrast. Used instead of the colours above.",
+    customFont: "Font name",
+    customFontHint:
+      "Any font installed on this computer, by name. Letters it lacks come from iA Writer Duo.",
+    customFontMissing: (name: string) =>
+      `No installed font is called ${quote(name)}, so iA Writer Duo is used.`,
+    customFontEmpty: "Type a font's name; until then iA Writer Duo is used.",
+    customFontInvalid: "A font's name can't contain quotes, backslashes, “;”, “{” or “}”.",
+    focusDimming: "Other text",
+    dimmings: { quiet: "Quiet", faint: "Faint" },
+    focusDimmingHint: "Faint is harder to read. Quiet keeps every line easy to read.",
+    library: "Library folder",
+    libraryNone: "No folder is open.",
+    libraryUnavailable: (name: string) => `${quote(name)} isn't available.`,
+    recovery: "Unsaved text",
+    recoveryText: (data: string) =>
+      `While a save is under way, and whenever one fails, your text is kept in ${data}/recovery/ until it's saved or you discard it. Copies are removed after 30 days.`,
+    yourFiles: "Your settings",
+    yourFilesText: (config: string) =>
+      `Settings, shortcuts, colour themes and your dictionary are plain text files in ${config}/: settings.toml, keybindings.toml, themes/ and dictionary.txt. Changes made there apply as soon as they're saved.`,
+    privacy: "Privacy",
+    privacyText:
+      "bismillah has no networking features. What you write, your dictionary and these settings stay on this computer, and spelling and grammar are checked here too.",
+    about: "About bismillah",
     spelling: "Check spelling",
     spellingHint: "English and Arabic. Qur’anic text and IJMES transliteration are never marked.",
     grammar: "Grammar suggestions",
@@ -224,6 +307,7 @@ export const copy = {
       serif: "Source Serif",
       amiri: "Amiri",
       "plex-arabic": "IBM Plex Sans Arabic",
+      custom: "Another font",
     },
     fontHint: "Amiri suits documents written mostly in Arabic.",
     textSize: "Text size",
@@ -263,6 +347,88 @@ export const copy = {
     cr: "CR line endings",
   },
 } as const;
+
+function unreadable(u: NonNullable<KeybindingsFile["unreadable"]>): string {
+  if (u.kind === "too_large") return "is too large to read";
+  if (u.kind === "syntax" && u.line !== null) return `couldn't be read (line ${u.line})`;
+  return "couldn't be read";
+}
+
+const label = (id: CommandId) => commandById(id)?.label ?? id;
+
+function shortcutProblem(p: ShortcutProblem): string {
+  switch (p.kind) {
+    case "unknown_command":
+      return `${quote(p.command)} isn't a command.`;
+    case "not_text":
+      return `the shortcut for ${label(p.command)} needs quotes, like "Ctrl+D".`;
+    case "unreadable":
+      return `${quote(p.shortcut)} isn't a shortcut bismillah can read.`;
+    case "kept":
+      return `${shortcutLabel(p.shortcut)} is kept for ${p.shortcut === "F10" ? "the menu" : "the text"}, so ${label(p.command)} keeps its own shortcut.`;
+    case "fixed":
+      return `${label(p.command)} keeps its standard shortcut.`;
+    case "repeated":
+      return `${label(p.command)} is listed twice; the first line counts.`;
+    case "twice":
+      return `${shortcutLabel(p.shortcut)} is given to both ${label(p.commands[0])} and ${label(p.commands[1])}, so both keep their own.`;
+  }
+}
+
+/** One sentence per theme problem (src-tauri/src/themes.rs), for Settings. */
+function themeProblem(p: ThemeProblem): string {
+  switch (p.kind) {
+    case "unreadable":
+      return p.line === null
+        ? "It couldn't be read."
+        : `It couldn't be read: it stops being TOML or JSON at line ${p.line}.`;
+    case "too_large":
+      return "It's too large to be a theme.";
+    case "schema":
+      return "It was made for another version of bismillah.";
+    case "unknown_key":
+      return `${quote(p.key)} isn't something a theme sets, so it's ignored.`;
+    case "wrong_type":
+      return p.key === "name"
+        ? `${quote("name")} needs to be text.`
+        : `${quote(p.key)} needs to be a table of colours.`;
+    case "invalid_colour":
+      return `${quote(p.key)} isn't a colour bismillah can read${p.value ? ` (${quote(p.value)})` : ""}; write it as #rrggbb.`;
+    case "no_colours":
+      return "It sets no colours.";
+    case "same_name":
+      return "Another theme has the same name; rename the file to use it.";
+    case "contrast": {
+      const variant = p.variant === "light" ? "Light" : "Dark";
+      const what = p.needed >= 4.5 ? "text" : "a boundary";
+      return `${variant}: ${p.foreground} on ${p.background} is ${p.ratio.toFixed(1)}:1, and ${what} needs ${p.needed}:1.`;
+    }
+  }
+}
+
+function themeProblems(problems: ThemeProblem[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const p of problems) {
+    if (p.kind !== "contrast") {
+      out.push(themeProblem(p));
+      continue;
+    }
+    const key = `${p.variant} ${p.foreground}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const same = problems.filter(
+      (q): q is Extract<ThemeProblem, { kind: "contrast" }> =>
+        q.kind === "contrast" && q.variant === p.variant && q.foreground === p.foreground,
+    );
+    const on = same.map((q) => `${q.ratio.toFixed(1)}:1 on ${q.background}`);
+    const list = on.length > 1 ? `${on.slice(0, -1).join(", ")} and ${on.at(-1)}` : on[0];
+    const variant = p.variant === "light" ? "Light" : "Dark";
+    const what = p.needed >= 4.5 ? "text" : "a boundary";
+    out.push(`${variant}: ${p.foreground} is ${list}, and ${what} needs ${p.needed}:1.`);
+  }
+  return out;
+}
 
 /** "14:32", "yesterday 14:32" or "12 October 14:32", in the writer's locale. */
 export function when(ms: number, now = Date.now()): string {

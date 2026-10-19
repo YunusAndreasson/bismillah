@@ -1,0 +1,30 @@
+# Sepia: brown ink on warm paper, and the same warmth at night. One of bismillah's
+# built-in colour themes, written in the format of a theme file in
+# ~/.config/bismillah/themes/ (ARCHITECTURE.md §8). Every pair is checked for contrast
+# by `cargo test` (src-tauri/src/themes.rs).
+schema = 1
+name = "Sepia"
+
+[light]
+surface-editor = "#f4ecdd"
+surface-panel = "#eae0ce"
+text-primary = "#2b2117"
+text-secondary = "#665643"
+syntax-marker = "#6f5e4a"
+accent = "#1d6447"
+selection-background = "#d5e3cf"
+border-control = "#8a7963"
+diagnostic-spelling = "#963a2f"
+diagnostic-grammar = "#765510"
+
+[dark]
+surface-editor = "#1c1814"
+surface-panel = "#27211b"
+text-primary = "#e0d6c6"
+text-secondary = "#ada08c"
+syntax-marker = "#9e917d"
+accent = "#74c29a"
+selection-background = "#2c4633"
+border-control = "#7d7262"
+diagnostic-spelling = "#ee8d80"
+diagnostic-grammar = "#d8b66c"

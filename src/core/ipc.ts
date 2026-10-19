@@ -131,6 +131,9 @@ export type DiskStatus = "unchanged" | "changed" | "removed";
 export interface AppInfo {
   test_mode: boolean;
   pid: number;
+  version: string;
+  /** Where bismillah keeps its files, as the writer reads them ("~/.config/bismillah"). */
+  folders: { config: string; data: string };
 }
 
 /** Narrows a rejected `invoke` to a typed error. */
@@ -185,6 +188,77 @@ export const settingsGet = () => invoke<SettingsSnapshot>("settings_get");
 export const settingsSet = (patch: Record<string, SettingValue>) =>
   invoke<SettingsSnapshot>("settings_set", { patch });
 export const settingsReload = () => invoke<SettingsSnapshot | null>("settings_reload");
+
+export type ThemeVariant = "light" | "dark";
+/** Something wrong with a theme file (src-tauri/src/themes.rs). */
+export type ThemeProblem =
+  | { kind: "unreadable"; line: number | null }
+  | { kind: "too_large" }
+  | { kind: "schema" }
+  | { kind: "unknown_key"; key: string }
+  | { kind: "wrong_type"; key: string }
+  | { kind: "invalid_colour"; key: string; value: string }
+  | { kind: "no_colours" }
+  | { kind: "same_name" }
+  | {
+      kind: "contrast";
+      variant: ThemeVariant;
+      foreground: string;
+      background: string;
+      ratio: number;
+      needed: number;
+    };
+
+export interface ColourTheme {
+  /** The file's name without its ending: what `colour_theme` holds. */
+  id: string;
+  name: string;
+  builtin: boolean;
+  file: string | null;
+  /** Token name (without `--`) → colour, for each variant the theme sets. */
+  light: Record<string, string> | null;
+  dark: Record<string, string> | null;
+  usable: boolean;
+  problems: ThemeProblem[];
+}
+
+export interface ThemeList {
+  themes: ColourTheme[];
+  truncated: boolean;
+}
+
+export const themesList = () => invoke<ThemeList>("themes_list");
+/** Whether a font family is installed (fontconfig); null when that can't be asked. */
+export const fontInstalled = (family: string) =>
+  invoke<boolean | null>("font_installed", { family });
+
+/** One line of keybindings.toml, as Rust read it (src-tauri/src/keybindings.rs). */
+export interface KeybindingEntry {
+  command: string;
+  /** null: the value wasn't text. */
+  shortcut: string | null;
+  line: number;
+}
+
+export interface KeybindingsFile {
+  exists: boolean;
+  entries: KeybindingEntry[];
+  unreadable:
+    { kind: "syntax"; line: number | null } | { kind: "too_large" } | { kind: "io" } | null;
+}
+
+export const keybindingsGet = () => invoke<KeybindingsFile>("keybindings_get");
+/** Writes a starting keybindings.toml; rejects with a SaveError ("exists") if there is one. */
+export const keybindingsCreate = (text: string) =>
+  invoke<KeybindingsFile>("keybindings_create", { text });
+
+/** Sent when files in the configuration folder change (src-tauri/src/config.rs). */
+export interface ConfigChanged {
+  settings: boolean;
+  keybindings: boolean;
+  themes: boolean;
+  dictionary: boolean;
+}
 
 /** One block of the document for the checker (ARCHITECTURE.md §7.1). Offsets are UTF-16
  * code units relative to the block. */

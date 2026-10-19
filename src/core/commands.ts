@@ -16,6 +16,7 @@ export type CommandId =
   | "file.rename"
   | "file.trash"
   | "app.settings"
+  | "app.about"
   | "app.quit"
   | "edit.undo"
   | "edit.redo"
@@ -49,15 +50,20 @@ export type ToggleId =
   | "view.fullscreen"
   | "view.toggleLibrary";
 
-export type MenuSection = "File" | "Edit" | "View";
+export type MenuSection = "File" | "Edit" | "View" | "Help";
 
 export interface Command {
   id: CommandId;
   label: string;
   section: MenuSection;
-  /** CodeMirror key notation; `Mod` is Ctrl on Linux and Windows, Cmd on macOS. A
-   * command without one is reached from the menu and the palette. */
+  /** Its own shortcut, in CodeMirror key notation; `Mod` is Ctrl on Linux and Windows,
+   * Cmd on macOS. A command without one is reached from the menu and the palette. The
+   * writer may change it in keybindings.toml: use `shortcuts.keyFor(id)` for the one it
+   * has now (keybindings.svelte.ts). */
   key?: string;
+  /** Keeps the desktop's standard key whatever keybindings.toml says (Undo, Redo,
+   * Select all: the text field's own keys everywhere). */
+  fixedKey?: boolean;
   /**
    * Where the shortcut works. Everywhere by default; "library" binds it only while the
    * library has focus, never in the editor or the menu, for keys that mean something
@@ -87,6 +93,7 @@ export interface CommandContext {
   openFile(): void;
   save(): void;
   openSettings(): void;
+  openAbout(): void;
   quit(): void;
   isOn(id: ToggleId): boolean;
   /** A library folder is open (and available). */
@@ -206,6 +213,13 @@ export const COMMANDS: readonly Command[] = [
     run: (c) => c.openSettings(),
   },
   {
+    id: "app.about",
+    label: "About bismillah",
+    section: "Help",
+    aliases: ["version", "licence", "license", "credits", "inspiration"],
+    run: (c) => c.openAbout(),
+  },
+  {
     id: "app.quit",
     label: "Quit",
     section: "File",
@@ -215,6 +229,7 @@ export const COMMANDS: readonly Command[] = [
   },
   {
     id: "edit.undo",
+    fixedKey: true,
     label: "Undo",
     section: "Edit",
     key: "Mod-z",
@@ -222,6 +237,7 @@ export const COMMANDS: readonly Command[] = [
   },
   {
     id: "edit.redo",
+    fixedKey: true,
     label: "Redo",
     section: "Edit",
     key: "Mod-Shift-z",
@@ -229,6 +245,7 @@ export const COMMANDS: readonly Command[] = [
   },
   {
     id: "edit.selectAll",
+    fixedKey: true,
     label: "Select all",
     section: "Edit",
     key: "Mod-a",
@@ -400,38 +417,45 @@ export const COMMANDS: readonly Command[] = [
  * window's own shortcut handler. */
 export const GLOBAL_COMMANDS: readonly Command[] = COMMANDS.filter((c) => !c.keyScope);
 
-/** Commands with a shortcut that works everywhere: the editor keymap, the menu and the
- * window's own shortcut handler. */
-export const BOUND_COMMANDS = GLOBAL_COMMANDS.filter(
-  (c): c is Command & { key: string } => c.key !== undefined,
-);
+/** Punctuation keys by their accelerator names. */
+const KEY_NAMES: Record<string, string> = {
+  "=": "Equal",
+  "-": "Minus",
+  ",": "Comma",
+  ".": "Period",
+  "\\": "Backslash",
+  "/": "Slash",
+  ";": "Semicolon",
+  "'": "Quote",
+  "[": "BracketLeft",
+  "]": "BracketRight",
+  "`": "Backquote",
+};
+
+function parts(key: string): string[] {
+  return key.split(/-(?!$)/);
+}
 
 /** CodeMirror key notation → Tauri accelerator ("Mod-Shift-l" → "CmdOrCtrl+Shift+L"). */
 export function accelerator(key: string): string {
-  return key
-    .split(/-(?!$)/)
+  return parts(key)
     .map((part) => {
       if (part === "Mod") return "CmdOrCtrl";
-      if (part === "=") return "Equal";
-      if (part === "-") return "Minus";
-      if (part === ",") return "Comma";
-      if (part === ".") return "Period";
-      if (part === "\\") return "Backslash";
-      return part.length === 1 ? part.toUpperCase() : part;
+      return KEY_NAMES[part] ?? (part.length === 1 ? part.toUpperCase() : part);
     })
     .join("+");
 }
 
-/** The shortcut as the writer reads it on Linux ("Ctrl+Shift+T"). */
+/** The shortcut as the writer reads it on Linux ("Ctrl+Shift+T", "Ctrl+="). */
 export function shortcutLabel(key: string | undefined): string {
   if (!key) return "";
-  return accelerator(key)
-    .replace("CmdOrCtrl", "Ctrl")
-    .replace("Equal", "=")
-    .replace("Minus", "-")
-    .replace("Comma", ",")
-    .replace("Period", ".")
-    .replace("Backslash", "\\");
+  return parts(key)
+    .map((part) => {
+      if (part === "Mod") return "Ctrl";
+      if (part.startsWith("Arrow")) return part.slice(5);
+      return part.length === 1 ? part.toUpperCase() : part;
+    })
+    .join("+");
 }
 
 export const commandById = (id: CommandId): Command | undefined =>

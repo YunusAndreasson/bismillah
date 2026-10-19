@@ -66,6 +66,8 @@ export function contrast(a: string, b: string): number {
 const THEMES = {
   light: theme(/:root,\s*:root\[data-theme="light"\]/),
   dark: theme(/:root\[data-theme="dark"\]/),
+  "high-contrast light": theme(/:root\[data-contrast="high"\]/),
+  "high-contrast dark": theme(/:root\[data-contrast="high"\]\[data-theme="dark"\]/),
 };
 
 const SURFACES = ["surface-editor", "surface-panel"];
@@ -105,6 +107,23 @@ describe.each(Object.entries(THEMES))("%s theme contrast", (_name, token) => {
     expect(contrast(token("text-primary"), selected)).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("keeps Zuhd mode's faint text visible but fainter than text-secondary", () => {
+    // editor.css: text-secondary 55% toward the page (the writer's choice, DESIGN.md §11.1).
+    const mix = (a: string, b: string, share: number) =>
+      `#${[1, 3, 5]
+        .map((i) =>
+          Math.round(
+            parseInt(a.slice(i, i + 2), 16) * share + parseInt(b.slice(i, i + 2), 16) * (1 - share),
+          ),
+        )
+        .map((c) => c.toString(16).padStart(2, "0"))
+        .join("")}`;
+    const faint = mix(token("text-secondary"), token("surface-editor"), 0.55);
+    const ratio = contrast(faint, token("surface-editor"));
+    expect(ratio).toBeGreaterThan(2);
+    expect(ratio).toBeLessThan(contrast(token("text-secondary"), token("surface-editor")));
+  });
+
   it("gives prose more than 7:1", () => {
     expect(contrast(token("text-primary"), token("surface-editor"))).toBeGreaterThan(7);
   });
@@ -141,5 +160,40 @@ describe("theme blocks", () => {
     );
     const explicit = block(/:root\[data-theme="dark"\]/);
     expect(Object.fromEntries(system)).toEqual(Object.fromEntries(explicit));
+    const highSystem = block(
+      /@media \(prefers-color-scheme: dark\)\s*\{\s*:root\[data-contrast="high"\]:not\(\[data-theme="light"\]\)/,
+    );
+    const highExplicit = block(/:root\[data-contrast="high"\]\[data-theme="dark"\]/);
+    expect(Object.fromEntries(highSystem)).toEqual(Object.fromEntries(highExplicit));
+  });
+});
+
+describe("high contrast", () => {
+  // Its own colours throughout: nothing of the regular theme may show through it.
+  const OWN = [
+    "surface-editor",
+    "surface-panel",
+    "surface-code",
+    "text-primary",
+    "text-secondary",
+    "syntax-marker",
+    "accent",
+    "selection-background",
+    "border-control",
+    "diagnostic-spelling",
+    "diagnostic-grammar",
+  ];
+  it.each([
+    ["light", /:root\[data-contrast="high"\]/, THEMES["high-contrast light"]],
+    ["dark", /:root\[data-contrast="high"\]\[data-theme="dark"\]/, THEMES["high-contrast dark"]],
+  ])("sets every colour itself in %s and keeps text at 7:1", (_name, selector, token) => {
+    expect([...block(selector).keys()].filter((k) => k !== "color-scheme").sort()).toEqual(
+      [...OWN].sort(),
+    );
+    for (const fg of TEXT)
+      for (const bg of SURFACES) expect(contrast(token(fg), token(bg))).toBeGreaterThanOrEqual(7);
+    expect(contrast(token("text-primary"), token("selection-background"))).toBeGreaterThanOrEqual(
+      7,
+    );
   });
 });

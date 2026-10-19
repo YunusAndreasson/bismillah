@@ -78,7 +78,7 @@ The interface has six areas. Each has one responsibility.
 | **Library** | Browse directories and files; show the active file and its context. |
 | **Quick open** | Find a file by name or path; show parent paths so duplicate names can be told apart. |
 | **Command palette** | Find any action by its canonical name, with its shortcut visible. |
-| **Settings** | One screen, a few labelled sections: Appearance · Writing · Language & checking · Files & privacy. Add an Extensions section only once extensions exist. |
+| **Settings** | One screen, a few labelled sections: Appearance · Writing · Language & checking · Files & privacy (below). Add an Extensions section only once extensions exist. |
 | **File status** | Saving, failure, conflict and recovery, shown without hiding the affected document. |
 
 Rules:
@@ -94,6 +94,16 @@ Rules:
 - **When saving fails or a conflict needs resolving:** the recovery message becomes the most important element and stays visible until resolved.
 
 Hierarchy is built with spacing, placement, alignment and weight before colour. Quiet text uses the `text-secondary` token, never arbitrary opacity.
+
+### Settings and About (Phase 5)
+
+- **One dialog, four sections**, with a row of links at the top that scroll to each and move focus to its heading; the title, the links and *Done* stay in view while the sections scroll. Every change applies at once and is saved; there is no *Apply*.
+  - **Appearance:** Theme (System / Light / Dark) · Colours (§9.5) · High contrast · Writing font (with *Another font*, §8.2) · Text size · Line length · Line height · Fade the status line · Show the Basmallah opening.
+  - **Writing:** Smart punctuation · Typewriter scrolling · Always show Markdown · Zuhd mode · Focus on · Other text (§11.1).
+  - **Language & checking:** Check spelling · Grammar suggestions · English spelling.
+  - **Files & privacy:** the library folder (*Open folder…*), keyboard shortcuts (§13: how many `keybindings.toml` changes, the lines it couldn't use, or *Create keybindings.toml*), where the writer's own files are, how unsaved text is kept, and the privacy statement in one sentence.
+- **Problems are shown where they belong:** a theme file's below Colours, `keybindings.toml`'s under Keyboard shortcuts, each line by line in plain words. A notice in the notices row says only that something couldn't be used and offers **Show in Settings**, which opens Settings at that section.
+- **About bismillah** (Help menu, the palette, and a button at the foot of Settings): the name, one line on what it is, the version, the inspiration in two short paragraphs (§4), and what it is made with under which licence (fonts, the dictionary and checkers, the software), grouped and listed in `text-secondary`. It opens at its start, with focus on *Close*.
 
 ### The library, quick open and the palette (Phase 2)
 
@@ -158,7 +168,7 @@ Start small; expand only after these are excellent.
 - **Uthmani text:** an Arabic run that contains alef wasla (U+0671) or Qur'anic annotation marks (U+06D6–U+06ED, U+08D3–U+08FF: small high letters, waqf signs, rub' el hizb) is set in **Amiri Quran**, which is designed for Mushaf orthography. The whole run switches, never single characters, so shaping is never split across fonts.
 - **Transliteration coverage:** the Latin fonts must have real glyphs for the IJMES set (ā ī ū ḥ ṣ ḍ ṭ ẓ ʿ ʾ and capitals). A gap is fixed with a matched fallback, never left to the system's fallback font. Duo and Mono's gap is closed by Bismillah Duo and Mono.
 - **Known platform defect:** WebKitGTK 2.54 misplaces Arabic marks that fonts position with vertical offsets (ADR-0011). IBM Plex Sans Arabic is unusable for vocalised text until that is fixed, so Duo pairs with Amiri for now.
-- Any installed system font can be chosen by name, as an unsupported "custom" profile.
+- Any installed system font can be chosen by name, as an unsupported "custom" profile: *Another font* in Settings › Appearance, with a *Font name* field. It borrows Duo's rhythm (20px, 1.6) with a measure of 32em, and Bismillah Duo supplies any letter it lacks. It is used only when the system's font list (fontconfig) has it: WebKitGTK would otherwise draw an unknown name in a substitute font, so the field says *No installed font is called “…”, so iA Writer Duo is used.*
 
 ### 8.3 Writing profiles
 
@@ -270,8 +280,16 @@ The accent is a deep green, the project's identity colour, chosen in the 2026-10
   - spelling and grammar use different underline patterns and labels
   - a selected library item also gets a leading edge bar and heavier weight, and is exposed as selected to assistive technology.
 - Automated assertions check every semantic foreground/background pair, including selected and hover states.
-- A high-contrast override (pure black and white) is allowed. The system's forced-colours mode is respected, and `forced-color-adjust: none` is never applied wholesale.
+- A high-contrast override (pure black and white) is built in (§9.5). The system's forced-colours mode is respected, and `forced-color-adjust: none` is never applied wholesale.
 - **No health claims.** Warm paper and charcoal are aesthetic defaults. We never claim that a theme prevents eye strain. No ambient-light sensing, no colour-temperature scheduling.
+
+### 9.5 Colour themes and high contrast (Phase 5)
+
+- **Colours** (Settings › Appearance) chooses a colour theme: **bismillah** (the colours above, the default) or another. **Theme** (System / Light / Dark) still chooses which variant shows; a theme without colours for that variant leaves it to bismillah's own.
+- **Built-in themes** are *Sepia* (brown ink on warm paper) and *Slate* (cool grey), a deliberately small first set: the author plans a set of their own. They are theme files like the writer's (`src-tauri/themes/`), and `cargo test` holds each to the rules above, prose above 7:1.
+- **A theme is a file** of semantic token values (§9.2) for light and/or dark, nothing else (ADR-0005, ARCHITECTURE.md §8). The writer's go in `~/.config/bismillah/themes/` and apply as soon as they are saved. Green stays the interaction colour and the diagnostic colours stay problems: a theme changes shades, not meanings.
+- **Contrast is checked, not enforced.** A theme below a floor in §9.4 still applies, because it is the writer's choice; Settings lists each colour that falls short ("Dark: text-secondary is 2.2:1 on surface-editor, 1.9:1 on surface-panel…, and text needs 4.5:1."). A file that can't be read or sets no colour is listed with the reason and can't be chosen; if the chosen theme becomes unusable, bismillah's colours apply and a notice says so.
+- **High contrast** (Settings › Appearance) is black and white, `#000` on `#FFF` and `#FFF` on `#000`, with every text pair at 7:1 or more, in both variants (`src/styles/tokens.css`, `tokens.test.ts`). It overrides any colour theme.
 
 ## 10. Spacing
 
@@ -318,7 +336,7 @@ Zuhd mode is the name of the focus feature. It reflects the product's commitment
 
 - Command ID `editor.toggleFocus`, setting key `focus_mode`, shortcut `Mod-D`.
 - Palette search aliases: focus, distraction-free, sentence, paragraph, zuhd, زهد.
-- Inactive text uses `text-secondary` by default, never an opacity hack. Stronger dimming is a user choice with an easy reset.
+- Inactive text uses `text-secondary` by default, never an opacity hack. Stronger dimming is a user choice with an easy reset: Settings › Writing › **Other text**: *Quiet* (`text-secondary`, the default) or *Faint* (`text-secondary` 55% of the way to the page, a measurable colour of about 2.3:1 in light and 3:1 in dark, below the text floor by the writer's choice; the hint says *Faint is harder to read*).
 - Zuhd mode does not silently turn on typewriter scrolling or fullscreen; each is controlled separately.
 
 ### 11.2 The Basmallah opening
@@ -416,6 +434,7 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 | `check.next` / `check.previous` | Next / Previous issue | `F7` / `Shift-F7` |
 | `check.toggleSpelling` / `check.toggleGrammar` | Check spelling / Grammar suggestions | none (switches in the Edit menu, the palette and Settings) |
 | `app.settings` | Settings | `Mod-,` |
+| `app.about` | About bismillah | none (the Help menu, the palette, and Settings) |
 | `view.fullscreen` | Fullscreen | `F11` |
 | `editor.toggleTransliteration` | Transliteration mode | `Mod-Shift-T` |
 | `edit.copyRich` | Copy as rich text | `Mod-Shift-C` |
@@ -423,6 +442,11 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 | `app.quit` | Quit (flushes pending saves first) | `Mod-Q` |
 
 - `Esc` closes the topmost overlay and returns focus to where it came from. In the docked library it returns focus to the text.
+- **`keybindings.toml`** (Phase 5) changes shortcuts. Each line gives a command its shortcut, written as the menus show it (`"editor.toggleFocus" = "Ctrl+Shift+D"`; CodeMirror's `Mod-Shift-d` is read too); a command not listed keeps its own, and `""` leaves one without. It applies as soon as it is saved, everywhere at once: the editor, the menu's accelerators, the palette, the first screen and the library's menu.
+  - A shortcut needs `Ctrl` or `Alt` with a letter, digit or punctuation key, or is a function key. Keys that edit or move through text (Backspace, Delete, Enter, Tab, Escape, Space, the arrows, Home, End, Page Up/Down, Insert), the clipboard's and the standard editing keys (`Ctrl+C`, `V`, `X`, `Z`, `Shift+Z`, `Y`, `A`) and `F10` (the menu) stay where they are. *Move to trash*, which works only in the library, may also take Delete with a modifier.
+  - Undo, Redo and Select all keep their standard keys.
+  - A shortcut given to one command is taken from the command that had it. One shortcut given to two commands in the file goes to neither: both keep their own.
+  - A line that can't be used changes nothing, and Settings › Files & privacy says why, by line number. *Create keybindings.toml* writes a starting file listing every command with its shortcut, commented out; it never replaces a file.
 - **No shortcut that edits text elsewhere may act on files.** `Mod-Backspace` deletes the previous word in every Linux text field, so *Move to trash* is `Delete`, and only while the library has focus (changed 2026-10-18 from `Mod-Backspace`; macOS may add `Cmd-Backspace` in the library, as Finder has it).
 - The library follows the WAI-ARIA tree pattern: `↑`/`↓` move, `→` opens a folder or steps into it, `←` closes it or goes to its folder, `Home`/`End`, typing a name's first letters finds it, `Enter` opens a file (and puts the caret in it) or opens and closes a folder.
 - Focus rings appear for keyboard navigation (`:focus-visible`) in `focus-ring`, ≥ 3:1.

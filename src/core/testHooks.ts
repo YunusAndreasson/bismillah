@@ -19,7 +19,10 @@ import {
   type MenuState,
 } from "./ipc.ts";
 import type { SaveState } from "./session.svelte.ts";
+import { copy } from "./copy.ts";
+import { shortcuts } from "./keybindings.svelte.ts";
 import { settings, type Settings } from "./settings.svelte.ts";
+import { colourThemes } from "./themes.svelte.ts";
 import type { Workspace } from "./workspace.svelte.ts";
 
 /**
@@ -96,6 +99,14 @@ export interface TestHooks {
     items: string[];
     focused: string | null;
   } | null;
+  /** Opens Settings, at a section if given. */
+  openSettings(section?: "files" | "appearance" | null): void;
+  /** Each command's shortcut now, and why lines of keybindings.toml weren't used. */
+  shortcuts(): { keys: Record<string, string>; problems: string[]; changed: number };
+  /** The colour themes Settings lists, with their problems as Settings words them. */
+  colourThemes(): { id: string; name: string; usable: boolean; problems: string[] }[];
+  /** A token's value on the root element now ("surface-editor" → "#f4ecdd"). */
+  token(name: string): string;
 }
 
 export interface LibraryProbe {
@@ -319,6 +330,28 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
         items: [...menu.querySelectorAll('[role="menuitem"]')].map(text),
         focused: focused ? text(focused) : null,
       };
+    },
+    openSettings: (section = null) => workspace.openSettings(section),
+    shortcuts: () => ({
+      keys: Object.fromEntries(shortcuts.keys),
+      problems: shortcuts.problems.map((p) => copy.shortcuts.problem(p)),
+      changed: shortcuts.changed,
+    }),
+    colourThemes: () =>
+      colourThemes.list.map((t) => ({
+        id: t.id,
+        name: t.name,
+        usable: t.usable,
+        problems: copy.themes.problems(t.problems),
+      })),
+    token(name) {
+      // Resolved through a probe, so var() aliases come back as the colour they draw.
+      const probe = document.createElement("span");
+      probe.style.setProperty("color", `var(--${name})`);
+      document.body.append(probe);
+      const value = getComputedStyle(probe).color;
+      probe.remove();
+      return value;
     },
   };
   document.documentElement.dataset.ready = "true";

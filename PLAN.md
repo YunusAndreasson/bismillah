@@ -180,7 +180,7 @@ What else came with it:
 
 **Accept:** the specimen at all test widths in both themes, rendered and revealed; caret, selection and mouse placement tests pass on RTL and mixed lines in both states; clicking into a rendered paragraph keeps the caret on the clicked character; "Always show Markdown" matches Phase 1 exactly; an XSS fixture suite stays inert in the editor and on the clipboard.
 
-### Phase 4 result (2026-10-19): built; waiting for the author's acceptance
+### Phase 4 result (2026-10-19): built; the author moved on to Phase 5 the same day
 
 The spike came first and its verdict is **go** ([docs/spikes/live-preview.md](docs/spikes/live-preview.md), ADR-0012). Everything above is in place, and `pnpm verify` passes (259 unit tests, 118 Rust tests, 153 real-app e2e tests in 15 suites, 13 visual checks with six new rendered baselines, counted after the tables and code below), and so does `pnpm test:offline`.
 
@@ -225,6 +225,41 @@ What else came with it:
 ## Phase 5 — Themes and settings complete
 
 Declarative theme files with validation and contrast warnings; a high-contrast built-in override; full settings screen (Appearance · Writing · Language & checking · Files & privacy); `keybindings.toml` with live reload; About screen with a short statement of the project's inspiration and the licences.
+
+**Accept** (set when the phase was built): a theme file applies as soon as it is saved and its problems are listed in plain words; high contrast holds 7:1 for text in both variants and overrides any theme; every setting DESIGN.md describes is on the one Settings screen and works from the keyboard; `keybindings.toml` changes shortcuts in the editor, the menu and the palette as soon as it is saved, and refuses keys that belong to the text; About states the inspiration and every shipped part's licence.
+
+### Phase 5 result (2026-10-19): built; waiting for the author's acceptance
+
+*Changed while building, at the author's word (2026-10-19): only a few themes for now, because the author plans a set of their own.* So two themes are built in, Sepia and Slate, as theme files in the very format a writer uses (`src-tauri/themes/`): the coming set is files, not code.
+
+Everything above is in place, and `pnpm verify` passes (335 unit tests, 139 Rust tests, 166 real-app e2e tests in 16 suites, 16 visual checks with three new baselines: the specimen in high contrast, light and dark, and Settings), and so does `pnpm test:offline`.
+
+| Accept | Evidence |
+|---|---|
+| A theme file applies as soon as it is saved, its problems listed in plain words | `tests/e2e/settings.e2e.ts`: a file written into the config folder appears in Settings, applies per variant, and an edit applies without the window regaining focus; unknown keys and low contrast are listed ("Dark: text-secondary is 2.2:1 on surface-editor, 1.9:1 on surface-panel and 1.9:1 on surface-code, and text needs 4.5:1."); a broken chosen theme falls back with a notice and *Show in Settings*. `themes.rs` tests: TOML and JSON, every kind of problem, line numbers, names taken, the 64 KiB limit, built-in themes without a single problem and prose above 7:1, bismillah's colours equal to `tokens.css` |
+| High contrast holds 7:1 for text in both variants and overrides any theme | `tokens.test.ts` (every text pair ≥ 7:1, both variants set every colour themselves); the e2e test switches it on over Slate in light and dark; visual baselines of the specimen in high contrast |
+| Every setting DESIGN.md describes is on one screen and works from the keyboard | Settings has Appearance · Writing · Language & checking · Files & privacy, with links to each; new: Colours, High contrast, *Another font*, Other text (Zuhd mode's faint text), and Files & privacy (library folder, shortcuts, where the files are, unsaved text, privacy). The e2e tests choose a theme with arrows and `Space`, move between sections by their links, and type a font's name |
+| `keybindings.toml` changes shortcuts everywhere as soon as it is saved, and refuses the text's keys | e2e: a new shortcut runs Zuhd mode in the real editor and the old one stops, the palette shows it, unusable lines are listed by line number, and *Create keybindings.toml* writes a file that, uncommented, gives every command its own shortcut back. `src/core/shortcuts.test.ts`: both notations, refused keys, Undo/Redo/Select all fixed, one key given to two commands, a shortcut taken from its previous command |
+| About states the inspiration and every shipped part's licence | e2e: About opens at its start with *Close* focused and returns focus to the text; `src/core/about.test.ts` fails if a package bismillah ships isn't credited |
+
+What else came with it:
+- **The configuration folder is watched** like the library, so `settings.toml`, `keybindings.toml`, themes and `dictionary.txt` edited elsewhere apply at once (focus still re-reads them).
+- ***Another font*** is used only when the system's font list has it: WebKitGTK draws an unknown name in a substitute font rather than falling back, so Rust asks fontconfig (`fc-list`), and Settings says *No installed font is called “…”, so iA Writer Duo is used.*
+- The native menu gained **Help › About bismillah**; its accelerators follow `keybindings.toml`.
+- `pnpm app:shot` can open Settings or About (`--open`), apply settings (`--settings`) and seed theme files (`--config`).
+- **Fixed on the way (a Phase 2 race):** when another program changed the open file and the writer had no unsaved edits, text typed while the new version was being read was replaced unseen. It is now kept in recovery and offered with the new version (ARCHITECTURE.md §5.4). The offline run's slow keys found it; the conflict tests now hold saves back while typing, so they no longer depend on timing.
+
+**Not done in Phase 5**
+- No way to open the configuration folder or a file from Settings: the folders are shown as text. *Show in file manager* waits for `tauri-plugin-opener` (planned with `Mod-click` on links).
+- Settings has no list of every shortcut; the starting `keybindings.toml` is that list.
+- Interface zoom at 200% was checked only through the writing size, not with the webview's own zoom.
+
+**For the author**
+1. **Install and try it:** `cd packaging/arch && makepkg -si`, then Settings (`Ctrl+,`): try Sepia and Slate in light and dark, High contrast, and *Create keybindings.toml* under Files & privacy, then change a shortcut in the file and save.
+2. **Your own set of themes:** add files to `src-tauri/themes/` (and the `BUILT_IN` list in `themes.rs`); `cargo test` holds each to the contrast rules. Sepia and Slate can go whenever your set replaces them.
+3. **Design questions (none blocks acceptance):** the About text (DESIGN.md §6, `src/core/copy.ts`), which states the inspiration in two short paragraphs; *Faint* for Zuhd mode at about 2.3:1 (light) and 3:1 (dark); and whether theme names should be shown with a small preview of their colours.
+4. **Manual checks (live session, a few minutes):** Orca reads the Settings sections, the radio groups and a theme's problems; `Alt` shows the new Help menu with *About bismillah*, and a changed shortcut shows in the File, Edit and View menus; a theme saved from your editor applies while bismillah stays in the background.
+5. **Still open from earlier phases:** Phase 4's design questions and manual checks, the hanging-mark gutter question (Phase 1, item 3) and the manual checks of Phases 1–3.
 
 ## Phase 6 — Personal 1.0 (Linux, this machine)
 

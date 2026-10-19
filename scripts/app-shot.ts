@@ -18,6 +18,11 @@
  *   --caret <text>        put the caret at the first <text>, revealing that block
  *   --library <dir>       show a copy of <dir> as the library (docked or overlay, by width)
  *   --library-file <rel>  open this file from that library instead of the specimen
+ *   --settings <json>     settings to apply first, e.g. '{"high_contrast": true}'
+ *   --config <dir>        copy <dir> into the private config folder before launch
+ *                         (themes/, keybindings.toml)
+ *   --open <what>         shoot with a dialog open: settings, settings:files,
+ *                         settings:appearance or about
  *   --out <dir>           output directory (default: <repo>/target/shots)
  *
  * Needs `pnpm app:build` first. Prints the paths of the PNGs it wrote.
@@ -47,6 +52,9 @@ const { values } = parseArgs({
     caret: { type: "string" },
     library: { type: "string" },
     "library-file": { type: "string" },
+    settings: { type: "string" },
+    config: { type: "string" },
+    open: { type: "string" },
     out: { type: "string", default: resolve(REPO, "target/shots") },
   },
 });
@@ -60,6 +68,13 @@ const widths = list(values.widths).map(Number);
 const height = Number(values.height);
 const outDir = resolve(values.out);
 mkdirSync(outDir, { recursive: true });
+
+// Only inside scripts/headless.sh, whose config folder is private to the run.
+if (values.config) {
+  const home = process.env.XDG_CONFIG_HOME;
+  if (!home || !process.env.BISMILLAH_TEST) throw new Error("--config needs scripts/headless.sh");
+  cpSync(resolve(values.config), join(home, "bismillah"), { recursive: true });
+}
 
 const port = await freePort();
 const driver = await startDriver(port);
@@ -116,6 +131,22 @@ async function showLibrary(): Promise<void> {
   });
 }
 
+/** Opens Settings (at a section) or About, and waits for it to show. */
+async function openDialog(what: string): Promise<void> {
+  const [dialog, section] = what.split(":");
+  await browser.execute(
+    (d: string, s: string | null) => {
+      const hooks = window.__bismillah;
+      if (d === "about") hooks?.run("app.about");
+      else hooks?.openSettings(s as "files" | null);
+    },
+    dialog ?? "settings",
+    section ?? null,
+  );
+  await browser.$("[role=dialog]").waitForDisplayed();
+  await browser.pause(300);
+}
+
 const written: string[] = [];
 try {
   await waitForApp(browser);
@@ -146,6 +177,12 @@ try {
     values.markdown === "shown",
     values.caret ?? null,
   );
+  if (values.settings) {
+    const patch = JSON.parse(values.settings) as Record<string, unknown>;
+    await browser.execute(async (p: Record<string, unknown>) => {
+      await window.__bismillah?.changeSettings(p);
+    }, patch);
+  }
   for (const profile of list(values.profiles)) {
     await browser.execute(async (p: string) => {
       await window.__bismillah?.setProfile(p as "duo");
@@ -171,8 +208,11 @@ try {
           });
         }
         await settle(browser);
+        if (values.open) await openDialog(values.open);
         const png = values.full ? await shootFull() : await shoot();
-        const suffix = `${scratch ? "-library" : ""}${values.full ? "-full" : ""}`;
+        if (values.open) await browser.keys(["Escape"]);
+        const opened = values.open ? `-${values.open.replace(":", "-")}` : "";
+        const suffix = `${scratch ? "-library" : ""}${values.full ? "-full" : ""}${opened}`;
         const mode = values.markdown === "shown" ? "-shown" : "";
         const name = `${profile}-${theme}-${width}${mode}${suffix}.png`;
         const path = resolve(outDir, name);

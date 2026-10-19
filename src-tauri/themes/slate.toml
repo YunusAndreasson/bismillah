@@ -1,0 +1,30 @@
+# Slate: cool grey, by day and by night. One of bismillah's built-in colour themes,
+# written in the format of a theme file in ~/.config/bismillah/themes/
+# (ARCHITECTURE.md §8). Every pair is checked for contrast by `cargo test`
+# (src-tauri/src/themes.rs).
+schema = 1
+name = "Slate"
+
+[light]
+surface-editor = "#f3f5f7"
+surface-panel = "#e6eaee"
+text-primary = "#1b2128"
+text-secondary = "#56606b"
+syntax-marker = "#5e6873"
+accent = "#1d6a49"
+selection-background = "#d2e8dc"
+border-control = "#7b8590"
+diagnostic-spelling = "#a03a36"
+diagnostic-grammar = "#7d5c12"
+
+[dark]
+surface-editor = "#14181d"
+surface-panel = "#1d232a"
+text-primary = "#d3d9df"
+text-secondary = "#9ea8b2"
+syntax-marker = "#8f99a4"
+accent = "#6dbe94"
+selection-background = "#21433a"
+border-control = "#6f7a85"
+diagnostic-spelling = "#f08b82"
+diagnostic-grammar = "#d5b56a"

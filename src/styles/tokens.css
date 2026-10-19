@@ -100,3 +100,55 @@
   --diagnostic-spelling: var(--red-300);
   --diagnostic-grammar: var(--ochre-300);
 }
+
+/*
+ * High contrast (DESIGN.md §9.4): black and white, with every text pair at 7:1 or more.
+ * It overrides the colour theme (themes.svelte.ts applies no theme while it is on) and
+ * follows System / Light / Dark like the others.
+ */
+:root[data-contrast="high"] {
+  color-scheme: light;
+  --surface-editor: #ffffff;
+  --surface-panel: #f0f0f0;
+  --surface-code: #0000000f;
+  --text-primary: #000000;
+  --text-secondary: #3d3d3d;
+  --syntax-marker: #474747;
+  --accent: #0b4a2e;
+  --selection-background: #b5dcc6;
+  --border-control: #000000;
+  --diagnostic-spelling: #a00000;
+  --diagnostic-grammar: #6b4a00;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-contrast="high"]:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-editor: #000000;
+    --surface-panel: #141414;
+    --surface-code: #ffffff14;
+    --text-primary: #ffffff;
+    --text-secondary: #c8c8c8;
+    --syntax-marker: #b4b4b4;
+    --accent: #7fe0a8;
+    --selection-background: #1f5a3a;
+    --border-control: #ffffff;
+    --diagnostic-spelling: #ff8f87;
+    --diagnostic-grammar: #f0cc70;
+  }
+}
+
+:root[data-contrast="high"][data-theme="dark"] {
+  color-scheme: dark;
+  --surface-editor: #000000;
+  --surface-panel: #141414;
+  --surface-code: #ffffff14;
+  --text-primary: #ffffff;
+  --text-secondary: #c8c8c8;
+  --syntax-marker: #b4b4b4;
+  --accent: #7fe0a8;
+  --selection-background: #1f5a3a;
+  --border-control: #ffffff;
+  --diagnostic-spelling: #ff8f87;
+  --diagnostic-grammar: #f0cc70;
+}

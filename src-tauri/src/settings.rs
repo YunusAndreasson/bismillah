@@ -28,6 +28,11 @@ enum Kind {
         min: f64,
         max: f64,
     },
+    /// A theme file's name without its ending (themes.rs): no folders, not hidden.
+    ThemeId,
+    /// A font's family name, or "" for none. Free text, but never anything that could
+    /// end the CSS string it is set in.
+    FontName,
 }
 
 struct Spec {
@@ -44,9 +49,24 @@ const SPECS: &[Spec] = &[
         default: || "system".into(),
     },
     Spec {
+        key: "colour_theme",
+        kind: Kind::ThemeId,
+        default: || crate::themes::DEFAULT_ID.into(),
+    },
+    Spec {
+        key: "high_contrast",
+        kind: Kind::Bool,
+        default: || false.into(),
+    },
+    Spec {
         key: "writing_profile",
-        kind: Kind::Choice(&["duo", "serif", "amiri", "plex-arabic"]),
+        kind: Kind::Choice(&["duo", "serif", "amiri", "plex-arabic", "custom"]),
         default: || "duo".into(),
+    },
+    Spec {
+        key: "custom_font",
+        kind: Kind::FontName,
+        default: || "".into(),
     },
     Spec {
         key: "text_scale",
@@ -97,6 +117,11 @@ const SPECS: &[Spec] = &[
         key: "focus_granularity",
         kind: Kind::Choice(&["paragraph", "sentence"]),
         default: || "paragraph".into(),
+    },
+    Spec {
+        key: "focus_dimming",
+        kind: Kind::Choice(&["quiet", "faint"]),
+        default: || "quiet".into(),
     },
     Spec {
         key: "check_spelling",
@@ -152,6 +177,22 @@ fn validate(spec: &Spec, value: &Value) -> Option<Value> {
             (n.is_finite() && (*min..=*max).contains(&n)).then(|| n.into())
         }
         (Kind::OptionalNumber { .. }, Value::Null) => Some(Value::Null),
+        (Kind::ThemeId, Value::String(s))
+            if !s.is_empty()
+                && s.len() <= 255
+                && !s.starts_with('.')
+                && !s.contains(['/', '\\'])
+                && !s.chars().any(char::is_control) =>
+        {
+            Some(value.clone())
+        }
+        (Kind::FontName, Value::String(s))
+            if s.chars().count() <= 100
+                && !s.contains(['"', '\\', ';', '{', '}'])
+                && !s.chars().any(char::is_control) =>
+        {
+            Some(s.trim().into())
+        }
         _ => None,
     }
 }
@@ -450,6 +491,33 @@ mod tests {
             "system",
             "nothing applied"
         );
+    }
+
+    #[test]
+    fn checks_theme_names_and_font_names() {
+        let scratch = Scratch::new();
+        let mut store = Store::load(scratch.path().join("settings.toml"));
+        assert_eq!(store.snapshot().values["colour_theme"], "bismillah");
+        assert_eq!(store.snapshot().values["custom_font"], "");
+        store
+            .set(&patch(
+                json!({"colour_theme": "Sepia night", "custom_font": " Noto Serif "}),
+            ))
+            .unwrap();
+        assert_eq!(store.snapshot().values["custom_font"], "Noto Serif");
+        for (key, bad) in [
+            ("colour_theme", ""),
+            ("colour_theme", "../escape"),
+            ("colour_theme", ".hidden"),
+            ("custom_font", "x\"; color: red"),
+            ("custom_font", "a}b"),
+        ] {
+            assert_eq!(
+                store.set(&patch(json!({ key: bad }))),
+                Err(SetError::InvalidValue { key: key.into() }),
+                "{bad}"
+            );
+        }
     }
 
     #[test]

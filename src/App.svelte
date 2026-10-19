@@ -10,6 +10,7 @@
   import { installTestHooks } from "./core/testHooks.ts";
   import { workspace } from "./core/workspace.svelte.ts";
   import { remeasure } from "./editor/typography.ts";
+  import AboutDialog from "./ui/AboutDialog.svelte";
   import LibraryPanel from "./ui/LibraryPanel.svelte";
   import NamePrompt from "./ui/NamePrompt.svelte";
   import Notices from "./ui/Notices.svelte";
@@ -136,7 +137,17 @@
   bind:open={workspace.settingsOpen}
   values={settings.values}
   change={(patch) => void settings.set(patch)}
+  {library}
+  folders={workspace.info.folders}
+  customFont={workspace.customFont}
+  section={workspace.settingsSection}
+  shown={() => (workspace.settingsSection = null)}
+  openFolder={() => void workspace.openFolder()}
+  createKeybindings={() => workspace.createKeybindings()}
+  openAbout={() => (workspace.aboutOpen = true)}
 />
+
+<AboutDialog bind:open={workspace.aboutOpen} version={workspace.info.version} />
 
 <Picker
   kind={workspace.picker}
