@@ -41,7 +41,7 @@ Stop it when finished (kill the background task). Never leave stray app or dev-s
 
 ## 4. Drive it
 
-- **End-to-end:** `pnpm test:e2e` runs WebdriverIO against `tauri-driver` (which uses `/usr/bin/WebKitWebDriver`) on the built app. Use it for typing, shortcuts, file flows, conflicts and recovery after a killed process. Tests drive the app through `window.__bismillah` (see `src/core/testHooks.ts`: view, theme/profile/scale, geometry probes, command log, menu state, `open(path)` for real files, `fault(kind)` to make saves fail, `notices()`/`act(label)`, `saveState()`, `run(commandId)`, `welcome()`, `setLibrary(path)` in place of the folder dialog, `nextDialog(path)` to answer the next native file dialog, `library()`/`picker()`/`prompt()` probes, `measure()` after a resize, `clipboard(target)` to read the clipboard back through GTK, `note()` for the status line's passing message, `openSettings(section)`, `shortcuts()` (each command's shortcut now and why lines of `keybindings.toml` weren't used), `colourThemes()` and `token(name)` for a token's colour now). The run's private config folder is `$XDG_CONFIG_HOME/bismillah/`: tests write theme files and `keybindings.toml` there, and the watcher applies them within a moment.
+- **End-to-end:** `pnpm test:e2e` runs WebdriverIO against `tauri-driver` (which uses `/usr/bin/WebKitWebDriver`) on the built app. Use it for typing, shortcuts, file flows, conflicts and recovery after a killed process. Tests drive the app through `window.__bismillah` (see `src/core/testHooks.ts`: view, theme/profile/scale, geometry probes, command log, menu state, `open(path)` for real files, `fault(kind)` to make saves fail, `notices()`/`act(label)`, `saveState()`, `run(commandId)`, `welcome()`, `setLibrary(path)` in place of the folder dialog, `nextDialog(path)` to answer the next native file dialog, `library()`/`picker()`/`prompt()` probes, `measure()` after a resize, `clipboard(target)` to read the clipboard back through GTK, `note()` for the status line's passing message, `openSettings(section)`, `shortcuts()` (each command's shortcut now and why lines of `keybindings.toml` weren't used), `colourThemes()` and `token(name)` for a token's colour now, `handed()` for the links and folders Rust would have handed to the browser or file manager: under the harness it records them and opens nothing). The run's private config folder is `$XDG_CONFIG_HOME/bismillah/`: tests write theme files and `keybindings.toml` there, and the watcher applies them within a moment.
 - Bits UI radio groups choose on focus, and focus events don't fire under Xvfb: in tests, arrows move along the radios and `Space` chooses. A real keyboard sends `D`, not `d`, while Shift is held, and CodeMirror matches `Mod-Shift-d` only from that: send `["Control", "Shift", "D"]`.
 - For library tests, copy `tests/fixtures/library` into a scratch folder first (`tests/e2e/library.e2e.ts`); trash goes to the private trash under the run's `XDG_DATA_HOME`.
 - WebDriver treats a script result that has an `error` key as its own failure: name such fields differently (`refused`, `problem`).
@@ -60,7 +60,26 @@ Stop it when finished (kill the background task). Never leave stray app or dev-s
 pnpm test:offline [log]   # e2e suite inside unshare --net (loopback only) under strace; fails on any non-loopback connect
 ```
 
-## 6. Troubleshooting
+## 6. Read the accessibility tree
+
+```bash
+pnpm a11y                     # every screen and state, as Orca reads it; fails on a problem
+A11Y_DUMP=Settings pnpm a11y  # also print that state's tree (roles, names, states, attributes)
+```
+
+`BISMILLAH_A11Y=1 scripts/headless.sh …` turns the accessibility bridge on (it is off in other runs); `scripts/a11y.ts` starts a private accessibility bus (`dbus-daemon` with at-spi2's config, `AT_SPI_BUS_ADDRESS`) and its registry, since the bus launcher needs systemd, which the harness's session lacks. The reader is `scripts/a11y_tree.py`, run with the system Python (`python-gobject`). Newer AT-SPI names a button `button`, not `push button`, and only on-screen nodes are `showing`.
+
+## 7. Measure the budgets
+
+```bash
+pnpm tauri build --no-bundle  # the release build, as installed
+pnpm perf                     # launch, typing in 1 MB, idle CPU, memory (ARCHITECTURE.md §14)
+pnpm perf -- --binary target/debug/bismillah --parts typing   # quicker, while iterating
+```
+
+Under Xvfb there is no GPU (llvmpipe) and no window focus, so frames cost more than on the desktop and the caret doesn't blink. Close other heavy work first: a build, or a bismillah whose library holds `target/`, skews the numbers.
+
+## 8. Troubleshooting
 
 - A blank or garbled webview on some GPUs: retry with `WEBKIT_DISABLE_DMABUF_RENDERER=1`.
 - `tauri-driver` can't find the driver: check `command -v WebKitWebDriver` (package `webkitgtk-6.0`).

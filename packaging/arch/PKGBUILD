@@ -5,22 +5,31 @@
 #   cd packaging/arch && makepkg -si
 #
 # Node and pnpm come from the author's toolchain (mise), so they aren't makedepends.
+# packaging/check.sh checks the built package: its files, the desktop entry and the
+# libraries the binary links against.
 
 pkgname=bismillah
-pkgver=0.0.0.r10.g248f563
+pkgver=1.0.0.r0.g0000000
 pkgrel=1
 pkgdesc="A calm, offline Markdown editor"
 arch=('x86_64')
-license=('GPL-3.0-or-later' 'OFL-1.1')
-depends=('webkit2gtk-4.1' 'gtk3' 'xdotool' 'hicolor-icon-theme')
+# bismillah; the bundled fonts; the Arabic dictionary compiled into the binary.
+license=('GPL-3.0-or-later' 'OFL-1.1' 'GPL-2.0-or-later OR LGPL-2.1-or-later OR MPL-1.1')
+# What the binary links against (readelf -d), and fontconfig for `fc-list` (Another font).
+depends=('webkit2gtk-4.1' 'gtk3' 'glib2' 'cairo' 'gdk-pixbuf2' 'libsoup3' 'dbus'
+  'libgcc' 'glibc' 'fontconfig' 'hicolor-icon-theme')
 makedepends=('git' 'rust')
 options=('!lto' '!debug')
 source=("bismillah::git+file://$(realpath "$startdir/../..")")
 sha256sums=('SKIP')
 
+# The workspace's version (Cargo.toml), then the commit count and hash, so every commit
+# installs as a newer package.
 pkgver() {
   cd bismillah
-  printf "0.0.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  local version
+  version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
+  printf "%s.r%s.g%s" "$version" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
 }
 
 prepare() {
@@ -49,6 +58,10 @@ package() {
   install -Dm644 src-tauri/icons/128x128@2x.png "$pkgdir/usr/share/icons/hicolor/256x256/apps/bismillah.png"
   install -Dm644 src-tauri/icons/icon.png "$pkgdir/usr/share/icons/hicolor/512x512/apps/bismillah.png"
   install -Dm644 src-tauri/icons/source.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/bismillah.svg"
+  # The guide is also in the app (Help › Guide); README and PRIVACY state its promises.
+  install -Dm644 docs/guide.md "$pkgdir/usr/share/doc/$pkgname/guide.md"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 PRIVACY.md "$pkgdir/usr/share/doc/$pkgname/PRIVACY.md"
   # The binary embeds the bundled fonts; their licences travel with it (SIL OFL 1.1).
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 fonts/build/LICENSE.md "$pkgdir/usr/share/licenses/$pkgname/fonts/BismillahDuo-Mono.md"

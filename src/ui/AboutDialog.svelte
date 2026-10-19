@@ -34,12 +34,12 @@
       <p class="tagline" id="about-tagline">{t.tagline}</p>
       {#if version}<p class="quiet">{t.version(version)}</p>{/if}
 
-      <h2>{t.inspiration}</h2>
+      <h2 aria-label={t.inspiration}>{t.inspiration}</h2>
       {#each t.inspirationText as paragraph, i (i)}
         <p>{paragraph}</p>
       {/each}
 
-      <h2>{t.licences}</h2>
+      <h2 aria-label={t.licences}>{t.licences}</h2>
       <p>{t.licenceText}</p>
       {#each groups as group (group.title)}
         <h3>{group.title}</h3>
@@ -96,6 +96,7 @@
   .tagline {
     margin-block-start: var(--space-1);
   }
+  /* In capitals; aria-label keeps the name as written for screen readers. */
   h2 {
     margin: var(--space-6) 0 0;
     font-size: 0.85rem;

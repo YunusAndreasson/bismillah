@@ -21,6 +21,7 @@ use crate::config;
 use crate::documents::{self, Document, LineEnding, NO_FAULTS, OpenError, SaveError};
 use crate::keybindings::{self, Keybindings};
 use crate::library::Trash;
+use crate::links::{self, LinkError};
 use crate::lint::{AddWordError, Checking, LintError};
 use crate::platform;
 use crate::recovery::{self, Recovery};
@@ -32,6 +33,9 @@ use library_commands::{Shelf, Trashed};
 /// The bundled specimen, opened as a sample (never saved) in test mode.
 const SPECIMEN: &str = include_str!("../../docs/specimen.md");
 
+/// The guide (Help › Guide), opened as a sample: edits stay in memory.
+const GUIDE: &str = include_str!("../../docs/guide.md");
+
 /// Locks a mutex even if a panic poisoned it: the data is still the best we have, and
 /// refusing to save the writer's text over a poisoned lock would be worse.
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -40,8 +44,9 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 
 enum Source {
     File(Document),
-    /// The bundled specimen; edits stay in memory.
-    Sample,
+    /// A document bundled with the app (the guide, or the specimen in test mode), by
+    /// its file name; edits stay in memory and are never saved.
+    Sample(&'static str),
 }
 
 struct Open {
@@ -66,6 +71,8 @@ pub struct AppState {
     fault: Arc<Mutex<Option<TestFault>>>,
     /// Test mode only: what the next native file dialog answers, without showing it.
     dialog_answer: Mutex<Option<Option<PathBuf>>>,
+    /// Test mode: links and folders handed to other apps, recorded instead of opened.
+    handed: Mutex<Vec<String>>,
     /// The library folder, its listing and its watcher (library_commands.rs).
     shelf: Mutex<Shelf>,
     /// Bumped whenever the library changes, so a watcher of an older one is ignored.
@@ -137,6 +144,7 @@ impl AppState {
             memory_path,
             fault: Arc::new(Mutex::new(None)),
             dialog_answer: Mutex::new(None),
+            handed: Mutex::new(Vec::new()),
             shelf: Mutex::new(Shelf::None),
             generation: AtomicU64::new(0),
             trash: Arc::new(platform::SystemTrash),
@@ -145,6 +153,26 @@ impl AppState {
             config_dir: config_dir.to_path_buf(),
             folders,
         }
+    }
+
+    /// Hands a checked URI to the app the desktop opens it with: the default browser,
+    /// mail app or file manager (links.rs). Under the test harness nothing is opened:
+    /// the URI is recorded for the tests instead.
+    fn hand_on(&self, window: &tauri::WebviewWindow, uri: String) -> Result<(), LinkError> {
+        if self.test_mode {
+            lock(&self.handed).push(uri);
+            return Ok(());
+        }
+        let (tx, rx) = std::sync::mpsc::channel();
+        window
+            .run_on_main_thread(move || {
+                let _ = tx.send(platform::open_uri(&uri));
+            })
+            .map_err(|_| LinkError::NoApp)?;
+        // The address is the document's: never logged (AGENTS.md, rule 2).
+        rx.recv()
+            .map_err(|_| LinkError::NoApp)?
+            .map_err(|()| LinkError::NoApp)
     }
 
     /// Test mode only: the answer queued for the next native file dialog, if any.
@@ -185,7 +213,7 @@ impl AppState {
         let open = lock(&current);
         match &open.source {
             Source::File(doc) => Some(doc.path.clone()),
-            Source::Sample => None,
+            Source::Sample(_) => None,
         }
     }
 
@@ -216,7 +244,7 @@ impl AppState {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (name, path, sample) = match &source {
             Source::File(doc) => (doc.name(), Some(doc.path.clone()), false),
-            Source::Sample => ("specimen.md".to_string(), None, true),
+            Source::Sample(name) => (name.to_string(), None, true),
         };
         let recovery = path.as_deref().and_then(|p| self.recovery.offer(p));
         if let Some(path) = &path {
@@ -353,7 +381,7 @@ pub async fn startup(state: State<'_, AppState>) -> Result<Startup, ()> {
     if state.test_mode {
         let decoded = documents::decode(SPECIMEN.as_bytes());
         return Ok(Startup::Document {
-            document: state.install(Source::Sample, decoded),
+            document: state.install(Source::Sample("specimen.md"), decoded),
         });
     }
     if let Some(last) = state.memory().last_document
@@ -379,6 +407,16 @@ fn dialog_dir(state: &AppState) -> Option<PathBuf> {
         .current_path()
         .or_else(|| state.memory().last_document)
         .and_then(|p| p.parent().map(Path::to_path_buf))
+}
+
+/// Help › Guide: the guide bundled with the app, as a sample that is never saved, so the
+/// writer can try what it describes.
+#[tauri::command]
+pub fn doc_open_guide(state: State<'_, AppState>) -> Opened {
+    state.install(
+        Source::Sample("guide.md"),
+        documents::decode(GUIDE.as_bytes()),
+    )
 }
 
 /// File › Open…: the native dialog, then the chosen file. `None` if cancelled.
@@ -490,7 +528,7 @@ pub async fn doc_save(
     let result = tauri::async_runtime::spawn_blocking(move || {
         let mut open = lock(&open);
         match &mut open.source {
-            Source::Sample => Err(SaveError::NotAFile),
+            Source::Sample(_) => Err(SaveError::NotAFile),
             Source::File(doc) => {
                 let fault = *lock(&fault);
                 let faults = move |step| fault.map_or(Ok(()), |f| f.at(step));
@@ -550,7 +588,7 @@ pub async fn doc_save_as(
     let open = state.current(id).ok_or(SaveError::Closed)?;
     let (name, line_ending, bom, old_path) = match &lock(&open).source {
         Source::File(doc) => (doc.name(), doc.line_ending, doc.bom, Some(doc.path.clone())),
-        Source::Sample => ("specimen.md".into(), LineEnding::Lf, false, None),
+        Source::Sample(name) => (name.to_string(), LineEnding::Lf, false, None),
     };
     let chosen = match state.dialog_answer() {
         Some(answer) => answer,
@@ -597,7 +635,7 @@ pub async fn doc_check(state: State<'_, AppState>, id: u64) -> Result<DiskStatus
     let open = state.current(id).ok_or(SaveError::Closed)?;
     let mut open = lock(&open);
     Ok(match &mut open.source {
-        Source::Sample => DiskStatus::Unchanged,
+        Source::Sample(_) => DiskStatus::Unchanged,
         Source::File(doc) => match documents::check_disk(doc) {
             documents::DiskCheck::Unchanged => DiskStatus::Unchanged,
             documents::DiskCheck::Changed => DiskStatus::Changed,
@@ -617,7 +655,7 @@ pub async fn doc_reload(
     let open = state.current(id).ok_or(OpenError::NotFound)?;
     let path = match &lock(&open).source {
         Source::File(doc) => doc.path.clone(),
-        Source::Sample => return Err(OpenError::NotAFile),
+        Source::Sample(_) => return Err(OpenError::NotAFile),
     };
     if let Some(text) = local_text {
         state
@@ -787,6 +825,63 @@ pub fn lint_refresh(state: State<'_, AppState>) -> bool {
     state.checking.refresh()
 }
 
+/// Opens a link from the document in the writer's default browser or mail app, on an
+/// explicit Ctrl+click or *Open link* (ADR-0003). Only web and email addresses leave
+/// (links.rs); bismillah itself requests nothing.
+#[tauri::command]
+pub async fn link_open(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+    address: String,
+) -> Result<(), LinkError> {
+    let uri = links::web_address(&address)?;
+    state.hand_on(&window, uri)
+}
+
+/// The folders Settings › Files & privacy names.
+#[derive(Clone, Copy, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Folder {
+    /// Settings, shortcuts, themes and the dictionary.
+    Settings,
+    /// The recovery journal.
+    Recovery,
+    /// The library's root.
+    Library,
+}
+
+/// Shows one of bismillah's folders, or the library, in the writer's file manager. The
+/// frontend names which; Rust knows where it is. bismillah's own folders are created
+/// if they aren't there yet.
+#[tauri::command]
+pub async fn folder_show(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+    folder: Folder,
+) -> Result<(), LinkError> {
+    let path = match folder {
+        Folder::Settings => {
+            std::fs::create_dir_all(&state.config_dir).map_err(|_| LinkError::Unavailable)?;
+            state.config_dir.clone()
+        }
+        Folder::Recovery => {
+            let dir = state.recovery.dir().to_path_buf();
+            platform::create_private_dir(&dir).map_err(|_| LinkError::Unavailable)?;
+            dir
+        }
+        Folder::Library => state
+            .library()
+            .map_err(|_| LinkError::Unavailable)?
+            .root()
+            .to_path_buf(),
+    };
+    if !path.is_dir() {
+        return Err(LinkError::Unavailable);
+    }
+    let uri = links::folder_uri(&path).ok_or(LinkError::Unavailable)?;
+    state.hand_on(&window, uri)
+}
+
 /// Test-only commands exist in debug builds under the test harness only, never in the
 /// release build the writer installs.
 fn test_hooks_allowed(state: &AppState) -> bool {
@@ -824,6 +919,16 @@ pub fn test_fault(state: State<'_, AppState>, fault: Option<TestFault>) -> Resul
     Ok(())
 }
 
+/// Test mode only: the links and folders handed to other apps since the last call, in
+/// order (recorded, never opened, under the harness).
+#[tauri::command]
+pub fn test_handed(state: State<'_, AppState>) -> Result<Vec<String>, OpenError> {
+    if !test_hooks_allowed(&state) {
+        return Err(OpenError::PermissionDenied);
+    }
+    Ok(std::mem::take(&mut *lock(&state.handed)))
+}
+
 /// Test mode only: what the clipboard holds under `target` (`text/html`,
 /// `UTF8_STRING`), read back through GTK, for the Copy as rich text tests.
 #[tauri::command]
@@ -842,6 +947,32 @@ pub async fn test_clipboard(
         })
         .map_err(|_| OpenError::PermissionDenied)?;
     Ok(rx.recv().ok().flatten())
+}
+
+/// What `bismillah --help` and `--version` print, or `None` to start the app. Either
+/// answers in the terminal and exits before any window or instance socket exists.
+pub fn cli_answer(args: &[String]) -> Option<String> {
+    let version = env!("CARGO_PKG_VERSION");
+    args.iter().skip(1).find_map(|arg| match arg.as_str() {
+        "-V" | "--version" => Some(format!("bismillah {version}")),
+        "-h" | "--help" => Some(format!(
+            "bismillah {version}: a calm, offline Markdown editor\n\
+             \n\
+             Usage: bismillah [FILE | FOLDER]\n\
+             \n\
+             \x20 FILE     opens a Markdown file; a file outside the library makes its folder\n\
+             \x20          the library\n\
+             \x20 FOLDER   opens a folder as the library\n\
+             \n\
+             If bismillah is already running, the file or folder opens there.\n\
+             \n\
+             \x20 -h, --help      shows this and exits\n\
+             \x20 -V, --version   shows the version and exits\n\
+             \n\
+             The guide is in the app (Help > Guide, F1) and in /usr/share/doc/bismillah/."
+        )),
+        _ => None,
+    })
 }
 
 /// Resolves a path given on the command line of this or a second launch.

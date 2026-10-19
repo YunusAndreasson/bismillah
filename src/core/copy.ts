@@ -336,6 +336,17 @@ export const copy = {
     imageWeb: "Images from the web are never loaded.",
     imageMissing: "Image not shown: there's no image file at this address inside the library.",
   },
+  links: {
+    hint: "Ctrl+click to open",
+    notWeb: "Only web and email links open from bismillah.",
+    noApp: "Couldn't open the link: no app on this computer opens it.",
+    none: "There's no link at the caret.",
+  },
+  folders: {
+    show: "Show in file manager",
+    unavailable: "That folder isn't available.",
+    noApp: "Couldn't show the folder: no file manager opens it.",
+  },
   copyRich: {
     done: "Copied as rich text.",
     doneSelection: "Copied the selection as rich text.",

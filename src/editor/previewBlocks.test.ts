@@ -3,6 +3,7 @@ import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
 import type { SyntaxNode } from "@lezer/common";
 import { describe, expect, it } from "vitest";
 import { markdownDialect } from "./dialect.ts";
+import { linkAddress } from "./links.ts";
 import { revealed } from "./livePreview.ts";
 import {
   foldFrontmatter,
@@ -10,7 +11,6 @@ import {
   imageAddress,
   imageKind,
   imageWidgets,
-  linkAddress,
   previewBlocks,
 } from "./previewBlocks.ts";
 

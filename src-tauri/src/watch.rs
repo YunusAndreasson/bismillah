@@ -5,6 +5,7 @@
 //! no polling (ARCHITECTURE.md §14). Bursts of events, like the several a single save
 //! makes, are gathered until the folder has been quiet for a moment and reported once.
 
+use crate::library;
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
@@ -21,9 +22,9 @@ pub struct Watch {
     _watcher: RecommendedWatcher,
 }
 
-/// Whether a changed path is one the library shows: inside the root and not hidden
-/// (hidden names, like `.git` or our save temporaries, aren't listed).
-fn relevant(root: &Path, path: &Path) -> bool {
+/// Whether a changed path is visible: inside the root and not hidden (`.git`, our save
+/// temporaries). The configuration folder's watch reports these.
+pub fn visible(root: &Path, path: &Path) -> bool {
     let Ok(rest) = path.strip_prefix(root) else {
         return false;
     };
@@ -33,11 +34,34 @@ fn relevant(root: &Path, path: &Path) -> bool {
     })
 }
 
+/// Whether a changed path can change what the library lists: visible, and a Markdown
+/// file or a folder. Other files are never listed, so a build or an install writing
+/// thousands of them in a library folder costs no listing (ARCHITECTURE.md §14). A path
+/// that is gone counts when its name has no ending, as a folder's usually hasn't.
+pub fn listed(root: &Path, path: &Path) -> bool {
+    if !visible(root, path) {
+        return false;
+    }
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy())
+        .unwrap_or_default();
+    if library::is_markdown(&name) {
+        return true;
+    }
+    match std::fs::symlink_metadata(path) {
+        Ok(meta) => meta.is_dir() || meta.file_type().is_symlink(),
+        Err(_) => path.extension().is_none(),
+    }
+}
+
 impl Watch {
     /// Watches `root` and everything below it. `changed` gets the paths touched by each
-    /// settled burst of changes, on a thread of its own.
+    /// settled burst of changes that `wanted` keeps (`visible` or `listed`), on a thread
+    /// of its own.
     pub fn start(
         root: &Path,
+        wanted: fn(&Path, &Path) -> bool,
         changed: impl Fn(Vec<PathBuf>) + Send + 'static,
     ) -> notify::Result<Watch> {
         let (tx, rx) = mpsc::channel::<Vec<PathBuf>>();
@@ -59,7 +83,7 @@ impl Watch {
                 while let Ok(more) = rx.recv_timeout(QUIET) {
                     paths.extend(more);
                 }
-                paths.retain(|p| relevant(&root, p));
+                paths.retain(|p| wanted(&root, p));
                 paths.sort();
                 paths.dedup();
                 if !paths.is_empty() {
@@ -80,11 +104,30 @@ mod tests {
     #[test]
     fn ignores_hidden_names_and_save_temporaries() {
         let root = Path::new("/lib");
-        assert!(relevant(root, Path::new("/lib/a.md")));
-        assert!(relevant(root, Path::new("/lib/essays/ʿilm.md")));
-        assert!(!relevant(root, Path::new("/lib/.git/index")));
-        assert!(!relevant(root, Path::new("/lib/.a.md.bismillah-save-1-0")));
-        assert!(!relevant(root, Path::new("/elsewhere/a.md")));
+        for wanted in [visible, listed] {
+            assert!(wanted(root, Path::new("/lib/a.md")));
+            assert!(wanted(root, Path::new("/lib/essays/ʿilm.md")));
+            assert!(!wanted(root, Path::new("/lib/.git/index")));
+            assert!(!wanted(root, Path::new("/lib/.a.md.bismillah-save-1-0")));
+            assert!(!wanted(root, Path::new("/elsewhere/a.md")));
+        }
+        // The configuration folder's files are visible.
+        assert!(visible(root, Path::new("/lib/settings.toml")));
+    }
+
+    #[test]
+    fn ignores_files_the_library_never_lists() {
+        let scratch = Scratch::new();
+        let root = scratch.path();
+        fs::create_dir(root.join("essays")).unwrap();
+        let other = scratch.file("build.o", b"x");
+        assert!(listed(root, &root.join("essays")));
+        assert!(listed(root, &root.join("Notes.MARKDOWN")));
+        assert!(!listed(root, &other));
+        assert!(!listed(root, &root.join("node_modules/pkg/index.js")));
+        // Gone: a folder's name, or a file's.
+        assert!(listed(root, &root.join("old-folder")));
+        assert!(!listed(root, &root.join("old.rlib")));
     }
 
     #[test]
@@ -92,7 +135,7 @@ mod tests {
         let scratch = Scratch::new();
         let root = fs::canonicalize(scratch.path()).unwrap();
         let (tx, rx) = mpsc::channel();
-        let watch = Watch::start(&root, move |paths| {
+        let watch = Watch::start(&root, listed, move |paths| {
             let _ = tx.send(paths);
         })
         .unwrap();

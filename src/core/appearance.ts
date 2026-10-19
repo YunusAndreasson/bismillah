@@ -34,8 +34,26 @@ export function setFocusDimming(dimming: "quiet" | "faint"): void {
   document.documentElement.dataset.focusDimming = dimming;
 }
 
-/** Loads every bundled face so the first measurement uses the real fonts. */
-export async function loadFonts(): Promise<void> {
-  await Promise.all([...document.fonts].map((face) => face.load().catch(() => face)));
-  await document.fonts.ready;
+/** The families the first screen sets text in, by writing profile: the profile's own,
+ * Mono for code, and Amiri for Arabic and the Basmallah (DESIGN.md §8.2). */
+const FIRST_FAMILIES: Record<Profile, readonly string[]> = {
+  duo: ["Bismillah Duo", "Bismillah Mono", "Amiri"],
+  custom: ["Bismillah Duo", "Bismillah Mono", "Amiri"],
+  serif: ["Source Serif 4", "Bismillah Mono", "Amiri"],
+  amiri: ["Amiri", "Bismillah Duo", "Bismillah Mono"],
+  "plex-arabic": ["IBM Plex Sans Arabic", "Bismillah Duo", "Bismillah Mono"],
+};
+
+/**
+ * Loads the upright faces the first screen uses, so its first measurement uses the real
+ * fonts. The other faces (italics, the other profiles' fonts, Amiri Quran) load when
+ * text first needs them, and the editor measures again then (`loadingdone`): loading
+ * all sixteen, 5.6 MB, would hold up every launch (ARCHITECTURE.md §14).
+ */
+export async function loadFonts(profile: Profile): Promise<void> {
+  const families = FIRST_FAMILIES[profile];
+  const first = [...document.fonts].filter(
+    (face) => face.style === "normal" && families.includes(face.family.replace(/^["']|["']$/g, "")),
+  );
+  await Promise.all(first.map((face) => face.load().catch(() => face)));
 }

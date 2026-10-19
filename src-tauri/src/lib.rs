@@ -11,6 +11,7 @@ mod documents;
 mod images;
 mod keybindings;
 mod library;
+mod links;
 mod lint;
 mod platform;
 mod recovery;
@@ -174,7 +175,7 @@ fn watch_config(app: &tauri::AppHandle, dir: &std::path::Path) {
     }
     let handle = app.clone();
     let root = dir.to_path_buf();
-    match watch::Watch::start(dir, move |paths| {
+    match watch::Watch::start(dir, watch::visible, move |paths| {
         let changed = config::classify(&root, &paths);
         if changed.any() {
             let _ = handle.emit("config-changed", changed);
@@ -200,6 +201,10 @@ pub fn run() {
         cwd: std::env::current_dir().unwrap_or_default(),
         args: std::env::args().collect(),
     };
+    if let Some(answer) = app::cli_answer(&launch.args) {
+        println!("{answer}");
+        return;
+    }
     // First, so a second launch hands its file to the running app and exits before any
     // window exists (ARCHITECTURE.md §12.2).
     let message = serde_json::to_vec(&launch).unwrap_or_default();
@@ -230,6 +235,7 @@ pub fn run() {
             app::app_info,
             app::startup,
             app::doc_open_dialog,
+            app::doc_open_guide,
             app::doc_new_dialog,
             app::doc_open_requested,
             app::doc_open_recovered,
@@ -257,11 +263,14 @@ pub fn run() {
             app::lint_suggest,
             app::lint_add_word,
             app::lint_refresh,
+            app::link_open,
+            app::folder_show,
             app::test_open,
             app::test_fault,
             app::test_dialog,
             app::test_library,
             app::test_clipboard,
+            app::test_handed,
             menu_reveal,
             menu_hide,
             menu_state,
@@ -325,7 +334,7 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::is_app_origin;
-    use crate::app::cli_path;
+    use crate::app::{cli_answer, cli_path};
     use std::path::{Path, PathBuf};
 
     fn url(s: &str) -> tauri::Url {
@@ -366,5 +375,27 @@ mod tests {
         );
         assert_eq!(cli_path(&args(&["bismillah", "--flag"]), cwd), None);
         assert_eq!(cli_path(&args(&["bismillah"]), cwd), None);
+    }
+
+    #[test]
+    fn answers_help_and_version_in_the_terminal_and_nothing_else() {
+        let args = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let version = format!("bismillah {}", env!("CARGO_PKG_VERSION"));
+        assert_eq!(
+            cli_answer(&args(&["bismillah", "--version"])),
+            Some(version.clone())
+        );
+        assert_eq!(cli_answer(&args(&["bismillah", "-V"])), Some(version));
+        let help = cli_answer(&args(&["bismillah", "a.md", "--help"])).unwrap();
+        assert!(help.contains("Usage: bismillah [FILE | FOLDER]"), "{help}");
+        assert!(
+            help.contains("  FOLDER   opens a folder as the library"),
+            "{help}"
+        );
+        assert_eq!(cli_answer(&args(&["bismillah", "-h"])), Some(help));
+        // A file and unknown flags start the app.
+        assert_eq!(cli_answer(&args(&["bismillah", "letter.md"])), None);
+        assert_eq!(cli_answer(&args(&["bismillah", "--flag"])), None);
+        assert_eq!(cli_answer(&args(&["bismillah"])), None);
     }
 }

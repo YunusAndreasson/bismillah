@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { keymap } from "@codemirror/view";
 import { Compartment, Prec } from "@codemirror/state";
+import { linkAt } from "../editor/links.ts";
 import { createEditor, type Editor } from "../editor/setup.ts";
 import { remeasure } from "../editor/typography.ts";
 import { toggleTransliteration, transliterationOn } from "../editor/typingAids.ts";
@@ -22,6 +23,7 @@ import { shortcuts } from "./keybindings.svelte.ts";
 import { keyOf, normalise } from "./keys.ts";
 import { applyColours, colourThemes, DEFAULT_THEME, onSystemScheme } from "./themes.svelte.ts";
 import { Checking } from "./checking.svelte.ts";
+import { GUIDE_NAME, GUIDE_WORDS } from "./guide.ts";
 import { LibraryStore } from "./library.svelte.ts";
 import type { NativeMenu } from "./menu.ts";
 import { quietReload } from "./reload.ts";
@@ -34,7 +36,7 @@ import {
   TEXT_SCALE,
   type Settings,
 } from "./settings.svelte.ts";
-import { setCustomFont, type Theme } from "./appearance.ts";
+import { loadFonts, setCustomFont, type Theme } from "./appearance.ts";
 
 /**
  * The window's state and every action on it: which document is open, its save state,
@@ -106,7 +108,11 @@ export class Workspace {
   /** Spelling and grammar suggestions (checking.svelte.ts). */
   readonly checking = new Checking({
     editor: () => this.editor,
-    documentKey: () => this.library.active ?? this.session?.name ?? null,
+    // A bundled document's key can't be taken for a file of the same name.
+    documentKey: () =>
+      this.session?.sample
+        ? `bundled:${this.session.name}`
+        : (this.library.active ?? this.session?.name ?? null),
     checking: () => settings.values.check_spelling || settings.values.check_grammar,
     failed: (message) => this.#notice("add-word-failed", "error", message, []),
   });
@@ -292,6 +298,8 @@ export class Workspace {
     this.info = { version: info.version, folders: info.folders };
     applyAppearance(settings.values);
     applyColours(settings.values);
+    // The fonts load while Rust opens the document.
+    const fonts = loadFonts(settings.values.writing_profile);
     await this.#checkFont(settings.values.custom_font);
     onSystemScheme(() => applyColours(settings.values));
     // Before startup, which may change the library (a folder on the command line).
@@ -300,6 +308,7 @@ export class Workspace {
     const panel = await ipc.libraryGet(false);
     this.library.apply(panel.view);
     this.library.docked = panel.open;
+    await fonts;
     if (first.kind === "document") {
       this.#show(first.document);
       // Other files' recovered text is mentioned at launch only, never on every open.
@@ -309,10 +318,20 @@ export class Workspace {
       if (first.kind === "welcome") this.pending = first.pending_recovery;
       else this.#info("open-failed", copy.openFailed(first.name, first.error));
     }
-    this.#menu = await menu(this.context);
     this.#listen();
     this.measureLayout();
+    // The native menu takes some sixty calls to Rust; nothing needs it before the text
+    // is editable, so it is built after (ARCHITECTURE.md §14).
+    this.menuReady = menu(this.context).then(
+      (built) => {
+        this.#menu = built;
+      },
+      (error: unknown) => console.error("bismillah: couldn't build the menu", error),
+    );
   }
+
+  /** Resolves once the native menu is built (the test hooks wait for it). */
+  menuReady: Promise<void> = Promise.resolve();
 
   #listen(): void {
     const appWindow = getCurrentWindow();
@@ -473,6 +492,7 @@ export class Workspace {
     const editor = existing ?? this.#createEditor(opened.text, opened.read_only);
     if (existing && options.quiet) editor.reloadQuietly(opened.text);
     else if (existing) editor.load(opened.text, opened.read_only);
+    editor.setLabel(opened.name);
     const session = new DocumentSession(opened, () => editor.text(), {
       save: (id, text, revision, force) => ipc.saveDocument(id, text, revision, force),
     });
@@ -493,6 +513,7 @@ export class Workspace {
         copy.mixedLineEndings(opened.name, copy.lineEndings[opened.line_ending]),
       );
     this.transliteration = false;
+    if (opened.sample && opened.name === GUIDE_NAME) this.checking.ignoreWords(GUIDE_WORDS);
     this.checking.documentShown();
     this.#countWords(0);
     void this.#setTitle(opened.name);
@@ -547,6 +568,7 @@ export class Workspace {
         const id = this.#documentId;
         return id === null ? null : convertFileSrc(`${id}/${src}`, "bismillah-image");
       },
+      onOpenLink: (address) => void this.openLink(address),
     });
     this.#dialect = settings.values.english_dialect;
     return this.editor;
@@ -745,6 +767,7 @@ export class Workspace {
           if (moved && this.session) {
             this.session.name = moved.name;
             void this.#setTitle(moved.name);
+            this.editor?.setLabel(moved.name);
             this.library.setActive(moved.library_path);
           }
           if (inTree) this.library.focused = outcome.path;
@@ -950,6 +973,31 @@ export class Workspace {
     }
   }
 
+  /**
+   * A link from the document, to the writer's browser or mail app (ADR-0003). Rust
+   * checks the address and hands it on; the status line says why when it doesn't.
+   */
+  async openLink(address: string): Promise<void> {
+    try {
+      await ipc.openLink(address);
+    } catch (error) {
+      const notWeb = isError<ipc.LinkError>(error) && error.kind === "not_web";
+      this.checking.say(notWeb ? copy.links.notWeb : copy.links.noApp);
+    }
+  }
+
+  /** Shows one of bismillah's folders, or the library, in the file manager: null, or
+   * why it couldn't (Settings shows it beside the button). */
+  async showFolder(folder: ipc.Folder): Promise<string | null> {
+    try {
+      await ipc.showFolder(folder);
+      return null;
+    } catch (error) {
+      const gone = isError<ipc.LinkError>(error) && error.kind === "unavailable";
+      return gone ? copy.folders.unavailable : copy.folders.noApp;
+    }
+  }
+
   async discardRecovered(): Promise<void> {
     const session = this.session;
     this.recovery = null;
@@ -974,6 +1022,7 @@ export class Workspace {
       },
       openSettings: () => this.openSettings(),
       openAbout: () => (this.aboutOpen = true),
+      openGuide: () => void this.#openWith(ipc.openGuide),
       quit: () => void getCurrentWindow().close(),
       hasLibrary: () => this.library.ready,
       hasTarget: () => this.#target() !== null,
@@ -1016,6 +1065,13 @@ export class Workspace {
       toggleMarkdown: () =>
         void settings.set({ always_show_markdown: !settings.values.always_show_markdown }),
       copyRich: () => void this.copyRich(),
+      openLink: () => {
+        const view = this.editor?.view;
+        if (!view) return;
+        const link = linkAt(view.state, view.state.selection.main.head);
+        if (link) void this.openLink(link.address);
+        else this.checking.say(copy.links.none);
+      },
       toggleTransliteration: () => {
         const view = this.editor?.view;
         if (!view) return;

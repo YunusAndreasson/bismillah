@@ -112,6 +112,12 @@ export const SOFTWARE: readonly Credit[] = [
     packages: ["icu_normalizer"],
   },
   {
+    name: "rust-url",
+    role: "checking a link before it opens",
+    licence: "MIT or Apache 2.0",
+    packages: ["url"],
+  },
+  {
     name: "Serde, toml_edit, thiserror, libc",
     role: "files and settings",
     licence: "MIT or Apache 2.0",

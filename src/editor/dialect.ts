@@ -1,7 +1,9 @@
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import type { BlockContext, Line, MarkdownConfig } from "@lezer/markdown";
+import { markdownKeymap, markdownLanguage, pasteURLAsLink } from "@codemirror/lang-markdown";
+import { Language, LanguageSupport } from "@codemirror/language";
+import { MarkdownParser, type BlockContext, type Line, type MarkdownConfig } from "@lezer/markdown";
 import { styleTags, tags as t } from "@lezer/highlight";
-import type { Extension } from "@codemirror/state";
+import { Prec, type Extension } from "@codemirror/state";
+import { keymap } from "@codemirror/view";
 
 const FENCE = /^(?:---|\.\.\.)[ \t]*$/;
 
@@ -58,7 +60,18 @@ export function frontmatterEnd(text: string): number | null {
   return text.length;
 }
 
-/** The shared dialect: CommonMark + GFM + frontmatter (ARCHITECTURE.md §11). */
+/**
+ * The shared dialect: CommonMark + GFM + frontmatter (ARCHITECTURE.md §11), with
+ * lang-markdown's Enter and Backspace for lists and quotes and its link on pasting an
+ * address over a selection. Built from lang-markdown's own parser and language data (so
+ * those commands know it as Markdown) rather than with `markdown()`, which also parses
+ * HTML with the HTML, CSS and JavaScript grammars, for highlighting bismillah never
+ * shows, and would load all three at every launch (ARCHITECTURE.md §14).
+ */
+const base = markdownLanguage.parser;
+if (!(base instanceof MarkdownParser)) throw new Error("lang-markdown's parser has changed");
+const dialect = new Language(markdownLanguage.data, base.configure([frontmatter]), [], "markdown");
+
 export function markdownDialect(): Extension {
-  return markdown({ base: markdownLanguage, extensions: [frontmatter] });
+  return new LanguageSupport(dialect, [Prec.high(keymap.of(markdownKeymap)), pasteURLAsLink]);
 }

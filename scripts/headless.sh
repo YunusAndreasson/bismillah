@@ -25,6 +25,12 @@ trap cleanup EXIT
 screen="${BISMILLAH_XVFB_SCREEN:-5200x2400x24}"
 scale="${BISMILLAH_SCALE:-2}"
 
+# The accessibility bridge stays off, unless BISMILLAH_A11Y=1 asks for it: then
+# NO_AT_BRIDGE is left unset and the app's tree goes to the accessibility bus that
+# scripts/a11y.ts starts (GTK_A11Y only makes the choice explicit for GTK 4).
+bridge=(NO_AT_BRIDGE=1)
+[[ "${BISMILLAH_A11Y:-}" == 1 ]] && bridge=(GTK_A11Y=atspi)
+
 xvfb-run --auto-servernum --server-args="-screen 0 ${screen} -nolisten tcp" \
   env -u WAYLAND_DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE -u XDG_CURRENT_DESKTOP \
   -u XDG_SESSION_TYPE -u XDG_SESSION_DESKTOP -u DESKTOP_SESSION -u GNOME_KEYRING_CONTROL \
@@ -40,7 +46,7 @@ xvfb-run --auto-servernum --server-args="-screen 0 ${screen} -nolisten tcp" \
   GDK_SCALE="$scale" \
   GDK_DPI_SCALE=1 \
   GTK_IM_MODULE="${BISMILLAH_IM_MODULE:-gtk-im-context-simple}" \
-  NO_AT_BRIDGE=1 \
+  "${bridge[@]}" \
   WEBKIT_DISABLE_DMABUF_RENDERER=1 \
   BISMILLAH_TEST=1 \
   "$@"

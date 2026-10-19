@@ -335,6 +335,14 @@
   font: var(--ui-size) / var(--ui-line) var(--ui-font);
   overflow-wrap: anywhere;
 }
+.cm-editor .cm-address-hint {
+  color: var(--text-secondary);
+}
+/* Ctrl held over a link: it opens on a click (links.ts). */
+.cm-editor .cm-content.cm-on-link,
+.cm-editor .cm-content.cm-on-link * {
+  cursor: pointer;
+}
 
 /* Heading hierarchy, editor scale (DESIGN.md §8.4). Space above counts the blank line
    that normally precedes a heading. */

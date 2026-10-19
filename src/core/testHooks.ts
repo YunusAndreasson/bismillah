@@ -12,6 +12,7 @@ import {
   appInfo,
   menuState,
   testClipboard,
+  testHanded,
   testDialog,
   testFault,
   testLibrary,
@@ -91,6 +92,8 @@ export interface TestHooks {
   menuOpen(): boolean;
   /** The system clipboard under an X target ("text/html", "UTF8_STRING"). */
   clipboard(target: string): Promise<string | null>;
+  /** Links and folders handed to other apps since last asked (recorded, not opened). */
+  handed(): Promise<string[]>;
   /** The status line's passing message. */
   note(): string;
   suggestions(): {
@@ -318,6 +321,7 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
     },
     menuOpen: () => workspace.checking.menu !== null,
     clipboard: (target) => testClipboard(target),
+    handed: () => testHanded(),
     note: () => document.querySelector(".status .note")?.textContent?.trim() ?? "",
     suggestions() {
       const menu = document.querySelector(".suggestions");
@@ -354,5 +358,8 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
       return value;
     },
   };
-  document.documentElement.dataset.ready = "true";
+  // Ready once the native menu is built too, which the app does after the text.
+  void workspace.menuReady.then(() => {
+    document.documentElement.dataset.ready = "true";
+  });
 }

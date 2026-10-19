@@ -11,7 +11,8 @@ bismillah is built so that your writing stays yours.
   - **Settings:** `settings.toml`, `keybindings.toml`, your personal `dictionary.txt` and any theme files, in your configuration folder (on Linux `~/.config/bismillah/`). bismillah notices when you change them in another program, through the same change notifications, and writes `keybindings.toml` only when you ask it to create one. When you choose *Another font* by name, it asks your system's font list (fontconfig) whether that font is installed.
   - **Recovery copies:** while a save is in progress, and whenever one fails or is refused because the file changed elsewhere, the text being saved is kept in the app's data folder (on Linux `~/.local/share/bismillah/recovery/`), so a crash or a full disk never loses it. Access is restricted to your user where the system supports it. A copy is deleted after a successful save or when you discard it, and copies are limited in size and kept for at most 30 days. They never go inside your writing folders.
   - **Where you left off:** the window's size, the library folder and whether the library was shown, the path of the last document you had open and of up to 20 recently opened files (for quick open), in `~/.local/share/bismillah/state.json`.
-  - **Logs:** local only, containing errors and warnings. They **never** contain your documents or their contents.
+  - **Logs:** bismillah writes errors and warnings to its standard error output, which your desktop session may keep in its journal on your computer. They **never** contain your documents, their contents or the addresses of links in them.
+- **Opens a link only when you ask.** A link opens in your browser, or an email address in your mail app, only when you `Ctrl`+click it or choose *Open link*, and only a web or email address: never a file, a script or another program. bismillah hands the address to your desktop, which opens your browser; bismillah itself requests nothing. *Show in file manager* in Settings opens one of the folders listed there in your file manager.
 
 ## What bismillah never does
 
@@ -28,6 +29,6 @@ We separate two statements and test each:
 1. **bismillah works fully without a network.** Our test suite runs the real app with networking unavailable.
 2. **bismillah contains no networking features.** No network libraries or network-capable plugins are included, the app's webview is locked down by a strict content security policy, and each release is audited.
 
-We do not claim the app is *technically unable* to reach a network, because a content security policy is not an operating-system sandbox. If you want that guarantee at the OS level, use a confined build (for example the Flatpak, which ships without network permission) or your system's firewall.
+We do not claim the app is *technically unable* to reach a network, because a content security policy is not an operating-system sandbox. If you want that guarantee at the operating-system level, run bismillah without network access (for example in a sandbox or behind your firewall's rules for it). A Flatpak without network permission is planned for when bismillah is published.
 
-Following a link in a document opens it in **your** browser, and only when you explicitly `Ctrl`/`Cmd`-click it.
+Following a link in a document opens it in **your** browser, and only when you explicitly `Ctrl`-click it or choose *Open link*.

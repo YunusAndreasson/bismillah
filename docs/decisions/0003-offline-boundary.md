@@ -17,3 +17,9 @@
 - Every release includes a dependency and native-feature audit.
 - Links in the editor open in the system browser only on explicit `Mod-click`.
 - Remote images are never loaded.
+
+## Phase 6 result (2026-10-19)
+
+- **Links open on `Mod-click`, and on *Open link* from the keyboard,** as decided above. Only `https:`, `http:` and `mailto:` addresses go, checked in Rust (`src-tauri/src/links.rs`), and they reach the browser through the desktop (GIO, already in the tree through GTK) rather than `tauri-plugin-opener`, whose D-Bus stack `cargo deny` flags. bismillah requests nothing itself; under the test harness nothing is launched and the address is recorded instead.
+- **The 1.0 audit** (docs/audits/2026-10-19-personal-1.0.md) found no HTTP, TLS or DNS crate in the tree, `tokio` without `net`, and only Unix-domain socket use in the binary; `pnpm test:offline` passes with the link suite included.
+- No Flatpak exists yet, so PRIVACY.md now says so instead of pointing to one.

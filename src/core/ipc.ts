@@ -34,7 +34,8 @@ export interface OpenedDocument {
   mixed_line_endings: boolean;
   /** The file isn't UTF-8, so it opened for reading only. */
   read_only: boolean;
-  /** The bundled specimen (test mode); edits are never saved. */
+  /** A document bundled with the app (the guide; the specimen in test mode): edits
+   * are never saved. */
   sample: boolean;
   recovery: RecoveryEntry | null;
   pending_recovery: PendingRecovery[];
@@ -144,6 +145,8 @@ export function isError<E extends { kind: string }>(value: unknown): value is E 
 export const appInfo = () => invoke<AppInfo>("app_info");
 export const startup = () => invoke<Startup>("startup");
 export const openDialog = () => invoke<OpenedDocument | null>("doc_open_dialog");
+/** Help › Guide: the bundled guide, as a sample that is never saved. */
+export const openGuide = () => invoke<OpenedDocument>("doc_open_guide");
 /** `folder`: a library folder to start the dialog in. */
 export const newDialog = (folder: string | null = null) =>
   invoke<OpenedDocument | null>("doc_new_dialog", { folder });
@@ -325,6 +328,18 @@ export interface MenuState {
   visible: boolean;
   active: boolean;
 }
+
+/** Why a link or folder wasn't handed to another app (src-tauri/src/links.rs). */
+export type LinkError = { kind: "not_web" } | { kind: "unavailable" } | { kind: "no_app" };
+
+/** The folders Settings › Files & privacy can show in the file manager. */
+export type Folder = "settings" | "recovery" | "library";
+
+/** Opens a web or email link in the writer's browser or mail app; Rust checks it. */
+export const openLink = (address: string) => invoke<null>("link_open", { address });
+export const showFolder = (folder: Folder) => invoke<null>("folder_show", { folder });
+/** Test mode only: links and folders handed on (recorded, not opened) since last asked. */
+export const testHanded = () => invoke<string[]>("test_handed");
 
 export const menuReveal = () => invoke<null>("menu_reveal");
 /** Copy as rich text: sanitised HTML and its plain text on the system clipboard. */

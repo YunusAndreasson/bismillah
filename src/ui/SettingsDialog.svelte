@@ -3,7 +3,7 @@
   import { tick } from "svelte";
   import { commandById } from "../core/commands.ts";
   import { copy } from "../core/copy.ts";
-  import type { ColourTheme, SaveError } from "../core/ipc.ts";
+  import type { ColourTheme, Folder, SaveError } from "../core/ipc.ts";
   import { shortcuts } from "../core/keybindings.svelte.ts";
   import type { LibraryStore } from "../core/library.svelte.ts";
   import {
@@ -38,6 +38,8 @@
     shown: () => void;
     openFolder: () => void;
     createKeybindings: () => Promise<SaveError | null>;
+    /** Shows a folder in the file manager: null, or why it couldn't. */
+    showFolder: (folder: Folder) => Promise<string | null>;
     openAbout: () => void;
   }
   let {
@@ -51,6 +53,7 @@
     shown,
     openFolder,
     createKeybindings,
+    showFolder,
     openAbout,
   }: Props = $props();
 
@@ -106,6 +109,13 @@
   function commitFont() {
     const name = fontDraft.trim();
     if (!fontInvalid && name !== values.custom_font) change({ custom_font: name });
+  }
+
+  // Why a folder couldn't be shown, beside its button.
+  let folderErrors = $state<Partial<Record<Folder, string>>>({});
+  async function show(folder: Folder) {
+    const error = await showFolder(folder);
+    folderErrors = { ...folderErrors, [folder]: error ?? undefined };
   }
 
   let createError = $state<string | null>(null);
@@ -189,6 +199,27 @@
     <p class="hint">{body}</p>
   </div>
 {/snippet}
+{#snippet showButton(folder: Folder, describedBy: string)}
+  <button
+    type="button"
+    class="action"
+    aria-describedby={describedBy}
+    onclick={() => void show(folder)}
+  >
+    {copy.folders.show}
+  </button>
+{/snippet}
+{#snippet folderError(folder: Folder)}
+  {#if folderErrors[folder]}<p class="hint error" role="alert">{folderErrors[folder]}</p>{/if}
+{/snippet}
+{#snippet folderNote(id: string, folder: Folder, label: string, body: string)}
+  <div class="setting">
+    <h3 class="label" {id}>{label}</h3>
+    <p class="hint">{body}</p>
+    <div class="actions">{@render showButton(folder, id)}</div>
+    {@render folderError(folder)}
+  </div>
+{/snippet}
 
 <Dialog.Root bind:open>
   <Dialog.Portal>
@@ -204,7 +235,7 @@
       </header>
 
       <section aria-labelledby="settings-appearance">
-        <h2 id="settings-appearance" tabindex="-1">{t.appearance}</h2>
+        <h2 id="settings-appearance" tabindex="-1" aria-label={t.appearance}>{t.appearance}</h2>
         {@render choice(
           "set-theme",
           t.theme,
@@ -325,7 +356,7 @@
       </section>
 
       <section aria-labelledby="settings-writing">
-        <h2 id="settings-writing" tabindex="-1">{t.writing}</h2>
+        <h2 id="settings-writing" tabindex="-1" aria-label={t.writing}>{t.writing}</h2>
         {@render toggle(
           "set-smart",
           t.smartPunctuation,
@@ -372,7 +403,7 @@
       </section>
 
       <section aria-labelledby="settings-checking">
-        <h2 id="settings-checking" tabindex="-1">{t.checking}</h2>
+        <h2 id="settings-checking" tabindex="-1" aria-label={t.checking}>{t.checking}</h2>
         {@render toggle(
           "set-spelling",
           t.spelling,
@@ -401,23 +432,27 @@
       </section>
 
       <section aria-labelledby="settings-files">
-        <h2 id="settings-files" tabindex="-1">{t.files}</h2>
-        <div class="setting row">
-          <div class="text">
-            <h3 class="label">{t.library}</h3>
-            <p class="hint">
-              {#if library.view.kind === "none"}
-                {t.libraryNone}
-              {:else if library.view.kind === "unavailable"}
-                {t.libraryUnavailable(library.view.name)}
-              {:else}
-                {library.view.name}
-              {/if}
-            </p>
+        <h2 id="settings-files" tabindex="-1" aria-label={t.files}>{t.files}</h2>
+        <div class="setting">
+          <h3 class="label" id="settings-library">{t.library}</h3>
+          <p class="hint">
+            {#if library.view.kind === "none"}
+              {t.libraryNone}
+            {:else if library.view.kind === "unavailable"}
+              {t.libraryUnavailable(library.view.name)}
+            {:else}
+              {library.view.name}
+            {/if}
+          </p>
+          <div class="actions">
+            <button type="button" class="action" onclick={openFolder}>
+              {commandById("library.openFolder")?.label}
+            </button>
+            {#if library.view.kind === "ready"}
+              {@render showButton("library", "settings-library")}
+            {/if}
           </div>
-          <button type="button" class="action" onclick={openFolder}>
-            {commandById("library.openFolder")?.label}
-          </button>
+          {@render folderError("library")}
         </div>
         <div class="setting">
           <h3 class="label">{copy.shortcuts.title}</h3>
@@ -445,8 +480,18 @@
             </ul>
           {/if}
         </div>
-        {@render note(t.yourFiles, t.yourFilesText(folders.config))}
-        {@render note(t.recovery, t.recoveryText(folders.data))}
+        {@render folderNote(
+          "settings-your-files",
+          "settings",
+          t.yourFiles,
+          t.yourFilesText(folders.config),
+        )}
+        {@render folderNote(
+          "settings-recovery",
+          "recovery",
+          t.recovery,
+          t.recoveryText(folders.data),
+        )}
         {@render note(t.privacy, t.privacyText)}
       </section>
 
@@ -522,6 +567,8 @@
   section + section {
     border-block-start: 1px solid var(--border-control);
   }
+  /* Shown in capitals; each heading's aria-label keeps its name as written, since
+     WebKit hands the transformed text to screen readers. */
   h2 {
     margin: 0;
     font-size: 0.85rem;
@@ -615,6 +662,11 @@
   .action {
     justify-self: start;
     white-space: nowrap;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
   }
   :global(.segment[data-state="checked"]) {
     background: var(--selection-background);

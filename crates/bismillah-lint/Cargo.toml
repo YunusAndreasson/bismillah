@@ -1,6 +1,6 @@
 [package]
 name = "bismillah-lint"
-version = "0.0.0"
+version.workspace = true
 description = "Spelling (English, Arabic) and grammar suggestions (English) for bismillah"
 edition.workspace = true
 license.workspace = true

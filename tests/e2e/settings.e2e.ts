@@ -15,6 +15,7 @@ import { Folder, open } from "./files.ts";
 const config = join(process.env.XDG_CONFIG_HOME ?? "", "bismillah");
 const themes = join(config, "themes");
 const keybindings = join(config, "keybindings.toml");
+const version = (JSON.parse(readFileSync("package.json", "utf8")) as { version: string }).version;
 
 const token = (name: string) =>
   browser.execute((n: string) => window.__bismillah?.token(n) ?? "", name);
@@ -361,7 +362,7 @@ describe("Settings and About", () => {
     await dialog.waitForDisplayed();
     const text = await dialog.getText();
     expect(text).toContain("bismillah");
-    expect(text).toContain("Version 0.0.0");
+    expect(text).toContain(`Version ${version}`);
     expect(text).toContain("amanah");
     expect(text).toContain("GNU General Public License, version 3 or later");
     expect(text).toContain("SIL Open Font License 1.1");

@@ -193,9 +193,11 @@ describe("live preview", () => {
         ),
       { timeout: 3000, timeoutMsg: "no address tooltip" },
     );
-    expect(await browser.execute(() => document.querySelector(".cm-address")?.textContent)).toBe(
-      "https://example.com/page",
-    );
+    expect(
+      await browser.execute(
+        () => document.querySelector(".cm-address")?.firstElementChild?.textContent,
+      ),
+    ).toBe("https://example.com/page");
     expect(await drawnLine(0)).toBe(before);
     await browser
       .action("pointer", { parameters: { pointerType: "mouse" } })

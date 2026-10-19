@@ -16,12 +16,14 @@ export type CommandId =
   | "file.rename"
   | "file.trash"
   | "app.settings"
+  | "app.guide"
   | "app.about"
   | "app.quit"
   | "edit.undo"
   | "edit.redo"
   | "edit.selectAll"
   | "edit.copyRich"
+  | "edit.openLink"
   | "editor.toggleTransliteration"
   | "check.suggestions"
   | "check.next"
@@ -94,6 +96,8 @@ export interface CommandContext {
   save(): void;
   openSettings(): void;
   openAbout(): void;
+  /** Opens the guide as a sample document (Help › Guide). */
+  openGuide(): void;
   quit(): void;
   isOn(id: ToggleId): boolean;
   /** A library folder is open (and available). */
@@ -116,6 +120,8 @@ export interface CommandContext {
   toggleMarkdown(): void;
   /** Puts the selection, or the whole document, on the clipboard as HTML and text. */
   copyRich(): void;
+  /** Opens the link at the caret in the browser or mail app (as Ctrl+click does). */
+  openLink(): void;
   toggleTransliteration(): void;
   /** Opens the suggestions for the issue at the caret (Mod-.). */
   showSuggestions(): void;
@@ -213,6 +219,15 @@ export const COMMANDS: readonly Command[] = [
     run: (c) => c.openSettings(),
   },
   {
+    id: "app.guide",
+    label: "Guide",
+    section: "Help",
+    key: "F1",
+    aliases: ["help", "manual", "documentation", "how to", "shortcuts"],
+    description: "How bismillah works, in a document you can try things in.",
+    run: (c) => c.openGuide(),
+  },
+  {
     id: "app.about",
     label: "About bismillah",
     section: "Help",
@@ -260,6 +275,15 @@ export const COMMANDS: readonly Command[] = [
     description: "Copies the selection, or the whole document, formatted for pasting elsewhere.",
     available: (c) => c.view !== null,
     run: (c) => c.copyRich(),
+  },
+  {
+    id: "edit.openLink",
+    label: "Open link",
+    section: "Edit",
+    aliases: ["browser", "url", "web", "follow", "email"],
+    description: "Opens the link at the caret in your browser or mail app, as Ctrl+click does.",
+    available: (c) => c.view !== null,
+    run: (c) => c.openLink(),
   },
   {
     id: "editor.toggleTransliteration",

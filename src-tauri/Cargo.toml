@@ -1,6 +1,6 @@
 [package]
 name = "bismillah"
-version = "0.0.0"
+version.workspace = true
 description = "A calm, offline Markdown editor"
 edition.workspace = true
 license.workspace = true
@@ -24,8 +24,10 @@ notify = "8.2"
 # Already in Tauri's tree (URL handling); NFD for the library's sort order, on a copy.
 icu_normalizer = "2"
 trash = "5.2"
+# Already in Tauri's tree; checks a link's address before it goes to the browser (links.rs).
+url = "2"
 # Spelling and grammar (ADR-0004); the workspace crate, free of Tauri.
-bismillah-lint = { path = "../crates/bismillah-lint", version = "0.0.0" }
+bismillah-lint = { path = "../crates/bismillah-lint", version = "1.0.0" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Already in Tauri's dependency tree; used only to focus the native menu bar (platform.rs).

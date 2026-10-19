@@ -1,7 +1,7 @@
 {
   "name": "bismillah",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "packageManager": "pnpm@11.2.2",
@@ -21,6 +21,8 @@
     "test:e2e": "scripts/headless.sh wdio run tests/wdio.conf.ts --suite e2e",
     "test:visual": "scripts/headless.sh wdio run tests/wdio.conf.ts --suite visual",
     "test:offline": "scripts/offline.sh",
+    "perf": "scripts/headless.sh node scripts/perf.ts",
+    "a11y": "BISMILLAH_A11Y=1 scripts/headless.sh node scripts/a11y.ts",
     "verify": "scripts/verify.sh"
   },
   "devDependencies": {

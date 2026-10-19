@@ -12,14 +12,25 @@ bismillah is a free, open-source writing app in the spirit of the original iA Wr
 - **Arabic and right-to-left writing** treated as equals to Latin.
 - **Zuhd mode (زهد):** focus on the current sentence or paragraph.
 - **Keyboard first.** Every action has a shortcut and a place in the command palette.
+- **Links** open in your browser only when you `Ctrl`+click them.
 
 And just as deliberately, it has **no** accounts, subscriptions, ads, telemetry, cloud sync, generative AI, or networking features. Nothing writes for you. See [PRIVACY.md](PRIVACY.md).
 
 ## Status
 
-**Pre-alpha, private.** For now bismillah is a personal project that runs only on its author's Linux machine. Phase 1 (the writing core: safe saving with recovery, settings), Phase 2 (the library: a folder of files, quick open, the command palette, rename, new folder and move to trash with undo), Phase 3 (spelling in English and Arabic, grammar suggestions in English, a personal dictionary) Phase 4 (live preview: the text reads rendered and shows its Markdown only where you write, with *Always show Markdown* on `Ctrl+R`; Copy as rich text) and Phase 5 (colour themes as plain files, High contrast, the full Settings screen, your own shortcuts in `keybindings.toml`, About) are built; Phase 6 (a personal 1.0 for daily use) is next. See the [roadmap](PLAN.md). Publishing, and macOS and Windows builds, come later.
+**1.0, personal.** bismillah is its author's everyday writing tool on Linux, and stays private for now: it runs on one machine, installed from this repository. Everything on the [roadmap](PLAN.md) up to the personal 1.0 is built: safe saving with recovery, the library, spelling in English and Arabic and grammar suggestions in English, live preview, colour themes and your own shortcuts, links, and a guide inside the app. Publishing, and macOS and Windows builds, come later.
 
-To install it on Arch Linux from this repository: `cd packaging/arch && makepkg -si`. Some GPU and driver combinations need `WEBKIT_DISABLE_DMABUF_RENDERER=1` in the environment.
+## Install (Arch Linux)
+
+```sh
+cd packaging/arch && makepkg -si
+```
+
+This builds the committed version and installs `bismillah` with its icon and desktop entry, so Markdown files offer *Open with › bismillah*. Start it from your launcher, or from a terminal with `bismillah [file | folder]`. Some GPU and driver combinations need `WEBKIT_DISABLE_DMABUF_RENDERER=1` in the environment.
+
+## Using it
+
+Everything bismillah does is in [the guide](docs/guide.md), which is also inside the app: *Help › Guide*, or `F1`. It opens as a sample you can try things in.
 
 ## Inspiration
 

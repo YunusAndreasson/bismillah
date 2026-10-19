@@ -100,6 +100,12 @@ export class Checking {
     return this.host.documentKey() ?? "";
   }
 
+  /** Words ignored in the document being shown from the start (the guide's own,
+   * src/core/guide.ts), as if the writer had chosen *Ignore* for each. */
+  ignoreWords(words: readonly string[]): void {
+    for (const word of words) this.#ignored.add(this.#document(), `spelling:${word}`);
+  }
+
   /** A document was shown: it keeps what was ignored in it earlier this session. */
   documentShown(): void {
     this.menu = null;

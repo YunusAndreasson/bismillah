@@ -8,6 +8,7 @@ import {
   type Extension,
   type Range,
   type SelectionRange,
+  type Transaction,
 } from "@codemirror/state";
 import {
   Decoration,
@@ -113,6 +114,47 @@ export function revealedLines(state: EditorState): Span {
 }
 
 // ---------------------------------------------------------------------------------------
+// Edits that leave the rest of the document as it was.
+
+/** Characters that open or close a structure that reaches beyond its own line, or that
+ * live preview draws from elsewhere: tables, code, HTML, links, definitions, images. */
+const STRUCTURE = /[|`~<>[\]!]/;
+
+/**
+ * Whether a transaction only typed or deleted inside the revealed block's lines, without
+ * changing anything that could reach beyond them: no line break added or removed, nothing
+ * at a line's start (indentation, list, quote and heading marks, fences), and no
+ * character that makes a table, code, HTML, a link, a definition or an image, on the
+ * line before or after. Typing prose is almost always such an edit. The document's
+ * tables, images and definitions then stand as they were, and their decorations only
+ * move, so a key in a 1 MB document costs no more than in a short one (ARCHITECTURE.md
+ * §14). Everything else rebuilds them.
+ */
+export function inlineEdit(tr: Transaction): boolean {
+  if (!tr.docChanged) return true;
+  const open = tr.startState.field(revealed, false)?.lines;
+  if (!open) return false;
+  let inline = true;
+  tr.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
+    if (!inline) return;
+    const before = tr.startState.doc.lineAt(fromA);
+    const after = tr.state.doc.lineAt(fromB);
+    const lead = /^[ \t]*/.exec(after.text)?.[0].length ?? 0;
+    inline =
+      inserted.lines === 1 &&
+      toA <= before.to &&
+      toB <= after.to &&
+      fromA >= open.from &&
+      toA <= open.to &&
+      fromB - after.from > lead + 3 &&
+      fromA - before.from > lead + 3 &&
+      !STRUCTURE.test(before.text) &&
+      !STRUCTURE.test(after.text);
+  });
+  return inline;
+}
+
+// ---------------------------------------------------------------------------------------
 // Which block is revealed, and the mouse press that holds it.
 
 /** A mouse button went down (true) or came up (false) in the editor. */
@@ -166,7 +208,24 @@ export function normaliseLabel(label: string): string {
   return label.trim().replace(/\s+/gu, " ").toLowerCase();
 }
 
+/** The definitions, kept across edits that can't change them (`inlineEdit`). */
+const definitions = StateField.define<References>({
+  create: (state) => collectReferences(state),
+  update(value, tr) {
+    if (tr.docChanged && inlineEdit(tr)) return value;
+    if (tr.docChanged || syntaxTree(tr.state) !== syntaxTree(tr.startState)) {
+      return collectReferences(tr.state);
+    }
+    return value;
+  },
+});
+
+/** The document's link and footnote definitions. */
 export function references(state: EditorState): References {
+  return state.field(definitions, false) ?? collectReferences(state);
+}
+
+function collectReferences(state: EditorState): References {
   const tree = syntaxTree(state);
   const cached = referenceCache.get(tree);
   if (cached) return cached;
@@ -624,6 +683,7 @@ const pointer = ViewPlugin.fromClass(
 export function livePreview(): Extension {
   return [
     revealed,
+    definitions,
     rendering,
     pointer,
     EditorView.domEventHandlers({

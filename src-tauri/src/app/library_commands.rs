@@ -14,7 +14,7 @@ use super::{AppState, DiskStatus, Opened, Source, lock, test_hooks_allowed};
 use crate::documents::{self, OpenError};
 use crate::images::{self, ImageError};
 use crate::library::{Library, LibraryError, Node, Tree};
-use crate::watch::Watch;
+use crate::watch::{self, Watch};
 
 /// The library as the app holds it.
 pub enum Shelf {
@@ -128,7 +128,7 @@ impl AppState {
                 match library.tree() {
                     Ok(tree) => {
                         let handle = self.handle.clone();
-                        let watch = Watch::start(library.root(), move |paths| {
+                        let watch = Watch::start(library.root(), watch::listed, move |paths| {
                             if let Some(state) = handle.try_state::<AppState>() {
                                 state.disk_changed(generation, &paths);
                             }
@@ -190,7 +190,7 @@ impl AppState {
     }
 
     /// The library, if it is available (a copy: it is only a path).
-    fn library(&self) -> Result<Library, LibraryError> {
+    pub(super) fn library(&self) -> Result<Library, LibraryError> {
         match &*lock(&self.shelf) {
             Shelf::Ready { library, .. } => Ok(library.clone()),
             _ => Err(LibraryError::Unavailable),
@@ -203,7 +203,7 @@ impl AppState {
         let open = self.current(id).ok_or(ImageError::NotFound)?;
         let document = match &lock(&open).source {
             Source::File(doc) => doc.path.clone(),
-            Source::Sample => return Err(ImageError::NotFound),
+            Source::Sample(_) => return Err(ImageError::NotFound),
         };
         let library = self.library().map_err(|_| ImageError::NotFound)?;
         images::read(&images::resolve(&library, &document, src)?)
@@ -327,7 +327,7 @@ impl AppState {
             .as_ref()
             .is_some_and(|open| match &lock(open).source {
                 Source::File(doc) => doc.path.starts_with(path),
-                Source::Sample => false,
+                Source::Sample(_) => false,
             });
         if inside {
             *document = None;

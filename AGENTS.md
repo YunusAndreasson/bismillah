@@ -2,7 +2,7 @@
 
 **bismillah** is a free, offline, minimal Markdown editor in the spirit of the original iA Writer, built with Tauri 2, Svelte 5, CodeMirror 6 and a Rust core. It has two features beyond typing (spelling in English and Arabic, grammar suggestions in English), so the quality of its typography, interaction and reliability *is* the product.
 
-**Status:** Phase 5 (themes and settings) was built on 2026-10-19 and waits for the author's acceptance check ([PLAN.md](PLAN.md)): colour themes as declarative files (Sepia and Slate built in, the writer's in `~/.config/bismillah/themes/`, checked in Rust with contrast warnings), High contrast, the four-section Settings screen, `keybindings.toml` applied as soon as it is saved (the configuration folder is watched), *Another font* by name, and About. Phase 4 (live preview, ADR-0012) was built the same day and the author moved on; Phase 3 (spelling and grammar) and Phase 2 (library) were accepted on 2026-10-18; Phase 1 (writing core) was built the same day and the author moved on; the earlier phases' manual checks are still listed in PLAN.md. Phase 0's spikes were accepted on 2026-10-18 ([docs/spikes/](docs/spikes/README.md)). Keep this file accurate as commands and layout change. bismillah is private and runs only on the author's Linux machine for now: local git, no remote, no CI. `pnpm verify` is the gate.
+**Status:** Phase 6 (personal 1.0) was built on 2026-10-19 and waits for the author's acceptance check ([PLAN.md](PLAN.md)): version 1.0.0, the polished local package (`packaging/check.sh`), links opened on Ctrl+click and *Open link* (web and email only, through the desktop), *Show in file manager*, the guide inside the app (Help › Guide, `F1`), the bāʾ icon, the accessibility audit (`pnpm a11y`), the measured performance budgets (`pnpm perf`), and the 1.0 audit (docs/audits/2026-10-19-personal-1.0.md). Phases 4 and 5 were built the same day and the author moved on; Phases 2 and 3 were accepted on 2026-10-18; Phase 1 was built that day and the author moved on; the earlier phases' manual checks are still listed in PLAN.md. Phase 0's spikes were accepted on 2026-10-18 ([docs/spikes/](docs/spikes/README.md)). Keep this file accurate as commands and layout change. bismillah is private and runs only on the author's Linux machine for now: local git, no remote, no CI. `pnpm verify` is the gate.
 
 **Working mode:** build each phase end to end (code, tests, specimen screenshots, docs) and stop at the phase's acceptance check for the author's review. Within a phase, proceed without asking about decisions already recorded in DESIGN.md, ARCHITECTURE.md or an ADR.
 
@@ -50,6 +50,9 @@ pnpm test:visual                 # screenshot regression in the real app (UPDATE
 pnpm app:build                   # debug build with the frontend embedded (needed by the real-app commands)
 pnpm app:shot                    # specimen screenshots at 640/1280/1920/2560; --open settings|about (see run-app skill)
 pnpm test:offline                # e2e suite with no network, under strace
+pnpm a11y                        # the accessibility tree (AT-SPI, as Orca reads it) in every screen
+pnpm perf                        # ARCHITECTURE.md §14's budgets; release build (`pnpm tauri build --no-bundle`)
+packaging/check.sh <package>     # a built package: files, desktop entry, Open with, --version, depends
 cargo test --workspace           # includes the checking fixtures (crates/bismillah-lint/tests/)
 cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check
 cargo deny check                 # banned crates, licences, advisories

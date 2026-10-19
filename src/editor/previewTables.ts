@@ -17,10 +17,10 @@ import {
   type MouseSelectionStyle,
   type Rect,
 } from "@codemirror/view";
-import type { SyntaxNode, Tree } from "@lezer/common";
+import type { SyntaxNode } from "@lezer/common";
 import { highlightTree } from "@lezer/highlight";
 import { lineDirection, type Dir } from "./bidi.ts";
-import { renderedDecorations, revealed, type Span } from "./livePreview.ts";
+import { inlineEdit, references, renderedDecorations, revealed, type Span } from "./livePreview.ts";
 import { inlineStyle } from "./markdownStyling.ts";
 import { arabicRuns } from "./scriptRuns.ts";
 
@@ -336,57 +336,92 @@ function drawn(state: EditorState, base: number, cells: Cell[], align: Align[]):
   }));
 }
 
+/**
+ * Grids by their table's text. A grid is drawn relative to its table's first line, and
+ * depends only on that text (a drawn table is a top-level block, parsed the same
+ * wherever it stands) and the document's link and footnote definitions, which decide
+ * what its brackets are. So an edit elsewhere, even in a 1 MB document, draws no table
+ * again, and neither does moving the caret from block to block (ARCHITECTURE.md §14).
+ */
+const grids = { definitions: "", byText: new Map<string, TableWidget | null>() };
+/** Enough for any book; past it the cache starts again rather than grow. */
+const GRID_LIMIT = 4096;
+
+const definitionKeys = new WeakMap<object, string>();
+
+/** The document's link and footnote definitions, as one comparable key. */
+function definitionsKey(state: EditorState): string {
+  const refs = references(state);
+  let key = definitionKeys.get(refs);
+  if (key === undefined) {
+    key = JSON.stringify([[...refs.links], [...refs.footnotes]]);
+    definitionKeys.set(refs, key);
+  }
+  return key;
+}
+
+/** The grid for a table and the lines it replaces, or null if it isn't drawn. */
+function gridAt(
+  state: EditorState,
+  table: { from: number; to: number; node: SyntaxNode },
+  definitions: string,
+): { from: number; to: number; widget: TableWidget } | null {
+  const first = state.doc.lineAt(table.from);
+  const last = state.doc.lineAt(table.to);
+  if (definitions !== grids.definitions) {
+    grids.definitions = definitions;
+    grids.byText.clear();
+  }
+  const text = state.sliceDoc(first.from, last.to);
+  let widget = grids.byText.get(text);
+  if (widget === undefined) {
+    const shape = tableShape(state, table.node);
+    widget =
+      shape &&
+      new TableWidget(
+        shape.dir,
+        drawn(state, shape.from, shape.head, shape.align),
+        shape.rows.map((row) => drawn(state, shape.from, row, shape.align)),
+      );
+    if (grids.byText.size >= GRID_LIMIT) grids.byText.clear();
+    grids.byText.set(text, widget);
+  }
+  return widget ? { from: first.from, to: last.to, widget } : null;
+}
+
 /** Grids for the document's tables, except the one that holds the caret. */
-interface Grid {
-  shape: TableShape;
-  widget: TableWidget;
-}
-
-/** Grids by table start, per parse: a grid depends only on the text and its tree, so
- * moving the caret from block to block draws none of them again. */
-const gridCache = new WeakMap<Tree, Map<number, Grid | null>>();
-
-function gridAt(state: EditorState, node: SyntaxNode): Grid | null {
-  const tree = syntaxTree(state);
-  let grids = gridCache.get(tree);
-  if (!grids) gridCache.set(tree, (grids = new Map()));
-  const cached = grids.get(node.from);
-  if (cached !== undefined) return cached;
-  const shape = tableShape(state, node);
-  const grid = shape && {
-    shape,
-    widget: new TableWidget(
-      shape.dir,
-      drawn(state, shape.from, shape.head, shape.align),
-      shape.rows.map((row) => drawn(state, shape.from, row, shape.align)),
-    ),
-  };
-  grids.set(node.from, grid);
-  return grid;
-}
-
 export function renderedTables(state: EditorState): DecorationSet {
   const open = state.field(revealed).lines;
+  const definitions = definitionsKey(state);
   const out: Range<Decoration>[] = [];
-  for (let node = syntaxTree(state).topNode.firstChild; node; node = node.nextSibling) {
-    if (node.name !== "Table") continue;
-    const grid = gridAt(state, node);
+  // A cursor over the top-level blocks: no node object for each of a book's blocks.
+  const cursor = syntaxTree(state).cursor();
+  if (!cursor.firstChild()) return Decoration.none;
+  do {
+    if (cursor.name !== "Table") continue;
+    const cursorNode = cursor;
+    const table = {
+      from: cursor.from,
+      to: cursor.to,
+      get node() {
+        return cursorNode.node;
+      },
+    };
+    const grid = gridAt(state, table, definitions);
     if (!grid) continue;
-    const { from, to } = grid.shape;
-    if (open.from <= to && open.to >= from) continue;
-    out.push(Decoration.replace({ widget: grid.widget, block: true }).range(from, to));
-  }
+    if (open.from <= grid.to && open.to >= grid.from) continue;
+    out.push(Decoration.replace({ widget: grid.widget, block: true }).range(grid.from, grid.to));
+  } while (cursor.nextSibling());
   return Decoration.set(out);
 }
 
 const tables = StateField.define<DecorationSet>({
   create: renderedTables,
   update(value, tr) {
-    if (
-      tr.docChanged ||
-      tr.state.field(revealed) !== tr.startState.field(revealed, false) ||
-      syntaxTree(tr.state) !== syntaxTree(tr.startState)
-    )
+    const reveal = tr.state.field(revealed) !== tr.startState.field(revealed, false);
+    // Typing in the revealed block moves the drawn tables and changes none of them.
+    if (tr.docChanged && !reveal && inlineEdit(tr)) return value.map(tr.changes);
+    if (tr.docChanged || reveal || syntaxTree(tr.state) !== syntaxTree(tr.startState))
       return renderedTables(tr.state);
     return value;
   },

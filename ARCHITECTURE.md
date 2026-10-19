@@ -2,7 +2,7 @@
 
 This document describes how bismillah is built and the contracts each part must keep. Product and visual decisions live in [DESIGN.md](DESIGN.md). Lasting decisions are recorded as ADRs in [docs/decisions/](docs/decisions/). If code and this document disagree, fix one of them in the same change.
 
-> **Status:** Phase 5 (themes and settings). The file-safety contract, the recovery journal, settings, the desktop basics, the library (path checks, listing, watcher, file actions), checking (`bismillah-lint`, its thread, the suggestions and the personal dictionary), live preview (with local images), Copy as rich text, colour themes, `keybindings.toml` and the watched configuration folder are real (§3 marks what is planned).
+> **Status:** Phase 6 (personal 1.0). The file-safety contract, the recovery journal, settings, the desktop basics, the library (path checks, listing, watcher, file actions), checking (`bismillah-lint`, its thread, the suggestions and the personal dictionary), live preview (with local images), Copy as rich text, colour themes, `keybindings.toml`, the watched configuration folder, links handed to the browser, the bundled guide and the local package are real; the performance budgets are measured (§14).
 
 ---
 
@@ -46,12 +46,14 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | `libc` (Linux only, already in the tree) | `renameat2(RENAME_NOREPLACE)`, so a rename can never replace a file (`platform.rs`) |
 | `dirs` / Tauri path API | Platform config, data and cache directories |
 | `tauri-plugin-dialog` | Native open-folder and save-as dialogs |
-| `tauri-plugin-opener` (planned) | Reveal in file manager; hand links to the system browser on `Mod-click` (it makes no requests itself) |
+| `url` (already in Tauri's tree) | Parses a link's address before it is handed to the browser, so only web and email addresses go, written out in ASCII (`links.rs`) |
 | `serde`, `serde_json`, `thiserror` | IPC payloads, the recovery sidecars and typed errors |
 | `toml_edit` | `settings.toml` rewritten without losing the writer's comments, layout or unknown keys (§9) |
-| `gtk` (Linux only, already in Tauri's tree) | Focus the native menu bar on `Alt`/`F10`, and put Copy as rich text on the clipboard as `text/html` and text (`platform.rs`), instead of `tauri-plugin-clipboard-manager` |
+| `gtk` (Linux only, already in Tauri's tree) | Focus the native menu bar on `Alt`/`F10`; put Copy as rich text on the clipboard as `text/html` and text; hand a checked link or folder to the desktop's default app through GIO (`platform.rs`), instead of `tauri-plugin-clipboard-manager` and `tauri-plugin-opener` |
 
 **Development only** (never shipped): WebdriverIO + `tauri-driver` (real-app e2e), `pixelmatch` + `pngjs` (screenshot comparison), Vitest + jsdom, ESLint + Prettier, svelte-check. Spike and font tooling run through `uv`: fontTools (font build), `uharfbuzz` (rendering reference, and the pre-shaped Basmallah outlines in `src/editor/basmallahInk.ts`), `python-xlib` (raw X input and clipboard).
+
+The editor's Markdown language is built from `@codemirror/lang-markdown`'s own parser and language data (`src/editor/dialect.ts`), not with its `markdown()`, which would also bundle and load the HTML, CSS and JavaScript grammars at every launch to highlight HTML that bismillah shows as text. Its Enter/Backspace keymap for lists and quotes and its link on pasting an address over a selection are kept as they were.
 
 Whether the writer's *Another font* is installed is asked of fontconfig's `fc-list -q` (`platform.rs`), a program that comes with fontconfig, which WebKitGTK needs anyway; the webview can't tell, because WebKitGTK draws an unknown family in a substitute font.
 
@@ -87,7 +89,8 @@ bismillah/
 │  │  ├─ images.rs            local images for live preview: resolved and checked (§6)
 │  │  ├─ themes.rs            colour themes: read, checked, contrast-tested (§8)
 │  │  ├─ keybindings.rs       reading keybindings.toml, and its starting file (§9)
-│  │  └─ config.rs            which configuration file changed; folders named from ~ (§9)
+│  │  ├─ config.rs            which configuration file changed; folders named from ~ (§9)
+│  │  └─ links.rs             what may be handed to another app: web and email links (§10)
 │  ├─ themes/                 bismillah's built-in colour themes, in the theme-file format
 │  └─ capabilities/           minimal Tauri capability set
 ├─ crates/bismillah-lint/     spelling and grammar, pure Rust with no Tauri dependency (§7): offsets
@@ -108,20 +111,24 @@ bismillah/
 │  │                          (what is prose), linter (when to check), diagnostics, livePreview
 │  │                          (what is revealed, the rendered look, the mouse), previewBlocks
 │  │                          (folded frontmatter, images, addresses on hover), previewTables
-│  │                          (tables as grids, clicks and arrows into them); wordCount
+│  │                          (tables as grids, clicks and arrows into them), links (Ctrl+click);
+│  │                          wordCount
 │  ├─ richText/               markdown-it + DOMPurify for Copy as rich text, and its plain text
 │  ├─ ui/                     Svelte components: status line, notices, first screen, Settings,
 │  │                          About, library panel and tree, quick open / palette, name prompt,
 │  │                          suggestions
 │  └─ styles/                 tokens.css, fonts.css, profiles.css, editor.css
-├─ fonts/  source/ (upstream) · build/ (Bismillah Duo/Mono) · tools/ (build + verify scripts)
+├─ fonts/  source/ (upstream) · build/ (Bismillah Duo/Mono) · tools/ (build + verify scripts,
+│                             the icon)
 ├─ dictionaries/              Arabic dictionary + licence
-├─ scripts/                   headless.sh, verify.sh, offline.sh, app-shot.ts
-├─ packaging/                 arch/PKGBUILD (local install), linux/bismillah.desktop
+├─ scripts/                   headless.sh, verify.sh, offline.sh, app-shot.ts, perf.ts (§14),
+│                             a11y.ts + a11y_tree.py (the accessibility audit, §13)
+├─ packaging/                 arch/PKGBUILD (local install), linux/bismillah.desktop, check.sh
 ├─ tests/                     e2e/ (incl. spikes/), visual/ (baselines), fixtures/ (bidi, profiles,
 │                             quran, library)
 ├─ spikes/                    Phase 0 experiments: arabic-speller, harper-latency, transliteration, webview
-└─ docs/  decisions/ · spikes/ · specimen.md · reviews/ · interviews/
+└─ docs/  decisions/ · spikes/ · specimen.md · guide.md (also Help › Guide) · audits/ · reviews/
+          · interviews/
 ```
 
 ## 4. IPC surface
@@ -133,6 +140,7 @@ All commands are typed on both sides (Rust structs ↔ TS types in `src/core/ipc
 | `startup()` → document, first screen or failure | What to show at launch (DESIGN.md §15) |
 | `doc_open_dialog()` / `doc_new_dialog()` → document or `null` | File › Open… and New file… through the native dialogs (New never replaces a file) |
 | `doc_open_requested()` / `doc_open_recovered(token)` | Open the file a drop or second launch asked for, or one with recovered text |
+| `doc_open_guide()` → document | Help › Guide: the bundled guide as a sample, never saved |
 | `doc_save(id, text, revision, force)` → `revision` or a typed `SaveError` | Save (§5); `force` is "Keep mine" |
 | `doc_save_as(id, text)` · `doc_check(id)` · `doc_reload(id, local_text?)` | Save mine as…, the focus check, and reloading (Load theirs keeps the local text in recovery) |
 | `recovery_settle(id)` | The writer restored or discarded recovered text |
@@ -150,7 +158,9 @@ All commands are typed on both sides (Rust structs ↔ TS types in `src/core/ipc
 | `lint_suggest(word, lang, doc_lang)` → corrections | Spelling corrections, only when the writer asks (an Arabic search stops after ~300 ms) |
 | `lint_add_word(word)` · `lint_refresh()` → changed | *Add to dictionary*; re-reading `dictionary.txt` on focus |
 | `clipboard_write(html, text)` | Copy as rich text: the sanitised HTML and its plain text, through GTK |
-| `test_open(path)`, `test_fault(kind)`, `test_dialog(path)`, `test_library(path)`, `test_clipboard(target)` | Debug builds under the test harness only: stand-ins for the native dialogs, fault injection and reading the clipboard back (§13) |
+| `link_open(address)` → `null` or `not_web` / `no_app` | Ctrl+click and *Open link*: the address as the document writes it; Rust hands on web and email addresses only (§10) |
+| `folder_show(folder)` with `settings`, `recovery` or `library` | *Show in file manager*: the frontend names which folder, Rust knows where it is |
+| `test_open(path)`, `test_fault(kind)`, `test_dialog(path)`, `test_library(path)`, `test_clipboard(target)`, `test_handed()` | Debug builds under the test harness only: stand-ins for the native dialogs, fault injection, reading the clipboard back, and the links and folders recorded instead of opened (§13) |
 
 Images reach the webview through one custom scheme, not a command: `bismillah-image://localhost/<document id>/<destination as written>` (built with `convertFileSrc`). Rust answers with the checked image or an empty 404 (§6).
 
@@ -304,9 +314,10 @@ See ADR-0003 and PRIVACY.md. Two claims are kept distinct:
 - **"bismillah works without a network."** Tested: the full e2e suite runs inside a network namespace with no network (`unshare -rn`).
 - **"bismillah contains no networking features."** Supported by:
   - **CSP** (in `tauri.conf.json`): `default-src 'self'`; `connect-src` only Tauri IPC; `img-src 'self' bismillah-image: data:` (plus `http://bismillah-image.localhost`, the scheme's form on Windows); `font-src 'self'`; `script-src 'self'`; `style-src 'self'`; `object-src 'none'`; `frame-src 'none'`; `base-uri 'none'`; `form-action 'none'`. CodeMirror injects its base styles with a `<style>` element; Tauri gives inline style elements in `index.html` a fresh nonce on each load, and `src/editor/setup.ts` passes that nonce to `EditorView.cspNonce`. Style changes go through CSSOM, never `setAttribute("style")`. An e2e test asserts no CSP violations.
-  - **Navigation guard:** the main webview refuses all navigation away from the app origin, and new windows are denied. Links in the editor are never followed by the webview; opening one in the system browser on an explicit `Mod-click` is planned (`tauri-plugin-opener`, which makes no request itself).
+  - **Navigation guard:** the main webview refuses all navigation away from the app origin, and new windows are denied. Links in the editor are never followed by the webview.
+  - **Links go to the writer's browser, never through bismillah** (Phase 6, ADR-0003): only on an explicit `Mod-click` or *Open link*. The frontend sends the address as the document writes it; `links.rs` parses it with `url` and hands on `https:`, `http:` and `mailto:` only (`www.` gets `https://`, a bare email address `mailto:`), refusing files, scripts and other programs' schemes; `platform.rs` gives it to the desktop's default app through GIO with a launch context. *Show in file manager* hands a `file://` URI of one of three folders Rust names itself. Addresses are never logged. Under the test harness nothing is launched: Rust records what it would hand on (`test_handed`).
   - **No network-capable Tauri plugins** (http, updater, websocket, upload), enforced by `deny.toml` (`cargo deny check bans`) in `pnpm verify` and a project hook. cargo-deny checks the feature set and desktop targets the app is actually built for: Tauri's optional networking features and its Android/iOS-only `reqwest` dependency are not in that tree.
-  - **Native feature audit:** each release reviews the Rust dependency tree for socket use.
+  - **Native feature audit:** each release reviews the Rust dependency tree for socket use. 1.0 (docs/audits/2026-10-19-personal-1.0.md): no HTTP, TLS or DNS crate; `tokio` without `net`, `mio` from `notify` for inotify; the release binary's socket imports serve Unix-domain sockets (the single-instance socket, D-Bus, the display).
   - **Runtime test:** `strace -f -e trace=connect,sendto` over an e2e run shows no non-local connections.
 
 We do **not** claim that the app *cannot* reach the network: a CSP is not an OS sandbox. Distribution channels may add OS-level confinement (e.g. a Flatpak without network permission).
@@ -337,6 +348,8 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 - **Native application menu**, generated from the command registry (`src/core/commands.ts` → `src/core/menu.ts`, Tauri's JS menu API) with the same labels, IDs and accelerators as the palette and the editor keymap.
   - On macOS it lives in the global menu bar and must include the standard App and Edit menus, because without them `Cmd-C`/`Cmd-V`/`Cmd-Q` do not work in the webview.
   - On Linux and Windows the menu bar is hidden by default to keep the window calm, and is revealed with `Alt` (pressed and released alone) or `F10`, which also focus its first menu (`menu_reveal` → `platform.rs`); it hides again when it closes. While hidden, GTK fires no menu accelerators, so the editor keymap handles shortcuts exactly once.
+- **The command line:** `bismillah [file | folder]`; `--help` and `--version` answer in the terminal and exit before any window or socket exists.
+- **Help › Guide** (`F1`) opens the bundled `docs/guide.md` as a sample that is never saved (`doc_open_guide`); the package installs the same file in `/usr/share/doc/bismillah/`.
 - **Opening files:**
   - `bismillah [file.md | folder]` from the command line.
   - "Open with" from the file manager: a `.desktop` entry with `MimeType=text/markdown;text/x-markdown;` on Linux, and file associations in the bundle config elsewhere.
@@ -350,7 +363,7 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 - **Quitting** flushes pending saves first (§5.5), including from the window manager's close and from `Mod-Q`.
 
 ### 12.3 Platforms
-- **For now bismillah runs only on the author's Linux machine.** It is installed with a local Arch `PKGBUILD` (`makepkg -si`), so it appears in the launcher and opens `.md` files from the file manager.
+- **For now bismillah runs only on the author's Linux machine.** It is installed with a local Arch `PKGBUILD` (`makepkg -si`), so it appears in the launcher and opens `.md` files from the file manager. The package holds the binary (fonts, the dictionary and the guide compiled in), the desktop entry (`text/markdown`, `text/x-markdown`; its name, the Wayland app id and `StartupWMClass` are all `bismillah`), the icon from 32 px to scalable, the guide, README and PRIVACY under `/usr/share/doc/bismillah/`, and the licences. `packaging/check.sh` checks a built package: its files, the entry, *Open with* opening a file (launched from the entry under the harness), `--version`, and that every linked library belongs to a declared dependency.
 - Public packaging (AppImage, .deb, .rpm, AUR, Flatpak) and macOS (WKWebView) / Windows (WebView2) builds come later. Until then, portability is protected by discipline (`platform.rs`, Tauri path APIs, `Mod-` shortcuts), not by CI.
 - **Checks run locally.** `pnpm verify` runs every suite: tests, clippy, fmt, check, lint, `cargo deny`. CI arrives when the repo gets a remote.
 - All platform code lives in `platform.rs`. Paths go through Tauri and `dirs`. Shortcuts use `Mod-`.
@@ -367,12 +380,15 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 | Rust unit | `cargo test --workspace` | Save contract (fault injection: disk full, read-only, rename failure), path validation (traversal, symlinks), line endings/BOM round-trip, UTF-16 offset conversion, the personal dictionary file (failed writes included) |
 | Checking fixtures | `cargo test -p bismillah-lint` | One block per line with the expected marks (`crates/bismillah-lint/tests/fixtures/`): English, Arabic with and without diacritics, mixed text, masked regions, routing; the Arabic benchmark and the hunspell oracle |
 | Frontend unit | Vitest | Decoration ranges and classes, keymap, command registry, what is sent to the checker, stale-lint discarding, Basmallah deduplication |
-| Real app e2e | `tauri-driver` (WebDriver) on Linux and Windows | Open/edit/save/reload, conflicts, recovery after a killed process, file opening (CLI, drag-drop, second instance), settings, keyboard-only flows, offline run |
+| Real app e2e | `tauri-driver` (WebDriver) on Linux and Windows | Open/edit/save/reload, conflicts, recovery after a killed process, file opening (CLI, drag-drop, second instance), settings, keyboard-only flows, links on Ctrl+click and *Show in file manager* (`links.e2e.ts`), the guide (`guide.e2e.ts`), offline run |
 | Visual | Screenshots via `tauri-driver` in the real app: WebKitGTK on Linux now, WebView2 on Windows later; macOS (no WebDriver support) checked by hand before releases | The specimen rendered (live preview) and with all Markdown shown, whose baselines are Phase 1's own; `pnpm app:shot` covers the four widths, both themes and zoom for review |
 | Themes and settings | `tests/e2e/settings.e2e.ts`, `tests/visual/settings.visual.ts`, `themes.rs` and `keybindings.rs` unit tests, `src/core/shortcuts.test.ts` | Built-in and file themes applied per variant, problems listed, live reload of a theme file and of `keybindings.toml`, high contrast over any theme, shortcuts that work and stop working in the real editor, the starting file, Settings by keyboard, *Another font*, About |
 | Live preview | `tests/e2e/spikes/live-preview.e2e.ts`, `tests/e2e/live-preview.e2e.ts`, `spikes/webview/composition.ts` | Clicks, selection, keyboard motion and typewriter scrolling on RTL and mixed lines while blocks reveal; the fold, images (with links out of the library), hover addresses, `Mod-R`; the XSS fixture inert in the editor and on the clipboard |
 | Contrast | Unit test over the token table (`tokens.test.ts`), and `themes.rs` for built-in themes | Every semantic pair (DESIGN.md §9.4), high contrast at 7:1, Zuhd mode's faint text |
 | Arabic rendering | `pnpm test:visual` (`tests/visual/arabic-rendering.visual.ts`) | Ink of every vocalised fixture word against a HarfBuzz reference, per bundled Arabic font; fails when a word gets worse, notes when WebKitGTK improves (ADR-0011) |
+| Accessibility | `pnpm a11y` (`scripts/a11y.ts`, `a11y_tree.py`) | The tree Orca reads over AT-SPI, from a private accessibility bus inside the harness, in every screen and state: named controls and dialogs, Settings' headings, the library tree and its selected file, the palette's options, a failure as an alert, the first screen |
+| Performance | `pnpm perf` (`scripts/perf.ts`) | §14's budgets in the release build: launch to an editable caret, typing in a 1 MB document, idle CPU, memory |
+| Package | `packaging/check.sh <package>` | §12.3 |
 | Supply chain | `cargo deny check`, `pnpm audit` | Banned crates, licences, advisories |
 
 All real-app runs go through `scripts/headless.sh` (private Xvfb, D-Bus, runtime, config and data directories), so they never touch the author's desktop, settings, recovery journal or trash (the freedesktop trash lives under the private data directory); the test harness refuses to start outside it. Rust unit tests use a stand-in trash in their scratch folder, never the system's. The library suite (`tests/e2e/library.e2e.ts`) works on a scratch copy of `tests/fixtures/library` and drives every library action from the keyboard, including attempts to leave the library through the IPC commands directly. File-safety e2e tests open real files with `test_open` and inject failures with `test_fault` (disk full, rename failure), both compiled into debug builds only and refused outside the harness. Native input that WebDriver can't produce (menus, accelerators, dead keys, layout switching, the clipboard) is driven with real X events (`xdotool`, raw XTEST via `spikes/webview/xtest.py`).
@@ -384,9 +400,10 @@ Round-trip acceptance checks that must always pass:
 
 ## 14. Performance budgets
 
-- Launch to an editable caret: under 400ms on a mid-range Linux laptop.
-- No dropped frames while typing in a 1MB document.
+- Launch to an editable caret: under 400ms on a mid-range Linux laptop. **Measured for 1.0** (`pnpm perf`, release build, headless: Xvfb without a GPU, on the author's i7-7820HQ): 524 ms at the median of warm launches (730 ms cold) with a short document, 521 ms with 50,000 words. Not met. Of the 524 ms, 274 ms pass before the page starts loading (GTK, the window and WebKit's processes), 32 ms until its script runs, and 214 ms in the start: settings, the document from Rust, the first fonts and the editor. Phase 6 took 190 ms off (it was 716 ms): only the fonts the first screen uses are loaded before it, while Rust opens the document; the native menu is built after the text is editable; and the Markdown language no longer loads the HTML, CSS and JavaScript grammars (the script went from 917 KB to 732 KB).
+- No dropped frames while typing in a 1MB document. **Measured for 1.0** (key to painted frame, keys typed in bursts with pauses): a short document 10 ms at the median, 19 ms at p95; a 1 MB book (175,000 words) 19 ms at the median and 37 ms at p95 in prose, 24 ms and 42 ms on a line with code; frames longer than two refresh intervals while typing: 0.8 %, 4.4 % and 9 %. Not quite met at 1 MB. Phase 6 took it from about a second a key: drawn tables, images and link definitions were rebuilt for the whole document on every key, and are now kept across edits that can't change them (`inlineEdit` in `livePreview.ts`). What remains is CodeMirror's Markdown parser re-reading the document's block structure on each edit (Lezer's incremental parse walks every top-level block: about 6 ms in V8, 15 ms in WebKit's JavaScript engine, for 7,200 blocks).
 - Lint results within 500ms of a typing pause. Measured 2026-10-18 (`cargo run -p bismillah-lint --release --example bench -- <corpus>`, 8 cores at load ≈ 4): one edited paragraph takes 8–25 ms at the median and 46–163 ms at p95 on 50,000-word Gutenberg texts, after the 300 ms pause; a first pass over 50,000 words takes 16–38 s of background CPU, visible blocks first; the session cache answers a reopened document in 2 ms. The checker holds about 200 MiB after warm-up and 260 MiB after a 50,000-word pass, plus 45 MiB once Arabic is checked.
-- No CPU use when idle (no polling).
+- No CPU use when idle (no polling). **Measured for 1.0:** 90 ms of CPU in a quiet minute, across the app's three processes (0.15 %), with nothing polling. Under the harness no window has focus, so the caret doesn't blink; in a focused window it repaints twice a second. A library with a busy folder in it (a build) no longer costs a listing per change: the watcher reacts only to Markdown files and folders.
+- Memory, recorded for 1.0: 761 MiB resident across the three processes with a short document open and checked (bismillah 473 MiB, of which the checker holds about 245 MiB with Arabic; WebKit's web process 224 MiB; its network process 64 MiB), 940 MiB with a 1 MB book.
 
-All budgets are measured, not assumed. Package size is a tracked number; "small" is the goal, not a promise.
+All budgets are measured, not assumed (`pnpm perf`; the run behind these numbers is in docs/audits/2026-10-19-personal-1.0.md). Package size is a tracked number; "small" is the goal, not a promise (the 1.0 package's, measured by `packaging/check.sh`, are in the audit).

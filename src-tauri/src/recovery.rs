@@ -95,6 +95,11 @@ impl Recovery {
         }
     }
 
+    /// The folder the journal keeps its entries in (Settings › Files & privacy).
+    pub fn dir(&self) -> &Path {
+        &self.dir
+    }
+
     /// A stable name for a file's entries, from its canonical path.
     fn file_id(path: &Path) -> String {
         format!(

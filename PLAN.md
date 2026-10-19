@@ -228,7 +228,7 @@ Declarative theme files with validation and contrast warnings; a high-contrast b
 
 **Accept** (set when the phase was built): a theme file applies as soon as it is saved and its problems are listed in plain words; high contrast holds 7:1 for text in both variants and overrides any theme; every setting DESIGN.md describes is on the one Settings screen and works from the keyboard; `keybindings.toml` changes shortcuts in the editor, the menu and the palette as soon as it is saved, and refuses keys that belong to the text; About states the inspiration and every shipped part's licence.
 
-### Phase 5 result (2026-10-19): built; waiting for the author's acceptance
+### Phase 5 result (2026-10-19): built; the author moved on to Phase 6 the same day
 
 *Changed while building, at the author's word (2026-10-19): only a few themes for now, because the author plans a set of their own.* So two themes are built in, Sepia and Slate, as theme files in the very format a writer uses (`src-tauri/themes/`): the coming set is files, not code.
 
@@ -265,7 +265,46 @@ What else came with it:
 
 bismillah stays private and runs only on the author's machine for now (2026-10-18 interview). 1.0 means the author's daily-driver release: the polished local `PKGBUILD` and a `.desktop` entry with the Markdown MIME types and icon, so "Open with bismillah" works; README, PRIVACY.md and user documentation; a final accessibility, contrast and offline audit; performance budgets measured (ARCHITECTURE.md §14); package size recorded.
 
+### Phase 6 result (2026-10-19): built; waiting for the author's acceptance
+
+*Decided by the author at the start (2026-10-19):* build Ctrl+click on links for 1.0 (PRIVACY.md already promised it, and no phase owned it); put the user guide inside the app (Help › Guide); and make the icon the letter bāʾ, "as clean as possible", in the theme's green.
+
+Everything above is in place, and `pnpm verify` passes (350 unit tests, 145 Rust tests, 182 real-app e2e tests in 18 suites, 16 visual checks), and so do `pnpm test:offline`, `pnpm a11y` and `packaging/check.sh`. The audit, with every number, is [docs/audits/2026-10-19-personal-1.0.md](docs/audits/2026-10-19-personal-1.0.md).
+
+| Accept | Evidence |
+|---|---|
+| The polished local `PKGBUILD` | Version 1.0.0 from one place (the workspace's `Cargo.toml`; `package.json` repeats it and a test keeps them equal; `pkgver` is `1.0.0.r<commits>.g<hash>`). `depends` lists exactly what the binary links against (`readelf`), plus fontconfig for *Another font*; the stale `xdotool` dependency is gone (`libxdo` isn't linked any more). The guide, README and PRIVACY go to `/usr/share/doc/bismillah/`. `packaging/check.sh` checks a built package: its files, the desktop entry, `--version`, and every linked library against `depends` |
+| A `.desktop` entry with the Markdown types and the icon, so "Open with bismillah" works | `desktop-file-validate` passes with no hints; `gio mime text/markdown` offers bismillah from the package; and `packaging/check.sh` launches the entry with a Markdown file as a file manager does (`gio launch`, under the harness) and finds that file opened. Its name, the Wayland app id and `StartupWMClass` are all `bismillah` (checked on X11: `bismillah`/`Bismillah`). The icon is the bāʾ (DESIGN.md §7), from 32 px to scalable |
+| README, PRIVACY.md and user documentation | README says what 1.0 is and how to install it; every claim in PRIVACY.md was checked against the code (links, logs, the Flatpak that doesn't exist yet). The guide (`docs/guide.md`) covers every feature, setting file and shortcut; it opens inside the app on `F1` as a sample (`tests/e2e/guide.e2e.ts`: no spelling or grammar marks, never saved), and `src/core/guide.test.ts` keeps its shortcut table equal to the command registry. `bismillah --help` |
+| A final accessibility, contrast and offline audit | New `pnpm a11y` reads the tree Orca gets in eleven screens and states: two problems found and fixed (the writing surface had no name; Settings' headings reached screen readers in capitals). Contrast tests pass. `pnpm test:offline` passes with the new suites (189 socket calls, all loopback); no networking crate, no name resolution in the binary; `cargo deny` and `pnpm audit` clean |
+| Performance budgets measured (ARCHITECTURE.md §14) | New `pnpm perf` on the release build, headless: launch to an editable caret 524 ms (budget 400 ms: not met; 274 ms of it is GTK and WebKit starting); typing in a 1 MB book 19 ms a key in prose, 24 ms on a line with code (10 ms in a short document; 4 % of frames long at 1 MB: not quite met); lint within 500 ms (Phase 3's measurement); idle 90 ms of CPU a minute (met); 761 MiB resident with a short document |
+| Package size recorded | `packaging/check.sh` prints a package's sizes; the 1.0 package's are in the audit |
+
+What else came with it:
+- **Links open on Ctrl+click** (Cmd on macOS), in the text, in tables drawn as grids and in Arabic, and *Open link* opens the one at the caret. Only web and email addresses go to the browser or mail app, through the desktop (GIO); Rust checks each (`links.rs`), and under the test harness records them instead. The address tooltip says *Ctrl+click to open*; the pointer is a hand while Ctrl is held over a link. ADR-0003 already decided this; it was planned with `tauri-plugin-opener`, whose D-Bus stack cargo-deny flags, so GIO (already in the tree) does it.
+- ***Show in file manager*** for the library, the settings folder and the recovery folder (Settings › Files & privacy).
+- **Typing in a 1 MB document** went from about a second a key to 19 ms: drawn tables, images and link definitions are kept across edits that can't change them. **Launch** is 190 ms faster (716 → 524 ms): fewer fonts before the first screen, the menu after it, and no HTML/CSS/JavaScript grammars (ARCHITECTURE.md §2).
+- **The library's watcher reacts only to Markdown files and folders**, so a build or an install inside a library folder no longer makes it list everything again (found when the author's own instance had this repository as its library).
+- `bismillah --help` and `--version`.
+
+**Not done in Phase 6**
+- What Orca says aloud is still a manual check: `pnpm a11y` checks the tree it reads, not its speech.
+- Links to other Markdown files (`[next](chapter-2.md)`) don't open in bismillah; Ctrl+click says only web and email links open.
+- The caret keeps blinking in a focused window that is otherwise idle (two small repaints a second); GTK stops after ten seconds.
+- The budgets for launch (524 ms against 400 ms) and for typing in a 1 MB document (19 ms a key against one frame) are not met on this machine under the harness: what limits each is in the audit.
+
+**For the author**
+1. **Install and try it:** `cd packaging/arch && makepkg -si`. Then `F1` for the guide, Ctrl+click a link, *Show in file manager* in Settings, and look at the new icon in your launcher.
+2. **Your running `target/debug/bismillah`** had this repository as its library, so every build I ran kept it busy (a full CPU core): the new watcher stops that. Choose your writing folder as the library in the installed app.
+3. **Design questions (none blocks acceptance):** pasting a web address over selected text makes it a link (CodeMirror's default, on since Phase 1, never recorded in DESIGN.md): keep it, or paste the address as text? Should Ctrl+click on a link to another Markdown file open it in bismillah? And DESIGN.md's opening paragraph has a typo, "desi2zgn".
+4. **Manual checks (live session, a few minutes):** Orca reads the editor by its file name and Settings' headings as written; Ctrl+click opens Zen with the page in front (Wayland activation); *Open with › bismillah* from your file manager; the icon at your launcher's size; `F1`.
+5. **When you accept it,** tag the commit `v1.0.0`.
+6. **Still open from earlier phases:** Phase 5's design questions and manual checks, Phase 4's, the hanging-mark gutter question (Phase 1, item 3) and the manual checks of Phases 1–3.
+
 ## Later (not scheduled)
+
+- Opening links to other Markdown files in the library from the editor (`[next](chapter-2.md)`).
+- Stopping the caret's blink after a while without typing, as GTK does.
 
 - Publishing: a GitHub repo on the author's personal account, CI on Linux, macOS and Windows, public packages (AppImage, .deb, .rpm, AUR, Flathub without network permission), and macOS and Windows releases.
 - Print / PDF and HTML export.

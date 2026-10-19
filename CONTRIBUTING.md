@@ -28,13 +28,14 @@ Run `pnpm install`, then `pnpm tauri dev`. Every command, and `pnpm verify` (the
 Linux prerequisites (Arch):
 
 ```bash
-sudo pacman -S --needed rust nodejs pnpm webkit2gtk-4.1 webkitgtk-6.0 xdotool base-devel hunspell xorg-server-xvfb strace
+sudo pacman -S --needed rust nodejs pnpm webkit2gtk-4.1 webkitgtk-6.0 xdotool base-devel hunspell xorg-server-xvfb strace python-gobject at-spi2-core desktop-file-utils
 cargo install --locked --root ~/.local cargo-deny tauri-driver   # ~/.local/bin is on PATH
 uv tool install fonttools --with brotli                           # font subsetting and inspection
 ```
 
 - `webkitgtk-6.0` provides `WebKitWebDriver`, which `tauri-driver` needs.
-- `xdotool` provides `libxdo`, which Tauri's native menus link against on Linux.
+- `xdotool` sends the real X key presses the native-input tests need (menus, accelerators, the clipboard).
+- `python-gobject` and `at-spi2-core` let `pnpm a11y` read the app's accessibility tree; `desktop-file-utils` lets `packaging/check.sh` validate the desktop entry.
 - `hunspell` is used for the Arabic speller benchmark.
 - `xorg-server-xvfb` gives headless test runs that don't touch your desktop; `strace` is used for the offline proof (ARCHITECTURE.md §10).
 

@@ -66,7 +66,9 @@ interface Box {
 /** Lays out one page of words in `family` over the app and returns each cell's box. */
 async function layOut(family: string, words: string[], size: number): Promise<Box[]> {
   return browser.execute(
-    (f: string, list: string[], px: number) => {
+    async (f: string, list: string[], px: number) => {
+      // The app loads a face when text first needs it; this page needs this one now.
+      await document.fonts.load(`${px}px '${f}'`, list.join(""));
       document.getElementById("rendering-probe")?.remove();
       const host = document.createElement("div");
       host.id = "rendering-probe";

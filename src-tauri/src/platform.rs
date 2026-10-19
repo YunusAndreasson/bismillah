@@ -40,6 +40,18 @@ pub fn write_clipboard(html: String, text: String) -> Result<(), String> {
     }
 }
 
+/// Hands `uri` to the app the desktop opens it with: the default browser, mail app or
+/// file manager (links.rs checks it first). Must run on the main thread.
+pub fn open_uri(uri: &str) -> Result<(), ()> {
+    #[cfg(target_os = "linux")]
+    return linux::open_uri(uri);
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = uri;
+        Err(())
+    }
+}
+
 /// What the clipboard holds under `target`, as UTF-8 (the test hooks read back what
 /// Copy as rich text offered). Must run on the main thread.
 pub fn read_clipboard(target: &str) -> Option<String> {
@@ -413,6 +425,13 @@ mod linux {
 
     pub fn menu_bar_active(window: &tauri::WebviewWindow) -> bool {
         menu_bar(window).is_some_and(|bar| bar.selected_item().is_some())
+    }
+
+    /// Through GIO, as the desktop's own "Open with" does, with a launch context so the
+    /// browser's window is allowed to come to the front.
+    pub fn open_uri(uri: &str) -> Result<(), ()> {
+        let context = gtk::gdk::Display::default().and_then(|d| d.app_launch_context());
+        gtk::gio::AppInfo::launch_default_for_uri(uri, context.as_ref()).map_err(|_| ())
     }
 
     pub fn read_clipboard(target: &str) -> Option<String> {

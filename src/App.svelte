@@ -1,7 +1,6 @@
 <script lang="ts">
   import { Dialog } from "bits-ui";
   import { onMount } from "svelte";
-  import { loadFonts } from "./core/appearance.ts";
   import { runCommand, type CommandId } from "./core/commands.ts";
   import { copy } from "./core/copy.ts";
   import * as ipc from "./core/ipc.ts";
@@ -60,10 +59,12 @@
     };
     (async () => {
       try {
-        await loadFonts();
         await workspace.start(host, installMenu);
         document.fonts.addEventListener("loadingdone", onFonts);
         started = true;
+        // The launch budget's end: the document is in the editor, which has focus
+        // (ARCHITECTURE.md §14, measured by scripts/perf.ts).
+        performance.mark("bismillah:editable");
         if (workspace.testMode && workspace.editor) installTestHooks(workspace.editor, workspace);
       } catch (error) {
         console.error("bismillah: couldn't start", error);
@@ -143,6 +144,7 @@
   section={workspace.settingsSection}
   shown={() => (workspace.settingsSection = null)}
   openFolder={() => void workspace.openFolder()}
+  showFolder={(folder) => workspace.showFolder(folder)}
   createKeybindings={() => workspace.createKeybindings()}
   openAbout={() => (workspace.aboutOpen = true)}
 />
