@@ -32,9 +32,12 @@ for file in bin/bismillah share/applications/bismillah.desktop \
 done
 cmp -s "$root/share/doc/bismillah/guide.md" docs/guide.md || fail "the guide isn't the repository's"
 
-# 2. The desktop entry, and the Markdown types a file manager reads from it.
+# 2. The desktop entry, and the Markdown types a file manager reads from it: indexed as
+# pacman's desktop-file-utils hook indexes it on install, then asked of GIO.
 desktop-file-validate "$root/share/applications/bismillah.desktop"
-registered=$(XDG_DATA_HOME="$work/home" XDG_DATA_DIRS="$root/share" gio mime text/markdown)
+update-desktop-database "$root/share/applications"
+registered=$(PATH="$root/bin:$PATH" XDG_DATA_HOME="$work/home" \
+  XDG_DATA_DIRS="$root/share:/usr/share" gio mime text/markdown)
 grep -q "bismillah.desktop" <<<"$registered" || fail "bismillah isn't offered for text/markdown"
 
 # 3. Open with bismillah: launched from its entry with a file, as a file manager does,
@@ -50,7 +53,13 @@ PATH="$root/bin:$PATH" XDG_DATA_DIRS="$root/share:/usr/share" scripts/headless.s
     sleep 0.5
   done
   cp "$XDG_DATA_HOME/bismillah/state.json" "$3" 2>/dev/null || true
-  pkill -x bismillah || true
+  # Only the app this run launched, found by the private runtime directory of the
+  # harness: never a bismillah the writer has open.
+  for pid in $(pgrep -x bismillah); do
+    if tr "\0" "\n" <"/proc/$pid/environ" 2>/dev/null | grep -qxF "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"; then
+      kill "$pid"
+    fi
+  done
 ' launch "$root/share/applications/bismillah.desktop" "$note/letter.md" "$work/state.json" \
   >/dev/null 2>&1 || true
 grep -qs "$note/letter.md" "$work/state.json" || fail "Open with bismillah didn't open the file"
