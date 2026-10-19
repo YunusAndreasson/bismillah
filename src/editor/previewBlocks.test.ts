@@ -69,9 +69,9 @@ describe("images", () => {
     expect(imageKind("")).toBe("none");
   });
 
-  it("puts each image below its line, never one inside code", () => {
+  it("puts each image below its line, never one inside code or a table", () => {
     const doc =
-      "Text ![A](a.png) and ![B](https://e.com/b.png).\n\n`![C](c.png)`\n\n```\n![D](d.png)\n```\n\n![E](e.png)";
+      "Text ![A](a.png) and ![B](https://e.com/b.png).\n\n`![C](c.png)`\n\n```\n![D](d.png)\n```\n\n| ![T](t.png) |\n|---|\n\n![E](e.png)";
     const state = stateWith(doc);
     const found: { at: number; src: string; url: string | null }[] = [];
     imageWidgets(state).between(0, doc.length, (from, _to, deco) => {

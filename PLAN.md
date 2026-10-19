@@ -182,13 +182,13 @@ What else came with it:
 
 ### Phase 4 result (2026-10-19): built; waiting for the author's acceptance
 
-The spike came first and its verdict is **go** ([docs/spikes/live-preview.md](docs/spikes/live-preview.md), ADR-0012). Everything above is in place, and `pnpm verify` passes (246 unit tests, 118 Rust tests, 141 real-app e2e tests in 14 suites, 11 visual checks with four new rendered baselines), and so does `pnpm test:offline`.
+The spike came first and its verdict is **go** ([docs/spikes/live-preview.md](docs/spikes/live-preview.md), ADR-0012). Everything above is in place, and `pnpm verify` passes (259 unit tests, 118 Rust tests, 153 real-app e2e tests in 15 suites, 13 visual checks with six new rendered baselines, counted after the tables and code below), and so does `pnpm test:offline`.
 
 | Accept | Evidence |
 |---|---|
-| The specimen at all test widths in both themes, rendered and revealed | `pnpm app:shot -- --markdown rendered` and `--markdown shown` at 640/1280/1920/2560, light and dark, reviewed (the caret's block revealed in each); visual baselines of the rendered specimen: top, lists and quotes, Arabic, mixed lines |
+| The specimen at all test widths in both themes, rendered and revealed | `pnpm app:shot -- --markdown rendered` and `--markdown shown` at 640/1280/1920/2560, light and dark, reviewed (the caret's block revealed in each); visual baselines of the rendered specimen: top, lists and quotes, code, table, Arabic, mixed lines |
 | Caret, selection and mouse placement on RTL and mixed lines, in both states | Rendered: `tests/e2e/spikes/live-preview.e2e.ts` (clicks on eight mixed, RTL, list, quote and heading lines, every letter beside a hidden mark included; selections into rendered lines; ↓ through the document; → and ← across hidden edge marks; typewriter scrolling at 42 %). Shown: the Phase 0 bidi and hanging-mark spikes, now run with *Always show Markdown* on |
-| Clicking into a rendered paragraph keeps the caret on the clicked character | The same spike: a click on the left or right quarter of a letter leaves the caret on that side of it after the reveal, its row at the same height; a double-click selects the clicked word although the first click moved it |
+| Clicking into a rendered paragraph keeps the caret on the clicked character | The same spike: a click on the left or right quarter of a letter leaves the caret on that side of it after the reveal, its row at the same height; a double-click selects the clicked word although the first click moved it. In tables, `tests/e2e/live-preview-blocks.e2e.ts` does the same on an English and an Arabic grid (letters beside hidden marks included), with the caret drawn in the clicked row during the press |
 | "Always show Markdown" matches Phase 1 exactly | With it on, the specimen screenshots matched the Phase 1 baselines unchanged. Those baselines also held a stray panel: the library visual spec's folder, remembered within a run and missing by then ("Writing" isn't available). The specimen spec now closes the library first, and the two baselines were re-recorded without the panel. `tests/e2e/live-preview.e2e.ts`: after `Mod-R` no rendered decoration is left and every line is drawn as its source, and `Mod-R` brings live preview back |
 | An XSS fixture suite stays inert in the editor and on the clipboard | `tests/fixtures/xss.md` (script, event handlers, scripted and data URLs in links, images, autolinks and references, SVG, iframes, forms, styles, HTML in footnotes, tables and tasks): `src/richText/render.test.ts` and `live-preview.e2e.ts` (the caret through every block and the links hovered and clicked: no script ran, no element that can run or load anything, no CSP violation; the copied HTML checked the same way) |
 
@@ -199,19 +199,26 @@ What else came with it:
 - **Copy as rich text** (`Mod-Shift-C`, Edit menu): the selection or the whole document without its frontmatter, as sanitised HTML and plain text through GTK's clipboard; another X client reads both (`spikes/webview/rich-text-clipboard.ts`).
 - **The mouse:** the reveal waits for the button's release, so nothing moves under a press or a drag.
 
+**After the author's first look (2026-10-19):** tables and code blocks weren't rendered, and now are (DESIGN.md §11, ADR-0012).
+- **Tables** are drawn as grids (`previewTables.ts`): columns aligned as the delimiter row says, the header over a rule that takes the delimiter row's line, every row one line high, so a table whose cells don't wrap reveals without moving. Cells are drawn as the text around them, an Arabic table reads from the right, and wide tables wrap their cells within the measure. A click lands on the clicked character, a double-click selects the clicked word, and ↑ ↓ step into a table (CodeMirror's vertical motion would skip the grid).
+- **Code blocks** sit on a ground with their fences painted out and the info string as a quiet label; revealing one moves nothing.
+- **Code's ground is now `surface-code`**, translucent, for inline code too: the opaque `surface-panel` hid the selection CodeMirror draws behind the text. It draws the panel's colour on the editor (a contrast test checks it, and text on it with a selection behind).
+- Quote marks inside a quoted code or HTML block now get their bars as well.
+
 **Changed from the plan**
 - The command is labelled *Always show Markdown*, the setting's own name (DESIGN.md §6 asks for one name everywhere), not *Show all Markdown*.
 - Local images come through a custom scheme checked by our own path code instead of Tauri's asset protocol, and the clipboard is GTK's instead of `tauri-plugin-clipboard-manager` (ARCHITECTURE.md §2, §6).
 
 **Not done in Phase 4**
-- Tables and fenced code keep their Markdown in both states (inline marks inside table cells are hidden). A rendered table grid needs a widget with measured columns; ADR-0012's rendered list doesn't include it.
+- Tables inside quotes and list items keep their Markdown (with inline marks hidden). Spelling marks, search matches and the address tooltip aren't drawn inside a rendered grid; they appear once the caret is in the table.
+- A code block's `>` marks inside a quote don't hang (a Phase 1 rule for code lines), so its bars sit at the text rather than in the gutter.
 - Opening a link in the browser on `Mod-click` (ARCHITECTURE.md §10, planned with `tauri-plugin-opener`).
 - Hovering the image itself shows no address (hovering its line does).
 - On a document's last screen, where it can't scroll further, a click's reveal may push the clicked row down.
 
 **For the author**
 1. **Install and try it:** `cd packaging/arch && makepkg -si`, then write in a document with emphasis, links and quotes: click into paragraphs, move through them with the arrows, and press `Ctrl+R` for *Always show Markdown*.
-2. **Design questions (none blocks acceptance):** the rule for `---` is short and centred (6em) rather than the full measure; a done task is a box with a filled centre rather than a check mark; tables stay as Markdown.
+2. **Design questions (none blocks acceptance):** the rule for `---` is short and centred (6em) rather than the full measure; a done task is a box with a filled centre rather than a check mark; a code block's fences leave a full line of ground above and below the code.
 3. **Manual checks (live session, a few minutes):** composing with fcitx5 at the start and end of a block; the address tooltip on hover; Orca reads rendered text without its marks; pasting *Copy as rich text* into a mail client or LibreOffice on Wayland.
 4. **Still open from earlier phases:** the hanging-mark gutter question (Phase 1, item 3) and the manual checks of Phases 1–3.
 

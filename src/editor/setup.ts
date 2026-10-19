@@ -9,6 +9,7 @@ import { frontmatterEnd, markdownDialect } from "./dialect.ts";
 import { hangingMarks } from "./hangingMarks.ts";
 import { livePreview } from "./livePreview.ts";
 import { imageAddress, previewBlocks, type ImageAddress } from "./previewBlocks.ts";
+import { previewTables } from "./previewTables.ts";
 import { markdownStyling } from "./markdownStyling.ts";
 import { scriptRuns } from "./scriptRuns.ts";
 import { typewriter } from "./typewriter.ts";
@@ -131,7 +132,8 @@ export function createEditor(options: EditorOptions): Editor {
     typewriter: () => (config.typewriter ? typewriter() : []),
     zuhd: () => (config.zuhd ? [zuhd(), focusGranularity.of(config.focusGranularity)] : []),
     smartPunctuation: () => typingAidsConfig.of({ smartPunctuation: config.smartPunctuation }),
-    livePreview: () => (config.livePreview ? [livePreview(), previewBlocks()] : []),
+    livePreview: () =>
+      config.livePreview ? [livePreview(), previewBlocks(), previewTables()] : [],
     readOnly: (on: boolean) => [EditorState.readOnly.of(on), EditorView.editable.of(!on)],
   };
 

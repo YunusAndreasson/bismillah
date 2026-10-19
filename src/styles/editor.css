@@ -178,7 +178,7 @@
   color: var(--text-primary);
 }
 .cm-editor .cm-md-code {
-  background: var(--surface-panel);
+  background: var(--surface-code);
   border-radius: 0.2em;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
@@ -193,6 +193,90 @@
   line-height: 1;
   position: relative;
   inset-block-start: -0.5em;
+  color: var(--text-secondary);
+}
+
+/* A code block sits on its ground (surface-code) reaching a little into the gutters,
+   so the code stays where the revealed block has it. Its fences are painted out, which
+   leaves a band of ground above and below; the info string is a quiet label at the end
+   of the top band. */
+.cm-editor .cm-line.cm-md-codeblock {
+  --code-pad: 0.75em;
+  margin-inline: calc(var(--hang-gutter) - var(--code-pad));
+  padding-inline: var(--code-pad);
+  background: var(--surface-code);
+}
+.cm-editor .cm-line.cm-md-codeblock-first {
+  border-start-start-radius: 0.3em;
+  border-start-end-radius: 0.3em;
+}
+.cm-editor .cm-line.cm-md-codeblock-last {
+  border-end-start-radius: 0.3em;
+  border-end-end-radius: 0.3em;
+}
+.cm-editor .cm-line.cm-md-fence {
+  text-align: end;
+}
+.cm-editor .cm-md-codeinfo,
+.cm-editor .cm-md-codeinfo * {
+  color: var(--text-secondary);
+  font-size: 0.85em;
+}
+
+/* Tables drawn as a grid (previewTables.ts), on the line rhythm: every row is one line
+   high and the rule under the header stands in the delimiter row's line, drawn as a
+   background so it adds no height. Rows and columns are set apart by space alone. */
+.cm-editor .cm-table {
+  padding-inline: var(--hang-gutter);
+  cursor: text;
+}
+.cm-editor .cm-table table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.cm-editor .cm-table th,
+.cm-editor .cm-table td {
+  padding: 0;
+  padding-inline-end: 1.5em;
+  text-align: start;
+  vertical-align: baseline;
+  /* CodeMirror's wrapping breaks anywhere, which would let a column shrink to a letter;
+     in the grid a word or an address breaks only when it can't fit. */
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+.cm-editor .cm-table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+.cm-editor .cm-table th {
+  font-weight: 700;
+  padding-block-end: var(--L);
+  background: linear-gradient(var(--text-secondary), var(--text-secondary)) 0 calc(1.5 * var(--L)) /
+    100% 1px no-repeat;
+}
+/* CodeMirror draws the selection; WebKit would fill selected cells with its own. */
+.cm-editor .cm-table::selection,
+.cm-editor .cm-table ::selection {
+  background: transparent;
+}
+.cm-editor .cm-table .cm-table-left {
+  text-align: left;
+}
+.cm-editor .cm-table .cm-table-center {
+  text-align: center;
+}
+.cm-editor .cm-table .cm-table-right {
+  text-align: right;
+}
+.cm-editor .cm-table .cm-md-code,
+.cm-editor .cm-table .cm-url {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+.cm-editor.cm-zuhd .cm-table,
+.cm-editor.cm-zuhd .cm-table * {
   color: var(--text-secondary);
 }
 

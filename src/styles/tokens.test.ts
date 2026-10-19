@@ -48,6 +48,16 @@ function luminance(hex: string): number {
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
+/** A translucent `#rrggbbaa` colour composited over an opaque one. */
+function over(top: string, bottom: string): string {
+  const channel = (hex: string, i: number) => parseInt(hex.slice(i, i + 2), 16);
+  const alpha = top.length === 9 ? channel(top, 7) / 255 : 1;
+  return `#${[1, 3, 5]
+    .map((i) => Math.round(channel(top, i) * alpha + channel(bottom, i) * (1 - alpha)))
+    .map((c) => c.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
 export function contrast(a: string, b: string): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
   return (hi + 0.05) / (lo + 0.05);
@@ -79,6 +89,20 @@ describe.each(Object.entries(THEMES))("%s theme contrast", (_name, token) => {
 
   it.each(NON_TEXT.flatMap((fg) => SURFACES.map((bg) => [fg, bg])))("%s on %s ≥ 3:1", (fg, bg) => {
     expect(contrast(token(fg), token(bg))).toBeGreaterThanOrEqual(3);
+  });
+
+  it("draws code's ground as the panel, readable with a selection showing through", () => {
+    const ground = over(token("surface-code"), token("surface-editor"));
+    const panel = token("surface-panel");
+    for (const i of [1, 3, 5]) {
+      const diff = parseInt(ground.slice(i, i + 2), 16) - parseInt(panel.slice(i, i + 2), 16);
+      expect(Math.abs(diff)).toBeLessThanOrEqual(1);
+    }
+    for (const fg of ["text-primary", "text-secondary", "syntax-marker"]) {
+      expect(contrast(token(fg), ground)).toBeGreaterThanOrEqual(4.5);
+    }
+    const selected = over(token("surface-code"), token("selection-background"));
+    expect(contrast(token("text-primary"), selected)).toBeGreaterThanOrEqual(4.5);
   });
 
   it("gives prose more than 7:1", () => {

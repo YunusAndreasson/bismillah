@@ -105,6 +105,8 @@ describe("specimen screenshots", () => {
     for (const [name, theme, needle] of [
       ["specimen-top-light-1280-rendered", "light", "---\ntitle"],
       ["specimen-lists-dark-1280-rendered", "dark", "## Lists"],
+      ["specimen-code-light-1280-rendered", "light", "## Code"],
+      ["specimen-table-dark-1280-rendered", "dark", "## Table"],
       ["specimen-arabic-dark-1280-rendered", "dark", "## Arabic"],
       ["specimen-mixed-light-1280-rendered", "light", "## Transliteration"],
     ] as const) {

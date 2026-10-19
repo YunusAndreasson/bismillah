@@ -100,7 +100,8 @@ bismillah/
 │  │                          zuhd, typingAids (smart punctuation, transliteration mode), lintBlocks
 │  │                          (what is prose), linter (when to check), diagnostics, livePreview
 │  │                          (what is revealed, the rendered look, the mouse), previewBlocks
-│  │                          (folded frontmatter, images, addresses on hover); wordCount
+│  │                          (folded frontmatter, images, addresses on hover), previewTables
+│  │                          (tables as grids, clicks and arrows into them); wordCount
 │  ├─ richText/               markdown-it + DOMPurify for Copy as rich text, and its plain text
 │  ├─ ui/                     Svelte components: status line, notices, first screen, Settings,
 │  │                          library panel and tree, quick open / palette, name prompt, suggestions

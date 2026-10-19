@@ -155,11 +155,39 @@ describe("the rendered look", () => {
     );
   });
 
-  it("keeps a link without text, and HTML, entities and code blocks as written", () => {
+  it("keeps a link without text, HTML and entities as written", () => {
     expect(shown("[](https://e.com) <b>bold</b> &amp;")).toBe(
       "[](https://e.com) <b>bold</b> &amp;",
     );
-    expect(shown("```js\nlet *a* = `b`;\n```")).toBe("```js\nlet *a* = `b`;\n```");
+  });
+
+  it("puts code blocks on a ground, fences painted out, the code as written", () => {
+    const r = render("```js\nlet *a* = `b`;\n```\n\n    indented\n\n‸");
+    expect(r.text).toBe("···js\nlet *a* = `b`;\n···\n\n    indented\n\n");
+    expect(r.marks).toEqual(["cm-md-codeinfo: js"]);
+    expect(r.lines).toEqual([
+      "line 1: cm-md-codeblock cm-md-codeblock-first",
+      "line 1: cm-md-fence",
+      "line 2: cm-md-codeblock",
+      "line 3: cm-md-codeblock cm-md-codeblock-last",
+      "line 5: cm-md-codeblock cm-md-codeblock-first cm-md-codeblock-last",
+    ]);
+    // Unclosed, it runs to the end; in a quote the bars carry it, without a ground.
+    expect(render("~~~\ncode‸").lines).toEqual([]);
+    expect(render("Text‸\n\n~~~\ncode").lines).toEqual([
+      "line 3: cm-md-codeblock cm-md-codeblock-first",
+      "line 3: cm-md-fence",
+      "line 4: cm-md-codeblock cm-md-codeblock-last",
+    ]);
+    const quoted = render("> ```\n> code\n> ```\n\n‸");
+    expect(quoted.text).toBe("· ···\n· code\n· ···\n\n");
+    expect(quoted.lines.filter((l) => !l.endsWith("cm-md-quote"))).toEqual([]);
+  });
+
+  it("shows a code block's Markdown when it holds the caret", () => {
+    const r = render("```js\nlet a‸ = 1;\n```");
+    expect(r.text).toBe("```js\nlet a = 1;\n```");
+    expect(r.lines).toEqual([]);
   });
 
   it("raises defined footnote references and hides the definition's marks", () => {

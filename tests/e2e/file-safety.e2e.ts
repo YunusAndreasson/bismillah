@@ -194,7 +194,7 @@ describe("file safety", () => {
     expect((await notices())[0]?.message).toBe(
       "“latin1.md” isn't UTF-8 text, so it opened read-only and stays unchanged.",
     );
-    await typeAtEnd("x");
+    await typeAtEnd("x", { readOnly: true });
     expect(await docText()).toBe("caf�\n");
     expect(folder.read("latin1.md").equals(bytes)).toBe(true);
   });

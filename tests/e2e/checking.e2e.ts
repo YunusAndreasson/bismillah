@@ -181,7 +181,12 @@ describe("spelling and grammar", () => {
     await waitForMenu();
     await press("F7");
     await browser.waitUntil(async () => (await selected()) === "tomorow", { timeout: 5000 });
-    expect((await waitForMenu())?.explanation).toContain("tomorow");
+    // The menu follows the selection a moment later (under the offline run's strace, too
+    // late for an immediate read).
+    await browser.waitUntil(
+      async () => (await waitForMenu())?.explanation.includes("tomorow") ?? false,
+      { timeout: 5000, timeoutMsg: "the menu never moved on to “tomorow”" },
+    );
     await press("Shift", "F7");
     await browser.waitUntil(async () => (await selected()) === "recieve", { timeout: 5000 });
     await waitForMenu();

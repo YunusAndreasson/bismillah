@@ -54,6 +54,9 @@
   color-scheme: light;
   --surface-editor: var(--paper-50);
   --surface-panel: var(--paper-100);
+  /* Code's ground: text-primary at the alpha that draws surface-panel on the editor,
+     translucent so a selection drawn behind the text still shows. */
+  --surface-code: #1e1e1e0b;
   --text-primary: var(--ink-900);
   --text-secondary: var(--ink-600);
   --syntax-marker: var(--ink-550);
@@ -71,6 +74,7 @@
     color-scheme: dark;
     --surface-editor: var(--charcoal-950);
     --surface-panel: var(--charcoal-900);
+    --surface-code: #d4d4d20f;
     --text-primary: var(--mist-200);
     --text-secondary: var(--mist-400);
     --syntax-marker: var(--mist-500);
@@ -86,6 +90,7 @@
   color-scheme: dark;
   --surface-editor: var(--charcoal-950);
   --surface-panel: var(--charcoal-900);
+  --surface-code: #d4d4d20f;
   --text-primary: var(--mist-200);
   --text-secondary: var(--mist-400);
   --syntax-marker: var(--mist-500);

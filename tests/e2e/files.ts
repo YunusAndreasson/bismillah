@@ -39,8 +39,9 @@ export async function open(path: string): Promise<void> {
   }, path);
 }
 
-/** Types at the end of the document, as the writer would. */
-export async function typeAtEnd(text: string): Promise<void> {
+/** Types at the end of the document, as the writer would. In a read-only document,
+ * where the keys change nothing, pass `{ readOnly: true }`. */
+export async function typeAtEnd(text: string, { readOnly = false } = {}): Promise<void> {
   await browser.execute(() => {
     const view = window.__bismillah?.view;
     view?.focus();
@@ -49,6 +50,17 @@ export async function typeAtEnd(text: string): Promise<void> {
   // One key per call: WebKitWebDriver drops the second of two identical keys sent
   // together ("ee" arrives as "e").
   for (const key of text) await browser.keys(key);
+  if (readOnly) return;
+  // The driver can return before the webview has handled the keys (seen under the
+  // offline run's strace); a save checked before then would find nothing to save.
+  await browser.waitUntil(
+    () =>
+      browser.execute(
+        (t: string) => window.__bismillah?.view.state.doc.toString().endsWith(t) ?? false,
+        text,
+      ),
+    { timeoutMsg: `"${text}" never reached the editor` },
+  );
 }
 
 export async function flush(): Promise<boolean> {

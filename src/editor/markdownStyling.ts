@@ -10,7 +10,7 @@ import {
 import { tags as t } from "@lezer/highlight";
 
 /** Inline token classes. Colours and fonts live in CSS (DESIGN.md §9, §11). */
-const inlineStyle = HighlightStyle.define([
+export const inlineStyle = HighlightStyle.define([
   { tag: t.processingInstruction, class: "cm-mark" },
   { tag: t.contentSeparator, class: "cm-mark" },
   { tag: t.atom, class: "cm-mark" },

@@ -32,9 +32,11 @@ import { remeasureTypography } from "./typography.ts";
  * - Marks inside the line (`**`, `_`, `` ` ``, `[…](url)`) are replaced, so the text
  *   closes up. Entering such a block reflows it once.
  * - Marks that hang in the gutter or fill their own line (`#`, `>`, list markers, task
- *   boxes, `---`) keep their place in the text and are only painted out; bullets, bars,
- *   boxes and rules are drawn by CSS where they stand. Revealing them moves nothing, and
- *   the caret model and DOM order never change.
+ *   boxes, `---`, code fences) keep their place in the text and are only painted out;
+ *   bullets, bars, boxes, rules and the ground of a code block are drawn by CSS where
+ *   they stand. Revealing them moves nothing, and the caret model and DOM order never
+ *   change.
+ * Tables are drawn as a grid by previewTables.ts.
  *
  * Reveal follows the caret, never the pointer. While the mouse button is down the
  * reveal waits, so text never moves under a press or a drag; at the release the line
@@ -73,8 +75,6 @@ const UNITS = new Set([
 
 /** Blocks whose contents are drawn as Phase 1 draws them, rendered or not. */
 const SOURCE = new Set([
-  "FencedCode",
-  "CodeBlock",
   "HTMLBlock",
   "CommentBlock",
   "ProcessingInstructionBlock",
@@ -220,7 +220,9 @@ const look = {
   code: Decoration.mark({ class: "cm-md-code" }),
   alt: Decoration.mark({ class: "cm-md-alt" }),
   footnote: Decoration.mark({ class: "cm-md-footnote" }),
+  codeInfo: Decoration.mark({ class: "cm-md-codeinfo" }),
   rule: Decoration.line({ class: "cm-md-rule" }),
+  fence: Decoration.line({ class: "cm-md-fence" }),
 };
 
 /** Measures text at the start of a line in body type (the hanging marks' measurer). */
@@ -276,6 +278,13 @@ export function renderedDecorations(
     }
   };
   const text = (node: { from: number; to: number }) => state.sliceDoc(node.from, node.to);
+  const quoteMark = (node: SyntaxNode) => {
+    out.push(look.hidden.range(node.from, node.to));
+    const line = state.doc.lineAt(node.from);
+    const marks = quotes.get(line.from) ?? [];
+    marks.push(node.from - line.from);
+    quotes.set(line.from, marks);
+  };
 
   /** Links and images: `[text](url)`, `[text][label]`, `[label]`, `![alt](src)`. */
   const linkLike = (node: SyntaxNode, image: boolean) => {
@@ -313,6 +322,43 @@ export function renderedDecorations(
     if (close.from > start.to) out.push((image ? look.alt : look.link).range(start.to, close.from));
   };
 
+  /**
+   * A code block on its ground, with its fences painted out and its info string kept as
+   * a quiet label at the end of the first row. In a quote the bars carry the structure,
+   * so there is no ground.
+   */
+  const codeBlock = (node: SyntaxNode, from: number, to: number) => {
+    const { doc } = state;
+    let quoted = false;
+    for (let up = node.parent; up; up = up.parent) if (up.name === "Blockquote") quoted = true;
+    const first = doc.lineAt(node.from).number;
+    const last = doc.lineAt(node.to).number;
+    const fenced = node.name === "FencedCode";
+    for (const mark of node.getChildren("QuoteMark")) quoteMark(mark);
+    if (!quoted) {
+      const end = doc.lineAt(Math.min(node.to, to)).number;
+      for (let n = doc.lineAt(Math.max(node.from, from)).number; n <= end; n++) {
+        const cls = ["cm-md-codeblock"];
+        if (n === first) cls.push("cm-md-codeblock-first");
+        if (n === last) cls.push("cm-md-codeblock-last");
+        out.push(Decoration.line({ class: cls.join(" ") }).range(doc.line(n).from));
+      }
+    }
+    if (!fenced) return;
+    const marks = node.getChildren("CodeMark");
+    const open = marks[0];
+    const close = marks.length > 1 ? marks.at(-1) : undefined;
+    if (open?.from === node.from) {
+      out.push(look.hidden.range(open.from, open.to));
+      if (!quoted) out.push(look.fence.range(doc.lineAt(open.from).from));
+    }
+    const info = node.getChild("CodeInfo");
+    if (info) out.push(look.codeInfo.range(info.from, info.to));
+    if (close && doc.lineAt(close.from).number !== first) {
+      out.push(look.hidden.range(close.from, close.to));
+    }
+  };
+
   const tree = syntaxTree(state);
   for (const { from, to } of ranges) {
     tree.iterate({
@@ -320,8 +366,12 @@ export function renderedDecorations(
       to,
       enter(ref) {
         if (ref.name !== "Document" && ref.from >= open.from && ref.to <= open.to) return false;
-        if (SOURCE.has(ref.name)) return false;
         const node = ref.node;
+        if (SOURCE.has(ref.name)) {
+          // A block quoted line by line still has its quote marks.
+          for (const mark of node.getChildren("QuoteMark")) quoteMark(mark);
+          return false;
+        }
         switch (ref.name) {
           case "HeaderMark": {
             const heading = node.parent;
@@ -334,14 +384,9 @@ export function renderedDecorations(
             }
             return;
           }
-          case "QuoteMark": {
-            out.push(look.hidden.range(node.from, node.to));
-            const line = state.doc.lineAt(node.from);
-            const marks = quotes.get(line.from) ?? [];
-            marks.push(node.from - line.from);
-            quotes.set(line.from, marks);
+          case "QuoteMark":
+            quoteMark(node);
             return;
-          }
           case "ListMark": {
             const item = node.parent;
             if (item?.getChild("Task")) out.push(look.hidden.range(node.from, node.to));
@@ -356,6 +401,10 @@ export function renderedDecorations(
           case "HorizontalRule":
             out.push(look.hidden.range(node.from, node.to));
             out.push(look.rule.range(state.doc.lineAt(node.from).from));
+            return false;
+          case "FencedCode":
+          case "CodeBlock":
+            codeBlock(node, from, to);
             return false;
           case "EmphasisMark":
           case "StrikethroughMark":

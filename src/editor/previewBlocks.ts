@@ -170,20 +170,21 @@ class ImageWidget extends WidgetType {
   }
 }
 
-/** The Image node that starts at `pos`, with its destination. */
+/** The Image node that starts at `pos`, with its destination. An image in a table cell
+ * stays its alt text: below a row it would split the table. */
 function imageAt(state: EditorState, pos: number): { src: string } | null {
+  let image: SyntaxNode | null = null;
   for (
     let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, 1);
     node;
     node = node.parent
   ) {
-    if (node.from !== pos) return null;
-    if (node.name === "Image") {
-      const url = node.getChild("URL");
-      return url ? { src: state.sliceDoc(url.from, url.to) } : null;
-    }
+    if (node.name === "Table") return null;
+    if (!image && node.from !== pos) return null;
+    if (!image && node.name === "Image") image = node;
   }
-  return null;
+  const url = image?.getChild("URL");
+  return url ? { src: state.sliceDoc(url.from, url.to) } : null;
 }
 
 /** Image widgets for the whole document (block widgets must come from state). */

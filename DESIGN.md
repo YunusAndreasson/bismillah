@@ -4,7 +4,7 @@ Because everybody needs some time, one their own. Yeah, everybody needs some tim
 
 > A typewriter, with only the best of the computer.
 
-This document is the design foundation of bismillah. It defines what the product is, how it should look and behave, and how design work is judged. When a design question is not answered here, decide in the spirit of this document and then add the answer here.
+This document is the design foundation of bismillah. It defines what the product is, how it should look and behave, and how design work is judged. When a desi2zgn question is not answered here, decide in the spirit of this document and then add the answer here.
 
 The architecture that supports these decisions lives in [ARCHITECTURE.md](ARCHITECTURE.md). Decisions with lasting consequences are recorded in [docs/decisions/](docs/decisions/).
 
@@ -232,6 +232,7 @@ Primitive values (raw colours) feed **semantic tokens**. Components may use only
 |---|---|---|---|
 | `surface-editor` | Writing canvas; default overlay surface | `#F7F6F2` | `#151515` |
 | `surface-panel` | Library, grouped settings, hover fill | `#EEEDE8` | `#202020` |
+| `surface-code` | Ground of rendered code: `text-primary` at the alpha that draws `surface-panel` on the editor, so a selection drawn behind the text shows through | `#1E1E1E` at 4.3 % | `#D4D4D2` at 5.9 % |
 | `text-primary` | Prose, primary labels | `#1E1E1E` | `#D4D4D2` |
 | `text-secondary` | Paths, supporting labels, inactive Zuhd text | `#62625E` | `#A2A29B` |
 | `syntax-marker` | Visible Markdown punctuation | `#6B6B65` | `#94948D` |
@@ -283,7 +284,9 @@ There are two separate systems with separate purposes:
 
 - **Live preview** (ADR-0012, Phase 4). The document reads as rendered text: emphasis without its marks, links as their text, bullets for list markers, a bar for quotes, a rule for `---`, folded frontmatter, local images below their line.
   - **The block with the caret shows its Markdown** in `syntax-marker`. The `#` of headings, `>` of quotes and list markers hang in the reserved gutter, so text starts on one reading edge and revealing them moves nothing. This mirrors on RTL lines.
-  - **What stands in for the marks**, all in `text-secondary` and drawn where the marks stand: a dot for `-`, `*` and `+`; the number of an ordered item as written; an outlined box for `[ ]`, with a filled centre for `[x]`; a 2px bar on the place of every `>`, through every row of the quote; a short centred rule (6em) for `---`. Inline code gets a `surface-panel` ground in place of its backticks, a link's text a thin `text-secondary` underline (solid, so it never reads as a diagnostic), a footnote reference is raised and small. Fenced code, tables, raw HTML, entities and link definitions keep their Markdown in both states.
+  - **What stands in for the marks**, all in `text-secondary` and drawn where the marks stand: a dot for `-`, `*` and `+`; the number of an ordered item as written; an outlined box for `[ ]`, with a filled centre for `[x]`; a 2px bar on the place of every `>`, through every row of the quote; a short centred rule (6em) for `---`. Inline code gets a `surface-code` ground in place of its backticks, a link's text a thin `text-secondary` underline (solid, so it never reads as a diagnostic), a footnote reference is raised and small. Raw HTML, entities and link definitions keep their Markdown in both states.
+  - **A code block** (fenced or indented) sits on a `surface-code` ground that reaches a little into the gutters, so the code stays where the revealed block has it. Its fences are painted out, leaving a band of ground above and below, and the info string (`rust`) is a quiet `text-secondary` label at the end of the top band. In a quote the bars carry it, without a ground.
+  - **A table** is drawn as a grid: no pipes or delimiter row, columns aligned as the delimiter row says, the header in bold over a `text-secondary` rule, rows and columns set apart by space alone, tabular figures. Each row is one line high and the rule stands in the delimiter row's line, so a table whose cells don't wrap reveals without moving. Cells are drawn as the text around them (emphasis, links, code, Arabic runs), keep their own direction, and the table takes its direction from its first strong letter, so an Arabic table reads from the right. Wide tables wrap their cells within the measure. A click puts the caret on the clicked character in the source and ↑ ↓ step into a table rather than over it. Tables inside quotes and list items keep their Markdown.
   - **Brackets mean what CommonMark says.** `[text](url)` is a link; `[text][label]` and `[label]` are links only when the label is defined in the document, and `[^1]` is a footnote only when its note exists, so a scholarly `[sic]` or `[emphasis added]` keeps its brackets.
   - **The frontmatter** folds to one quiet line of its keys (`title: Specimen · lang: en`); a newly opened document puts the caret on its first line of text, below it.
   - **Images** appear below their line, within the measure: a file inside the library (Rust checks every image path as it does every other, ARCHITECTURE.md §6), or one embedded as `data:`. An image from the web is never loaded: a quiet note says so and shows its address. So does a note for a file that is missing, outside the library or not an image.
