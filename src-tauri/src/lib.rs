@@ -16,6 +16,7 @@ mod lint;
 mod platform;
 mod recovery;
 mod settings;
+mod spike_unlock;
 mod state;
 #[cfg(test)]
 mod testing;
@@ -197,6 +198,9 @@ struct Launch {
 }
 
 pub fn run() {
+    if spike_unlock::socket().is_some() {
+        spike_unlock::mark("app-process-start");
+    }
     let launch = Launch {
         cwd: std::env::current_dir().unwrap_or_default(),
         args: std::env::args().collect(),
@@ -274,37 +278,56 @@ pub fn run() {
             menu_reveal,
             menu_hide,
             menu_state,
-            clipboard_write
+            clipboard_write,
+            spike_unlock::spike_gate,
+            spike_unlock::spike_unlock,
+            spike_unlock::spike_mark
         ])
         .setup(move |app| {
-            let (config_dir, data_dir) = app::dirs(app.handle())?;
-            let state = AppState::new(app.handle().clone(), &config_dir, &data_dir, startup);
-            if let Some(window) = app.get_webview_window("main") {
-                platform::configure_main_window(&window);
-                restore_window(&window, &state);
+            // Everything that reads the writer's home. The OS-0 unlock spike runs it
+            // only once the helper has unlocked home (spike_unlock.rs).
+            let begin = move |app: &tauri::AppHandle| -> Result<(), String> {
+                let (config_dir, data_dir) = app::dirs(app).map_err(|e| e.to_string())?;
+                let state = AppState::new(app.clone(), &config_dir, &data_dir, startup);
+                if let Some(window) = app.get_webview_window("main") {
+                    platform::configure_main_window(&window);
+                    restore_window(&window, &state);
+                }
+                app.manage(state);
+                AppState::restore_library(app);
+                watch_config(app, &config_dir);
+                if let Some(listener) = listener {
+                    let handle = app.clone();
+                    listener.serve(move |message| {
+                        let Ok(launch) = serde_json::from_slice::<Launch>(&message) else {
+                            return;
+                        };
+                        if let Some(path) = app::cli_path(&launch.args, &launch.cwd) {
+                            handle.state::<AppState>().request_open(&handle, path);
+                        }
+                        if let Some(window) = handle.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.set_focus();
+                        }
+                    });
+                }
+                Ok(())
+            };
+            if let Some(socket) = spike_unlock::socket() {
+                if let Some(window) = app.get_webview_window("main") {
+                    platform::configure_main_window(&window);
+                    let _ = window.show();
+                }
+                app.manage(spike_unlock::Gate::new(socket, Box::new(begin)));
+                return Ok(());
             }
-            app.manage(state);
-            AppState::restore_library(app.handle());
-            watch_config(app.handle(), &config_dir);
-            if let Some(listener) = listener {
-                let handle = app.handle().clone();
-                listener.serve(move |message| {
-                    let Ok(launch) = serde_json::from_slice::<Launch>(&message) else {
-                        return;
-                    };
-                    if let Some(path) = app::cli_path(&launch.args, &launch.cwd) {
-                        handle.state::<AppState>().request_open(&handle, path);
-                    }
-                    if let Some(window) = handle.get_webview_window("main") {
-                        let _ = window.unminimize();
-                        let _ = window.set_focus();
-                    }
-                });
-            }
-            Ok(())
+            begin(app.handle()).map_err(Into::into)
         })
         .on_window_event(|window, event| {
-            let state = window.state::<AppState>();
+            // Absent until the unlock spike's gate has started the app.
+            let Some(state) = window.try_state::<AppState>() else {
+                return;
+            };
             match event {
                 // A dropped file opens; a dropped folder becomes the library.
                 WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) => {

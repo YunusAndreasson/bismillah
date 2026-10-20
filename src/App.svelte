@@ -18,10 +18,23 @@
   import StatusLine from "./ui/StatusLine.svelte";
   import Suggestions from "./ui/Suggestions.svelte";
   import Welcome from "./ui/Welcome.svelte";
+  import SpikeUnlock from "./appliance/SpikeUnlock.svelte";
 
   let host: HTMLElement;
   let failure = $state<string | null>(null);
   let started = $state(false);
+  // OS-0 unlock spike: set while the passphrase screen waits for the helper.
+  let gate = $state<{ helper: ipc.SpikeHelperState; done: () => void } | null>(null);
+
+  /** Waits for the unlock spike's helper, when the app was started gated. */
+  async function unlocked() {
+    const helper = await ipc.spikeGate();
+    if (helper === null) return;
+    void ipc.spikeMark("gate-shown");
+    if (helper === "unlocked") await ipc.spikeUnlock("unlock", "");
+    else await new Promise<void>((done) => (gate = { helper, done }));
+    gate = null;
+  }
 
   const session = $derived(workspace.session);
   const library = workspace.library;
@@ -59,12 +72,14 @@
     };
     (async () => {
       try {
+        await unlocked();
         await workspace.start(host, installMenu);
         document.fonts.addEventListener("loadingdone", onFonts);
         started = true;
         // The launch budget's end: the document is in the editor, which has focus
         // (ARCHITECTURE.md §14, measured by scripts/perf.ts).
         performance.mark("bismillah:editable");
+        void ipc.spikeMark("editable");
         if (workspace.testMode && workspace.editor) installTestHooks(workspace.editor, workspace);
       } catch (error) {
         console.error("bismillah: couldn't start", error);
@@ -78,6 +93,9 @@
   });
 </script>
 
+{#if gate}
+  <div class="spike-gate"><SpikeUnlock helper={gate.helper} done={gate.done} /></div>
+{/if}
 <div class="window">
   <div class="notices-row"><Notices notices={workspace.notices} /></div>
   <div class="middle">
@@ -165,6 +183,11 @@
 <Suggestions checking={workspace.checking} />
 
 <style>
+  .spike-gate {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+  }
   .window {
     height: 100%;
     display: grid;

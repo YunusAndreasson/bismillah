@@ -347,3 +347,10 @@ export const clipboardWrite = (html: string, text: string) =>
   invoke<null>("clipboard_write", { html, text });
 export const menuHide = () => invoke<null>("menu_hide");
 export const menuState = () => invoke<MenuState>("menu_state");
+
+// OS-0 spike "Unlock in the app" (os/PLAN.md, src-tauri/src/spike_unlock.rs). Not product code.
+export type SpikeHelperState = "setup" | "locked" | "unlocked";
+export const spikeGate = () => invoke<SpikeHelperState | null>("spike_gate");
+export const spikeUnlock = (verb: "setup" | "unlock", passphrase: string) =>
+  invoke<string>("spike_unlock", { verb, passphrase });
+export const spikeMark = (name: string) => invoke("spike_mark", { name });
