@@ -68,6 +68,8 @@ pub fn watch(app: &AppHandle) {
         if let Some(group) = handle.try_state::<Group>() {
             group.0.store(event.group(), Ordering::Relaxed);
         }
+        // Spike diagnostics: the group only, never which key.
+        mark(&format!("key-group-{}", event.group()));
         let _ = handle.emit("spike-keyboard", state(&handle));
         gtk::glib::Propagation::Proceed
     });

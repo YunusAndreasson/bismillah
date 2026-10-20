@@ -19,6 +19,11 @@
   const chooseLayouts = $derived(setup && keyboard !== null && keyboard.layouts.length === 0);
   const layout = $derived(keyboard?.layouts[keyboard.group] ?? keyboard?.layouts[0] ?? "default");
 
+  // autofocus works only at page load; this view also appears later (the lock).
+  const focus = (node: HTMLInputElement) => {
+    node.focus();
+  };
+
   onMount(() => {
     void ipc.spikeKeyboard().then((k) => (keyboard = k));
     const unlisten = listen<ipc.SpikeKeyboard>("spike-keyboard", (e) => (keyboard = e.payload));
@@ -64,20 +69,19 @@
   {#if chooseLayouts}
     <form onsubmit={applyLayouts}>
       <label for="layouts">Keyboard layouts</label>
-      <!-- svelte-ignore a11y_autofocus -->
-      <input id="layouts" autocomplete="off" autofocus bind:value={layouts} disabled={busy} />
+      <input id="layouts" autocomplete="off" use:focus bind:value={layouts} disabled={busy} />
     </form>
   {:else}
     <form onsubmit={submit}>
       <label for="passphrase"
         >{setup ? "Choose a passphrase" : lock ? "Locked" : "Passphrase"}</label
       >
-      <!-- svelte-ignore a11y_autofocus -->
       <input
         id="passphrase"
         type="password"
         autocomplete="off"
-        autofocus
+        use:focus
+        oninput={() => void ipc.spikeMark(`input-length-${String(passphrase.length)}`)}
         bind:value={passphrase}
         disabled={busy}
       />
