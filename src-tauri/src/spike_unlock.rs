@@ -39,7 +39,8 @@ pub fn socket() -> Option<PathBuf> {
 pub fn mark(name: &str) {
     let uptime = std::fs::read_to_string("/proc/uptime").unwrap_or_default();
     let seconds = uptime.split(' ').next().unwrap_or("?");
-    println!("BISMILLAH_MARK {name} {seconds}");
+    // Not println!, which panics when stdout (the serial port here) can't be written.
+    let _ = writeln!(std::io::stdout(), "BISMILLAH_MARK {name} {seconds}");
 }
 
 /// One request to the helper: each line sent, then its one-line answer.
