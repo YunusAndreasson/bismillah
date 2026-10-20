@@ -26,10 +26,13 @@
   // OS-0 unlock spike: set while the passphrase screen waits for the helper.
   let gate = $state<{ helper: ipc.SpikeHelperState; done: () => void } | null>(null);
 
+  let gated = false;
+
   /** Waits for the unlock spike's helper, when the app was started gated. */
   async function unlocked() {
     const helper = await ipc.spikeGate();
     if (helper === null) return;
+    gated = true;
     void ipc.spikeMark("gate-shown");
     if (helper === "unlocked") await ipc.spikeUnlock("unlock", "");
     else await new Promise<void>((done) => (gate = { helper, done }));
@@ -80,6 +83,22 @@
         // (ARCHITECTURE.md §14, measured by scripts/perf.ts).
         performance.mark("bismillah:editable");
         void ipc.spikeMark("editable");
+        // OS-0 keyboard spike: Ctrl+Alt+L shows the lock view, checked by the helper.
+        if (gated)
+          window.addEventListener(
+            "keydown",
+            (event) => {
+              if (gate || !(event.ctrlKey && event.altKey && event.code === "KeyL")) return;
+              event.preventDefault();
+              event.stopPropagation();
+              void ipc.spikeMark("locked");
+              gate = {
+                helper: "lock",
+                done: () => ((gate = null), void ipc.spikeMark("lock-passed")),
+              };
+            },
+            true,
+          );
         if (workspace.testMode && workspace.editor) installTestHooks(workspace.editor, workspace);
       } catch (error) {
         console.error("bismillah: couldn't start", error);

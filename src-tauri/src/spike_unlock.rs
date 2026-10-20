@@ -21,6 +21,10 @@ pub struct Gate {
 }
 
 impl Gate {
+    pub(crate) fn socket(&self) -> &PathBuf {
+        &self.socket
+    }
+
     pub fn new(socket: PathBuf, start: Start) -> Self {
         Self {
             socket,
@@ -44,7 +48,7 @@ pub fn mark(name: &str) {
 }
 
 /// One request to the helper: each line sent, then its one-line answer.
-fn ask(socket: &PathBuf, lines: &[&str]) -> Result<String, String> {
+pub(crate) fn ask(socket: &PathBuf, lines: &[&str]) -> Result<String, String> {
     let mut stream = UnixStream::connect(socket).map_err(|e| format!("connect: {}", e.kind()))?;
     let mut request = String::new();
     for line in lines {

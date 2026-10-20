@@ -349,8 +349,21 @@ export const menuHide = () => invoke<null>("menu_hide");
 export const menuState = () => invoke<MenuState>("menu_state");
 
 // OS-0 spike "Unlock in the app" (os/PLAN.md, src-tauri/src/spike_unlock.rs). Not product code.
-export type SpikeHelperState = "setup" | "locked" | "unlocked";
+export type SpikeHelperState = "setup" | "locked" | "unlocked" | "lock";
 export const spikeGate = () => invoke<SpikeHelperState | null>("spike_gate");
 export const spikeUnlock = (verb: "setup" | "unlock", passphrase: string) =>
   invoke<string>("spike_unlock", { verb, passphrase });
 export const spikeMark = (name: string) => invoke("spike_mark", { name });
+
+// OS-0 spike "Keyboard" (src-tauri/src/spike_keyboard.rs). Not product code.
+export interface SpikeKeyboard {
+  layouts: string[];
+  options: string;
+  group: number;
+  rtl: boolean;
+  caps: boolean;
+}
+export const spikeKeyboard = () => invoke<SpikeKeyboard>("spike_keyboard");
+export const spikeSetKeyboard = (layouts: string, options: string) =>
+  invoke<string>("spike_set_keyboard", { layouts, options });
+export const spikeVerify = (passphrase: string) => invoke<string>("spike_verify", { passphrase });
