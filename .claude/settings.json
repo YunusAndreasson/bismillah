@@ -10,11 +10,34 @@
       "Bash(cargo clippy *)",
       "Bash(cargo fmt *)",
       "Bash(cargo deny check *)",
-      "Bash(cargo check *)"
+      "Bash(cargo check *)",
+      "Bash(mkosi *)",
+      "Bash(qemu-system-x86_64 *)",
+      "Bash(qemu-img *)",
+      "Bash(virt-fw-vars *)",
+      "Bash(virt-fw-sigdb *)",
+      "Bash(docker pull *)",
+      "Bash(docker build *)",
+      "Bash(docker images *)",
+      "Bash(docker image inspect *)",
+      "Bash(docker inspect *)",
+      "Bash(os/scripts/build.sh *)",
+      "Bash(os/scripts/verify.sh *)",
+      "Bash(pnpm os:fetch *)",
+      "Bash(pnpm os:app *)",
+      "Bash(pnpm os:build *)",
+      "Bash(pnpm os:vm *)",
+      "Bash(pnpm os:test *)",
+      "Bash(pnpm os:perf *)"
     ],
     "deny": [
       "Read(./.env)",
-      "Read(./.env.*)"
+      "Read(./.env.*)",
+      "Bash(sudo *)",
+      "Bash(dd *)",
+      "Bash(*flash.sh*)",
+      "Bash(mkosi burn *)",
+      "Bash(mkosi * burn *)"
     ]
   },
   "hooks": {
