@@ -29,7 +29,7 @@ impl Gate {
     }
 }
 
-/// Exit code that asks systemd to start the session again (`Restart=on-failure`).
+/// Exit code that asks the session launcher to start the app again inside cage.
 const RESTART: i32 = 75;
 
 pub fn socket() -> Option<PathBuf> {
@@ -88,13 +88,15 @@ pub async fn spike_unlock(
             return Err("unknown verb".to_owned());
         }
         mark("app-unlock-sent");
+        // A restarted app finds home unlocked and asks with no passphrase.
+        let typed = !passphrase.is_empty();
         let answer = ask(&gate.socket, &[&verb, &passphrase])?;
         drop(passphrase);
         mark("app-unlock-answered");
         if answer != "ok" {
             return Ok(answer);
         }
-        if std::env::var_os("BISMILLAH_SPIKE_RESTART").is_some() {
+        if typed && std::env::var_os("BISMILLAH_SPIKE_RESTART").is_some() {
             mark("app-exit-for-restart");
             std::process::exit(RESTART);
         }
