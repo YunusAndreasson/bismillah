@@ -70,7 +70,7 @@ impl State {
             .unwrap_or_default()
     }
 
-    pub fn save(&self, path: &Path) {
+    pub fn save(&self, path: &Path) -> bool {
         let result = (|| {
             if let Some(dir) = path.parent() {
                 fs::create_dir_all(dir)?;
@@ -83,6 +83,41 @@ impl State {
                 "bismillah: couldn't remember the window state: {:?}",
                 e.kind()
             );
+            return false;
+        }
+        true
+    }
+}
+
+/// Remembered metadata, with the last successfully written snapshot. Opening the
+/// same document/library at launch needn't fsync identical state again. A failed
+/// write remains pending and is retried even if the next change is a no-op.
+pub struct Store {
+    value: State,
+    saved: Option<State>,
+    path: PathBuf,
+}
+
+impl Store {
+    pub fn load(path: PathBuf) -> Self {
+        let value = State::load(&path);
+        Self {
+            saved: Some(value.clone()),
+            value,
+            path,
+        }
+    }
+
+    pub fn snapshot(&self) -> State {
+        self.value.clone()
+    }
+
+    pub fn change(&mut self, change: impl FnOnce(&mut State)) {
+        change(&mut self.value);
+        if self.saved.as_ref() != Some(&self.value) {
+            // Failure may happen after rename (directory fsync). No snapshot can
+            // then stand for the disk, even if the next change restores an old value.
+            self.saved = self.value.save(&self.path).then(|| self.value.clone());
         }
     }
 }
@@ -91,6 +126,58 @@ impl State {
 mod tests {
     use super::*;
     use crate::testing::Scratch;
+
+    #[test]
+    fn skips_identical_state_but_persists_real_changes() {
+        let scratch = Scratch::new();
+        let path = scratch.path().join("state.json");
+        let mut store = Store::load(path.clone());
+        store.change(|m| m.opened(Path::new("/lib/a.md")));
+        let timestamp = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(10);
+        fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_modified(timestamp)
+            .unwrap();
+        store.change(|m| m.opened(Path::new("/lib/a.md")));
+        assert_eq!(fs::metadata(&path).unwrap().modified().unwrap(), timestamp);
+        store.change(|m| m.opened(Path::new("/lib/b.md")));
+        assert_eq!(State::load(&path), store.snapshot());
+        assert_eq!(State::load(&path).last_document, Some("/lib/b.md".into()));
+    }
+
+    #[test]
+    fn retries_a_failed_state_write_even_when_the_next_change_is_identical() {
+        let scratch = Scratch::new();
+        let parent = scratch.file("data", b"not a directory");
+        let path = parent.join("state.json");
+        let mut store = Store::load(path.clone());
+        store.change(|m| m.opened(Path::new("/lib/a.md")));
+        assert!(!path.exists());
+        assert_eq!(store.snapshot().last_document, Some("/lib/a.md".into()));
+        fs::remove_file(&parent).unwrap();
+        fs::create_dir(&parent).unwrap();
+        store.change(|m| m.opened(Path::new("/lib/a.md")));
+        assert_eq!(State::load(&path), store.snapshot());
+    }
+
+    #[test]
+    fn a_failed_write_invalidates_the_previous_snapshot_too() {
+        let scratch = Scratch::new();
+        let parent = scratch.file("data", b"not a directory");
+        let path = parent.join("state.json");
+        let mut store = Store::load(path.clone());
+        store.change(|m| m.opened(Path::new("/lib/a.md")));
+        fs::remove_file(&parent).unwrap();
+        fs::create_dir(&parent).unwrap();
+        store.change(|m| *m = State::default());
+        assert!(
+            path.is_file(),
+            "reverting to the initial state must still retry"
+        );
+        assert_eq!(State::load(&path), State::default());
+    }
 
     #[test]
     fn round_trips_and_tolerates_a_damaged_file() {

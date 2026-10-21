@@ -8,6 +8,8 @@
 //! Offsets crossing that boundary are UTF-16 code units relative to the block
 //! ([`offsets`]). Nothing here ever changes the text.
 
+#![forbid(unsafe_code)]
+
 pub mod arabic;
 mod english;
 pub mod offsets;
@@ -156,6 +158,12 @@ impl Linter {
             .warm_up(dialect);
     }
 
+    /// Whether a check has needed English data. Callers may warm corrections then,
+    /// without loading English into an empty or Arabic-only session.
+    pub fn english_ready(&self) -> bool {
+        self.english.is_some()
+    }
+
     /// The possible mistakes in one block, in order.
     pub fn check(&mut self, block: &Block, options: &Options) -> Vec<Diagnostic> {
         let mut hasher = DefaultHasher::new();
@@ -232,7 +240,13 @@ impl Linter {
             let gaps = merge(gaps);
             let hidden = merge(gaps.iter().chain(marks.iter()).cloned().collect());
             let allowed = complement(&hidden, chars.len());
-            if !allowed.is_empty() {
+            // Whitespace, numbers and punctuation left around masked Arabic/code/
+            // other scripts are not English prose. They must not load Harper.
+            if allowed.iter().any(|span| {
+                chars[span.start..span.end]
+                    .iter()
+                    .any(|c| c.is_alphabetic())
+            }) {
                 let personal = &self.personal;
                 let english = self
                     .english
@@ -457,6 +471,59 @@ fn widen(gaps: &[Range<usize>], chars: &[char]) -> Vec<Range<usize>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn loads_english_only_for_unmasked_english_prose() {
+        let mut checker = Linter::new(Vec::new());
+        let options = Options {
+            spelling: true,
+            grammar: true,
+            dialect: Dialect::British,
+            lang: None,
+        };
+        for text in [
+            "",
+            "  \n ",
+            "123 — !!",
+            "سَلَامٌ عَلَيْكُمْ.",
+            "λόγος, слово!",
+            "ʿilm and-ḥadīth",
+        ] {
+            checker.check(
+                &Block {
+                    text: text.into(),
+                    ..Default::default()
+                },
+                &options,
+            );
+            assert!(
+                !checker.english_ready(),
+                "unnecessary English data for {text}"
+            );
+        }
+        checker.check(
+            &Block {
+                text: "recieve".into(),
+                skip: vec![[0, 7]],
+                ..Default::default()
+            },
+            &options,
+        );
+        assert!(!checker.english_ready());
+        let found = checker.check(
+            &Block {
+                text: "مرحبا. I will recieve it.".into(),
+                ..Default::default()
+            },
+            &options,
+        );
+        assert!(checker.english_ready());
+        assert!(
+            found
+                .iter()
+                .any(|d| d.kind == Kind::Spelling && d.from_utf16 == 14 && d.to_utf16 == 21)
+        );
+    }
 
     #[test]
     fn merges_and_complements_ranges() {

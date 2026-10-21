@@ -4,7 +4,7 @@
  * headless (scripts/headless.sh), never on the author's desktop.
  *
  *   pnpm perf [-- --binary target/release/bismillah] [--runs 10] [--idle 60]
- *             [--parts launch,typing,idle]
+ *             [--parts launch,typing,editing,scrolling,wordcount,idle,caret,resources,navigation]
  *
  * 1. Launch to an editable caret: from the process's start to the `bismillah:editable`
  *    mark (the document is in the editor, which has focus), for a short document with no
@@ -19,14 +19,18 @@
  *
  * Measures the release build by default (`pnpm tauri build --no-bundle`), as installed.
  * Under the harness no window has focus, so the caret doesn't blink (a focused window's
- * caret repaints about twice a second).
+ * caret repaints about twice a second). The optional `caret` part explicitly focuses
+ * the private X11 window and exercises normal blinking, then checks unfocused idle.
+ * It still does not measure the native Wayland/GPU rendering path.
  */
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { execFileSync } from "node:child_process";
 import { remote } from "webdriverio";
 import { freePort, REPO, startDriver } from "../tests/driver.ts";
+import { countWords, WordCounter } from "../src/editor/wordCount.ts";
 
 const { values } = parseArgs({
   args: process.argv.slice(2).filter((a) => a !== "--"),
@@ -34,7 +38,7 @@ const { values } = parseArgs({
     binary: { type: "string", default: resolve(REPO, "target/release/bismillah") },
     runs: { type: "string", default: "10" },
     idle: { type: "string", default: "60" },
-    parts: { type: "string", default: "launch,typing,idle" },
+    parts: { type: "string", default: "launch,typing,editing,scrolling,wordcount,idle" },
     out: { type: "string" },
   },
 });
@@ -172,6 +176,12 @@ async function launch(doc: string) {
       // Since the page began loading: its script ran, then the editor was ready.
       script: nav?.domInteractive ?? null,
       editable: at("bismillah:editable"),
+      milestones: Object.fromEntries(
+        performance
+          .getEntriesByType("mark")
+          .filter((entry) => entry.name.startsWith("bismillah:"))
+          .map((entry) => [entry.name, entry.startTime]),
+      ),
       pid: (await window.__bismillah?.pid()) ?? null,
     };
   });
@@ -187,6 +197,9 @@ async function launch(doc: string) {
       webview: probe.origin - start,
       script: probe.script ?? NaN,
       start: probe.editable - (probe.script ?? NaN),
+      ...Object.fromEntries(
+        Object.entries(probe.milestones).map(([name, at]) => [name, at - (probe.script ?? 0)]),
+      ),
     },
   };
 }
@@ -264,6 +277,29 @@ const results: Record<string, unknown> = { binary, date: new Date().toISOString(
 const lines: string[] = [];
 
 try {
+  // A CPU comparison in Node's Intl engine, separate from WebKit's frame timings.
+  // Use the actual counters and assert identical totals for every edited document.
+  if (parts.has("wordcount")) {
+    const source = book(1024 * 1024);
+    const counter = new WordCounter();
+    counter.count(source);
+    const full: number[] = [];
+    const cached: number[] = [];
+    for (let i = 0; i < 30; i++) {
+      const edited = `${source}\nA new sentence ${i}.`;
+      let start = performance.now();
+      const expected = countWords(edited);
+      full.push(performance.now() - start);
+      start = performance.now();
+      const actual = counter.count(edited);
+      cached.push(performance.now() - start);
+      if (expected !== actual) throw new Error("word counts differ");
+    }
+    results.wordcount = { engine: process.version, full, cached };
+    lines.push(
+      `Word count in 1 MB after edits (Node ${process.version}, not WebKit): full median ${ms(quantile(full, 0.5))}, p95 ${ms(quantile(full, 0.95))}; cached median ${ms(quantile(cached, 0.5))}, p95 ${ms(quantile(cached, 0.95))}`,
+    );
+  }
   // 1. Launch.
   const short = join(scratch, "letter.md");
   writeFileSync(short, `# A letter\n\n${body("docs/specimen.md").slice(0, 4000)}\n`);
@@ -293,6 +329,141 @@ try {
   const lone = join(alone, "letter.md");
   writeFileSync(lone, readFileSync(short, "utf8"));
   const remembered = join(process.env.XDG_DATA_HOME ?? "", "bismillah", "state.json");
+
+  // Measure demand-loading separately: ordinary English checking, Arabic-only
+  // checking, and a session whose writer switched both checkers off. Keep the same
+  // fonts/window and include the old speculative one-second checker warm-up.
+  if (parts.has("resources")) {
+    const configDir = join(process.env.XDG_CONFIG_HOME ?? "", "bismillah");
+    mkdirSync(configDir, { recursive: true });
+    for (const [name, text, checking] of [
+      ["disabled", "I will recieve it. This is a apple.", false],
+      ["arabic", "الكتابةُ أمانةٌ. والكلمةُ مسؤوليةٌ.", true],
+      ["english", "I will recieve it. This is a apple.", true],
+    ] as const) {
+      const folder = join(scratch, `resources-${name}`);
+      mkdirSync(folder);
+      const doc = join(folder, "letter.md");
+      writeFileSync(doc, text);
+      writeFileSync(
+        join(configDir, "settings.toml"),
+        `schema = 1\ncheck_spelling = ${checking}\ncheck_grammar = ${checking}\n`,
+      );
+      rmSync(remembered, { force: true });
+      const { browser, pid, launchMs } = await launch(doc);
+      try {
+        const initialCpu = cpuMs(family(pid));
+        const samples = [];
+        for (let i = 0; i < 3; i++) {
+          await browser.pause(5000);
+          samples.push({
+            seconds: (i + 1) * 5,
+            rssMiB: rssMiB(family(pid)),
+            mainRssMiB: rssMiB([pid]),
+            cpuMs: cpuMs(family(pid)) - initialCpu,
+          });
+        }
+        const diagnostics = await browser.execute(
+          () => window.__bismillah?.diagnostics().length ?? -1,
+        );
+        results[`resources: ${name}`] = { launchMs, samples, diagnostics };
+        lines.push(
+          `Resources, ${name}: ${JSON.stringify(samples.at(-1))}; ${diagnostics} diagnostics`,
+        );
+      } finally {
+        await browser.deleteSession();
+      }
+    }
+    // Later parts exercise normal defaults, independently of the last scenario.
+    rmSync(join(configDir, "settings.toml"), { force: true });
+  }
+
+  if (parts.has("navigation")) {
+    const root = join(scratch, "Navigation");
+    for (let folder = 0; folder < 40; folder++) {
+      const dir = join(root, `Part ${folder}`);
+      mkdirSync(dir, { recursive: true });
+      for (let file = 0; file < 250; file++) {
+        const name = ["notes", "ḥadīth", "سَلَام", "chapter"][file % 4] ?? "notes";
+        writeFileSync(join(dir, `${name} ${file}.md`), "Text.\n");
+      }
+    }
+    const { browser } = await launch(lone);
+    try {
+      await browser.execute(async (path: string) => {
+        await window.__bismillah?.setLibrary(path);
+        await window.__bismillah?.lintSettled(30_000);
+      }, root);
+      await browser.pause(3000);
+      const measured = await browser.execute(async () => {
+        // A MessageChannel task after rAF runs after the frame paints, as in typeIn.
+        const painted = () =>
+          new Promise<void>((done) =>
+            requestAnimationFrame(() => {
+              const channel = new MessageChannel();
+              channel.port1.onmessage = () => {
+                channel.port1.close();
+                channel.port2.close();
+                done();
+              };
+              channel.port2.postMessage(null);
+            }),
+          );
+        const opened: number[] = [];
+        const queries: { query: string; ms: number; count: number }[] = [];
+        for (let round = 0; round < 4; round++) {
+          let start = performance.now();
+          window.__bismillah?.run("file.quickOpen");
+          await painted();
+          opened.push(performance.now() - start);
+          const input = document.querySelector<HTMLInputElement>(".picker-input");
+          if (!input) throw new Error("quick open did not open");
+          for (const query of [
+            "n",
+            "no",
+            "not",
+            "notes",
+            "part",
+            "hadith",
+            "سلام",
+            "chapter 2",
+            "zzzz",
+            "",
+          ]) {
+            start = performance.now();
+            input.value = query;
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+            await painted();
+            queries.push({
+              query,
+              ms: performance.now() - start,
+              count: document.querySelectorAll(".picker-item").length,
+            });
+          }
+          // Escape follows the actual dialog close path, including focus return.
+          input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+          await painted();
+        }
+        return { opened, queries };
+      });
+      results.navigation = measured;
+      lines.push(
+        `Quick open, 10,000 files: open median ${ms(quantile(measured.opened, 0.5))}; query median ${ms(
+          quantile(
+            measured.queries.map((q) => q.ms),
+            0.5,
+          ),
+        )}, p95 ${ms(
+          quantile(
+            measured.queries.map((q) => q.ms),
+            0.95,
+          ),
+        )}`,
+      );
+    } finally {
+      await browser.deleteSession();
+    }
+  }
   for (const [name, doc, fresh] of !parts.has("launch")
     ? []
     : ([
@@ -344,6 +515,188 @@ try {
       );
       if (doc === big && needle === "The menu bar")
         lines.push(`Memory with the 1 MB document open: ${memory(pid)}`);
+      await browser.deleteSession();
+    }
+  }
+
+  // Isolate synchronous editing work from WebDriver latency and frame scheduling.
+  // Real transactions, including preview, autosave scheduling and checking, in the
+  // same book as the typing test. This is not a key-to-paint measurement.
+  if (parts.has("editing") || parts.has("scrolling")) {
+    const path = join(scratch, "hot-paths.md");
+    writeFileSync(path, book(1024 * 1024));
+    const { browser } = await launch(path);
+    try {
+      // The first check of a book is background work that can take minutes. Keep
+      // it enabled as in normal use, but don't wait for the entire book to finish.
+      await browser.pause(2000);
+      if (parts.has("editing")) {
+        for (const [name, needle, insert] of [
+          ["prose", "The page fills slowly", "s"],
+          ["inline code", "The menu bar", "s"],
+          ["line break", "The page fills slowly", "\n"],
+        ] as const) {
+          const durations = await browser.execute(
+            async (n: string, text: string) => {
+              const view = window.__bismillah?.view;
+              if (!view) throw new Error("no editor");
+              const doc = view.state.doc.toString();
+              const found = doc.indexOf(n, Math.floor(doc.length / 2));
+              if (found < 0) throw new Error("benchmark paragraph missing");
+              const at = doc.indexOf("\n", found);
+              view.dispatch({ selection: { anchor: at }, scrollIntoView: true });
+              await new Promise<void>((done) => requestAnimationFrame(() => done()));
+              const times: number[] = [];
+              for (let i = 0; i < 60; i++) {
+                const start = performance.now();
+                view.dispatch({
+                  changes: { from: at, insert: text },
+                  selection: { anchor: at + text.length },
+                });
+                times.push(performance.now() - start);
+                view.dispatch({
+                  changes: { from: at, to: at + text.length },
+                  selection: { anchor: at },
+                });
+                // Give painting and background work time between independent edits.
+                await new Promise<void>((done) => requestAnimationFrame(() => done()));
+              }
+              return times.slice(10); // warm up each path before collecting samples
+            },
+            needle,
+            insert,
+          );
+          results[`editing: ${name}`] = durations;
+          lines.push(
+            `Synchronous edit in 1 MB, ${name}: median ${ms(quantile(durations, 0.5))}, p95 ${ms(quantile(durations, 0.95))}`,
+          );
+        }
+      }
+      if (parts.has("scrolling")) {
+        const scrolling = await browser.execute(async () => {
+          const view = window.__bismillah?.view;
+          if (!view) throw new Error("no editor");
+          view.scrollDOM.scrollTop = 0;
+          await new Promise<void>((done) => requestAnimationFrame(() => done()));
+          const intervals: number[] = [];
+          let last = performance.now();
+          for (let i = 0; i < 180; i++) {
+            view.scrollDOM.scrollTop += 120;
+            const now = await new Promise<number>((done) => requestAnimationFrame(done));
+            intervals.push(now - last);
+            last = now;
+          }
+          return { intervals: intervals.slice(10), top: view.scrollDOM.scrollTop };
+        });
+        results.scrolling = scrolling;
+        lines.push(
+          `Scroll 1 MB (120 CSS px/frame), ${scrolling.intervals.length} frames: median ${ms(quantile(scrolling.intervals, 0.5))}, p95 ${ms(quantile(scrolling.intervals, 0.95))}; final offset ${scrolling.top} px`,
+        );
+        const reversing = await browser.execute(async () => {
+          const view = window.__bismillah?.view;
+          if (!view) throw new Error("no editor");
+          const text = view.state.doc.toString();
+          const next = () => new Promise<number>((done) => requestAnimationFrame(done));
+          view.scrollDOM.scrollTop = 0;
+          await next();
+          await next();
+          const intervals: number[] = [];
+          let previous = performance.now();
+          let blankFrames = 0;
+          for (let i = 0; i < 240; i++) {
+            view.scrollDOM.scrollTop += Math.floor(i / 40) % 2 ? -180 : 180;
+            const now = await next();
+            intervals.push(now - previous);
+            previous = now;
+            await new Promise<void>((done) => setTimeout(done, 0));
+            const area = view.scrollDOM.getBoundingClientRect();
+            const hit = document.elementFromPoint(
+              area.left + area.width / 2,
+              area.top + area.height / 2,
+            );
+            if (hit?.closest(".cm-gap")) blankFrames++;
+          }
+          if (view.state.doc.toString() !== text) throw new Error("scroll changed text");
+          return { intervals: intervals.slice(10), blankFrames, frames: 240 };
+        });
+        results["scrolling: reversals"] = reversing;
+        lines.push(
+          `Reverse scroll 1 MB (180 CSS px/frame): median ${ms(quantile(reversing.intervals, 0.5))}, p95 ${ms(quantile(reversing.intervals, 0.95))}; virtual spacer at viewport centre in ${reversing.blankFrames} of ${reversing.frames} frames`,
+        );
+      }
+    } finally {
+      await browser.deleteSession();
+    }
+  }
+
+  // Normal caret behaviour, separate from the deterministic steady-caret harness.
+  if (parts.has("caret")) {
+    const { browser, pid } = await launch(short);
+    try {
+      await browser.setTimeout({ script: idleSeconds * 1000 + 10_000 });
+      await browser.execute(async () => {
+        const hooks = window.__bismillah;
+        if (!hooks || !(await hooks.lintSettled(30_000)))
+          throw new Error("checking did not settle");
+        hooks.blinkCaret(true);
+      });
+      const id = execFileSync("xdotool", ["search", "--onlyvisible", "--pid", String(pid)], {
+        encoding: "utf8",
+      })
+        .trim()
+        .split("\n")
+        .at(-1);
+      if (!id) throw new Error("private app window not found");
+      execFileSync("xdotool", ["windowfocus", "--sync", id]);
+      for (const phase of ["blinking", "resting", "unfocused"] as const) {
+        const focused = phase !== "unfocused";
+        await browser.execute((focus: boolean) => {
+          const view = window.__bismillah?.view;
+          if (!view) throw new Error("no editor");
+          if (focus) view.focus();
+          else view.contentDOM.blur();
+        }, focused);
+        await browser.pause(10_000);
+        if (phase === "blinking") await browser.execute(() => window.__bismillah?.blinkCaret(true));
+        const pids = family(pid);
+        const before = cpuMs(pids);
+        const state = await browser.execute(async (seconds: number) => {
+          const view = window.__bismillah?.view;
+          const layer = view?.dom.querySelector(".cm-cursorLayer");
+          if (!view || !layer) throw new Error("no caret layer");
+          let edges = 0;
+          const observer = new MutationObserver((changes) => (edges += changes.length));
+          observer.observe(view.dom, {
+            attributes: true,
+            attributeFilter: ["data-caret-hidden"],
+          });
+          await new Promise<void>((done) => setTimeout(done, seconds * 1000));
+          observer.disconnect();
+          return {
+            focused: view.hasFocus,
+            edges,
+            animation: getComputedStyle(layer).animationName,
+          };
+        }, idleSeconds);
+        const used = cpuMs(pids) - before;
+        if (
+          state.focused !== focused ||
+          state.animation !== "none" ||
+          (phase === "blinking"
+            ? state.edges < 2 || state.edges > Math.ceil(idleSeconds / 0.6) + 1
+            : state.edges !== 0)
+        )
+          throw new Error(`unexpected caret activity: ${JSON.stringify(state)}`);
+        results[`caret:${phase}`] = {
+          ...state,
+          seconds: idleSeconds,
+          cpuMs: used,
+        };
+        lines.push(
+          `Caret ${phase}, ${idleSeconds} s: ${used} ms CPU across ${pids.length} processes; ${state.edges} blink edges; CSS animation ${state.animation}`,
+        );
+      }
+    } finally {
       await browser.deleteSession();
     }
   }

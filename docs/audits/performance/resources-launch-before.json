@@ -1,0 +1,38 @@
+{
+  "binary": "/tmp/bismillah-before-resources",
+  "date": "2026-10-20T10:02:32.540Z",
+  "launch: a short document, no library": {
+    "first": 797,
+    "warm": [652, 605, 831, 746],
+    "stages": {
+      "webview": [373, 295, 421, 389],
+      "script": [37, 37, 71, 49],
+      "start": [242, 273, 339, 308]
+    }
+  },
+  "launch: a short document in a library of 1,000 files": {
+    "first": 654,
+    "warm": [688, 581, 675, 529],
+    "stages": {
+      "webview": [323, 270, 428, 258],
+      "script": [37, 33, 33, 36],
+      "start": [328, 278, 214, 235]
+    }
+  },
+  "launch: a 51,448-word document, no library": {
+    "first": 536,
+    "warm": [514, 570, 588, 559],
+    "stages": {
+      "webview": [252, 266, 286, 283],
+      "script": [34, 38, 37, 34],
+      "start": [228, 266, 265, 242]
+    }
+  },
+  "idle": {
+    "seconds": 15,
+    "cpuMs": 20,
+    "processes": 3,
+    "rssMiB": 789
+  },
+  "sha256": "c2a0d9a02f5549fa4d15d1514072764ede6bfd2ca77ecc928ed03c1b0da3f6a5"
+}

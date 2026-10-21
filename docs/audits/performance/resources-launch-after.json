@@ -1,0 +1,52 @@
+{
+  "binary": "/home/yunus/Work/bismillah/target/debug/bismillah",
+  "launch: a short document, no library": {
+    "first": 533,
+    "warm": [681, 545, 526, 792],
+    "stages": {
+      "webview": [342, 266, 259, 424],
+      "script": [45, 33, 35, 60],
+      "start": [294, 246, 232, 308],
+      "bismillah:configuration": [153, 109, 124, 206],
+      "bismillah:library": [218, 178, 174, 252],
+      "bismillah:document": [189, 146, 159, 237],
+      "bismillah:editor": [290, 243, 229, 305],
+      "bismillah:start": [147, 102, 118, 198],
+      "bismillah:editable": [294, 246, 232, 308],
+      "bismillah:fonts": [218, 178, 174, 252]
+    }
+  },
+  "launch: a short document in a library of 1,000 files": {
+    "first": 745,
+    "warm": [588, 537, 654, 498],
+    "stages": {
+      "webview": [293, 246, 367, 254],
+      "script": [40, 37, 43, 33],
+      "start": [255, 254, 244, 211],
+      "bismillah:configuration": [133, 148, 139, 104],
+      "bismillah:library": [188, 191, 179, 146],
+      "bismillah:document": [158, 174, 162, 130],
+      "bismillah:editor": [252, 251, 241, 209],
+      "bismillah:start": [126, 142, 133, 98],
+      "bismillah:editable": [255, 254, 244, 211],
+      "bismillah:fonts": [190, 193, 181, 148]
+    }
+  },
+  "launch: a 51,448-word document, no library": {
+    "first": 635,
+    "warm": [637, 548, 528, 623],
+    "stages": {
+      "webview": [329, 257, 259, 341],
+      "script": [42, 33, 33, 33],
+      "start": [266, 258, 236, 249],
+      "bismillah:configuration": [138, 110, 111, 104],
+      "bismillah:library": [197, 188, 170, 179],
+      "bismillah:document": [181, 187, 157, 150],
+      "bismillah:editor": [263, 254, 233, 245],
+      "bismillah:start": [132, 103, 104, 98],
+      "bismillah:editable": [266, 258, 236, 249],
+      "bismillah:fonts": [197, 188, 170, 179]
+    }
+  },
+  "sha256": "1ba3ab23281247658c9a9c72c0aa7c4a078f84ae79017fa59d75bec1adb638c1"
+}
