@@ -1,0 +1,13 @@
+[Unit]
+# The allowlist's recorder (os/PLAN.md, OS-4): every system file opened from here on,
+# to the third serial port. Only when the VM harness asks (vm.ts, trace: true), so
+# that the boot measurements (perf.ts) run without it.
+Description=Record the system files opened (debug image, when asked)
+DefaultDependencies=no
+ConditionCredential=bismillah.trace
+Before=sysinit.target systemd-journald.service systemd-udevd.service systemd-udev-trigger.service
+Before=systemd-modules-load.service systemd-tmpfiles-setup-dev-early.service systemd-sysctl.service
+
+[Service]
+Type=notify
+ExecStart=/usr/libexec/bismillah-trace /dev/ttyS2

@@ -12,8 +12,8 @@ import { execFileSync } from "node:child_process";
 import {
   closeSync,
   existsSync,
-  mkdirSync,
   lstatSync,
+  mkdirSync,
   openSync,
   readdirSync,
   readFileSync,
@@ -21,63 +21,25 @@ import {
   readlinkSync,
   rmSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { join, relative } from "node:path";
+import {
+  esp,
+  ESP,
+  extractRoot,
+  HOME,
+  MIB,
+  missingLibraries,
+  partitions,
+  ROOT,
+} from "../scripts/image.ts";
 import { images, root } from "../scripts/vm.ts";
 
 type Profile = "release" | "debug";
-
-const ESP = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b";
-const ROOT = "4f68bce3-e8cd-4db1-96e7-fbcaf984b709"; // root, x86-64
-const HOME = "933ac7e1-2eb4-4f13-b844-0e14e2aef915";
-const MIB = 1024 * 1024;
 
 let failures = 0;
 function check(ok: boolean, what: string): void {
   console.log(`${ok ? "ok  " : "FAIL"} ${what}`);
   if (!ok) failures++;
-}
-
-function guid(b: Buffer): string {
-  const h = b.toString("hex");
-  const swap = (s: string) => s.match(/../g)?.reverse().join("") ?? "";
-  return `${swap(h.slice(0, 8))}-${swap(h.slice(8, 12))}-${swap(h.slice(12, 16))}-${h.slice(16, 20)}-${h.slice(20)}`;
-}
-
-interface Part {
-  /** Byte offset and size on the image. */
-  offset: number;
-  bytes: number;
-  /** The GPT attribute flags (bit 63: no-auto). */
-  flags: bigint;
-}
-
-/** Each partition type on the image (GPT, 512-byte sectors). */
-function partitions(image: string): Map<string, Part> {
-  const fd = openSync(image, "r");
-  try {
-    const header = Buffer.alloc(92);
-    readSync(fd, header, 0, 92, 512);
-    if (header.toString("latin1", 0, 8) !== "EFI PART") throw new Error(`${image}: no GPT`);
-    const start = Number(header.readBigUInt64LE(72)) * 512;
-    const count = header.readUInt32LE(80);
-    const size = header.readUInt32LE(84);
-    const table = Buffer.alloc(count * size);
-    readSync(fd, table, 0, table.length, start);
-    const found = new Map<string, Part>();
-    for (let i = 0; i < count; i++) {
-      const entry = table.subarray(i * size, (i + 1) * size);
-      const type = guid(entry.subarray(0, 16));
-      if (type !== "00000000-0000-0000-0000-000000000000")
-        found.set(type, {
-          offset: Number(entry.readBigUInt64LE(32)) * 512,
-          bytes: Number(entry.readBigUInt64LE(40) - entry.readBigUInt64LE(32) + 1n) * 512,
-          flags: entry.readBigUInt64LE(48),
-        });
-    }
-    return found;
-  } finally {
-    closeSync(fd);
-  }
 }
 
 /** Whether `length` bytes of the image from `offset` are all zero. */
@@ -102,20 +64,6 @@ function walk(dir: string, base = dir, paths: string[] = []): string[] {
   return paths;
 }
 
-function esp(image: string, offset: number, args: string[]): string {
-  return execFileSync(
-    "mkosi",
-    [
-      "-C",
-      join(root, "os/mkosi"),
-      "sandbox",
-      "--",
-      ...args.map((a) => a.replace("@IMG", `${image}@@${offset}`)),
-    ],
-    { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
-  );
-}
-
 function checkImage(profile: Profile): void {
   const image = join(images, `bismillah-${profile}.raw`);
   const parts = partitions(image);
@@ -134,15 +82,7 @@ function checkImage(profile: Profile): void {
 
   // The root, extracted without owners (we aren't root), into os/out/contents/.
   const tree = join(root, "os/out/contents", profile);
-  rmSync(tree, { recursive: true, force: true });
-  mkdirSync(dirname(tree), { recursive: true });
-  execFileSync("fsck.erofs", [
-    `--offset=${rootAt}`,
-    `--extract=${tree}`,
-    "--no-preserve",
-    "-d0",
-    image,
-  ]);
+  extractRoot(image, rootAt, tree);
   const paths = walk(tree);
   const has = (p: string) => existsSync(join(tree, p)) || isLink(join(tree, p));
   const matching = (re: RegExp) => paths.filter((p) => re.test(p));
@@ -274,6 +214,7 @@ function checkImage(profile: Profile): void {
     check(!/BISMILLAH_MARKS/.test(units), `${profile}: no boot marks`);
     check(!/BISMILLAH_POWER_SUPPLY/.test(units), `${profile}: the real battery, not a fake`);
     check(!has("/usr/libexec/bismillah-debug-console"), `${profile}: no debug command line`);
+    check(!has("/usr/libexec/bismillah-trace"), `${profile}: no file recorder`);
     for (const unit of [
       "systemd-journald.service",
       "systemd-journald.socket",
@@ -325,11 +266,42 @@ function isLink(path: string): boolean {
   }
 }
 
+/**
+ * mkosi's initrd, trimmed by os/mkosi/mkosi.initrd.conf (OS-4): nothing it runs lacks a
+ * library, and none of what was removed came back.
+ */
+function checkInitrd(): void {
+  const initrd = join(images, "initrd.cpio.zst");
+  if (!existsSync(initrd)) return;
+  const tree = join(root, "os/out/contents/initrd");
+  rmSync(tree, { recursive: true, force: true });
+  mkdirSync(tree, { recursive: true });
+  execFileSync("sh", ["-c", 'zstd -dc "$1" | (cd "$2" && cpio -idm --quiet)', "sh", initrd, tree]);
+  const missing = missingLibraries(tree);
+  check(
+    missing.length === 0,
+    `initrd: every program's libraries are there (${missing.slice(0, 3).join(", ") || "none missing"})`,
+  );
+  for (const gone of [
+    "/usr/bin/perl",
+    "/usr/bin/bash",
+    "/usr/lib/udev/hwdb.bin",
+    "/usr/bin/btrfs",
+    "/usr/lib/systemd/systemd-networkd",
+  ])
+    check(!existsSync(join(tree, gone)), `initrd: no ${gone}`);
+  check(
+    existsSync(join(tree, "usr/lib/systemd/systemd-veritysetup")),
+    "initrd: systemd-veritysetup",
+  );
+}
+
 const asked = process.argv.slice(2) as Profile[];
 const profiles = asked.length
   ? asked
   : (["release", "debug"] as const).filter((p) => existsSync(join(images, `bismillah-${p}.raw`)));
 if (profiles.length === 0) throw new Error("no images: run pnpm os:build first");
 for (const profile of profiles) checkImage(profile);
+checkInitrd();
 console.log(failures ? `${failures} failed` : "all passed");
 process.exit(failures ? 1 : 0);

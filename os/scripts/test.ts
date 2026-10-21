@@ -24,10 +24,10 @@ import {
   type Stick,
   type Vars,
 } from "./vm.ts";
+import { here, mark, passphraseAndCreate, PLAIN, setUpQuickly, sleep } from "./steps.ts";
 
 const out = join(root, "os/out/test");
 const report = join(out, "report.txt");
-const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 function note(line: string): void {
   console.log(line);
@@ -169,8 +169,6 @@ async function debugInside(stick: Stick = "ssd"): Promise<void> {
 
 /** The writer's passphrase in the VMs: Swedish and Arabic letters, then words. */
 const PASSPHRASE = "åäö بلا lantern orbit velvet";
-/** For the sticks set up on the US layout. */
-const PLAIN = "lantern orbit velvet canyon";
 const HOME_DEV = "/dev/disk/by-partlabel/bismillah-home";
 
 /**
@@ -186,14 +184,6 @@ async function typePassphrase(vm: Vm): Promise<void> {
   await vm.type(" lantern orbit velvet");
 }
 
-/** The serial log's length now: wait for marks after this point. */
-const here = (vm: Vm) => vm.serial().length;
-
-async function mark(vm: Vm, name: string, seconds: number, from = 0): Promise<number> {
-  const m = await vm.waitSerial(new RegExp(`BISMILLAH_MARK ${name} ([\\d.]+)`), seconds, from);
-  return Number(m[1]);
-}
-
 /** Home's state from the helper itself (debug image). */
 async function status(vm: Vm): Promise<{
   home: { state: string; reason?: string };
@@ -203,38 +193,6 @@ async function status(vm: Vm): Promise<{
     .split("\n")
     .find((l) => l.startsWith("{"));
   return JSON.parse(line ?? "{}") as Awaited<ReturnType<typeof status>>;
-}
-
-/**
- * Setup's steps 2 and 3 by keyboard: the passphrase twice, then the time zone and
- * *Set up the stick*. `typed` types the passphrase into the focused field.
- */
-async function passphraseAndCreate(vm: Vm, typed: (vm: Vm) => Promise<void>): Promise<void> {
-  await typed(vm);
-  await vm.key("tab");
-  await typed(vm);
-  await sleep(1500); // the strength meter answers
-  await vm.key("ret");
-  await sleep(1000);
-  await vm.key("tab"); // Back
-  await vm.key("tab"); // Set up the stick
-  await vm.key("ret");
-}
-
-/**
- * Sets up a blank debug stick on the US layout without the keyboard step: the choice
- * is placed where setup's first step puts it, and the session restarted.
- */
-async function setUpQuickly(vm: Vm): Promise<void> {
-  await mark(vm, "page-gate-shown", 240);
-  const from = here(vm);
-  await vm.run(
-    `echo '{"layouts":"us","options":""}' > /run/bismillah/keyboard.pending && systemctl restart bismillah-session`,
-  );
-  await mark(vm, "page-gate-shown", 60, from);
-  await sleep(1000);
-  await passphraseAndCreate(vm, (v) => v.type(PLAIN));
-  await mark(vm, "helper-ready", 120, from);
 }
 
 /** A file with known text in the library, opened in the editor with Ctrl+P. */

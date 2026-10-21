@@ -57,6 +57,12 @@ export interface BootOptions {
    * so these VMs use the standard VGA (docs/spikes/os-suspend-lock.md).
    */
   s3?: boolean;
+  /**
+   * The debug image records every system file it opens, to trace.log through a third
+   * serial port (the allowlist, os/PLAN.md OS-4). Asked by an SMBIOS credential.
+   * Defaults to BISMILLAH_TRACE=1 in the environment, so a whole suite can record.
+   */
+  trace?: boolean;
 }
 
 const code = "/usr/share/edk2/x64/OVMF_CODE.secboot.4m.fd";
@@ -214,6 +220,12 @@ export class Vm {
       ...["-qmp", `unix:${this.qmpPath},server=on,wait=off`],
       ...["-serial", `file:${this.serialLog}`],
       ...(this.cmdPath ? ["-serial", `unix:${this.cmdPath},server=on,wait=off`] : []),
+      ...((options.trace ?? process.env["BISMILLAH_TRACE"] === "1") && this.cmdPath
+        ? [
+            ...["-serial", `file:${join(out, "trace.log")}`],
+            ...["-smbios", "type=11,value=io.systemd.credential:bismillah.trace=1"],
+          ]
+        : []),
       ...(options.nics
         ? [
             ...["-device", "pcie-root-port,id=rp1,chassis=1,slot=1"],
