@@ -6,7 +6,7 @@
 
 ## Setup
 
-- **App:** branch `spike/os-unlock` (worktree `../bismillah-spike-unlock`), built by `os/build/build-app.sh <out> spike/os-unlock`. Spike code only, kept off `main`:
+- **App:** built by `os/build/build-app.sh <out>` from main. The spike code was first kept on a branch (`spike/os-unlock`) and merged into main on 2026-10-21 so that the OS builds the current editor. It runs only when the `BISMILLAH_SPIKE_*` variables are set:
   - `src-tauri/src/spike_unlock.rs`. With `BISMILLAH_SPIKE_UNLOCK=<helper socket>`, `setup` defers everything that reads home behind a `Gate`: `app::dirs`, `AppState::new` (state.json, settings, recovery, dictionary), `restore_library`, `watch_config` and the single-instance listener. `on_window_event` tolerates the missing `AppState`. The commands are `spike_gate` (the helper's state), `spike_unlock` (send the passphrase; on `ok`, run the deferred startup) and `spike_mark`.
   - `src/appliance/SpikeUnlock.svelte`, plus one `await` in `App.svelte` before `workspace.start`. The rest of the page startup is unchanged.
   - `BISMILLAH_SPIKE_RESTART=1` exits with code 75 after the unlock instead. The session launcher then starts the app again inside the same cage.
