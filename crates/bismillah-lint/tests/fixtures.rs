@@ -10,6 +10,11 @@
 //!   `@off spelling|grammar` (or `@on`) apply to the lines after them.
 //! - `#` starts a comment line.
 
+#![allow(
+    clippy::expect_used,
+    reason = "invalid bundled fixtures should fail the test"
+)]
+
 use bismillah_lint::{Block, Dialect, Kind, Linter, Options};
 
 /// One fixture line without its markers, with the ranges they marked (UTF-16 units).

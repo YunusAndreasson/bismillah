@@ -21,6 +21,12 @@ describe("high contrast and Settings", () => {
     await setViewport(browser, 1280, 900);
     await browser.execute(async () => {
       const hooks = window.__bismillah;
+      // Variable-width random directory names can add a wrapped line above Writing.
+      // Stable display data makes its fractional scroll position deterministic.
+      hooks?.setFolderLabels({
+        config: "/tmp/bismillah-visual/config",
+        data: "/tmp/bismillah-visual/data",
+      });
       await hooks?.measure();
       if (hooks?.library().visible) hooks.run("view.toggleLibrary");
       const s = hooks?.view.scrollDOM;
@@ -44,7 +50,7 @@ describe("high contrast and Settings", () => {
     await change({ theme: "light", high_contrast: false });
     await browser.execute(() => window.__bismillah?.run("app.settings"));
     await browser.$(".settings-dialog").waitForDisplayed();
-    await browser.execute(() => document.getElementById("settings-writing")?.scrollIntoView());
+    await browser.$(".settings-dialog nav").$("button=Writing").click();
     await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
     await settle(browser);
     const shot = await browser.takeScreenshot();

@@ -1,0 +1,84 @@
+#!/bin/sh
+# Spike only. The real helper (OS-2) is a Rust binary that keeps passphrases in
+# zeroize buffers and finds home without a label. One request per connection:
+# a verb line (status|setup|unlock|verify|set_keyboard), then one argument line:
+# the passphrase, or for set_keyboard "<layouts> <options>".
+# The passphrase reaches cryptsetup on stdin through printf, a shell builtin.
+set -u
+dev=/dev/disk/by-partlabel/bismillah-home
+# Replies go to fd 3, the socket; everything the tools print goes to the journal.
+exec 3>&1 1>&2
+reply() { echo "$1" >&3; }
+mark() { echo "BISMILLAH_MARK helper-$1 $(cut -d' ' -f1 /proc/uptime)" >/dev/ttyS0 2>/dev/null; }
+
+IFS= read -r verb || exit 1
+# The suspend spike's sleep daemon leaves must-lock behind: a session restarted after
+# it opens on the lock view, and only a verified passphrase clears it.
+if mountpoint -q /home/writer && [ -e /dev/mapper/home ] && [ -e /run/bismillah/must-lock ]; then state=lock
+elif mountpoint -q /home/writer && [ -e /dev/mapper/home ]; then state=unlocked
+elif cryptsetup isLuks "$dev" 2>/dev/null; then state=locked
+else state=setup; fi
+
+if [ "$verb" = status ]; then reply "$state"; exit 0; fi
+
+# The keyboard layouts live unencrypted in home's LUKS2 header, so cage can use them
+# before unlock. Before setup they wait in /run until luksFormat.
+pending=/run/bismillah/keyboard.pending
+import_keyboard() { # layouts options
+  printf '{"type":"bismillah-keyboard","keyslots":[],"layouts":"%s","options":"%s"}' "$1" "$2" |
+    cryptsetup token import --token-id 0 --token-replace --json-file - "$dev"
+}
+if [ "$verb" = set_keyboard ]; then
+  IFS=' ' read -r layouts options || exit 1
+  case "$layouts$options" in *[!a-z0-9_,:\(\)-]*|'') reply invalid; exit 0 ;; esac
+  if [ "$state" = setup ]; then echo "$layouts $options" >"$pending"
+  else import_keyboard "$layouts" "$options" || { reply error; exit 0; }; fi
+  mark "keyboard-stored"
+  reply ok; exit 0
+fi
+if [ "$verb" = verify ]; then
+  IFS= read -r pass || exit 1
+  mark verify-start
+  verify_status=0
+  printf %s "$pass" | cryptsetup open --test-passphrase --key-file=- "$dev" || verify_status=$?
+  pass=
+  mark verify-done
+  [ "$verify_status" = 0 ] && rm -f /run/bismillah/must-lock
+  case "$verify_status" in 0) reply ok ;; 2) reply wrong-passphrase ;; *) reply error ;; esac
+  exit 0
+fi
+[ "$state" = unlocked ] && { reply ok; exit 0; }
+IFS= read -r pass || exit 1
+mark "$verb-start"
+case "$verb:$state" in
+  setup:setup)
+    printf %s "$pass" | cryptsetup luksFormat -q --type luks2 --pbkdf argon2id \
+      --iter-time 1000 --label bismillah --key-file=- "$dev" || { reply error; exit 0; }
+    mark kdf-format-done
+    if [ -r "$pending" ]; then
+      read -r layouts options <"$pending"
+      import_keyboard "$layouts" "$options" || { reply error; exit 0; }
+    fi ;;
+  unlock:locked) ;;
+  *) reply "error state-$state"; exit 0 ;;
+esac
+pass_status=0
+printf %s "$pass" | cryptsetup open --key-file=- "$dev" home || pass_status=$?
+pass=
+mark kdf-open-done
+[ "$pass_status" = 2 ] && { reply wrong-passphrase; exit 0; }
+[ "$pass_status" = 0 ] || { reply error; exit 0; }
+if [ "$verb" = setup ]; then
+  mkfs.ext4 -q -L home /dev/mapper/home || { reply error; exit 0; }
+fi
+# What the app (and WebKit) wrote under home before it existed; a mount hides it.
+find /home/writer -mindepth 1 -maxdepth 5 2>/dev/null | sed 's/^/SPIKE pre-mount: /' >/dev/ttyS0
+mount -o noatime,nodev,nosuid /dev/mapper/home /home/writer || { reply error; exit 0; }
+if [ "$verb" = setup ]; then
+  mkdir -p /home/writer/Texts
+  cp /usr/share/bismillah-spike/specimen.md /home/writer/Texts/
+  chown -R writer:writer /home/writer
+  chmod 0700 /home/writer
+fi
+mark "$verb-done"
+reply ok

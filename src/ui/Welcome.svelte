@@ -27,6 +27,9 @@
     {/each}
   </div>
   <p class="hint">{copy.welcome.drop}</p>
+  <button type="button" class="guide" onclick={() => run("app.guide")}>
+    <span>{copy.welcome.guide}</span><kbd>{shortcuts.label("app.guide")}</kbd>
+  </button>
 </div>
 
 <style>
@@ -77,5 +80,10 @@
   .hint {
     margin: 0;
     color: var(--text-secondary);
+  }
+  .guide {
+    border: 0;
+    color: var(--accent);
+    padding: var(--space-1) var(--space-2);
   }
 </style>

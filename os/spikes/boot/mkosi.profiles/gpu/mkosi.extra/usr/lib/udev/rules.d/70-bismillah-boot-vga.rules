@@ -1,0 +1,6 @@
+# The display the firmware booted on, as /dev/dri/boot-vga and a systemd device unit,
+# so the session can wait for it. Debian's kernel has no simpledrm: until the real
+# driver binds, there's no DRM device at all.
+SUBSYSTEM=="drm", KERNEL=="card[0-9]*", ATTRS{boot_vga}=="1", SYMLINK+="dri/boot-vga", TAG+="systemd"
+# Its render node, for WebKit, which otherwise may pick another GPU (the GPU spike).
+SUBSYSTEM=="drm", KERNEL=="renderD*", ATTRS{boot_vga}=="1", SYMLINK+="dri/boot-vga-render"

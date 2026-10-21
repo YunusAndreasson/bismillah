@@ -129,6 +129,14 @@
     display: flex;
     justify-content: flex-end;
     margin-block-start: var(--space-6);
+    position: sticky;
+    inset-block-end: calc(-1 * var(--space-6));
+    margin-inline: calc(-1 * var(--space-6));
+    padding-inline: var(--space-6);
+    padding-block-end: var(--space-6);
+    padding-block-start: var(--space-3);
+    background: var(--surface-editor);
+    border-block-start: 1px solid var(--border-control);
   }
   :global(.about-close) {
     font: inherit;

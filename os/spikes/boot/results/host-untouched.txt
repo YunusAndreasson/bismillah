@@ -1,0 +1,24 @@
+# OS-0 Host untouched: host-test.sh, 2026-10-21. Write counters from QEMU (query-blockstats) after the guest powered off.
+# Laptop disk = NVMe HOST-NVME (ESP, ext4 root, swap, ext4 labelled bismillah-home with the home GPT type) behind a qcow2 overlay.
+
+## app image (nonet), app running, text typed, powered down
+WRITES stick (usb-storage): 0 requests, 0 bytes; 7723 reads
+WRITES laptop disk (nvme): 0 requests, 0 bytes; 316 reads
+WRITES firmware code/vars flash (pflash, QEMU's block view): 0 requests
+HOST overlay clusters allocated: 0
+SPIKE net 2: if=[lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 ] driverless-usb=[] driverless-virtio=[]
+
+## bindcheck image with the laptop disk
+SPIKE disks: sda(usb,STICK-A) sr0(sata,QM00005) nvme0n1(nvme,HOST-NVME) 
+SPIKE bind: /dev/sda4 on stick STICK-A
+SPIKE mounts: /dev/mapper/root / erofs;/dev/sda1 /boot vfat;
+SPIKE swaps: 
+SPIKE bind done
+WRITES laptop disk: 0 requests; 316 reads. HOST overlay clusters allocated: 0. Stick: 2 requests, 8192 bytes (ESP, systemd-boot-random-seed).
+
+## Firmware variables (virt-fw-vars before/after; both.fd = MS KEK 2011+2023, db uefi11, own PK, SB on)
+firmware alone (blank USB disk, 25 s) adds: Boot0000 Boot0001 BootOrder ConIn ConOut ErrOut Key0000 Key0001 Lang MTC PlatformLang Timeout VarErrorFlag VendorKeysNv certdb
+a stick boot adds beyond that: Boot0002 (OVMF: 'UEFI QEMU QEMU USB HARDDRIVE STICK-A'), MemoryTypeInformation (OVMF), SbatLevel (shim; attr NV+BS):
+  sbat,1,2025021800
+  shim,4
+  grub,5

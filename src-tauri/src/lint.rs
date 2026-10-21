@@ -9,19 +9,15 @@
 use std::fs;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
-use std::sync::mpsc::{self, RecvTimeoutError};
+use std::sync::mpsc;
 use std::sync::{Mutex, MutexGuard};
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 use bismillah_lint::personal::{self, WordProblem};
 use bismillah_lint::{ARABIC_BUDGET, Block, Diagnostic, Dialect, Lang, Linter, Options};
 use serde::Serialize;
 
 use crate::documents::{self, NO_FAULTS, SaveError};
-
-/// With nothing to check this long after launch, the checker warms up anyway, so the
-/// first paragraph opened later is checked at full speed.
-const WARM_AFTER: Duration = Duration::from_secs(1);
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
@@ -145,7 +141,7 @@ impl Checking {
     /// thread of their own because Harper keeps its search automata per thread (1–2 s to
     /// build), so a fresh thread for each request would pay that again and again.
     /// Nothing heavy happens on the caller's thread.
-    pub fn start(dictionary: PathBuf, dialect: Dialect) -> Self {
+    pub fn start(dictionary: PathBuf) -> Self {
         let words = Words::load(dictionary);
         let mut linter = Linter::new(words.list.clone());
         let suggester = linter.suggester();
@@ -182,24 +178,7 @@ impl Checking {
             .name("bismillah-lint".into())
             .spawn(move || {
                 let mut warm = false;
-                loop {
-                    let job = if warm {
-                        match inbox.recv() {
-                            Ok(job) => job,
-                            Err(_) => break,
-                        }
-                    } else {
-                        match inbox.recv_timeout(WARM_AFTER) {
-                            Ok(job) => job,
-                            Err(RecvTimeoutError::Timeout) => {
-                                linter.warm_up(dialect);
-                                let _ = warm_suggestions.send(Ask::Warm(dialect));
-                                warm = true;
-                                continue;
-                            }
-                            Err(RecvTimeoutError::Disconnected) => break,
-                        }
-                    };
+                for job in inbox {
                     match job {
                         Job::Check {
                             blocks,
@@ -218,6 +197,13 @@ impl Checking {
                                 })
                                 .collect();
                             let _ = reply.send(found);
+                            // Keep corrections ready after English is actually used.
+                            // Empty, disabled and Arabic-only sessions must not build
+                            // English dictionaries, grammar or search automata on idle.
+                            if !warm && linter.english_ready() {
+                                let _ = warm_suggestions.send(Ask::Warm(options.dialect));
+                                warm = true;
+                            }
                         }
                         Job::Words(list) => linter.set_personal(list),
                     }
@@ -305,6 +291,7 @@ mod tests {
     use super::*;
     use crate::testing::Scratch;
     use bismillah_lint::Kind;
+    use std::time::Duration;
 
     fn options() -> Options {
         Options {
@@ -335,7 +322,7 @@ mod tests {
     #[test]
     fn checks_blocks_on_its_own_thread() {
         let scratch = Scratch::new();
-        let checking = Checking::start(scratch.path().join("dictionary.txt"), Dialect::British);
+        let checking = Checking::start(scratch.path().join("dictionary.txt"));
         let answer = checking
             .check(
                 vec![block("I will recieve it."), block("This is a apple.")],
@@ -353,7 +340,7 @@ mod tests {
     #[test]
     fn finds_corrections_on_the_suggestion_thread() {
         let scratch = Scratch::new();
-        let checking = Checking::start(scratch.path().join("dictionary.txt"), Dialect::British);
+        let checking = Checking::start(scratch.path().join("dictionary.txt"));
         // The English dictionary is built by the first check.
         assert_eq!(check(&checking, "I will recieve it.").len(), 1);
         let answer = checking
@@ -369,7 +356,7 @@ mod tests {
     fn adds_words_as_new_lines_keeping_the_file() {
         let scratch = Scratch::new();
         let path = scratch.file("dictionary.txt", b"# my words\nIbn");
-        let checking = Checking::start(path.clone(), Dialect::British);
+        let checking = Checking::start(path.clone());
         assert_eq!(check(&checking, "Ibn Taymiyya wrote it.").len(), 1);
         checking.add_word(" Taymiyya ").expect("added");
         checking
@@ -386,7 +373,7 @@ mod tests {
     fn creates_the_file_and_its_folder_on_the_first_word() {
         let scratch = Scratch::new();
         let path = scratch.path().join("conf/dictionary.txt");
-        let checking = Checking::start(path.clone(), Dialect::British);
+        let checking = Checking::start(path.clone());
         checking.add_word("bismillah").expect("added");
         assert_eq!(fs::read_to_string(&path).unwrap(), "bismillah\n");
     }
@@ -394,7 +381,7 @@ mod tests {
     #[test]
     fn refuses_what_isnt_one_word() {
         let scratch = Scratch::new();
-        let checking = Checking::start(scratch.path().join("dictionary.txt"), Dialect::British);
+        let checking = Checking::start(scratch.path().join("dictionary.txt"));
         assert_eq!(
             checking.add_word("two words"),
             Err(AddWordError::InvalidWord {
@@ -413,7 +400,7 @@ mod tests {
         let scratch = Scratch::new();
         // The dictionary's folder is a file, so the write can't happen.
         let blocker = scratch.file("conf", b"not a folder");
-        let checking = Checking::start(blocker.join("dictionary.txt"), Dialect::British);
+        let checking = Checking::start(blocker.join("dictionary.txt"));
         assert!(matches!(
             checking.add_word("Taymiyya"),
             Err(AddWordError::NotSaved { .. })
@@ -437,7 +424,7 @@ mod tests {
             fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
             return;
         }
-        let checking = Checking::start(dir.join("dictionary.txt"), Dialect::British);
+        let checking = Checking::start(dir.join("dictionary.txt"));
         let result = checking.add_word("Taymiyya");
         fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
         assert_eq!(
@@ -456,7 +443,7 @@ mod tests {
     fn picks_up_edits_made_in_another_program() {
         let scratch = Scratch::new();
         let path = scratch.file("dictionary.txt", b"Ibn\n");
-        let checking = Checking::start(path.clone(), Dialect::British);
+        let checking = Checking::start(path.clone());
         assert!(!checking.refresh());
         fs::write(&path, b"Ibn\nTaymiyya\n").unwrap();
         let later = SystemTime::now() + Duration::from_secs(2);

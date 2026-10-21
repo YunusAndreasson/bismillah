@@ -11,6 +11,37 @@ const files = [
 ];
 const paths = (list: { path: string }[]) => list.map((f) => f.path);
 
+/** Exhaustive ranking oracle: score every candidate and sort the entire result.
+ * Production keeps only the best page; both must return exactly the same order. */
+function exhaustive(query: string, candidates: typeof files, recent: string[], limit: number) {
+  const words = fold(query).split(/\s+/u).filter(Boolean);
+  const recency = new Map(recent.map((path, i) => [path, i]));
+  const rank = (file: (typeof files)[number]) => recency.get(file.path) ?? Infinity;
+  return candidates
+    .map((file, index) => {
+      let total = 0;
+      for (const word of words) {
+        const name = score(word, fold(file.name));
+        const path = score(word, fold(file.path));
+        if (name === null && path === null) return { file, index, total: -Infinity };
+        total += Math.max((name ?? -Infinity) * 2, path ?? -Infinity);
+      }
+      return { file, index, total };
+    })
+    .filter((entry) => entry.total > -Infinity)
+    .sort((a, b) =>
+      words.length === 0
+        ? rank(a.file) - rank(b.file) || a.index - b.index
+        : b.total - a.total ||
+          rank(a.file) - rank(b.file) ||
+          a.file.path.length - b.file.path.length ||
+          a.file.path.localeCompare(b.file.path) ||
+          a.index - b.index,
+    )
+    .slice(0, limit)
+    .map((entry) => entry.file);
+}
+
 describe("folding for search", () => {
   it("ignores case, Latin diacritics, IJMES ʿ ʾ and Arabic vocalisation", () => {
     expect(fold("Ḥadīth")).toBe("hadith");
@@ -23,6 +54,45 @@ describe("folding for search", () => {
 });
 
 describe("matching", () => {
+  it("returns the exhaustive ranking's exact page across queries, ties and limits", () => {
+    const names = ["notes", "ḥadīth", "سَلَامٌ", "chapter", "nōtes", "ʿilm", "chapter 1"];
+    const candidates = Array.from({ length: 800 }, (_, i) => {
+      const name = `${names[i % names.length] ?? ""} ${i % 11}.md`;
+      return { name, path: `Part ${i % 23}/Draft ${i}/${name}` };
+    });
+    const recent = [candidates[799]?.path ?? "", "missing.md", candidates[45]?.path ?? ""];
+    for (const query of [
+      "",
+      "  ",
+      "n",
+      "note",
+      "part",
+      "ch 1",
+      "slm",
+      "سلام",
+      "hadith",
+      "ilm",
+      "zzzz",
+    ]) {
+      for (const limit of [0, 1, 2, 50, 1000]) {
+        expect(paths(rankFiles(query, candidates, recent, limit)), `${query}; ${limit}`).toEqual(
+          paths(exhaustive(query, candidates, recent, limit)),
+        );
+      }
+    }
+  });
+
+  it("invalidates folded keys when a candidate changes, including name-only changes", () => {
+    const candidate = { name: "ḥadīth.md", path: "notes/ḥadīth.md" };
+    expect(rankFiles("hadith", [candidate], [])).toEqual([candidate]);
+    candidate.name = "سَلَام.md";
+    candidate.path = "letters/سَلَام.md";
+    expect(rankFiles("hadith", [candidate], [])).toEqual([]);
+    expect(rankFiles("سلام", [candidate], [])).toEqual([candidate]);
+    candidate.name = "ʿilm.md";
+    expect(rankFiles("ilm", [candidate], [])).toEqual([candidate]);
+  });
+
   it("prefers substrings, then word starts, then scattered letters", () => {
     const exact = score("not", "notes.md") ?? 0;
     const middle = score("tes", "notes.md") ?? 0;

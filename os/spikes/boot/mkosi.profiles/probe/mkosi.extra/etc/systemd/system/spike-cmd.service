@@ -1,0 +1,8 @@
+[Unit]
+Description=Root command channel on ttyS1 (suspend spike only)
+
+[Service]
+ExecStart=/usr/libexec/spike-cmd
+
+[Install]
+WantedBy=multi-user.target

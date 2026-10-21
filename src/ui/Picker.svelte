@@ -82,6 +82,10 @@
     <Dialog.Content
       class="picker"
       aria-describedby={undefined}
+      onOpenAutoFocus={(event) => {
+        event.preventDefault();
+        document.querySelector<HTMLInputElement>(".picker-input")?.focus();
+      }}
       onCloseAutoFocus={(event) => {
         const next = pending;
         pending = null;
@@ -91,9 +95,12 @@
         setTimeout(next.run, 0);
       }}
     >
-      <Dialog.Title class="visually-hidden">
-        {kind === "palette" ? t.palette : t.quickOpen}
-      </Dialog.Title>
+      <header class="picker-header">
+        <Dialog.Title class="picker-title">
+          {kind === "palette" ? t.palette : t.quickOpen}
+        </Dialog.Title>
+        <Dialog.Close class="picker-close">{t.close}</Dialog.Close>
+      </header>
       <Command.Root
         class="picker-command"
         shouldFilter={false}
@@ -111,7 +118,27 @@
         <Command.List class="picker-list">
           <Command.Viewport>
             <Command.Empty class="picker-empty">
-              {kind === "palette" ? t.noCommand : t.noFile}
+              {#if kind === "palette"}
+                {t.noCommand}
+              {:else if !library.ready}
+                <p>{t.unavailableLibrary}</p>
+                <button
+                  type="button"
+                  class="picker-action"
+                  onclick={() => choose(() => runCommand("library.openFolder"), false)}
+                  >{copy.library.chooseFolder}</button
+                >
+              {:else if library.files.length === 0}
+                <p>{t.emptyLibrary}</p>
+                <button
+                  type="button"
+                  class="picker-action"
+                  onclick={() => choose(() => runCommand("file.new"), false)}
+                  >{copy.library.newFile}</button
+                >
+              {:else}
+                {t.noFile}
+              {/if}
             </Command.Empty>
             {#each files as file (file.path)}
               {@const [stem, ext] = split(file.name)}
@@ -120,10 +147,10 @@
                 value={file.path}
                 onSelect={() => choose(() => openFile(file.path), true)}
               >
-                <span class="primary"
+                <span class="primary" title={file.name}
                   ><bdi>{stem}</bdi>{#if ext}<span class="ext">{ext}</span>{/if}</span
                 >
-                <span class="secondary">
+                <span class="secondary" title={file.path}>
                   {#each segments(file.path) as segment, i (i)}
                     {#if i > 0}<span class="slash">/</span>{/if}<bdi>{segment}</bdi>
                   {/each}
@@ -131,22 +158,27 @@
               </Command.Item>
             {/each}
             {#each commands as command (command.id)}
-              {@const on = command.toggle?.(context) ?? false}
+              {@const on = command.toggle?.(context)}
               <Command.Item
                 class="picker-item"
                 value={command.id}
                 onSelect={() => choose(() => runCommand(command.id), false)}
               >
-                <span class="primary">
-                  {command.label}{#if on}<span class="on"> · {t.on}</span>{/if}
+                <span class="primary" title={command.label}>
+                  {command.label}{#if on !== undefined}<span class="on">
+                      · {on ? t.on : t.off}</span
+                    >{/if}
                 </span>
-                {#if command.description}<span class="secondary">{command.description}</span>{/if}
+                {#if command.description}<span class="secondary" title={command.description}
+                    >{command.description}</span
+                  >{/if}
                 <kbd>{shortcut(command)}</kbd>
               </Command.Item>
             {/each}
           </Command.Viewport>
         </Command.List>
       </Command.Root>
+      <p class="picker-keys">{kind === "palette" ? t.commandKeys : t.fileKeys}</p>
     </Dialog.Content>
   </Dialog.Portal>
 </Dialog.Root>
@@ -180,6 +212,43 @@
     flex-direction: column;
     min-height: 0;
   }
+  .picker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-2) var(--space-4);
+  }
+  :global(.picker-title) {
+    margin: 0;
+    font: inherit;
+    font-weight: 600;
+  }
+  :global(.picker-close),
+  .picker-action {
+    font: inherit;
+    color: var(--text-primary);
+    background: var(--surface-editor);
+    border: 1px solid var(--border-control);
+    border-radius: 4px;
+    padding: var(--space-1) var(--space-3);
+    cursor: pointer;
+  }
+  :global(.picker-close:hover),
+  .picker-action:hover {
+    background: var(--surface-panel);
+  }
+  :global(.picker-close:focus-visible),
+  .picker-action:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+  .picker-keys {
+    margin: 0;
+    padding: var(--space-2) var(--space-4);
+    border-block-start: 1px solid var(--border-control);
+    color: var(--text-secondary);
+  }
   :global(.picker-input) {
     font: inherit;
     font-size: 1.05em;
@@ -205,6 +274,9 @@
   :global(.picker-empty) {
     padding: var(--space-3) var(--space-4);
     color: var(--text-secondary);
+  }
+  :global(.picker-empty) p {
+    margin: 0 0 var(--space-2);
   }
   :global(.picker-item) {
     display: grid;

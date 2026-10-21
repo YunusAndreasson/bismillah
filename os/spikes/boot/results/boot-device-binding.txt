@@ -1,0 +1,31 @@
+# OS-0 Boot-device binding: host-test.sh <bind>, bismillah-find-home, 2026-10-21. The firmware always boots STICK-A (bootindex 0).
+
+## one
+SPIKE disks: sda(usb,STICK-A) sr0(sata,QM00005) 
+SPIKE root-slaves: sda2 sda3 
+SPIKE bind: /dev/sda4 on stick STICK-A
+SPIKE failed: systemd-growfs@home.service bismillah-helper.socket 
+SPIKE bind done
+
+## host
+SPIKE disks: sda(usb,STICK-A) sr0(sata,QM00005) nvme0n1(nvme,HOST-NVME) 
+SPIKE root-slaves: sda2 sda3 
+SPIKE bind: /dev/sda4 on stick STICK-A
+SPIKE failed: systemd-growfs@home.service bismillah-helper.socket 
+SPIKE bind done
+
+## twin
+SPIKE disks: sda(usb,STICK-B) sdb(usb,STICK-A) sr0(sata,QM00005) 
+SPIKE root-slaves: sda2 sda3 
+SPIKE bind: refuse loader partition on several disks: sda sdb
+SPIKE failed: systemd-growfs@home.service bismillah-helper.socket 
+SPIKE bind done
+
+## uniq
+SPIKE disks: sda(usb,STICK-A) sdb(usb,STICK-B) sr0(sata,QM00005) 
+SPIKE root-slaves: sda2 sda3 
+SPIKE bind: /dev/sda4 on stick STICK-A
+SPIKE failed: systemd-growfs@home.service bismillah-helper.socket 
+SPIKE bind done
+
+twin: writes went to STICK-B (2 requests, 8192 bytes), none to STICK-A: the running system was on the stick the firmware did not boot.

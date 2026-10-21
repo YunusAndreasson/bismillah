@@ -1,0 +1,330 @@
+{
+  "binary": "/home/yunus/Work/bismillah/target/debug/bismillah",
+  "date": "2026-10-20T10:43:53.314Z",
+  "resources: disabled": {
+    "launchMs": 659,
+    "samples": [
+      {
+        "seconds": 5,
+        "rssMiB": 547,
+        "mainRssMiB": 255,
+        "cpuMs": 70
+      },
+      {
+        "seconds": 10,
+        "rssMiB": 545,
+        "mainRssMiB": 255,
+        "cpuMs": 70
+      },
+      {
+        "seconds": 15,
+        "rssMiB": 539,
+        "mainRssMiB": 251,
+        "cpuMs": 70
+      }
+    ],
+    "diagnostics": 0
+  },
+  "resources: arabic": {
+    "launchMs": 610,
+    "samples": [
+      {
+        "seconds": 5,
+        "rssMiB": 595,
+        "mainRssMiB": 310,
+        "cpuMs": 120
+      },
+      {
+        "seconds": 10,
+        "rssMiB": 593,
+        "mainRssMiB": 310,
+        "cpuMs": 120
+      },
+      {
+        "seconds": 15,
+        "rssMiB": 588,
+        "mainRssMiB": 306,
+        "cpuMs": 120
+      }
+    ],
+    "diagnostics": 0
+  },
+  "resources: english": {
+    "launchMs": 581,
+    "samples": [
+      {
+        "seconds": 5,
+        "rssMiB": 705,
+        "mainRssMiB": 438,
+        "cpuMs": 2020
+      },
+      {
+        "seconds": 10,
+        "rssMiB": 703,
+        "mainRssMiB": 438,
+        "cpuMs": 2030
+      },
+      {
+        "seconds": 15,
+        "rssMiB": 698,
+        "mainRssMiB": 435,
+        "cpuMs": 2040
+      }
+    ],
+    "diagnostics": 2
+  },
+  "navigation": {
+    "opened": [116, 68, 43, 44],
+    "queries": [
+      {
+        "ms": 91,
+        "query": "n",
+        "count": 50
+      },
+      {
+        "ms": 60,
+        "query": "no",
+        "count": 50
+      },
+      {
+        "ms": 60,
+        "query": "not",
+        "count": 50
+      },
+      {
+        "ms": 58,
+        "query": "notes",
+        "count": 50
+      },
+      {
+        "ms": 79,
+        "query": "part",
+        "count": 50
+      },
+      {
+        "ms": 73,
+        "query": "hadith",
+        "count": 50
+      },
+      {
+        "ms": 73,
+        "query": "سلام",
+        "count": 50
+      },
+      {
+        "ms": 67,
+        "query": "chapter 2",
+        "count": 50
+      },
+      {
+        "ms": 16,
+        "query": "zzzz",
+        "count": 0
+      },
+      {
+        "ms": 68,
+        "query": "",
+        "count": 50
+      },
+      {
+        "ms": 73,
+        "query": "n",
+        "count": 50
+      },
+      {
+        "ms": 50,
+        "query": "no",
+        "count": 50
+      },
+      {
+        "ms": 27,
+        "query": "not",
+        "count": 50
+      },
+      {
+        "ms": 27,
+        "query": "notes",
+        "count": 50
+      },
+      {
+        "ms": 37,
+        "query": "part",
+        "count": 50
+      },
+      {
+        "ms": 43,
+        "query": "hadith",
+        "count": 50
+      },
+      {
+        "ms": 42,
+        "query": "سلام",
+        "count": 50
+      },
+      {
+        "ms": 50,
+        "query": "chapter 2",
+        "count": 50
+      },
+      {
+        "ms": 17,
+        "query": "zzzz",
+        "count": 0
+      },
+      {
+        "ms": 44,
+        "query": "",
+        "count": 50
+      },
+      {
+        "ms": 48,
+        "query": "n",
+        "count": 50
+      },
+      {
+        "ms": 26,
+        "query": "no",
+        "count": 50
+      },
+      {
+        "ms": 28,
+        "query": "not",
+        "count": 50
+      },
+      {
+        "ms": 28,
+        "query": "notes",
+        "count": 50
+      },
+      {
+        "ms": 34,
+        "query": "part",
+        "count": 50
+      },
+      {
+        "ms": 42,
+        "query": "hadith",
+        "count": 50
+      },
+      {
+        "ms": 48,
+        "query": "سلام",
+        "count": 50
+      },
+      {
+        "ms": 41,
+        "query": "chapter 2",
+        "count": 50
+      },
+      {
+        "ms": 16,
+        "query": "zzzz",
+        "count": 0
+      },
+      {
+        "ms": 44,
+        "query": "",
+        "count": 50
+      },
+      {
+        "ms": 49,
+        "query": "n",
+        "count": 50
+      },
+      {
+        "ms": 27,
+        "query": "no",
+        "count": 50
+      },
+      {
+        "ms": 27,
+        "query": "not",
+        "count": 50
+      },
+      {
+        "ms": 27,
+        "query": "notes",
+        "count": 50
+      },
+      {
+        "ms": 34,
+        "query": "part",
+        "count": 50
+      },
+      {
+        "ms": 40,
+        "query": "hadith",
+        "count": 50
+      },
+      {
+        "ms": 42,
+        "query": "سلام",
+        "count": 50
+      },
+      {
+        "ms": 39,
+        "query": "chapter 2",
+        "count": 50
+      },
+      {
+        "ms": 16,
+        "query": "zzzz",
+        "count": 0
+      },
+      {
+        "ms": 46,
+        "query": "",
+        "count": 50
+      }
+    ]
+  },
+  "launch: a short document, no library": {
+    "first": 533,
+    "warm": [681, 545, 526, 792],
+    "stages": {
+      "webview": [342, 266, 259, 424],
+      "script": [45, 33, 35, 60],
+      "start": [294, 246, 232, 308],
+      "bismillah:configuration": [153, 109, 124, 206],
+      "bismillah:library": [218, 178, 174, 252],
+      "bismillah:document": [189, 146, 159, 237],
+      "bismillah:editor": [290, 243, 229, 305],
+      "bismillah:start": [147, 102, 118, 198],
+      "bismillah:editable": [294, 246, 232, 308],
+      "bismillah:fonts": [218, 178, 174, 252]
+    }
+  },
+  "launch: a short document in a library of 1,000 files": {
+    "first": 745,
+    "warm": [588, 537, 654, 498],
+    "stages": {
+      "webview": [293, 246, 367, 254],
+      "script": [40, 37, 43, 33],
+      "start": [255, 254, 244, 211],
+      "bismillah:configuration": [133, 148, 139, 104],
+      "bismillah:library": [188, 191, 179, 146],
+      "bismillah:document": [158, 174, 162, 130],
+      "bismillah:editor": [252, 251, 241, 209],
+      "bismillah:start": [126, 142, 133, 98],
+      "bismillah:editable": [255, 254, 244, 211],
+      "bismillah:fonts": [190, 193, 181, 148]
+    }
+  },
+  "launch: a 51,448-word document, no library": {
+    "first": 635,
+    "warm": [637, 548, 528, 623],
+    "stages": {
+      "webview": [329, 257, 259, 341],
+      "script": [42, 33, 33, 33],
+      "start": [266, 258, 236, 249],
+      "bismillah:configuration": [138, 110, 111, 104],
+      "bismillah:library": [197, 188, 170, 179],
+      "bismillah:document": [181, 187, 157, 150],
+      "bismillah:editor": [263, 254, 233, 245],
+      "bismillah:start": [132, 103, 104, 98],
+      "bismillah:editable": [266, 258, 236, 249],
+      "bismillah:fonts": [197, 188, 170, 179]
+    }
+  },
+  "sha256": "1ba3ab23281247658c9a9c72c0aa7c4a078f84ae79017fa59d75bec1adb638c1"
+}

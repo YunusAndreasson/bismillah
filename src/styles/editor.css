@@ -16,6 +16,69 @@
   background: var(--surface-editor);
 }
 
+/* Search and line navigation are editor panels, with interface typography rather
+   than the document's font. CodeMirror supplies keyboard handling and announcements. */
+.cm-editor .cm-panels {
+  font: var(--ui-size) / var(--ui-line) var(--ui-font);
+  color: var(--text-primary);
+  background: var(--surface-panel);
+  border-color: var(--border-control);
+}
+
+.cm-editor .cm-panels .cm-panel {
+  padding: var(--space-2) var(--space-8) var(--space-2) var(--space-4);
+}
+
+.cm-editor .cm-panels .cm-textfield,
+.cm-editor .cm-panels .cm-button {
+  box-sizing: border-box;
+  max-inline-size: 100%;
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  color: var(--text-primary);
+  background: var(--surface-editor);
+  border: 1px solid var(--border-control);
+  border-radius: 3px;
+}
+
+.cm-editor .cm-panels .cm-panel label {
+  font-size: inherit;
+}
+
+/* The editor has one caret. CodeMirror's optional multi-selection action would
+   otherwise silently select only the first match. Replace all remains available. */
+.cm-editor .cm-search button[name="select"] {
+  display: none;
+}
+
+.cm-editor .cm-panels input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.cm-editor .cm-panels input::placeholder {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
+.cm-editor .cm-panels button {
+  color: var(--text-primary);
+}
+
+.cm-editor .cm-panels :focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.cm-editor .cm-searchMatch {
+  background: var(--selection-background);
+  color: var(--text-primary);
+  outline: 1px solid var(--border-control);
+}
+
+.cm-editor .cm-searchMatch-selected {
+  outline: 2px solid var(--accent);
+}
+
 .cm-editor .cm-content {
   /* An absolute line height, so spans in another font or size inherit the same value. */
   line-height: var(--L);
@@ -27,8 +90,10 @@
   caret-color: var(--accent);
 }
 
+/* Room below for the last line to reach the typewriter line. None above: a document
+   opens at its top, and its first lines stay put until the text reaches that line. */
 .cm-editor.cm-typewriter .cm-content {
-  padding-block: 42vh 58vh;
+  padding-block-end: 58vh;
 }
 
 .cm-editor .cm-line {
@@ -387,6 +452,23 @@
 .cm-editor .cm-content > .cm-line.cm-h3 {
   padding-block-start: calc(0.25 * var(--L));
 }
+/* Text right against a heading, with no blank line between (markdownStyling.ts): the
+   line of space the blank line would give, so headings look the same either way. */
+.cm-editor .cm-content > .cm-line.cm-h-joined-above {
+  padding-block-start: var(--L);
+}
+.cm-editor .cm-content > .cm-line.cm-h1.cm-h-joined-above {
+  padding-block-start: calc(2 * var(--L));
+}
+.cm-editor .cm-content > .cm-line.cm-h2.cm-h-joined-above {
+  padding-block-start: calc(1.5 * var(--L));
+}
+.cm-editor .cm-content > .cm-line.cm-h3.cm-h-joined-above {
+  padding-block-start: calc(1.25 * var(--L));
+}
+.cm-editor .cm-content > .cm-line.cm-h-joined-below {
+  padding-block-end: var(--L);
+}
 
 /* Arabic runs (scriptRuns.ts). Never letter-spaced (DESIGN.md §8.6). */
 .cm-editor .cm-ar {
@@ -459,20 +541,24 @@
   border-left: 2px solid var(--accent);
   margin-left: -1px;
 }
+/* CodeMirror's focused default (`.ͼ2.cm-focused > .cm-scroller > .cm-selectionLayer …`)
+   is a pale lavender meant for light pages, under which dark-theme text vanishes. This
+   selector outranks it by one class (`.cm-layer`). */
 .cm-editor .cm-selectionLayer .cm-selectionBackground,
-.cm-editor.cm-focused .cm-selectionLayer .cm-selectionBackground {
+.cm-editor.cm-focused > .cm-scroller > .cm-layer.cm-selectionLayer .cm-selectionBackground {
   background: var(--selection-background);
 }
 
-/* The Basmallah opening (ADR-0008, DESIGN.md §11.2). The ink is an SVG pre-shaped by
-   HarfBuzz (ADR-0011) laid over the real, transparent text (basmallah.ts). */
+/* The Basmallah opening (ADR-0008, DESIGN.md §11.2): a quiet calligraphic wordmark.
+   The ink is Amiri's ligature ﷽ as an SVG pre-shaped by HarfBuzz (ADR-0011), laid over
+   the real, transparent text (basmallah.ts). */
 .cm-editor .cm-basmallah {
   font-family: "Amiri", serif;
   font-weight: 400;
-  font-size: calc(28px * var(--doc-scale));
+  font-size: calc(17px * var(--doc-scale));
   line-height: 1.8;
   text-align: center;
-  color: var(--text-primary);
+  color: var(--text-faint);
   padding-block: var(--L) calc(1.5 * var(--L));
   /* Centred, so the side padding only bounds how wide it may grow. */
   padding-inline: var(--space-4);
@@ -513,4 +599,17 @@
   overflow: visible;
   fill: currentColor;
   pointer-events: none;
+}
+.cm-editor .cm-search-feedback,
+.cm-editor .cm-navigation-feedback {
+  min-block-size: 1.5em;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.cm-editor .cm-search-feedback.invalid,
+.cm-editor .cm-navigation-feedback.invalid {
+  color: var(--status-error);
+}
+.cm-editor .cm-panels input[aria-invalid="true"] {
+  border-color: var(--status-error);
 }

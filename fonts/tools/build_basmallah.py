@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """Pre-shape the Basmallah opening into one SVG path (ADR-0011 option 4).
 
-WebKitGTK 2.54 drops the vertical offsets HarfBuzz gives Arabic marks (WebKit bug
-255972, docs/spikes/arabic-rendering.md), so the Basmallah opening misplaces its
-sukun, shadda and kasras when drawn as text. This script shapes the exact text in
-HarfBuzz with Amiri Regular, places every glyph with its x AND y offsets, and writes
-the outlines as one path to src/editor/basmallahInk.ts. The editor draws that path
-over the real text, which stays in the page for selection, copying and screen readers.
+The opening is drawn as a quiet calligraphic wordmark: Amiri's Basmallah ligature
+(U+FDFD, ﷽), the traditional composition with the long sīn. This script shapes it in
+HarfBuzz with Amiri Regular, places every glyph with its x AND y offsets (WebKitGTK
+2.54 drops vertical offsets, WebKit bug 255972, docs/spikes/arabic-rendering.md), and
+writes the outlines as one path to src/editor/basmallahInk.ts. The editor draws that
+path over the real text, which stays in the page for selection, copying and screen
+readers.
 
-The text is read from BASMALLAH in src/editor/basmallah.ts, so the two can't drift
-apart (a unit test checks they match).
+The text is read from BASMALLAH in src/editor/basmallah.ts and recorded beside the
+path, so the two can't drift apart (a unit test checks they match).
 
 Coordinates are font units with y flipped for SVG: x runs from 0 (the left edge of the
 advance box) to the total advance, and y = 0 is the baseline.
@@ -32,6 +33,8 @@ from fontTools.ttLib import TTFont
 ROOT = Path(__file__).resolve().parents[2]
 FONT = ROOT / "fonts/source/amiri/Amiri-Regular.ttf"
 SOURCE = ROOT / "src/editor/basmallah.ts"
+# What the ink draws: the Basmallah as one calligraphic ligature.
+INK = "\uFDFD"
 OUTPUT = ROOT / "src/editor/basmallahInk.ts"
 
 
@@ -58,7 +61,7 @@ def main() -> None:
 
     font = hb.Font(hb.Face(hb.Blob.from_file_path(str(FONT))))
     buf = hb.Buffer()
-    buf.add_str(text)
+    buf.add_str(INK)
     buf.direction = "rtl"
     buf.script = "arab"
     buf.language = "ar"
@@ -86,13 +89,15 @@ def main() -> None:
 // Regenerate: uv run --with uharfbuzz --with fonttools python -I fonts/tools/build_basmallah.py
 
 /**
- * The Basmallah opening shaped by HarfBuzz, every glyph placed with its x and y offsets
- * (ADR-0011 option 4). Font units, y flipped for SVG: x runs from 0 to `advance`, the
- * baseline is y = 0, and ink spans `yMin`…`yMax` (font y, up). `ascent` and `descent`
- * are the font's line metrics (hhea), the box text in this font occupies.
+ * The Basmallah opening's ink: Amiri's ligature ﷽ (`ink`) shaped by HarfBuzz, every
+ * glyph placed with its x and y offsets (ADR-0011 option 4), drawn over the real `text`.
+ * Font units, y flipped for SVG: x runs from 0 to `advance`, the baseline is y = 0,
+ * and ink spans `yMin`…`yMax` (font y, up). `ascent` and `descent` are the font's
+ * line metrics (hhea), the box text in this font occupies.
  */
 export const BASMALLAH_INK = {{
   text: {json.dumps(text, ensure_ascii=False)},
+  ink: {json.dumps(INK)},
   unitsPerEm: {upm},
   advance: {x},
   ascent: {ascent},

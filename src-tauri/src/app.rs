@@ -65,8 +65,7 @@ pub struct AppState {
     recovered: Mutex<Vec<PathBuf>>,
     recovery: Arc<Recovery>,
     settings: Mutex<settings::Store>,
-    memory: Mutex<state::State>,
-    memory_path: PathBuf,
+    memory: Mutex<state::Store>,
     /// Test mode only: a failure injected into every save until cleared.
     fault: Arc<Mutex<Option<TestFault>>>,
     /// Test mode only: what the next native file dialog answers, without showing it.
@@ -133,7 +132,7 @@ impl AppState {
         recovery.prune();
         let memory_path = data_dir.join("state.json");
         let settings = settings::Store::load(config_dir.join("settings.toml"));
-        let checking = Checking::start(config_dir.join("dictionary.txt"), dialect(&settings));
+        let checking = Checking::start(config_dir.join("dictionary.txt"));
         AppState {
             test_mode: std::env::var_os("BISMILLAH_TEST").is_some(),
             handle,
@@ -143,8 +142,7 @@ impl AppState {
             recovered: Mutex::new(Vec::new()),
             recovery,
             settings: Mutex::new(settings),
-            memory: Mutex::new(state::State::load(&memory_path)),
-            memory_path,
+            memory: Mutex::new(state::Store::load(memory_path)),
             fault: Arc::new(Mutex::new(None)),
             dialog_answer: Mutex::new(None),
             handed: Mutex::new(Vec::new()),
@@ -188,13 +186,11 @@ impl AppState {
     }
 
     pub fn memory(&self) -> state::State {
-        lock(&self.memory).clone()
+        lock(&self.memory).snapshot()
     }
 
     pub fn remember(&self, change: impl FnOnce(&mut state::State)) {
-        let mut memory = lock(&self.memory);
-        change(&mut memory);
-        memory.save(&self.memory_path);
+        lock(&self.memory).change(change);
     }
 
     /// Queues a file to open and tells the frontend, which saves first and then asks.

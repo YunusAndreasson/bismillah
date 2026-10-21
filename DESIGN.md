@@ -90,7 +90,7 @@ Rules:
 
 ### Hierarchy by task
 
-- **Normal writing:** document and caret → current file and location → tools for the current task → passive metadata (word count).
+- **Normal writing:** document and caret → current file and location → tools for the current task → passive metadata (reading time).
 - **When saving fails or a conflict needs resolving:** the recovery message becomes the most important element and stays visible until resolved.
 
 Hierarchy is built with spacing, placement, alignment and weight before colour. Quiet text uses the `text-secondary` token, never arbitrary opacity.
@@ -98,12 +98,14 @@ Hierarchy is built with spacing, placement, alignment and weight before colour. 
 ### Settings and About (Phase 5)
 
 - **One dialog, four sections**, with a row of links at the top that scroll to each and move focus to its heading; the title, the links and *Done* stay in view while the sections scroll. Every change applies at once and is saved; there is no *Apply*.
+  - The dialog says **Changes apply immediately**. Size and line-height steppers disable at their limits; a line height following the writing profile says **font default**. A settings write failure appears inside the open dialog with **Try again**, which retries the current choices. In short windows the header/footer padding contracts, and focused controls scroll clear of both sticky boundaries.
+  - Section links keep headings aligned consistently after reopening or resizing the dialog.
   - **Appearance:** Theme (System / Light / Dark) · Colours (§9.5) · High contrast · Writing font (with *Another font*, §8.2) · Text size · Line length · Line height · Fade the status line · Show the Basmallah opening.
   - **Writing:** Smart punctuation · Typewriter scrolling · Always show Markdown · Zuhd mode · Focus on · Other text (§11.1).
   - **Language & checking:** Check spelling · Grammar suggestions · English spelling.
   - **Files & privacy:** the library folder (*Open folder…*), keyboard shortcuts (§13: how many `keybindings.toml` changes, the lines it couldn't use, or *Create keybindings.toml*), where the writer's own files are, how unsaved text is kept, and the privacy statement in one sentence.
 - **Problems are shown where they belong:** a theme file's below Colours, `keybindings.toml`'s under Keyboard shortcuts, each line by line in plain words. A notice in the notices row says only that something couldn't be used and offers **Show in Settings**, which opens Settings at that section.
-- **About bismillah** (Help menu, the palette, and a button at the foot of Settings): the name, one line on what it is, the version, the inspiration in two short paragraphs (§4), and what it is made with under which licence (fonts, the dictionary and checkers, the software), grouped and listed in `text-secondary`. It opens at its start, with focus on *Close*.
+- **About bismillah** (Help menu, the palette, and a button at the foot of Settings): the name, one line on what it is, the version, the inspiration in two short paragraphs (§4), and what it is made with under which licence (fonts, the dictionary and checkers, the software), grouped and listed in `text-secondary`. It opens at its start, with focus on *Close*, which stays visible while the credits scroll.
 - **Guide** (Help menu, `F1`, the palette; Phase 6): the guide (`docs/guide.md`) opens in the writing surface as a sample, like any document but never saved (*Guide — changes aren't saved*), so the writer can try what it describes. `F1` opens it afresh. Its own vocabulary (the app's names) is ignored by the checker in the guide alone.
 - **Settings › Files & privacy** offers *Show in file manager* for the library, the settings folder and the recovery folder (Phase 6), each button described by its setting's heading.
 
@@ -116,7 +118,9 @@ Hierarchy is built with spacing, placement, alignment and weight before colour. 
 - **Its own states, in its own area:** no folder open (*Open a folder…*), an empty folder (*New file…*), a folder that isn't available (*Try again* · *Choose another folder…*), and a listing cut short because the folder holds too many entries.
 - **Quick open** finds files by name or folder and shows each file's folders beside its name, so files with the same name are told apart. Matching ignores case, Latin diacritics, Arabic vocalisation and ʿ ʾ ("hadith" finds "ḥadīth.md"). With nothing typed, recently opened files come first.
 - **The palette** lists every command that can run now, with its shortcut, finds commands by their aliases too, says which switches are *On*, and shows a one-sentence description where the label alone isn't enough.
+- Quick open and the palette have visible titles, **Close** buttons and a short keyboard hint. Switches explicitly say **On** or **Off**. Truncated file names, paths and descriptions expose their complete text on hover. An empty library offers **New file…** rather than claiming no file matches; an unavailable library offers **Choose another folder…** if it becomes unavailable while quick open is open. The overlay library has a visible **Close** button that returns focus to writing.
 - **Names are asked for in a small dialog** (*Rename…*, *New folder…*). A rename starts with the name selected up to its ending. A name that can't be used is explained under the field and nothing changes; a file name without `.md` or `.markdown` gets `.md`, so the file stays in the library.
+  - The form stays within short desktop windows. A long title is ellipsised with its full text available on hover; the name field retains the complete filename. Validation brings its explanation into view, and the controls remain reachable by keyboard.
 - **Move to trash** never asks; it says *Moved “x” to the trash.* with **Undo**. The open document is saved first, and is never renamed or moved while its changes aren't on disk or while recovered text for it is still on offer.
 
 ## 7. Layout and window behaviour
@@ -214,6 +218,8 @@ Restrained, so the text still reads like a manuscript. The same scale applies wi
 | h5 | 1.00em | 600 | 1 / 0 |
 | h6 | 1.00em | 600 + `text-secondary` | 1 / 0 |
 
+The space counts the blank line that usually stands before and after a heading. **A heading never needs an extra Enter** (2026-10-19): where text runs right up to it with no blank line, above or below, the heading's line takes the space that blank line would give, so it looks the same either way (`markdownStyling.ts`, `cm-h-joined-above` / `-below`).
+
 More space above a heading than below it, so the heading belongs to the text that follows (proximity). The `#` marks hang in the gutter. Never any letter-spacing for Arabic headings.
 
 ### 8.5 Getting the intended quality from each font
@@ -252,6 +258,7 @@ Primitive values (raw colours) feed **semantic tokens**. Components may use only
 | `text-primary` | Prose, primary labels | `#1E1E1E` | `#D4D4D2` |
 | `text-secondary` | Paths, supporting labels, inactive Zuhd text | `#62625E` | `#A2A29B` |
 | `syntax-marker` | Visible Markdown punctuation | `#6B6B65` | `#94948D` |
+| `text-faint` | The status line's routine parts (§12) and the Basmallah wordmark (§11.2): `text-secondary` 40 % of the way toward `surface-editor`, in any theme; `text-secondary` in high contrast | `#9E9D99` | `#6A6A65` |
 | `accent` | Caret, focus ring, active indicator (deep green) | `#1E6B4A` | `#6FBF95` |
 | `selection-background` | Selected text | `#D6EADF` | `#23432F` |
 | `border-control` | Boundaries needed to identify a control | `#84847C` | `#74746E` |
@@ -269,6 +276,7 @@ A softer `border-decorative` may be added for separators that carry no meaning. 
 | `text-primary` | 15.42 / 12.30 | 14.22 / 10.98 |
 | `text-secondary` | 5.66 / 7.11 | 5.23 / 6.34 |
 | `syntax-marker` | 4.96 / 5.98 | 4.57 / 5.34 |
+| `text-faint` | 2.51 / 3.36 | — (drawn on the editor only) |
 | `accent` | 5.96 / 8.32 | 5.50 / 7.42 |
 | `border-control` | 3.48 / 3.88 | 3.21 / 3.46 |
 | `diagnostic-spelling` | 6.12 / 7.58 | 5.64 / 6.77 |
@@ -281,6 +289,7 @@ The accent is a deep green, the project's identity colour, chosen in the 2026-10
 
 - Meaningful normal-size text is **≥ 4.5:1** against its actual background. Main prose aims for **> 7:1** in the default themes. Markdown marks count as meaningful text.
 - Meaningful control boundaries and state indicators (focus included) are **≥ 3:1** against adjacent colours. A thin mark also needs enough size to be perceived.
+- **One deliberate exception:** the status line's routine parts (the *Library* toggle, file name, *Saved*, reading time) and the Basmallah wordmark are `text-faint`, about 2.5:1 in light themes, so they don't pull the eye from the writing (author's request, 2026-10-19: "dimmed even more"). A save failure is never faint: it is `status-error` at full contrast. Hover and keyboard focus raise the toggle to `text-primary`, and high contrast keeps `text-secondary`.
 - **Selected text is rendered in `text-primary`** (marks included), because `syntax-marker` falls to 4.29:1 (light) and 3.66:1 (dark) on the selection colour. Syntax styling never overrides selection readability.
 - Colour meanings are fixed: green means interaction, the diagnostic colours mean problems. Green and red can be confused under red-green colour blindness, so colour is never the only signal:
   - spelling and grammar use different underline patterns and labels
@@ -318,12 +327,15 @@ There are two separate systems with separate purposes:
   - **Links open on Ctrl+click** (Cmd on macOS), and *Open link* opens the one at the caret, from the keyboard (Phase 6, ADR-0003). They go to the writer's browser, or mail app for an email address, and only web and email addresses go (Rust checks each): a link to a file, a script or another program's scheme says *Only web and email links open from bismillah.* in the status line. A plain click always puts the caret in the text. While Ctrl is held over a link the pointer is a hand. Rendered and shown links alike, in tables and Arabic text too.
   - **Always show Markdown** (Settings › Writing, View menu, `Mod-R`) keeps every mark visible, iA-style, exactly as Phase 1 draws it.
 - **Caret:** 2px wide, in `accent`. **Selection:** `selection-background` with `text-primary` text.
-- **Typewriter scrolling** is on by default (`Mod-T`). The caret line sits slightly above centre, about 42% from the top of the writing area. Typing and keyboard motion keep it there; a mouse click doesn't scroll, so text never jumps away from the pointer.
+- **Enter starts a paragraph** (2026-10-19). In a paragraph or heading at the top level, `Enter` inserts the blank line Markdown needs between paragraphs, so one press does what took two; at the end of a line whose paragraph runs on below, that rest becomes its own paragraph too. `Backspace` straight after takes the whole break back. `Shift+Enter` inserts a single line break. Lists and quotes keep their own `Enter` (the next item, the next quoted line); code, tables, frontmatter, blank lines and a caret at the start of a line keep the plain newline. It is a command at the caret, never a rewrite of what was typed (AGENTS.md rule 3). `src/editor/paragraphs.ts`.
+- **Escape puts the pen down** (2026-10-19). The caret hides, the block it was in folds back to its rendered look, and Zuhd mode lights no sentence or paragraph, so the page reads as a whole. A selection collapses to its head; the text never changes. Typing, a key that moves the caret, a click, or the text taking focus back (from the palette, a menu or the library) carries on where the caret was. Escape inside a menu, dialog or the library keeps its own meaning. `src/editor/rest.ts`.
+- **The caret** blinks on a 1.2-second cycle using discrete visibility updates, not an infinite CSS animation. It rests visibly after eight cycles (about ten idle seconds); typing, caret movement and regained focus show it immediately and restart blinking. Blinking stops when the editor loses focus, the page is hidden or read-only, and under reduced motion.
+- **Typewriter scrolling** is on by default (`Mod-T`). The caret line sits slightly above centre, about 42% from the top of the writing area. Typing and keyboard motion keep it there; a mouse click doesn't scroll, so text never jumps away from the pointer. A document opens at its top, not with its first line pushed down to 42% (2026-10-19): lines above that line stay where they are, and the page starts following the caret once the text reaches it.
 - **Diagnostics** are shown as you write by default; both can be switched off (Settings › Language & checking, the menu and the palette). Spelling uses a **wavy** underline in `diagnostic-spelling`; grammar uses a **dotted** underline in `diagnostic-grammar`. The underline sits below descenders and Arabic dots (lower still under an Arabic word) and never moves the text. Each marked word carries `aria-invalid="spelling"` or `"grammar"`.
   - They are hidden while the caret is inside the word being typed, and appear once typing pauses (about 300 ms) or the caret leaves. Nothing pops up unasked.
   - **What is checked:** English spelling (British by default; Settings › Language & checking › English spelling, or `lang: en-US` in a document's frontmatter), Arabic spelling with and without vocalisation, and English grammar. Never checked: Qur'anic runs (recognised by their characters, ADR-0004), IJMES transliteration (words with ʿ ʾ, macrons or dots below), other scripts, code, URLs and Markdown marks. Plain Latin names (*Ibn*, *Taymiyya*) are unknown words until added to the dictionary.
   - Grammar suggestions are about grammar: no advice on style (title case, the Oxford comma, long sentences, "very good" → "excellent"), and nothing smart punctuation already does.
-  - **The suggestions menu** opens on `Mod-.` (the issue at the caret), `F7` / `Shift-F7` (the next or previous issue, selected and scrolled into view, wrapping round the document) or a right-click on a marked word. It is placed against the word and names the kind ("Possible spelling mistake" / "Grammar suggestion", underlined in the kind's own pattern), explains it in one sentence, then lists the corrections under *Replace with* (set in the writing font) and *Ignore*, plus *Add to dictionary* for spelling. The first action has focus; arrows, `Enter` and type-ahead work as in any menu; `F7` / `Shift-F7` move on from inside it; `Esc` returns to the text with the word still selected.
+  - **The suggestions menu** opens on `Mod-.` (the issue at the caret), `F7` / `Shift-F7` (the next or previous issue, selected and scrolled into view, wrapping round the document) or a right-click on a marked word. It is placed against the word and names the kind ("Possible spelling mistake" / "Grammar suggestion", underlined in the kind's own pattern), explains it in one sentence, then lists the corrections under *Replace with* (set in the writing font) and *Ignore*, plus *Add to dictionary* for spelling. The menu scrolls within the available window height. The first action has focus; arrows, `Enter` and type-ahead work as in any menu; `F7` / `Shift-F7` move on from inside it; `Esc` returns to the text with the word still selected.
   - *Replace* is one undoable edit, the caret after the new text. A correction that would delete a Markdown mark is never offered. *Ignore* lasts for this document and session and writes nothing; *Add to dictionary* writes the word to the writer's own `dictionary.txt`, which they may also edit by hand.
   - Asked where there is nothing to find, the status line says so for a moment (*No spelling or grammar issues.*, *Nothing to suggest here.*, *Spelling and grammar checking are off.*), announced politely to screen readers.
 - **Frontmatter:** shown in `text-secondary`; folded to one quiet line outside the caret, never rewritten.
@@ -348,7 +360,7 @@ Zuhd mode is the name of the focus feature. It reflects the product's commitment
 
 ### 11.2 The Basmallah opening
 
-Every document opens with a centred, carefully typeset Basmallah:
+Every document opens with a centred Basmallah, drawn as a quiet calligraphic wordmark:
 
 > بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
 
@@ -359,8 +371,8 @@ It is **on by default** and can be turned off in Settings › Appearance (*Show 
   - It is not a heading and not in the outline.
   - Saving and copying document text preserve the real source; the Basmallah itself can still be selected and copied, and copying it gives exactly the text above.
 - **Typesetting:**
-  - Amiri regular, natural shaping, starting at 28px / 1.8 and scaling with the writing-size preference; `text-primary` colour; `lang="ar" dir="rtl"`; centred in the reading column.
-  - **Drawn from pre-shaped outlines** (ADR-0011): WebKitGTK misplaces Arabic marks, so the visible ink is the Basmallah shaped by HarfBuzz with Amiri, every mark at its true height (`fonts/tools/build_basmallah.py` → `src/editor/basmallahInk.ts`). It is laid over the real text on the same baseline and advance box; the text stays in the page, transparent, and is what is selected, copied and read by screen readers. Selecting it shows `selection-background` behind the ink.
+  - **A wordmark, not a heading** (author's request, 2026-10-19): Amiri's Basmallah ligature ﷽, the traditional composition with the long sīn, starting at 17px / 1.8 (about 195px wide) and scaling with the writing-size preference; `text-faint` colour (§9.4), so it sits back from the writing; `lang="ar" dir="rtl"`; centred in the reading column.
+  - **Drawn from pre-shaped outlines** (ADR-0011): the ligature shaped by HarfBuzz with Amiri, every mark at its true height (`fonts/tools/build_basmallah.py` → `src/editor/basmallahInk.ts`). It is laid over the real text on the same baseline and advance box; the text stays in the page, transparent, and is what is selected, copied and read by screen readers. Selecting it shows `selection-background` behind the ink.
   - Always one line: in a narrow window at a large writing size it shrinks to fit the column instead of wrapping.
   - One body line of space above and one and a half below (less on short windows); enough block and inline padding for every mark.
   - No decorative colour, ornament or image.
@@ -412,8 +424,10 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 - Chrome (library toggle, status line) may fade while typing. **Fading is optional** (a setting) and never applies to an element that:
   - has focus or is being used
   - shows a save failure, conflict or recovery notice; these stay until resolved.
-- **Status line:** the *Library* toggle · file name · save state · word count · reading time. Save state is honest: *Saving…* from the first unsaved edit until Rust confirms the durable write, then *Saved*; *Not saved — [reason]* on failure, which stays (in `status-error`) until a save succeeds. Routine saves are not announced to screen readers; failures are, by their notice.
+- **Status line:** the *Library* toggle at the start; file name · save state · reading time at the end, all in `text-faint` (§9.4) so they stay out of the writing's way. No word count (author's request, 2026-10-19); the reading time is derived from it. A passing message sits just before the file's details, so they never shift, and the *Transliteration* indicator after them. Save state is honest: *Saving…* from the first unsaved edit until Rust confirms the durable write, then *Saved*; *Not saved — [reason]* on failure, which stays (in `status-error`) until a save succeeds. Routine saves are not announced to screen readers; failures are, by their notice.
+  - A truncated filename exposes its full name on hover. The Library button's shortcut hint and accessible shortcut follow `keybindings.toml`, including removal of a binding.
 - **Notices** (failure, conflict, recovered text) sit in a row above the writing surface, never over the text, inside a `surface-panel` region with a `border-control` boundary; errors add a `status-error` edge. Each says what happened and how the text is protected, and offers its actions as buttons (§14). They never fade.
+  - Long, unbroken filenames wrap within the notice; they cannot widen the page or push recovery controls out of the window.
 - **Motion:** opacity and small transforms only, 120–180ms ease-out. All of it is removed under `prefers-reduced-motion`. Nothing animates while you type.
 
 ## 13. Keyboard and commands
@@ -444,6 +458,9 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 | `app.about` | About bismillah | none (the Help menu, the palette, and Settings) |
 | `view.fullscreen` | Fullscreen | `F11` |
 | `editor.toggleTransliteration` | Transliteration mode | `Mod-Shift-T` |
+| `edit.find` / `edit.replace` | Find… / Replace… | `Mod-F` / `Mod-H` |
+| `edit.findNext` / `edit.findPrevious` | Find next / Find previous | `F3` / `Shift-F3` |
+| `edit.goToLine` | Go to line… | `Mod-Alt-G` (line, relative offset, percentage of lines, or line:column) |
 | `edit.copyRich` | Copy as rich text | `Mod-Shift-C` |
 | `edit.openLink` | Open link | none (the link at the caret; `Mod`-click opens the one clicked) |
 | `app.guide` | Guide | `F1` (Help menu: the guide as a sample document) |
@@ -451,6 +468,8 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 | `app.quit` | Quit (flushes pending saves first) | `Mod-Q` |
 
 - `Esc` closes the topmost overlay and returns focus to where it came from. In the docked library it returns focus to the text.
+- The overlay library supports the same file and navigation shortcuts as the docked library. Choosing or creating a document closes the overlay and puts focus in the writing surface, including when the panel was opened with its button.
+- Native menu items are disabled when their commands cannot run. Undo and Redo follow the current document's editable history, in the menu and palette alike.
 - **`keybindings.toml`** (Phase 5) changes shortcuts. Each line gives a command its shortcut, written as the menus show it (`"editor.toggleFocus" = "Ctrl+Shift+D"`; CodeMirror's `Mod-Shift-d` is read too); a command not listed keeps its own, and `""` leaves one without. It applies as soon as it is saved, everywhere at once: the editor, the menu's accelerators, the palette, the first screen and the library's menu.
   - A shortcut needs `Ctrl` or `Alt` with a letter, digit or punctuation key, or is a function key. Keys that edit or move through text (Backspace, Delete, Enter, Tab, Escape, Space, the arrows, Home, End, Page Up/Down, Insert), the clipboard's and the standard editing keys (`Ctrl+C`, `V`, `X`, `Z`, `Shift+Z`, `Y`, `A`) and `F10` (the menu) stay where they are. *Move to trash*, which works only in the library, may also take Delete with a modifier.
   - Undo, Redo and Select all keep their standard keys.
@@ -462,9 +481,16 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 - Tab order follows the visual organisation. Overlays trap focus while open and restore it on close (Bits UI handles this).
 - Ordinary operations keep plain functional names: Open, Save, Rename, Undo, Library, Settings. Arabic terms are used sparingly and only where they carry meaning (Zuhd).
 
+Search and line navigation use CodeMirror’s keyboard-accessible editor panels, with interface typography and semantic colours. Search offers case, word and regex options; replacements are explicit and undoable. Escape closes a panel before the editor’s pen-down action. Search compares Unicode-equivalent forms on a temporary copy and preserves Arabic marks. Find works in read-only documents; replacement does not. `Mod-D` and `Mod-Shift-L` retain Zuhd and Theme.
+
+Search shows a quiet field description explaining how to begin, whether a match exists, or what to try when none exists. Invalid regular expressions get a plain explanation, an error boundary on the field and `aria-invalid`; the message is its accessible description and a polite status region. Search and replacement inputs follow the direction of their own text.
+
+Go to line shows examples of the supported forms, including the zero-based column convention. Invalid or empty input keeps the panel open, identifies the field and explains that the position has not changed. The writer can correct it or press Escape. Surrounding whitespace in this navigation field is ignored; document text is never changed.
+
 ## 14. Writing the interface (copy)
 
 - Plain, modest, specific. Say what happened and what to do next.
+- An explicit **Save now** request gets a polite **Saved now.** only after the current revision is durably saved. Autosave stays quiet. That passing feedback clears on the next edit or document change. Asking to save a sample explains how to keep its text in a real file; asking to save a read-only file repeats its encoding explanation. Neither claims success.
 - **Errors:** what failed, why (if known), and how the text is protected. Example:
   > Couldn't save "letter.md" — the disk is full. Your text is kept in recovery. **Try again** · **Save elsewhere…**
 - **Suggestions:** "Possible spelling mistake" / "Grammar suggestion", one sentence of explanation, explicit actions (*Replace with …*, *Add to dictionary*, *Ignore*). Never "wrong" or "error" for grammar.
@@ -474,6 +500,7 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 ## 15. First screen and attention
 
 - The app opens straight into writing: the last document, or a simple choice: *Open a folder…*, *Open a file…*, *New file…*.
+- The first screen also offers a quiet **Guide** button with its current shortcut, so help can be found without knowing the hidden menu or palette.
 - Word count is information, not a target. No streaks, scores, celebrations, nudges or unsolicited prompts.
 
 ## 16. Accessibility requirements

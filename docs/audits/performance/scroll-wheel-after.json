@@ -1,0 +1,184 @@
+{
+  "binary": "/home/yunus/Work/bismillah/target/debug/bismillah",
+  "date": "2026-10-20T09:08:15.511Z",
+  "cases": {
+    "specimen": {
+      "mutations": 2644,
+      "blank": 0,
+      "jumps": [
+        {
+          "delta": 0,
+          "pos": 43803
+        },
+        {
+          "delta": 0,
+          "pos": 6846
+        },
+        {
+          "delta": 0,
+          "pos": 71312
+        },
+        {
+          "delta": 0,
+          "pos": 15751
+        }
+      ],
+      "gaps": [],
+      "frames": [
+        11, 11, 14, 17, 17, 26, 13, 13, 14, 28, 15, 15, 15, 25, 11, 15, 16, 15, 16, 16, 17, 14, 17,
+        15, 17, 17, 16, 16, 19, 16, 16, 16, 17, 16, 18, 17, 17, 16, 16, 17, 17, 16, 17, 22, 14, 14,
+        21, 13, 16, 17, 17, 16, 17, 16, 17, 17, 16, 17, 17, 16, 17, 17, 16, 18, 16, 16, 17, 17, 16,
+        16, 18, 16, 17, 17, 17, 16, 16, 17, 17, 17, 16, 17, 17, 16, 21, 12, 18, 16, 17, 16, 17, 16,
+        18, 16, 17, 17, 16, 17, 16, 17, 17, 17, 16, 17, 17, 16, 16, 17, 17, 17, 17, 16, 17, 17, 16,
+        16, 17, 17, 17, 16, 17, 16, 17, 16, 18, 16, 17, 16, 17, 17, 17, 17, 16, 16, 17, 17, 17, 16,
+        17, 16, 17, 17, 17, 16, 17, 19, 14, 17, 17, 17, 16, 17, 17, 16, 17, 16, 17, 17, 17, 16, 17,
+        16, 17, 16, 18, 16, 17, 16, 17, 17, 17, 16, 17, 16, 17, 16, 17, 17, 16, 18, 16, 17, 16, 17,
+        17, 16, 17, 17, 16, 17, 17, 17, 16, 17, 17, 16, 17, 16, 17, 16, 18, 17, 16, 16, 17, 16, 17,
+        17, 17, 16, 17, 16, 17, 17, 17, 17, 16, 17, 17, 16, 17, 17, 16, 17, 16, 17, 17, 17, 16, 16
+      ],
+      "errors": [],
+      "timings": [
+        {
+          "calls": 85,
+          "source": "update(e){let t=Y(e.state),n=uT(e.state),r=n!=uT(e.startState),{viewport:i}=e.view,a=e.changes.mapPos(this.decoratedTo,1);t.length<i.to&&!r&&t.type==this.tree.type&&a>=i.to?(this.decorations=this.deco",
+          "ms": 13,
+          "index": 1,
+          "max": 1,
+          "keys": ["markCache", "tree", "decorations", "decoratedTo"]
+        },
+        {
+          "calls": 85,
+          "source": "update(e){e.startState.facet(BS)!=e.state.facet(BS)&&this.setOrder(e.state),(this.layer.update(e,this.dom)||e.geometryChanged)&&(this.scale(),e.view.requestMeasure(this.measureReq))}",
+          "ms": 1,
+          "index": 3,
+          "max": 1,
+          "keys": ["view", "layer", "drawn", "scaleX", "scaleY", "measureReq", "dom"]
+        },
+        {
+          "calls": 85,
+          "source": "update(e){e.startState.facet(BS)!=e.state.facet(BS)&&this.setOrder(e.state),(this.layer.update(e,this.dom)||e.geometryChanged)&&(this.scale(),e.view.requestMeasure(this.measureReq))}",
+          "ms": 0,
+          "index": 4,
+          "max": 0,
+          "keys": ["view", "layer", "drawn", "scaleX", "scaleY", "measureReq", "dom"]
+        },
+        {
+          "calls": 85,
+          "source": "update(e){let t=this.view.state.field(Aw.state).context;(t.updateViewport(e.view.viewport)||this.view.viewport.to>t.treeLen)&&this.scheduleWork(),(e.docChanged||e.selectionSet)&&(this.view.hasFocus&&(",
+          "ms": 0,
+          "index": 7,
+          "max": 0,
+          "keys": ["view", "working", "workScheduled", "chunkEnd", "chunkBudget", "work"]
+        },
+        {
+          "calls": 85,
+          "source": "update(e){(e.docChanged||e.viewportChanged||Y(e.state)!==Y(e.startState))&&(this.decorations=FN(e.view))}",
+          "ms": 8,
+          "index": 9,
+          "max": 1,
+          "keys": ["decorations"]
+        },
+        {
+          "calls": 85,
+          "source": "update(e){(e.docChanged||e.viewportChanged||Y(e.state)!==Y(e.startState)||e.state.field(ZM,!1)!==e.startState.field(ZM,!1))&&({lines:this.lines,isolates:this.isolates}=kN(e.view))}",
+          "ms": 26,
+          "index": 10,
+          "max": 1,
+          "keys": ["lines", "isolates"]
+        },
+        {
+          "calls": 85,
+          "source": "update(e){(e.docChanged||e.viewportChanged||Y(e.state)!==Y(e.startState))&&(this.decorations=KN(e.view))}",
+          "ms": 7,
+          "index": 11,
+          "max": 1,
+          "keys": ["decorations"]
+        },
+        {
+          "calls": 85,
+          "source": "update(e){let t=e.transactions.some(e=>e.effects.some(e=>e.is(GA)));t&&(this.measurer.clear(),this.gutter=this.measureGutter()),(t||e.docChanged||e.viewportChanged||Y(e.state)!==Y(e.startState))&&(thi",
+          "ms": 18,
+          "index": 12,
+          "max": 2,
+          "keys": ["decorations", "gutter", "measurer"]
+        },
+        {
+          "calls": 85,
+          "source": "update(e){let t=!1;if(e.docChanged){this.revision+=1;let t=e.changes,n=e.state.doc.length,r=[];t.iterChanges((t,i,a,o)=>{r.push([Math.max(0,a-1),Math.min(n,o+1)]);let s=e.state.doc,c=s.sliceString(s.l",
+          "ms": 1,
+          "index": 13,
+          "max": 1,
+          "keys": ["view", "dirty", "revision", "lang", "inFlight", "timer", "destroyed"]
+        },
+        {
+          "calls": 85,
+          "source": "update(e){(e.docChanged||e.viewportChanged||e.state.field(ZM)!==e.startState.field(ZM,!1)||Y(e.state)!==Y(e.startState)||e.transactions.some(e=>e.effects.some(e=>e.is(GA))))&&(this.decorations=lN(e.vi",
+          "ms": 14,
+          "index": 14,
+          "max": 1,
+          "keys": ["decorations"]
+        },
+        {
+          "calls": 85,
+          "source": "update(e){this.pending&&(this.pending=null,clearTimeout(this.restartTimeout),this.restartTimeout=setTimeout(()=>this.startHover(),20))}",
+          "ms": 1,
+          "index": 17,
+          "max": 1,
+          "keys": [
+            "view",
+            "source",
+            "field",
+            "locked",
+            "setHover",
+            "hoverTime",
+            "hoverTimeout",
+            "restartTimeout",
+            "pending",
+            "lastMove",
+            "checkHover",
+            "mouseleave",
+            "mousemove"
+          ]
+        },
+        {
+          "calls": 85,
+          "source": "update(e){e.transactions.length&&(this.lastTransaction=Date.now());let t=this.manager.update(e,this.above);t&&this.observeIntersection();let n=t||e.geometryChanged,r=e.state.facet(tC);if(r.position!=t",
+          "ms": 0,
+          "index": 18,
+          "max": 0,
+          "keys": [
+            "view",
+            "above",
+            "inView",
+            "madeAbsolute",
+            "lastTransaction",
+            "measureTimeout",
+            "position",
+            "parent",
+            "classes",
+            "container",
+            "measureReq",
+            "resizeObserver",
+            "manager",
+            "intersectionObserver",
+            "measureSoon"
+          ]
+        },
+        {
+          "calls": 85,
+          "source": "update(t){t.geometryChanged&&(e=t.view.scrollDOM.clientHeight)}",
+          "ms": 0,
+          "index": 20,
+          "max": 0,
+          "keys": []
+        }
+      ]
+    }
+  },
+  "wheel": {
+    "frames": 115,
+    "scrollTop": 11933,
+    "blank": 0
+  },
+  "sha256": "246640ed29a6817cf5f748cb2d90ae5c195232288e8fc8c899cdcda76d3b6edc"
+}

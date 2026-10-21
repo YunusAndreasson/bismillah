@@ -1,0 +1,97 @@
+#!/bin/bash
+# OS-0 Dell check (spike only): every 20 s, writes what the remaining OS-0 spikes need
+# from real hardware to bismillah-report.txt on the stick's ESP, which Omarchy can read
+# afterwards. Boot timing, Secure Boot, the GPUs and which one renders, the NVIDIA
+# card's power state, suspend and resume, the stick's read speed and memory in use.
+# Never document text: the app's marks carry names and times only.
+
+esp() {
+  for dir in /efi /boot; do
+    ls "$dir" >/dev/null 2>&1 # triggers the automount
+    # findmnt would list the automount's autofs too; stat sees what serves the path.
+    [ "$(stat -f -c %T "$dir" 2>/dev/null)" = msdos ] && { echo "$dir"; return; }
+  done
+}
+
+# The stick's read speed, once: sequential 256 MiB and 2000 random 4 KiB reads, direct.
+stick=$(lsblk -no PKNAME "$(findmnt -n -o SOURCE -t vfat "$(esp)" 2>/dev/null || true)" 2>/dev/null | head -1)
+[ -n "$stick" ] || stick=$(lsblk -dno NAME,TRAN | awk '$2 == "usb" {print $1; exit}')
+speed=$(
+  echo "stick: /dev/$stick $(lsblk -dno TRAN,MODEL,SIZE "/dev/$stick")"
+  dd if="/dev/$stick" of=/dev/null bs=4M count=64 iflag=direct 2>&1 | tail -1
+  python3 - "/dev/$stick" <<'EOF'
+import mmap, os, random, sys, time
+fd = os.open(sys.argv[1], os.O_RDONLY | os.O_DIRECT)
+size = os.lseek(fd, 0, os.SEEK_END)
+buf = mmap.mmap(-1, 4096)
+start = time.monotonic()
+for _ in range(2000):
+    os.preadv(fd, [buf], random.randrange(0, size // 4096) * 4096)
+took = time.monotonic() - start
+print(f"random 4 KiB reads: {2000 / took:.0f} per second ({2000 * 4096 / took / 1048576:.1f} MiB/s)")
+EOF
+)
+
+report() {
+  echo "# bismillah OS-0 Dell check, written $(date -u +%FT%TZ), uptime $(cut -d' ' -f1 /proc/uptime) s"
+  echo "machine: $(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/product_name /sys/class/dmi/id/bios_version 2>/dev/null | tr '\n' ' ')"
+  echo "kernel: $(uname -r)"
+  echo "cmdline: $(cat /proc/cmdline)"
+  sb=/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c
+  echo "secure boot: $(cat "$sb" 2>/dev/null | tail -c 1 | od -An -tu1 | tr -d ' ') (1 = on)"
+  echo
+  echo "## boot"
+  systemd-analyze 2>&1 | head -2
+  systemd-analyze critical-chain bismillah-session.service --no-pager 2>&1
+  systemd-analyze blame --no-pager 2>&1 | head -15
+  echo
+  echo "## marks (monotonic seconds)"
+  journalctl -b -o short-monotonic --no-pager 2>/dev/null | grep -a -E 'BISMILLAH_MARK|PM: suspend|ACPI: PM: (Preparing|Waking)|Lid (closed|opened)' | grep -v 'input-length\|key-group'
+  echo
+  echo "## displays"
+  lspci -nnk | grep -A3 -E 'VGA|3D|Display'
+  for c in /sys/class/drm/card[0-9]; do
+    echo "$c driver=$(basename "$(readlink -f "$c/device/driver")") boot_vga=$(cat "$c/device/boot_vga" 2>/dev/null)"
+  done
+  ls -l /dev/dri /dev/dri/by-path 2>&1
+  for dev in /sys/bus/pci/devices/*; do
+    case $(cat "$dev/class") in 0x03*)
+      echo "$(basename "$dev") $(cat "$dev/vendor"):$(cat "$dev/device") runtime=$(cat "$dev/power/runtime_status") $(cat "$dev/power_state" 2>/dev/null) suspended_ms=$(cat "$dev/power/runtime_suspended_time") active_ms=$(cat "$dev/power/runtime_active_time")" ;;
+    esac
+  done
+  echo
+  echo "## who uses which GPU (DRM fdinfo)"
+  for p in $(pgrep -x cage) $(pgrep -x bismillah) $(pgrep -f WebKitWebProcess); do
+    for f in /proc/$p/fd/*; do
+      case $(readlink "$f") in /dev/dri/*)
+        echo "$p $(cat /proc/$p/comm) $(readlink "$f"): $(grep -E '^drm-(driver|pdev|engine-render|engine-video|total-system|resident)' "/proc/$p/fdinfo/${f##*/}" | tr '\t\n' '  ')" ;;
+      esac
+    done
+  done
+  echo
+  echo "## memory"
+  free -m
+  echo "writer processes RSS (MiB): $(ps -u writer -o rss= | awk '{s += $1} END {printf "%.0f", s / 1024}')"
+  ps -u writer -o pid,rss,args --sort=-rss | head -8 | cut -c1-120
+  echo
+  echo "## power"
+  echo "sleep states: $(cat /sys/power/state); mem_sleep: $(cat /sys/power/mem_sleep)"
+  echo
+  echo "## stick"
+  echo "$speed"
+  echo
+  echo "## kernel messages (GPU, firmware, USB, suspend, errors)"
+  dmesg 2>/dev/null | grep -a -i -E 'i915|nouveau|drm|firmware|xhci|usb [0-9-]+: (reset|USB disconnect)|PM: |I/O error|EXT4|erofs|verity|error' | tail -120
+  echo
+  echo "## session and sleep daemon (warnings and errors)"
+  journalctl -b -o short-monotonic --no-pager -u bismillah-session -u bismillah-sleepd -p warning 2>/dev/null | tail -40
+}
+
+while :; do
+  dir=$(esp)
+  if [ -n "$dir" ]; then
+    report >"$dir/bismillah-report.txt.new" 2>&1 && mv "$dir/bismillah-report.txt.new" "$dir/bismillah-report.txt"
+    sync -f "$dir"
+  fi
+  sleep 20
+done

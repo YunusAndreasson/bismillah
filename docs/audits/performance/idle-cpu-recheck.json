@@ -1,0 +1,32 @@
+{
+  "binary": "/home/yunus/Work/bismillah/target/debug/bismillah",
+  "date": "2026-10-20T07:55:48.042Z",
+  "caret:blinking": {
+    "focused": true,
+    "animation": "none",
+    "edges": 16,
+    "seconds": 15,
+    "cpuMs": 600
+  },
+  "caret:resting": {
+    "focused": true,
+    "animation": "none",
+    "edges": 0,
+    "seconds": 15,
+    "cpuMs": 330
+  },
+  "caret:unfocused": {
+    "focused": false,
+    "animation": "none",
+    "edges": 0,
+    "seconds": 15,
+    "cpuMs": 30
+  },
+  "idle": {
+    "seconds": 15,
+    "cpuMs": 30,
+    "processes": 3,
+    "rssMiB": 793
+  },
+  "sha256": "b8615965ed7604fe79499c603bc407b3ad50319949788d9538031a45c69129c8"
+}

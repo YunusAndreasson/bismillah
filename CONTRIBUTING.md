@@ -25,6 +25,12 @@ Features from DESIGN.md §3 (accounts, sync, telemetry, AI, networking, engageme
 
 Run `pnpm install`, then `pnpm tauri dev`. Every command, and `pnpm verify` (the gate before each commit), is listed in [AGENTS.md](AGENTS.md#commands).
 
+Use `pnpm install --frozen-lockfile` for a reproducible setup. Run `pnpm verify`
+before committing; `pnpm verify --fast` skips the real-app build and suites while
+iterating. On a connected machine, `pnpm verify --online` also requires fresh Rust
+advisories and an npm audit (including development dependencies). The gate and its
+TypeScript, Svelte and Rust lint policy are described in ARCHITECTURE.md §13.
+
 Linux prerequisites (Arch):
 
 ```bash

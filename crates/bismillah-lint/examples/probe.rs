@@ -4,11 +4,11 @@
 use bismillah_lint::{Block, Dialect, Kind, Linter, Options};
 use std::time::Instant;
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
-    let path = args.next().expect("a file to check");
+    let path = args.next().ok_or("expected a file to check")?;
     let lang = args.next();
-    let text = std::fs::read_to_string(&path).expect("readable file");
+    let text = std::fs::read_to_string(&path)?;
     let mut linter = Linter::new(Vec::new());
     let options = Options {
         spelling: true,
@@ -47,4 +47,5 @@ fn main() {
             );
         }
     }
+    Ok(())
 }

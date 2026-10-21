@@ -1,0 +1,24 @@
+[Unit]
+Description=bismillah under cage on tty1
+After=systemd-user-sessions.service systemd-logind.service
+RequiresMountsFor=/home
+After=systemd-tmpfiles-setup.service
+Conflicts=getty@tty1.service
+
+[Service]
+User=writer
+PAMName=login
+TTYPath=/dev/tty1
+StandardInput=tty
+StandardOutput=journal+console
+StandardError=journal+console
+UtmpIdentifier=tty1
+TTYReset=yes
+TTYVHangup=yes
+Environment=XDG_SESSION_TYPE=wayland
+ExecStartPre=/bin/sh -c "mkdir -p /home/writer/Texts && cp /usr/share/bismillah-spike/specimen.md /home/writer/Texts/"
+ExecStart=/usr/bin/cage -d -- /usr/libexec/bismillah-session /usr/bin/bismillah /home/writer/Texts/specimen.md
+Restart=on-failure
+
+[Install]
+WantedBy=graphical.target

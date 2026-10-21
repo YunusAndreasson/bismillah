@@ -9,7 +9,9 @@ import { allFiles, ancestors, findNode, folderFor, parentOf, visibleRows } from 
  * shown docked or as an overlay. Actions that touch files live in the workspace.
  */
 export class LibraryStore {
-  view = $state<LibraryView>({ kind: "none" });
+  // Rust supplies a fresh immutable listing on every change. Only replacement
+  // needs to be reactive; proxying every file/folder makes large trees costly.
+  view = $state.raw<LibraryView>({ kind: "none" });
   /** The writer wants the docked library shown (remembered by Rust). */
   docked = $state(false);
   /** The overlay is open: narrow windows, and never remembered. */
@@ -22,6 +24,21 @@ export class LibraryStore {
   active = $state<string | null>(null);
   /** Bumped to ask the tree to put keyboard focus on the focused row. */
   focusRequests = $state(0);
+
+  #editorFocusAfterClose = false;
+
+  /** A chosen document should receive focus after the overlay's focus trap closes,
+   * even when the panel was opened by clicking its status-line button. */
+  closeForDocument(): void {
+    if (this.overlay) this.#editorFocusAfterClose = true;
+    this.overlay = false;
+  }
+
+  takeEditorFocusRequest(): boolean {
+    const requested = this.#editorFocusAfterClose;
+    this.#editorFocusAfterClose = false;
+    return requested;
+  }
 
   readonly nodes = $derived(this.view.kind === "ready" ? this.view.nodes : []);
   readonly rows = $derived(visibleRows(this.nodes, this.expanded));

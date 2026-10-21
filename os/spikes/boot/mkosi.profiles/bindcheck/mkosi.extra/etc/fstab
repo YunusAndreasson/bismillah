@@ -1,0 +1,3 @@
+# The root is read-only erofs; everything that must change lives in RAM for this spike.
+tmpfs /var tmpfs mode=0755,size=256M 0 0
+tmpfs /home tmpfs mode=0755,size=256M 0 0

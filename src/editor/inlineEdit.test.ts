@@ -1,4 +1,4 @@
-import { ensureSyntaxTree } from "@codemirror/language";
+import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { EditorSelection, EditorState, type TransactionSpec } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { describe, expect, it } from "vitest";
@@ -42,7 +42,7 @@ function drawnGrids(state: EditorState): [number, number][] {
   for (const source of state.facet(EditorView.decorations)) {
     if (typeof source === "function") continue;
     source.between(0, state.doc.length, (from, to, deco) => {
-      if (deco.spec.block && to > from) out.push([from, to]);
+      if ((deco.spec as { block?: boolean }).block && to > from) out.push([from, to]);
     });
   }
   return out;
@@ -79,10 +79,65 @@ describe("edits that leave the rest of the document as it was", () => {
     expect(edit(state, { changes: { from: end - 1, to: end + 1 } })).toBe(false);
   });
 
-  it("aren't edits outside the revealed block, or on a line with structure", () => {
+  it("aren't edits outside the revealed block", () => {
     expect(edit(state, { changes: { from: at(state, "Value"), insert: "s" } })).toBe(false);
+  });
+
+  it("can type prose on a line with unchanged inline code", () => {
     const code = stateAt(DOC.replace("‸", "").replace("in it.", "in it‸."));
-    expect(edit(code, { changes: { from: code.selection.main.head, insert: "s" } })).toBe(false);
+    expect(edit(code, { changes: { from: code.selection.main.head, insert: "s" } })).toBe(true);
+    const end = stateAt(DOC.replace("‸", "").replace("in it.", "in it.‸"));
+    expect(edit(end, { changes: { from: end.selection.main.head, insert: "s" } })).toBe(true);
+  });
+
+  it("rejects code delimiter, escape, adjacency and fence changes", () => {
+    for (const [doc, inserted, removed] of [
+      ["Prose with `co‸de` here.", "`", 0],
+      ["Prose with `co‸de` here.", "\\", 0],
+      ["Prose with `a`‸ `b` here.", "", 1],
+      ["Prose with `a‸` here.", "", 1],
+      ["Prose with `‸a` here.", "x", 0],
+      ["Prose with \\x‸`code` here.", "y", 0],
+      ["```code‸\ncontents\n```", "x", 0],
+      ["A `code` and [link](url) here‸.", "x", 0],
+    ] as const) {
+      const code = stateAt(doc);
+      const from = code.selection.main.head;
+      expect(edit(code, { changes: { from, to: from + removed, insert: inserted } }), doc).toBe(
+        false,
+      );
+    }
+  });
+
+  it("maps existing table widgets through prose edits beside inline code", () => {
+    let code = stateAt(DOC.replace("‸", "").replace("in it.", "in it‸."));
+    const refs = references(code);
+    const before = drawnGrids(code);
+    for (const key of " and more") {
+      const head = code.selection.main.head;
+      code = code.update({
+        changes: { from: head, insert: key },
+        selection: { anchor: head + 1 },
+      }).state;
+      expect(references(code)).toBe(refs);
+      expect(drawnGrids(code)).toEqual(ranges(renderedTables(code), code.doc.length));
+    }
+    expect(drawnGrids(code)).toEqual(before);
+  });
+
+  it("aren't edits in frontmatter, including after spaced delimiters", () => {
+    for (const doc of [
+      "--- ‸\ntitle: Hidden\n---\n\nProse.",
+      "---\ntitle: Hidden\n--- ‸\n\nProse.",
+      "---\ntitle: Hidden‸\n---\n\nProse.",
+    ]) {
+      const metadata = stateAt(doc);
+      expect(edit(metadata, { changes: { from: metadata.selection.main.head, insert: "x" } })).toBe(
+        false,
+      );
+    }
+    const invalid = stateAt("--- x‸\ntitle: Hidden\n---\n\nProse.");
+    expect(edit(invalid, { changes: { from: 4, to: 5 } })).toBe(false);
   });
 });
 
@@ -117,5 +172,56 @@ describe("live preview's document-wide parts across edits", () => {
     state = state.update({}).state;
     expect(renderedTables(state).size).toBe(0);
     expect(references(state).links.size).toBe(0);
+  });
+
+  it("reveal a table when an inline edit also moves the caret into it", () => {
+    const state = stateAt(DOC);
+    const head = state.selection.main.head;
+    const table = at(state, "Value");
+    const next = state.update({
+      changes: { from: head, insert: "longer" },
+      selection: { anchor: table + 6 },
+    }).state;
+    expect(drawnGrids(next)).toEqual([]);
+    expect(renderedTables(next).size).toBe(0);
+  });
+
+  it("map tables after deletions and keep them correct through undo-shaped edits", () => {
+    let state = stateAt(DOC);
+    const head = state.selection.main.head;
+    for (const changes of [
+      { from: head - 4, to: head },
+      { from: head - 4, insert: "rose" },
+    ]) {
+      state = state.update({ changes }).state;
+      expect(drawnGrids(state)).toEqual(ranges(renderedTables(state), state.doc.length));
+      expect(drawnGrids(state)).toHaveLength(1);
+    }
+  });
+
+  it("includes newly parsed previews when a background parse lands with an inline edit", () => {
+    const doc = `Intro prose to type in.\n\n${"A paragraph.\n\n".repeat(12_000)}| A | B |\n|---|---|\n| 1 | 2 |\n\n![Figure](a.png)\n\n[late]: https://example.org`;
+    const state = EditorState.create({
+      doc,
+      selection: EditorSelection.cursor(12),
+      extensions: [markdownDialect(), livePreview(), previewBlocks(), previewTables()],
+    });
+    expect(syntaxTree(state).length).toBeLessThan(doc.length);
+    ensureSyntaxTree(state, doc.length, 5000);
+    const next = state.update({
+      changes: { from: 12, insert: "s" },
+      selection: { anchor: 13 },
+    }).state;
+    expect(drawnGrids(next)).toEqual(ranges(renderedTables(next), next.doc.length));
+    expect(drawnGrids(next)).toHaveLength(1);
+    expect(references(next).links.get("late")).toBe("https://example.org");
+    let images = 0;
+    for (const source of next.facet(EditorView.decorations)) {
+      if (typeof source === "function") continue;
+      source.between(0, next.doc.length, (_from, _to, deco) => {
+        if ((deco.spec as { widget?: { src?: string } }).widget?.src === "a.png") images++;
+      });
+    }
+    expect(images).toBe(1);
   });
 });

@@ -1,0 +1,78 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index b20aa9d84be6ff4b85b126bdd930065277668a26..625d253c1ced9e8236f2e24558e24a66b9ac75d5 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -3373,29 +3373,11 @@ class DocView {
+         return getComputedStyle(tile.dom).direction == "rtl" ? exports.Direction.RTL : exports.Direction.LTR;
+     }
+     measureTextSize() {
+-        let lineMeasure = this.tile.blockTiles(tile => {
+-            if (tile.isLine() && tile.children.length && tile.length <= 20) {
+-                let totalWidth = 0, textHeight;
+-                for (let child of tile.children) {
+-                    if (!child.isText() || /[^ -~]/.test(child.text))
+-                        return undefined;
+-                    let rects = clientRectsFor(child.dom);
+-                    if (rects.length != 1)
+-                        return undefined;
+-                    totalWidth += rects[0].width;
+-                    textHeight = rects[0].height;
+-                }
+-                if (totalWidth)
+-                    return {
+-                        lineHeight: tile.dom.getBoundingClientRect().height,
+-                        charWidth: totalWidth / tile.length,
+-                        textHeight
+-                    };
+-            }
+-        });
+-        if (lineMeasure)
+-            return lineMeasure;
+-        // If no workable line exists, force a layout of a measurable element
++        // bismillah: headings/code have different fonts and vertical padding.
++        // A short styled line is not a valid estimate for unseen prose. Always
++        // measure the default typography, keeping viewport estimates stable as
++        // those lines enter/leave the viewport. See the scrolling audit.
++        // Force a layout of a measurable element in the default typography.
+         let dummy = document.createElement("div"), lineHeight, charWidth, textHeight;
+         dummy.className = "cm-line";
+         dummy.style.width = "99999px";
+diff --git a/dist/index.js b/dist/index.js
+index 216f754db06f65f7f17f056b47d8f6fab45067bf..826cd9a18023a84ccc55af4cbe1c8c533d9134e2 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -3369,29 +3369,11 @@ class DocView {
+         return getComputedStyle(tile.dom).direction == "rtl" ? Direction.RTL : Direction.LTR;
+     }
+     measureTextSize() {
+-        let lineMeasure = this.tile.blockTiles(tile => {
+-            if (tile.isLine() && tile.children.length && tile.length <= 20) {
+-                let totalWidth = 0, textHeight;
+-                for (let child of tile.children) {
+-                    if (!child.isText() || /[^ -~]/.test(child.text))
+-                        return undefined;
+-                    let rects = clientRectsFor(child.dom);
+-                    if (rects.length != 1)
+-                        return undefined;
+-                    totalWidth += rects[0].width;
+-                    textHeight = rects[0].height;
+-                }
+-                if (totalWidth)
+-                    return {
+-                        lineHeight: tile.dom.getBoundingClientRect().height,
+-                        charWidth: totalWidth / tile.length,
+-                        textHeight
+-                    };
+-            }
+-        });
+-        if (lineMeasure)
+-            return lineMeasure;
+-        // If no workable line exists, force a layout of a measurable element
++        // bismillah: headings/code have different fonts and vertical padding.
++        // A short styled line is not a valid estimate for unseen prose. Always
++        // measure the default typography, keeping viewport estimates stable as
++        // those lines enter/leave the viewport. See the scrolling audit.
++        // Force a layout of a measurable element in the default typography.
+         let dummy = document.createElement("div"), lineHeight, charWidth, textHeight;
+         dummy.className = "cm-line";
+         dummy.style.width = "99999px";

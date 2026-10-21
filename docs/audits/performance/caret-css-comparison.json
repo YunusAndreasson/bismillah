@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-20T07:53:35.441Z",
+  "environment": "Xvfb, software rendering, debug binary; isolated CSS comparison",
+  "samples": [
+    {
+      "phase": "original-css",
+      "focused": true,
+      "animation": "cm-blink",
+      "cpuMs": 580,
+      "wallMs": 15003.043271999999,
+      "percent": 3.865882337901718,
+      "processes": 3
+    },
+    {
+      "phase": "bounded-resting",
+      "focused": true,
+      "animation": "none",
+      "cpuMs": 300,
+      "wallMs": 15007.088868000006,
+      "percent": 1.9990552640738841,
+      "processes": 3
+    },
+    {
+      "phase": "original-css",
+      "focused": true,
+      "animation": "cm-blink",
+      "cpuMs": 620,
+      "wallMs": 15001.875201000003,
+      "percent": 4.132816675869106,
+      "processes": 3
+    },
+    {
+      "phase": "bounded-resting",
+      "focused": true,
+      "animation": "none",
+      "cpuMs": 300,
+      "wallMs": 15002.700125000003,
+      "percent": 1.9996400481276695,
+      "processes": 3
+    }
+  ],
+  "binary": "target/debug/bismillah",
+  "sha256": "b8615965ed7604fe79499c603bc407b3ad50319949788d9538031a45c69129c8"
+}

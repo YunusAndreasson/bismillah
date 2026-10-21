@@ -5,6 +5,15 @@
 //! for outside changes, the recovery journal, settings, the remembered window, and
 //! spelling and grammar (`bismillah-lint`). The frontend owns presentation and editing.
 
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        reason = "test fixtures should fail immediately"
+    )
+)]
+
 mod app;
 mod config;
 mod documents;

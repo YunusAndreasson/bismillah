@@ -27,13 +27,11 @@ fn percentile(sorted: &[Duration], p: f64) -> f64 {
     sorted[i].as_secs_f64() * 1e3
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
-    let path = args.next().expect("a corpus file");
+    let path = args.next().ok_or("expected a corpus file")?;
     let limit: usize = args.next().and_then(|n| n.parse().ok()).unwrap_or(50_000);
-    let text = std::fs::read_to_string(&path)
-        .expect("readable corpus")
-        .replace("\r\n", "\n");
+    let text = std::fs::read_to_string(&path)?.replace("\r\n", "\n");
     // Paragraphs: blank-line separated, joined lines, up to `limit` words.
     let mut paragraphs = Vec::new();
     let mut words = 0;
@@ -113,4 +111,5 @@ fn main() {
         "second pass (cached): {:.0} ms",
         t.elapsed().as_secs_f64() * 1e3
     );
+    Ok(())
 }

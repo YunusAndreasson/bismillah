@@ -271,6 +271,81 @@ bismillah stays private and runs only on the author's machine for now (2026-10-1
 
 Everything above is in place, and `pnpm verify` passes (350 unit tests, 147 Rust tests, 182 real-app e2e tests in 18 suites, 16 visual checks), and so do `pnpm test:offline`, `pnpm a11y` and `packaging/check.sh`. The audit, with every number, is [docs/audits/2026-10-19-personal-1.0.md](docs/audits/2026-10-19-personal-1.0.md).
 
+Code-quality maintenance requested by the author (2026-10-19): strict TypeScript
+options, type-aware ESLint for TypeScript and Svelte, shared Rust safety lints,
+locked Cargo checks/builds, and `pnpm verify --online` for fresh advisory checks.
+The tooling choice (including Biome) and gate policy are in ARCHITECTURE.md §13;
+this does not change the pending personal 1.0 acceptance check.
+Validated with `pnpm verify --online`: 350 frontend tests, 147 Rust tests, 182
+real-app e2e tests and 16 visual checks pass, as do type checking, formatting,
+typed ESLint, Clippy and both dependency audits. Deliberate unhandled-promise
+probes are rejected in TypeScript and Svelte; the current Arabic and mixed-script
+specimen screenshots were inspected. No visual baselines were rewritten.
+
+The author's follow-up performance investigation (2026-10-19) covers editing,
+scrolling and background word counts. Results, retained changes and remaining
+opportunities are in [the hot-path audit](docs/audits/2026-10-19-hot-paths.md).
+The personal 1.0 acceptance check remains pending.
+
+The author's follow-up exploratory QA (2026-10-19) found and fixed stale previews
+after spaced frontmatter delimiter edits, word counts that included unclosed
+metadata, document commands accessing a trashed document from the welcome screen,
+and enlarged text pushing the editor outside narrow windows. Reproductions and
+verification are in
+[the exploratory QA audit](docs/audits/2026-10-19-exploratory-qa.md).
+
+The follow-up UI review drives the minimum desktop window, long-name recovery,
+dialogs, Settings section navigation, the library's keyboard/focus handoff, native
+menu availability and shortcut discoverability. It also fixes the durable-save
+temporary-name overflow found with a legal maximum-length filename, bounds spelling
+suggestions, and cancels late spelling responses after dismissal. Evidence and
+the final verification are recorded in
+[the UI review](docs/audits/2026-10-19-ui-review.md). Personal 1.0 acceptance remains
+with the author.
+
+The subsequent [live idle CPU investigation](docs/audits/2026-10-19-idle-cpu.md)
+reproduces excessive CPU in the author's long-running Wayland window. The quiet
+headless result alone did not establish the native idle budget. A native A/B/A
+comparison now confirms the unfocused caret-layer animation as the trigger. The
+running window has a verified steady-caret workaround (0.1% main CPU); the rebuilt
+app removes that CSS animation and rests its discrete blink after about ten seconds.
+Final verification and the author's acceptance remain recorded in the audit.
+
+The 2026-10-20 responsiveness follow-up addresses blank frames during scrolling
+through mixed typography, long-paragraph direction scans and book-length code-block
+styling. Its controlled measurements and verification are recorded in
+[the scrolling audit](docs/audits/2026-10-20-scrolling.md). Personal 1.0 acceptance
+remains with the author.
+
+The author's next framework-guided pass reduces bounded checker traversal, reuses
+previews beside unchanged inline code, avoids deep proxies for immutable library
+snapshots, and dispatches library queries off the UI thread. The documentation
+review, measurements and final gate are in
+[the framework audit](docs/audits/2026-10-20-frameworks.md).
+
+The author's resource-use pass (2026-10-20) investigates startup, memory, CPU and
+quick-open navigation. It removes unused English warm-up, bounds search ranking
+work and skips identical remembered-state writes. Deferring closed dialogs was
+evaluated and rejected after visual regression checks.
+Results and verification are in
+[the resource-use audit](docs/audits/2026-10-20-resource-use.md).
+
+
+The authorized framework follow-up (2026-10-20) adds document Find/Replace and line/percentage navigation through CodeMirror, builds native menus with one recursive creation request, and separates reactive menu synchronization from settings application. Search retains Arabic marks and document bytes until an explicit undoable replacement. Coverage lives in `src/editor/search.test.ts`, `tests/e2e/search.e2e.ts` and the search/navigation states of `pnpm a11y`. The guide, command table and dependency credits are updated. Evidence and review: [document-navigation follow-up](docs/audits/2026-10-20-document-navigation.md).
+
+The author's heuristic UI review (2026-10-20) adds search feedback and accessible
+pattern errors, visible picker/library exits, explicit palette toggle states,
+useful empty-library actions, full-text hover descriptions and a discoverable Guide.
+The [usability audit](docs/audits/2026-10-20-usability.md) records all ten heuristics,
+every improvement and its real-app evidence. Personal 1.0 acceptance remains pending.
+
+The subsequent Norman-inspired UX review improves action/outcome understanding:
+correctable line navigation, explicit Settings behaviour and limits, font defaults,
+in-dialog settings-save retry, short-window keyboard visibility and honest manual
+save acknowledgements. Evidence and the full change list are in
+[the experience audit](docs/audits/2026-10-20-experience.md). Personal 1.0 acceptance
+remains pending.
+
 | Accept | Evidence |
 |---|---|
 | The polished local `PKGBUILD` | Version 1.0.0 from one place (the workspace's `Cargo.toml`; `package.json` repeats it and a test keeps them equal; `pkgver` is `1.0.0.r<commits>.g<hash>`). `depends` lists exactly what the binary links against (`readelf`), plus fontconfig for *Another font*; the stale `xdotool` dependency is gone (`libxdo` isn't linked any more). The guide, README and PRIVACY go to `/usr/share/doc/bismillah/`. `packaging/check.sh` checks a built package: its files, the desktop entry, `--version`, and every linked library against `depends` |
@@ -293,7 +368,7 @@ What else came with it:
 **Not done in Phase 6**
 - What Orca says aloud is still a manual check: `pnpm a11y` checks the tree it reads, not its speech.
 - Links to other Markdown files (`[next](chapter-2.md)`) don't open in bismillah; Ctrl+click says only web and email links open.
-- The caret keeps blinking in a focused window that is otherwise idle (two small repaints a second); GTK stops after ten seconds.
+- The original caret blinked indefinitely while focused. The idle-CPU follow-up bounds it to eight 1.2-second cycles, then leaves it visible until interaction; the native animation-removal workaround is confirmed, and the rebuilt behaviour awaits acceptance.
 - The budgets for launch (524 ms against 400 ms) and for typing in a 1 MB document (19 ms a key against one frame) are not met on this machine under the harness: what limits each is in the audit.
 
 **For the author**
@@ -307,7 +382,7 @@ What else came with it:
 ## Later (not scheduled)
 
 - Opening links to other Markdown files in the library from the editor (`[next](chapter-2.md)`).
-- Stopping the caret's blink after a while without typing, as GTK does.
+- Author acceptance of the bounded caret blink in the rebuilt app.
 
 - Publishing: a GitHub repo on the author's personal account, CI on Linux, macOS and Windows, public packages (AppImage, .deb, .rpm, AUR, Flathub without network permission), and macOS and Windows releases.
 - Print / PDF and HTML export.

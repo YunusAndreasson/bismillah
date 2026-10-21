@@ -418,9 +418,18 @@ export function renderedTables(state: EditorState): DecorationSet {
 const tables = StateField.define<DecorationSet>({
   create: renderedTables,
   update(value, tr) {
-    const reveal = tr.state.field(revealed) !== tr.startState.field(revealed, false);
+    const before = tr.startState.field(revealed, false);
+    const after = tr.state.field(revealed);
+    const reveal = before !== after;
+    // The same revealed block grows/shrinks while typing. Compare its mapped
+    // boundaries rather than object identity, but still rebuild when a transaction
+    // also moves the selection to another block (including a rendered table).
+    const sameBlock =
+      before &&
+      tr.changes.mapPos(before.lines.from, -1) === after.lines.from &&
+      tr.changes.mapPos(before.lines.to, 1) === after.lines.to;
     // Typing in the revealed block moves the drawn tables and changes none of them.
-    if (tr.docChanged && !reveal && inlineEdit(tr)) return value.map(tr.changes);
+    if (tr.docChanged && sameBlock && inlineEdit(tr)) return value.map(tr.changes);
     if (tr.docChanged || reveal || syntaxTree(tr.state) !== syntaxTree(tr.startState))
       return renderedTables(tr.state);
     return value;

@@ -26,6 +26,7 @@ coverage/
 # Personal Claude Code files (shared config lives in .claude/settings.json)
 CLAUDE.local.md
 .claude/settings.local.json
+.claude/settings.local.json.bak*
 
 # Tauri-generated capability schemas
 src-tauri/gen/
@@ -38,3 +39,10 @@ packaging/arch/*.pkg.tar.*
 
 # Agent worktrees
 .claude/worktrees/
+
+# bismillah OS build output and fetched inputs (os/PLAN.md)
+os/cache/
+os/out/
+os/mkosi/mkosi.output/
+os/mkosi/mkosi.cache/
+os/mkosi/mkosi.tools/

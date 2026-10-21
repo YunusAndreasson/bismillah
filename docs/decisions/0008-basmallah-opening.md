@@ -4,6 +4,8 @@
 - **Date:** 2026-10-18
 - **Amended:** 2026-10-18 (interview). On by default, with a setting to turn it off.
 - **Amended:** 2026-10-18 (Phase 0). Block-widget spike: go.
+- **Amended:** 2026-10-19 (author's request: "too prominent… calligraphy and dimmed, almost like a wordmark"). Drawn as Amiri's calligraphic ligature ﷽ at 17px, in `text-secondary`; the real text underneath is unchanged.
+- **Amended:** 2026-10-19 (author: "a bit more dimmed"). `text-faint` instead of `text-secondary`.
 
 ## Context
 Every document should open with a beautifully typeset, centred بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ. Writing it into files would change the writer's documents, create edits just by opening a file, and pollute counts, linting and exports.
@@ -11,7 +13,7 @@ Every document should open with a beautifully typeset, centred بِسْمِ ال
 ## Decision
 - Render the Basmallah as a **presentation element** above the first line: a CodeMirror block widget outside the editable document in the editor, and a shared component in preview.
 - It is never written to disk and never counted, spellchecked or included in the outline.
-- Amiri regular, starting at 28px / 1.8, `text-primary`, `lang="ar" dir="rtl"`, centred in the reading column. It scales with the writing-size preference.
+- A quiet calligraphic wordmark: Amiri's Basmallah ligature (﷽), starting at 17px / 1.8, `text-faint`, `lang="ar" dir="rtl"`, centred in the reading column. It scales with the writing-size preference. (Until 2026-10-19: the vocalised text in Amiri regular at 28px, `text-primary`.)
 - If the first content block already is a standalone Basmallah (allowing for common vocalisation and whitespace differences), the element is suppressed. This is a narrow, tested comparison, not general detection.
 - **On by default; can be turned off** in Settings › Appearance (`basmallah_opening`), out of respect for an open-source audience of any faith or none.
 

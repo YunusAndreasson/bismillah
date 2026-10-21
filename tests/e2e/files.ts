@@ -96,6 +96,11 @@ export async function statusText(): Promise<string> {
   return browser.execute(() => window.__bismillah?.status() ?? "");
 }
 
+/** The open document's word count (the status line shows only its reading time). */
+export async function words(): Promise<number> {
+  return browser.execute(() => window.__bismillah?.words() ?? -1);
+}
+
 export async function fault(kind: "disk_full" | "rename_fails" | null): Promise<void> {
   await browser.execute(async (k: "disk_full" | "rename_fails" | null) => {
     await window.__bismillah?.fault(k);

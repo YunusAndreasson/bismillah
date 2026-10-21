@@ -1,0 +1,9 @@
+# Build outputs and the locally built app (os/build/build-app.sh).
+/bismillah-spike-boot*
+/initrd*
+/mkosi.tools/
+/mkosi.tools.manifest
+/app-tree/usr/bin/
+/mkosi.profiles/unlock/app-tree/usr/bin/
+/work/
+/mkosi.profiles/suspend/app-tree/usr/bin/

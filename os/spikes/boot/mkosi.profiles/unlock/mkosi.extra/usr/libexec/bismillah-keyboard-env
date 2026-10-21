@@ -1,0 +1,20 @@
+#!/bin/sh
+# Spike only. Runs as root before cage (ExecStartPre=+): writes the keyboard layouts
+# from home's LUKS2 token, or before setup the pending choice, as cage's XKB
+# environment. Without either, cage uses its default layout.
+dev=/dev/disk/by-partlabel/bismillah-home
+out=/run/bismillah/keyboard.env
+mkdir -p /run/bismillah
+layouts= options= source=none
+json=$(cryptsetup token export --token-id 0 "$dev" 2>/dev/null)
+if [ -n "$json" ]; then
+  field() { printf %s "$json" | sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p"; }
+  layouts=$(field layouts) options=$(field options) source=token
+elif [ -r /run/bismillah/keyboard.pending ]; then
+  read -r layouts options </run/bismillah/keyboard.pending
+  source=pending
+fi
+: >"$out"
+[ -n "$layouts" ] && printf 'XKB_DEFAULT_LAYOUT=%s\nXKB_DEFAULT_OPTIONS=%s\n' "$layouts" "$options" >"$out"
+echo "SPIKE keyboard: ${layouts:-default} ${options} ($source) $(cut -d' ' -f1 /proc/uptime)" >/dev/ttyS0 2>/dev/null
+exit 0

@@ -63,6 +63,28 @@ export interface FileCandidate {
   name: string;
 }
 
+// Library nodes are immutable snapshots. A weak cache reuses folded search keys
+// between keystrokes and releases them with the old listing. Check source fields
+// too, so callers that update a candidate in place cannot get stale matches.
+const foldedFiles = new WeakMap<
+  FileCandidate,
+  { sourceName: string; sourcePath: string; name: string; path: string }
+>();
+
+function foldedFile(file: FileCandidate): { name: string; path: string } {
+  let cached = foldedFiles.get(file);
+  if (!cached || cached.sourceName !== file.name || cached.sourcePath !== file.path) {
+    cached = {
+      sourceName: file.name,
+      sourcePath: file.path,
+      name: fold(file.name),
+      path: fold(file.path),
+    };
+    foldedFiles.set(file, cached);
+  }
+  return cached;
+}
+
 /**
  * Files for quick open, best first. Every word of the query must match the name or the
  * path; name matches count double. Ties go to recent files, then shallower paths. With
@@ -78,15 +100,29 @@ export function rankFiles<T extends FileCandidate>(
   const rank = (f: T) => recency.get(f.path) ?? Infinity;
   const words = tokens(query);
   if (words.length === 0) {
-    const order = new Map(files.map((f, i) => [f.path, i]));
-    return [...files]
-      .sort((a, b) => rank(a) - rank(b) || (order.get(a.path) ?? 0) - (order.get(b.path) ?? 0))
-      .slice(0, limit);
+    const recentFiles: T[] = [];
+    const others: T[] = [];
+    for (const file of files) {
+      if (recency.has(file.path)) recentFiles.push(file);
+      else if (others.length < limit) others.push(file);
+    }
+    // Stable sort preserves library order for equal recency.
+    recentFiles.sort((a, b) => rank(a) - rank(b));
+    return recentFiles.concat(others).slice(0, limit);
   }
-  const scored: { file: T; score: number }[] = [];
+  if (limit <= 0) return [];
+  type Scored = { file: T; score: number; index: number };
+  const compare = (a: Scored, b: Scored) =>
+    b.score - a.score ||
+    rank(a.file) - rank(b.file) ||
+    a.file.path.length - b.file.path.length ||
+    a.file.path.localeCompare(b.file.path) ||
+    a.index - b.index;
+  const scored: Scored[] = [];
+  let index = 0;
   for (const file of files) {
-    const name = fold(file.name);
-    const path = fold(file.path);
+    const order = index++;
+    const { name, path } = foldedFile(file);
     let total = 0;
     for (const word of words) {
       const inName = score(word, name);
@@ -97,18 +133,24 @@ export function rankFiles<T extends FileCandidate>(
       }
       total += Math.max((inName ?? -Infinity) * 2, inPath ?? -Infinity);
     }
-    if (total > -Infinity) scored.push({ file, score: total });
+    if (total === -Infinity) continue;
+    const candidate = { file, score: total, index: order };
+    // Retain only the visible best matches, rather than sorting and retaining the
+    // whole library. Binary insertion preserves all existing ranking tie-breaks.
+    const worst = scored.at(-1);
+    if (scored.length >= limit && worst && compare(candidate, worst) >= 0) continue;
+    let lo = 0;
+    let hi = scored.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      const at = scored[mid];
+      if (at && compare(candidate, at) < 0) hi = mid;
+      else lo = mid + 1;
+    }
+    scored.splice(lo, 0, candidate);
+    if (scored.length > limit) scored.pop();
   }
-  return scored
-    .sort(
-      (a, b) =>
-        b.score - a.score ||
-        rank(a.file) - rank(b.file) ||
-        a.file.path.length - b.file.path.length ||
-        a.file.path.localeCompare(b.file.path),
-    )
-    .slice(0, limit)
-    .map((s) => s.file);
+  return scored.map((s) => s.file);
 }
 
 export interface CommandCandidate {

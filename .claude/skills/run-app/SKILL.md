@@ -77,6 +77,18 @@ pnpm perf                     # launch, typing in 1 MB, idle CPU, memory (ARCHIT
 pnpm perf -- --binary target/debug/bismillah --parts typing   # quicker, while iterating
 ```
 
+The optional `pnpm perf -- --parts caret --idle 15` focuses only the private X11
+window, enables normal caret blinking, counts the blink edges and measures CPU while
+blinking, resting with focus, and unfocused. It verifies that the caret has no CSS
+animation and stops updating after about ten idle seconds. This is not a native
+Wayland/GPU performance measurement; the live idle-CPU audit remains open.
+
+`pnpm perf -- --parts resources,navigation` compares independently launched disabled,
+Arabic-only and English checking sessions (RSS and background CPU at 5/10/15 seconds),
+then measures opening/querying quick open with 10,000 files. It uses only the harness's
+private settings and files. Launch samples also include frontend startup milestones;
+those are cumulative times, not separate durations to add together.
+
 Under Xvfb there is no GPU (llvmpipe) and no window focus, so frames cost more than on the desktop and the caret doesn't blink. Close other heavy work first: a build, or a bismillah whose library holds `target/`, skews the numbers.
 
 ## 8. Troubleshooting

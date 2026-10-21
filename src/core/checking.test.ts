@@ -1,7 +1,52 @@
-import { describe, expect, it } from "vitest";
-import { messageParts } from "./checking.svelte.ts";
+import { describe, expect, it, vi } from "vitest";
+import { Diagnostic } from "../editor/diagnostics.ts";
+import { createEditor } from "../editor/setup.ts";
+import { Checking, messageParts } from "./checking.svelte.ts";
+import * as ipc from "./ipc.ts";
 import { copy } from "./copy.ts";
 import { IgnoredWords } from "./ignored.ts";
+
+describe("pending spelling suggestions", () => {
+  for (const action of ["close", "documentShown"] as const) {
+    it(`drops a response that arrives after ${action}`, async () => {
+      let release: ((values: string[]) => void) | undefined;
+      const response = new Promise<string[]>((resolve) => {
+        release = resolve;
+      });
+      const suggest = vi.spyOn(ipc, "lintSuggest").mockReturnValue(response);
+      const parent = document.createElement("div");
+      document.body.append(parent);
+      const editor = createEditor({
+        parent,
+        doc: "recieve",
+        config: { basmallah: false, livePreview: false, typewriter: false },
+      });
+      const checking = new Checking({
+        editor: () => editor,
+        documentKey: () => "scratch.md",
+        checking: () => true,
+        failed: () => {},
+      });
+      try {
+        const opening = checking.open({
+          from: 0,
+          to: 7,
+          diagnostic: new Diagnostic("spelling", "en", "", [], "spelling", "recieve"),
+        });
+        expect(suggest).toHaveBeenCalledOnce();
+        checking[action]();
+        release?.(["receive"]);
+        await opening;
+        expect(checking.menu).toBeNull();
+        expect(editor.text()).toBe("recieve");
+      } finally {
+        editor.view.destroy();
+        parent.remove();
+        suggest.mockRestore();
+      }
+    });
+  }
+});
 
 describe("grammar explanations", () => {
   it("turns Harper's backticks into quoted parts and ends the sentence", () => {

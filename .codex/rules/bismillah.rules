@@ -1,0 +1,29 @@
+# bismillah: routine development commands approved by the author.
+# Loaded only through this trusted project's .codex layer.
+# These commands and their subprocesses may run outside the sandbox.
+# Keep scripts reviewable; no generic shell/interpreter permissions.
+
+prefix_rule(
+    pattern = ["pnpm", ["verify", "check", "lint", "test", "build", "app:build", "app:shot", "test:e2e", "test:visual", "test:offline", "a11y", "perf", "audit", "outdated"]],
+    decision = "allow",
+    justification = "Project checks, builds, screenshots and dependency audits.",
+)
+
+prefix_rule(
+    pattern = ["pnpm", "run", ["verify", "check", "lint", "test", "build", "app:build", "app:shot", "test:e2e", "test:visual", "test:offline", "a11y", "perf"]],
+    decision = "allow",
+    justification = "The same project scripts with explicit pnpm run.",
+)
+
+prefix_rule(
+    pattern = ["cargo", ["check", "test", "clippy", "fmt"]],
+    decision = "allow",
+    justification = "Rust compilation, tests, linting and formatting.",
+)
+
+prefix_rule(
+    pattern = ["cargo", "deny", "check"],
+    decision = "allow",
+    justification = "Rust advisory, license and dependency policy checks.",
+)
+

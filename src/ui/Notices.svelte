@@ -33,6 +33,7 @@
 <style>
   .notices {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-2);
     padding: var(--space-2) var(--space-4) 0;
   }
@@ -58,6 +59,8 @@
   p {
     margin: 0;
     flex: 1 1 24rem;
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
   }
   .actions {
     display: flex;

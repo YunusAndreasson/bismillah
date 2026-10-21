@@ -159,7 +159,7 @@ class SettingsStore {
   async set(patch: Partial<Settings>): Promise<void> {
     this.values = { ...this.values, ...patch };
     try {
-      const snapshot = await settingsSet(patch as Record<string, SettingValue>);
+      const snapshot = await settingsSet(patch);
       this.values = fromSnapshot(snapshot.values);
       this.notSaved = null;
     } catch (error) {

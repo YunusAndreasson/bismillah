@@ -51,22 +51,64 @@ pnpm app:build                   # debug build with the frontend embedded (neede
 pnpm app:shot                    # specimen screenshots at 640/1280/1920/2560; --open settings|about (see run-app skill)
 pnpm test:offline                # e2e suite with no network, under strace
 pnpm a11y                        # the accessibility tree (AT-SPI, as Orca reads it) in every screen
-pnpm perf                        # ARCHITECTURE.md §14's budgets; release build (`pnpm tauri build --no-bundle`)
+pnpm perf                        # §14 budgets, editing/scrolling, Node word-count comparison; release build
 packaging/check.sh <package>     # a built package: files, desktop entry, Open with, --version, depends
 cargo test --workspace           # includes the checking fixtures (crates/bismillah-lint/tests/)
 cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check
 cargo deny check                 # banned crates, licences, advisories
 pnpm verify                      # all checks incl. build, e2e and visual; the gate before every commit (--fast skips the real-app suites)
+pnpm verify --online             # also require fresh Rust advisories + pnpm audit; accepts --fast
 cd packaging/arch && makepkg -si # build the committed HEAD and install it on this machine
 ```
 
+TypeScript's strict compiler options and ESLint's type-aware checks cover the app,
+Svelte components, tests and scripts. ESLint warnings fail the gate. Both Rust crates
+inherit workspace lints (panic-prone calls, unfinished code, unsafe documentation);
+tests may panic, and `bismillah-lint` forbids unsafe code. See ARCHITECTURE.md §13
+for the policy and the reason ESLint/Prettier are retained over Biome. Normal
+verification can use cached Rust advisories offline; `--online` requires live
+registries and fails if they are unavailable. Use `pnpm install --frozen-lockfile`
+when setting up a clean environment; Cargo checks and builds enforce its lockfile.
+
+For persistent project-scoped Codex approvals, the author can run
+`python3 scripts/setup-codex-rules.py`, then restart Codex. `--check` validates
+without installing. Invoke approved pnpm/Cargo commands directly: shell wrappers,
+redirections and substitutions can prevent prefix rules from matching.
+
 ## Running and seeing the app
 
-Under the harness the app opens the bundled specimen as a *sample* (never saved) and uses private config, data and trash directories. E2e tests open real files with the `open(path)` test hook, make a scratch copy of `tests/fixtures/library` the library with `setLibrary(path)`, answer the next native dialog with `nextDialog(path)` and inject save failures with `fault(kind)` (debug builds only; see `src/core/testHooks.ts`). WebDriver reads any script result with an `error` key as its own failure, so probes name such fields differently.
+Under the harness the app opens the bundled specimen as a *sample* (never saved) and uses private config, data and trash directories. E2e tests open real files with the `open(path)` test hook, make a scratch copy of `tests/fixtures/library` the library with `setLibrary(path)`, answer the next native dialog with `nextDialog(path)` and inject save failures with `fault(kind)` (debug builds only; see `src/core/testHooks.ts`). Visual tests use `setFolderLabels` for stable display-only paths; it never changes Rust’s storage locations. WebDriver reads any script result with an `error` key as its own failure, so probes name such fields differently.
 
 **Never launch the app outside `scripts/headless.sh` for automated work** (`pnpm app:shot`, `pnpm test:e2e` and the spike scripts already use it); a bare launch opens a window on the author's desktop. Use the `run-app` skill: headless runs by default (`xvfb-run`), webview screenshots via `tauri-driver` that you inspect yourself, window-only captures on the live Hyprland session when native behaviour matters, and offline proof runs (`unshare -rn`, `strace`). Never capture the author's full screen.
 
 ## Definition of done
+
+The follow-up [exploratory QA audit](docs/audits/2026-10-19-exploratory-qa.md)
+records the frontmatter, narrow-window and closed-document command regressions found
+while driving the real app. Their reproductions live in `tests/e2e/regressions.e2e.ts`.
+The subsequent [UI review](docs/audits/2026-10-19-ui-review.md) adds minimum-window,
+long-filename, native-menu and actual keyboard/focus checks in
+`tests/e2e/ui-review.e2e.ts`. Pending spelling responses are covered in
+`src/core/checking.test.ts`. The [scrolling follow-up](docs/audits/2026-10-20-scrolling.md)
+adds a pinned CodeMirror default-metrics correction and four-profile scroll
+regressions. The [framework follow-up](docs/audits/2026-10-20-frameworks.md) bounds
+checker traversal, maps safe inline-code prose edits, avoids deep library snapshot
+proxies and dispatches library queries off the UI thread. The
+[resource-use follow-up](docs/audits/2026-10-20-resource-use.md) demand-loads English,
+bounds quick-open ranking and skips identical metadata writes while retrying failures.
+The document-navigation follow-up adds CodeMirror Find/Replace and line/percentage
+navigation, bulk native-menu construction and an isolated reactive settings bridge.
+Search regressions are in `src/editor/search.test.ts` and
+`tests/e2e/search.e2e.ts`; the accessibility audit also covers both editor panels.
+The heuristic UI follow-up adds visible panel exits, explicit toggle states, useful
+empty-library actions, search feedback and discoverable help. Its evidence and
+complete change list are in [the usability audit](docs/audits/2026-10-20-usability.md).
+The Norman-inspired UX follow-up explains immediate Settings changes, limits and
+font defaults, keeps invalid navigation correctable, exposes settings-save retry
+inside the modal, and acknowledges explicit document saves honestly. Evidence:
+[the experience audit](docs/audits/2026-10-20-experience.md).
+The current gate covers 413 frontend and 153 Rust tests, all 26
+real-app suites and 16 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.
 - File-handling changes include a failure-path test (disk full, read-only, conflict, killed process).

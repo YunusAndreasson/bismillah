@@ -126,7 +126,7 @@ const onLink = StateField.define<boolean>({
   update: (value, tr) => tr.effects.reduce((v, e) => (e.is(setOnLink) ? e.value : v), value),
   provide: (field) =>
     EditorView.contentAttributes.compute([field], (state) =>
-      state.field(field) ? { class: "cm-on-link" } : ({} as Record<string, string>),
+      state.field(field) ? { class: "cm-on-link" } : {},
     ),
 });
 

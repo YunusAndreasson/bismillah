@@ -21,7 +21,7 @@ This file is the plan for that work, written to be carried out over several sess
 - Copy as rich text removed in appliance mode.
 - Our own WebKitGTK scheduled after the stick's 1.0.
 
-**Status:** planned. Next: Phase OS-0.
+**Status:** Phase OS-0 in progress (2026-10-20). Done in the VM: signed boot ([os-signed-boot.md](../docs/spikes/os-signed-boot.md)), the app running under cage on Debian 13 ([os-app-on-debian.md](../docs/spikes/os-app-on-debian.md)), and unlock in the app: go, in-process, 1.70 s from *Unlock* to caret ([os-unlock-in-app.md](../docs/spikes/os-unlock-in-app.md)); keyboard: go, cage with a session restart, layouts from the LUKS2 token before unlock, a mixed Swedish/Arabic passphrase identical at setup, lock and unlock ([os-keyboard.md](../docs/spikes/os-keyboard.md)). No network: go, the stripped image leaves every NIC without a driver and sends nothing ([os-no-network.md](../docs/spikes/os-no-network.md)); host untouched: go, zero writes to the laptop disk, and shim's `SbatLevel` is the one firmware variable written ([os-host-untouched.md](../docs/spikes/os-host-untouched.md)); boot-device binding: go, the lookup refuses when two sticks of one build are attached, since the root may come from the other one ([os-boot-device-binding.md](../docs/spikes/os-boot-device-binding.md)). Suspend lock fallback: go, every case came back locked with no text after wake; a session restart must end the session's processes itself and switch back to its VT first ([os-suspend-lock.md](../docs/spikes/os-suspend-lock.md)). GPU and display: go in the VM, cage waits for the boot display and uses only it; WebKit isn't pinned ([os-gpu-display.md](../docs/spikes/os-gpu-display.md)). Size and boot baseline: recorded in the VM, root 500 MiB zstd, ESP 48 MB after trimming the modules initrd, 11 s from kernel to unlock screen ([os-size-boot.md](../docs/spikes/os-size-boot.md)). The stick boots on the Dell with Secure Boot off; everything OS-0 still needs from the Dell (Secure Boot on, i915 with NVIDIA idle, a real lid, boot timing) is one session with one image: [os/spikes/boot/DELL-CHECK.md](spikes/boot/DELL-CHECK.md). Then ADR-0013. Working rule from the author: make it work first, then optimise.
 
 ---
 
@@ -212,6 +212,8 @@ os/scripts/verify.sh # the OS gate: image contents, os:test, perf budgets (--fas
 ---
 
 ## Budgets (initial; OS-0 replaces each "≈" with a measured baseline and a target)
+
+VM baselines and OS-4 targets are in [os-size-boot.md](../docs/spikes/os-size-boot.md#budgets-baselines-and-targets); the Dell's numbers replace the VM's when the Dell check is in.
 
 | Measure | Initial target | Where measured |
 |---|---|---|

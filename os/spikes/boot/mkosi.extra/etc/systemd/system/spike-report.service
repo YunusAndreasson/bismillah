@@ -1,0 +1,10 @@
+[Unit]
+Description=Signed-boot spike report
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/spike-report
+
+[Install]
+WantedBy=multi-user.target

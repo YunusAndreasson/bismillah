@@ -7,6 +7,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import { isResting, restChanged } from "./rest.ts";
 
 /**
  * Zuhd mode (زهد), the focus mode (DESIGN.md §11.1): text outside the current paragraph
@@ -83,6 +84,8 @@ export function focusedRange(state: EditorState, granularity: FocusGranularity):
 }
 
 function dimmed(view: EditorView): DecorationSet {
+  // With the pen down (rest.ts) no part is lit, so none is dimmed either.
+  if (isResting(view.state)) return Decoration.none;
   const builder = new RangeSetBuilder<Decoration>();
   const focus = focusedRange(view.state, view.state.facet(focusGranularity));
   const mark = Decoration.mark({ class: "cm-zuhd-dim" });
@@ -108,6 +111,7 @@ const plugin = ViewPlugin.fromClass(
         update.docChanged ||
         update.selectionSet ||
         update.viewportChanged ||
+        restChanged(update.startState, update.state) ||
         syntaxTree(update.state) !== syntaxTree(update.startState) ||
         update.state.facet(focusGranularity) !== update.startState.facet(focusGranularity)
       )

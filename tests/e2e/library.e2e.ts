@@ -51,7 +51,7 @@ const library = (): Promise<LibraryProbe> =>
 
 const rowPaths = async () => (await library()).rows.map((r) => r.path);
 
-async function until(check: () => Promise<boolean>, message: string, timeout = 5000) {
+async function until(check: () => boolean | Promise<boolean>, message: string, timeout = 5000) {
   await browser.waitUntil(check, { timeout, timeoutMsg: message });
 }
 
@@ -110,7 +110,11 @@ describe("library", () => {
       if (hooks?.library().visible) hooks.run("view.toggleLibrary");
       await hooks?.settle();
     });
-    await browser.keys(["Escape"]);
+    // Dismiss whatever is open; in the text, Escape would put the pen down instead.
+    const inText = await browser.execute(
+      () => document.activeElement?.classList.contains("cm-content") ?? false,
+    );
+    if (!inText) await browser.keys(["Escape"]);
     folder.remove();
   });
 
@@ -235,7 +239,7 @@ describe("library", () => {
     await type("chapter 1");
     await focusedRowIs("Chapter 10.md");
     await press("Delete");
-    await until(async () => !existsSync(join(root, "Chapter 10.md")), "never trashed");
+    await until(() => !existsSync(join(root, "Chapter 10.md")), "never trashed");
     // The private trash of the headless run (scripts/headless.sh), never the author's.
     const trash = join(process.env.XDG_DATA_HOME ?? "", "Trash/files");
     expect(readdirSync(trash)).toContain("Chapter 10.md");
@@ -245,7 +249,7 @@ describe("library", () => {
     });
     await focusedRowIs("Qurʾān citations.markdown");
     await act("Undo");
-    await until(async () => existsSync(join(root, "Chapter 10.md")), "never restored");
+    await until(() => existsSync(join(root, "Chapter 10.md")), "never restored");
     expect(readFileSync(join(root, "Chapter 10.md"), "utf8")).toBe(
       "# Chapter 10\n\nThe tenth chapter.\n",
     );
@@ -256,7 +260,7 @@ describe("library", () => {
     await open(join(root, "Chapter 2.md"));
     await typeAtEnd(" Edited.");
     await browser.execute(() => window.__bismillah?.run("file.trash"));
-    await until(async () => !existsSync(join(root, "Chapter 2.md")), "never trashed");
+    await until(() => !existsSync(join(root, "Chapter 2.md")), "never trashed");
     await until(
       () => browser.execute(() => document.querySelector(".first-screen") !== null),
       "the first screen never showed",
@@ -278,6 +282,35 @@ describe("library", () => {
     await press("Enter");
     await until(async () => (await docText()).startsWith("# Notes\n"), "never opened");
     expect((await library()).active).toBe("Notes/notes.md");
+  });
+
+  it("searches a large library in both scripts and opens the exact keyboard selection", async () => {
+    const many = join(root, "Many");
+    mkdirSync(many);
+    for (let i = 0; i < 600; i++) {
+      writeFileSync(join(many, `ḥadīth ${i}.md`), `# Hadith ${i}\n`);
+      writeFileSync(join(many, `سَلَام ${i}.md`), `# سَلَام ${i}\n\nالكتابةُ أمانةٌ.\n`);
+    }
+    await browser.execute(async (path: string) => window.__bismillah?.setLibrary(path), root);
+    await press("Control", "p");
+    await until(
+      async () => (await picker())?.items.length === 50,
+      "quick open never filled its page",
+    );
+    await type("hadith");
+    await until(
+      async () => (await picker())?.items.every((item) => item.startsWith("ḥadīth")) ?? false,
+      "folded Latin query never matched",
+    );
+    expect((await picker())?.items).toHaveLength(50);
+    await press("Control", "a");
+    await type("سلام 599");
+    await until(async () => (await picker())?.items.length === 1, "Arabic query never narrowed");
+    expect((await picker())?.items[0]).toBe("سَلَام 599.md Many");
+    await press("Enter");
+    await until(async () => (await docText()).startsWith("# سَلَام 599"), "wrong file opened");
+    expect(await docText()).toBe("# سَلَام 599\n\nالكتابةُ أمانةٌ.\n");
+    expect(readFileSync(join(many, "سَلَام 599.md"), "utf8")).toBe(await docText());
   });
 
   it("finds files without their diacritics, ʿayn or vocalisation", async () => {
@@ -370,7 +403,7 @@ describe("library", () => {
     expect(readFileSync(join(root, "Chapter 2.md"), "utf8")).toBe("# Chapter 2\n\nTheirs.\n");
     await act("Keep mine");
     await until(
-      async () => readFileSync(join(root, "Chapter 2.md"), "utf8").endsWith(" Mine."),
+      () => readFileSync(join(root, "Chapter 2.md"), "utf8").endsWith(" Mine."),
       "Keep mine never saved",
     );
   });

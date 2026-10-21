@@ -1,10 +1,14 @@
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { Compartment, EditorSelection, EditorState, type Extension } from "@codemirror/state";
-import { drawSelection, EditorView, keymap } from "@codemirror/view";
+import { EditorView, keymap } from "@codemirror/view";
 import { basmallah } from "./basmallah.ts";
+import { caretBlink } from "./caretBlink.ts";
 import { bidi } from "./bidi.ts";
 import { forgetWord, setDisplay, setIgnored } from "./diagnostics.ts";
 import { linter, recheck, type LintSource } from "./linter.ts";
+import { paragraphs } from "./paragraphs.ts";
+import { rest } from "./rest.ts";
+import { documentSearch } from "./search.ts";
 import { frontmatterEnd, markdownDialect } from "./dialect.ts";
 import { hangingMarks } from "./hangingMarks.ts";
 import { links } from "./links.ts";
@@ -151,7 +155,7 @@ export function createEditor(options: EditorOptions): Editor {
     cspNonce(),
     baseTheme,
     history(),
-    drawSelection({ cursorBlinkRate: options.steadyCaret ? 0 : 1200 }),
+    caretBlink(options.steadyCaret),
     options.keys ?? [],
     keymap.of([...defaultKeymap, ...historyKeymap]),
     EditorView.lineWrapping,
@@ -173,6 +177,9 @@ export function createEditor(options: EditorOptions): Editor {
     scriptRuns(),
     hangingMarks(),
     typingAids(),
+    paragraphs(),
+    rest(),
+    documentSearch(),
     options.lint ? linter(options.lint) : [],
     options.imageAddress ? imageAddress.of(options.imageAddress) : [],
     options.onOpenLink ? links(options.onOpenLink) : [],

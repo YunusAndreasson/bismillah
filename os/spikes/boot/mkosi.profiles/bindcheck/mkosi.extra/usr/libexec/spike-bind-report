@@ -1,0 +1,16 @@
+#!/bin/sh
+exec >/dev/ttyS0 2>&1
+serial() { udevadm info -q property -n "/dev/$1" | sed -n 's/^ID_SERIAL_SHORT=//p'; }
+echo "SPIKE disks: $(lsblk -rdno NAME,TRAN | while read -r n t; do echo "$n($t,$(serial "$n"))"; done | tr '\n' ' ')"
+root_dm=$(basename "$(readlink -f "$(findmnt -no SOURCE /)")")
+echo "SPIKE root-slaves: $(ls /sys/class/block/"$root_dm"/slaves | tr '\n' ' ')"
+answer=$(/usr/libexec/bismillah-find-home)
+case $answer in
+  /dev/*) d=$(basename "$(readlink -f "/sys/class/block/$(basename "$answer")/..")"); echo "SPIKE bind: $answer on stick $(serial "$d")" ;;
+  *) echo "SPIKE bind: $answer" ;;
+esac
+echo "SPIKE mounts: $(findmnt -rno SOURCE,TARGET,FSTYPE | grep -E '^/dev/' | tr '\n' ';')"
+echo "SPIKE swaps: $(tail -n +2 /proc/swaps | tr '\n' ';')"
+echo "SPIKE failed: $(systemctl --failed --plain --no-legend | awk '{ print $1 }' | tr '\n' ' ')"
+echo "SPIKE bind done"
+systemctl poweroff

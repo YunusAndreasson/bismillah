@@ -93,24 +93,27 @@ export function move(
 ): Move {
   if (rows.length === 0) return {};
   const i = rows.findIndex((r) => r.node.path === focused);
-  const at = (j: number) => rows[Math.max(0, Math.min(rows.length - 1, j))]?.node.path;
-  if (i < 0) return { focus: at(0) };
+  const at = (j: number): Move => {
+    const target = rows[Math.max(0, Math.min(rows.length - 1, j))];
+    return target ? { focus: target.node.path } : {};
+  };
+  if (i < 0) return at(0);
   const row = rows[i];
   if (!row) return {};
   const folder = row.node.kind === "folder" && !row.node.unavailable;
   switch (key) {
     case "ArrowDown":
-      return { focus: at(i + 1) };
+      return at(i + 1);
     case "ArrowUp":
-      return { focus: at(i - 1) };
+      return at(i - 1);
     case "Home":
-      return { focus: at(0) };
+      return at(0);
     case "End":
-      return { focus: at(rows.length - 1) };
+      return at(rows.length - 1);
     case "ArrowRight":
       if (!folder) return {};
       if (!expanded.has(row.node.path)) return { expand: row.node.path };
-      return row.node.children.length > 0 ? { focus: at(i + 1) } : {};
+      return row.node.children.length > 0 ? at(i + 1) : {};
     case "ArrowLeft":
       if (folder && expanded.has(row.node.path)) return { collapse: row.node.path };
       return row.parent ? { focus: row.parent } : {};

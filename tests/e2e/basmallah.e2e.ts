@@ -149,10 +149,10 @@ describe("the Basmallah opening", () => {
   });
 
   it("can be selected, showing the selection colour behind the ink", async () => {
-    // selection-background and text-primary per theme (DESIGN.md §9.2).
+    // selection-background and text-faint per theme (DESIGN.md §9.2, §11.2).
     const colours = {
-      light: { selection: [0xd6, 0xea, 0xdf], ink: [0x1e, 0x1e, 0x1e] },
-      dark: { selection: [0x23, 0x43, 0x2f], ink: [0xd4, 0xd4, 0xd2] },
+      light: { selection: [0xd6, 0xea, 0xdf], ink: [0x9e, 0x9d, 0x99] },
+      dark: { selection: [0x23, 0x43, 0x2f], ink: [0x6a, 0x6a, 0x65] },
     } as const;
     for (const theme of ["light", "dark"] as const) {
       // The theme applies once Rust has saved it, and then remeasures (redrawing the
@@ -215,27 +215,28 @@ describe("the Basmallah opening", () => {
     expect(r).not.toBeNull();
     if (!r) return;
     const y = Math.round(r.y);
-    const before = await browser.execute(() =>
-      window.__bismillah?.view.state.selection.main.toJSON(),
+    const before = await browser.execute(
+      () => window.__bismillah?.view.state.selection.main.toJSON() as unknown,
     );
     await browser
       .action("pointer", { parameters: { pointerType: "mouse" } })
-      .move({ x: Math.round(r.right - 3), y })
+      // Just inside the box: its end letters are only a few pixels wide at 17px.
+      .move({ x: Math.floor(r.right - 1), y })
       .down()
       .move({ x: Math.round((r.left + r.right) / 2), y, duration: 100 })
-      .move({ x: Math.round(r.left + 3), y, duration: 100 })
+      .move({ x: Math.ceil(r.left + 1), y, duration: 100 })
       .up()
       .perform();
     await settle(browser);
     const dragged = await browser.execute(() => ({
       text: document.getSelection()?.toString(),
-      editor: window.__bismillah?.view.state.selection.main.toJSON(),
+      editor: window.__bismillah?.view.state.selection.main.toJSON() as unknown,
     }));
     expect(dragged).toEqual({ text: BASMALLAH, editor: before });
 
     await browser
       .action("pointer", { parameters: { pointerType: "mouse" } })
-      .move({ x: Math.round(r.right - 15), y })
+      .move({ x: Math.round(r.right - 4), y }) // on the bāʾ that begins both text and ink
       .down()
       .up()
       .pause(40)

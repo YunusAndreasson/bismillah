@@ -83,20 +83,23 @@ export function lintUnits(
 ): LintUnit[] {
   const units: LintUnit[] = [];
   let size = 0;
-  syntaxTree(state).iterate({
-    from,
-    to,
-    enter(node) {
-      if (size >= budget || NEVER.has(node.name)) return false;
-      if (UNITS.has(node.name)) {
-        const unit = unitOf(state, node.node);
+  const cursor = syntaxTree(state).cursor();
+  for (;;) {
+    if (size >= budget || cursor.from > to) break;
+    if (cursor.to >= from && !NEVER.has(cursor.name)) {
+      if (UNITS.has(cursor.name)) {
+        const unit = unitOf(state, cursor.node);
         units.push(unit);
         size += unit.text.length;
-        return false;
+      } else if (cursor.childAfter(from - 1)) {
+        // Include nodes ending exactly at `from`, as Tree.iterate does, but
+        // skip earlier siblings. A cursor also lets us end the whole walk at
+        // the batch budget; returning false from iterate only skips children.
+        continue;
       }
-      return undefined;
-    },
-  });
+    }
+    if (!cursor.next(false)) break;
+  }
   return units;
 }
 

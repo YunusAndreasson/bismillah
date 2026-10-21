@@ -7,6 +7,9 @@ license.workspace = true
 rust-version.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 # No Tauri dependency (.claude/rules/rust.md): tested and benchmarked on its own.
 [dependencies]
 # English spelling data and grammar (ADR-0004). Without the thesaurus feature: it only

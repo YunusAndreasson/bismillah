@@ -1,0 +1,282 @@
+{
+  "binary": "/home/yunus/Work/bismillah/target/debug/bismillah",
+  "date": "2026-10-20T10:18:24.476Z",
+  "resources: disabled": {
+    "launchMs": 598,
+    "samples": [
+      {
+        "seconds": 5,
+        "rssMiB": 548,
+        "mainRssMiB": 261,
+        "cpuMs": 40
+      },
+      {
+        "seconds": 10,
+        "rssMiB": 546,
+        "mainRssMiB": 261,
+        "cpuMs": 50
+      },
+      {
+        "seconds": 15,
+        "rssMiB": 539,
+        "mainRssMiB": 258,
+        "cpuMs": 50
+      }
+    ],
+    "diagnostics": 0
+  },
+  "resources: arabic": {
+    "launchMs": 557,
+    "samples": [
+      {
+        "seconds": 5,
+        "rssMiB": 600,
+        "mainRssMiB": 311,
+        "cpuMs": 130
+      },
+      {
+        "seconds": 10,
+        "rssMiB": 598,
+        "mainRssMiB": 311,
+        "cpuMs": 140
+      },
+      {
+        "seconds": 15,
+        "rssMiB": 591,
+        "mainRssMiB": 307,
+        "cpuMs": 150
+      }
+    ],
+    "diagnostics": 0
+  },
+  "resources: english": {
+    "launchMs": 664,
+    "samples": [
+      {
+        "seconds": 5,
+        "rssMiB": 743,
+        "mainRssMiB": 458,
+        "cpuMs": 2060
+      },
+      {
+        "seconds": 10,
+        "rssMiB": 741,
+        "mainRssMiB": 458,
+        "cpuMs": 2060
+      },
+      {
+        "seconds": 15,
+        "rssMiB": 736,
+        "mainRssMiB": 455,
+        "cpuMs": 2070
+      }
+    ],
+    "diagnostics": 2
+  },
+  "navigation": {
+    "opened": [129, 78, 45, 45],
+    "queries": [
+      {
+        "ms": 104,
+        "query": "n",
+        "count": 50
+      },
+      {
+        "ms": 64,
+        "query": "no",
+        "count": 50
+      },
+      {
+        "ms": 60,
+        "query": "not",
+        "count": 50
+      },
+      {
+        "ms": 58,
+        "query": "notes",
+        "count": 50
+      },
+      {
+        "ms": 83,
+        "query": "part",
+        "count": 50
+      },
+      {
+        "ms": 75,
+        "query": "hadith",
+        "count": 50
+      },
+      {
+        "ms": 74,
+        "query": "سلام",
+        "count": 50
+      },
+      {
+        "ms": 71,
+        "query": "chapter 2",
+        "count": 50
+      },
+      {
+        "ms": 17,
+        "query": "zzzz",
+        "count": 0
+      },
+      {
+        "ms": 69,
+        "query": "",
+        "count": 50
+      },
+      {
+        "ms": 65,
+        "query": "n",
+        "count": 50
+      },
+      {
+        "ms": 27,
+        "query": "no",
+        "count": 50
+      },
+      {
+        "ms": 27,
+        "query": "not",
+        "count": 50
+      },
+      {
+        "ms": 28,
+        "query": "notes",
+        "count": 50
+      },
+      {
+        "ms": 34,
+        "query": "part",
+        "count": 50
+      },
+      {
+        "ms": 41,
+        "query": "hadith",
+        "count": 50
+      },
+      {
+        "ms": 41,
+        "query": "سلام",
+        "count": 50
+      },
+      {
+        "ms": 47,
+        "query": "chapter 2",
+        "count": 50
+      },
+      {
+        "ms": 17,
+        "query": "zzzz",
+        "count": 0
+      },
+      {
+        "ms": 49,
+        "query": "",
+        "count": 50
+      },
+      {
+        "ms": 46,
+        "query": "n",
+        "count": 50
+      },
+      {
+        "ms": 28,
+        "query": "no",
+        "count": 50
+      },
+      {
+        "ms": 27,
+        "query": "not",
+        "count": 50
+      },
+      {
+        "ms": 29,
+        "query": "notes",
+        "count": 50
+      },
+      {
+        "ms": 34,
+        "query": "part",
+        "count": 50
+      },
+      {
+        "ms": 49,
+        "query": "hadith",
+        "count": 50
+      },
+      {
+        "ms": 41,
+        "query": "سلام",
+        "count": 50
+      },
+      {
+        "ms": 40,
+        "query": "chapter 2",
+        "count": 50
+      },
+      {
+        "ms": 16,
+        "query": "zzzz",
+        "count": 0
+      },
+      {
+        "ms": 46,
+        "query": "",
+        "count": 50
+      },
+      {
+        "ms": 51,
+        "query": "n",
+        "count": 50
+      },
+      {
+        "ms": 26,
+        "query": "no",
+        "count": 50
+      },
+      {
+        "ms": 28,
+        "query": "not",
+        "count": 50
+      },
+      {
+        "ms": 28,
+        "query": "notes",
+        "count": 50
+      },
+      {
+        "ms": 35,
+        "query": "part",
+        "count": 50
+      },
+      {
+        "ms": 41,
+        "query": "hadith",
+        "count": 50
+      },
+      {
+        "ms": 41,
+        "query": "سلام",
+        "count": 50
+      },
+      {
+        "ms": 40,
+        "query": "chapter 2",
+        "count": 50
+      },
+      {
+        "ms": 16,
+        "query": "zzzz",
+        "count": 0
+      },
+      {
+        "ms": 46,
+        "query": "",
+        "count": 50
+      }
+    ]
+  },
+  "sha256": "dcfdc4a38c6f769dd48fa866319e6733225ff8d54959d6bbb03c31e3a501558b"
+}

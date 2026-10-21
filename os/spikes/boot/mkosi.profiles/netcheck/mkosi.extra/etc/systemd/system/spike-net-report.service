@@ -1,0 +1,10 @@
+[Unit]
+Description=No-network spike report
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/spike-net-report
+
+[Install]
+WantedBy=multi-user.target

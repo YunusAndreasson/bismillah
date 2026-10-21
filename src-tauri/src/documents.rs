@@ -217,7 +217,7 @@ impl DiskState {
     }
 }
 
-/// A stable 64-bit FNV-1a hash. Only used to tell whether a file's bytes changed.
+/// A stable 64-bit FNV-1a hash for local change detection and file identifiers.
 pub fn content_hash(bytes: &[u8]) -> u64 {
     bytes.iter().fold(0xcbf2_9ce4_8422_2325, |h, &b| {
         (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
@@ -388,7 +388,12 @@ pub fn check_disk(doc: &mut Document) -> DiskCheck {
 const TEMP_MARK: &str = ".bismillah-save-";
 
 fn temp_prefix(target: &Path) -> String {
-    format!(".{}{TEMP_MARK}", display_name(target))
+    // Do not append a suffix to the original basename: a legal 255-byte filename
+    // would make the temporary's component exceed the filesystem's name limit.
+    format!(
+        "{TEMP_MARK}{:016x}-",
+        content_hash(&platform::path_bytes(target))
+    )
 }
 
 /// Durable atomic replacement (ARCHITECTURE.md §5.2): a temporary file in the same
@@ -447,12 +452,21 @@ fn remove_stale_temps(target: &Path) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
+    // Also clean up interrupted saves made by versions that used the basename.
+    let legacy = format!(".{}{TEMP_MARK}", display_name(target));
     for entry in entries.flatten() {
         let name = entry.file_name();
         let Some(name) = name.to_str() else { continue };
-        let ours = name
-            .strip_prefix(&prefix)
-            .is_some_and(|rest| rest.chars().all(|c| c.is_ascii_digit() || c == '-'));
+        let ours = [&prefix, &legacy].iter().any(|prefix| {
+            name.strip_prefix(prefix.as_str())
+                .and_then(|rest| rest.split_once('-'))
+                .is_some_and(|(pid, counter)| {
+                    !pid.is_empty()
+                        && !counter.is_empty()
+                        && pid.chars().all(|c| c.is_ascii_digit())
+                        && counter.chars().all(|c| c.is_ascii_digit())
+                })
+        });
         if ours && entry.file_type().is_ok_and(|t| t.is_file()) {
             let _ = fs::remove_file(entry.path());
         }
@@ -557,6 +571,34 @@ mod tests {
         save(&mut doc, "still secret\n", 1, false, NO_FAULTS).unwrap();
         let mode = fs::metadata(&doc.path).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o640);
+    }
+
+    #[test]
+    fn saves_files_whose_names_fill_the_filesystem_component_limit() {
+        for name in [
+            format!("{}.md", "W".repeat(252)),
+            format!("{}.md", "س".repeat(126)),
+        ] {
+            assert_eq!(name.len(), 255);
+            let scratch = Scratch::new();
+            let (mut doc, _) = open_text(&scratch, &name, b"original\n");
+            // A failure after creating and writing the temporary leaves the original
+            // intact, with no temporary left behind. Retrying preserves exact bytes.
+            let failed = save(
+                &mut doc,
+                VOCALISED,
+                1,
+                false,
+                &fail_at(Step::Rename, ErrorKind::PermissionDenied),
+            );
+            assert_eq!(failed, Err(SaveError::PermissionDenied));
+            assert_eq!(read(&doc.path).unwrap(), b"original\n");
+            assert_eq!(scratch.entries(), vec![name.clone()]);
+            assert_eq!(doc.saved_revision, 0);
+            assert_eq!(save(&mut doc, VOCALISED, 2, false, NO_FAULTS), Ok(2));
+            assert_eq!(read(&doc.path).unwrap(), VOCALISED.as_bytes());
+            assert_eq!(scratch.entries(), vec![name]);
+        }
     }
 
     #[test]
@@ -728,6 +770,26 @@ mod tests {
                 "note.md"
             ]
         );
+    }
+
+    #[test]
+    fn cleans_short_temporary_names_for_long_files_without_touching_other_files() {
+        let scratch = Scratch::new();
+        let path = scratch.file(&format!("{}.md", "W".repeat(252)), b"original\n");
+        let other = scratch.file("other.md", b"other\n");
+        let stale = format!("{}4242-0", temp_prefix(&path));
+        let untouched = format!("{}4242-0", temp_prefix(&other));
+        let malformed = format!("{}-1", temp_prefix(&path));
+        scratch.file(&stale, b"interrupted save");
+        scratch.file(&untouched, b"another file's save");
+        scratch.file(&malformed, b"not our pattern");
+        open(&path).unwrap();
+        assert!(!scratch.path().join(stale).exists());
+        assert!(scratch.path().join(untouched).exists());
+        assert!(scratch.path().join(malformed).exists());
+        assert_eq!(scratch.entries().len(), 4);
+        assert_eq!(read(&path).unwrap(), b"original\n");
+        assert_eq!(read(&other).unwrap(), b"other\n");
     }
 
     #[test]

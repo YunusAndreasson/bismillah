@@ -2,7 +2,16 @@ import { spawnSync } from "node:child_process";
 import { browser, expect } from "@wdio/globals";
 import { waitForApp } from "../app.ts";
 import { APP_BINARY } from "../driver.ts";
-import { docText, Folder, notices, open, saveState, statusText, typeAtEnd } from "./files.ts";
+import {
+  docText,
+  Folder,
+  notices,
+  open,
+  saveState,
+  statusText,
+  typeAtEnd,
+  words,
+} from "./files.ts";
 
 /** Desktop basics (ARCHITECTURE.md §12.2, DESIGN.md §12–13) in the real app. */
 describe("desktop basics", () => {
@@ -33,12 +42,28 @@ describe("desktop basics", () => {
     expect(folder.read("first.md").toString()).toBe("first\nedited");
   });
 
-  it("shows the file name, save state, word count and reading time", async () => {
+  it("shows the file name, save state and reading time, without a word count", async () => {
     await open(folder.file("status.md", "One two three four.\n"));
-    await browser.waitUntil(async () => (await statusText()).includes("4 words"), {
-      timeout: 3000,
-    });
-    expect(await statusText()).toBe("status.md · Saved · 4 words · 1 min read");
+    await browser.waitUntil(async () => (await words()) === 4, { timeout: 3000 });
+    expect(await statusText()).toBe("status.md · Saved · 1 min read");
+  });
+
+  it("updates cached word counts after typing, undo and changing files", async () => {
+    await open(
+      folder.file("counts.md", "---\ntitle: Hidden words\n---\nOne two\nبِسْمِ اللَّهِ\n"),
+    );
+    const counted = async (count: number) => {
+      await browser.waitUntil(async () => (await words()) === count, {
+        timeout: 3000,
+      });
+    };
+    await counted(4);
+    await typeAtEnd("Five");
+    await counted(5);
+    await browser.keys(["Control", "z"]);
+    await counted(4);
+    await open(folder.file("other-counts.md", "New file.\n"));
+    await counted(2);
   });
 
   it("toggles Zuhd mode from the registry and persists the setting", async () => {

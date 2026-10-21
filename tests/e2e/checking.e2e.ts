@@ -61,6 +61,10 @@ async function waitForMenu() {
         last = await browser.execute(() => ({
           menu: window.__bismillah?.suggestions() ?? null,
           active: `${document.activeElement?.tagName}.${document.activeElement?.className}`,
+          open: window.__bismillah?.menuOpen(),
+          note: window.__bismillah?.note(),
+          commands: window.__bismillah?.commandLog.slice(-4),
+          diagnostics: window.__bismillah?.diagnostics().map((d) => d.text),
         }));
         return (await menu())?.focused != null;
       },

@@ -1,0 +1,65 @@
+# OS-0 No network: nonet-test.sh, 2026-10-21. Capture check (firmware PXE, no OS): 11 frames.
+
+## control2 (app + netcheck: stock modules)
+SPIKE net-modules: cfg80211 rfkill virtio_net net_failover nfnetlink 
+SPIKE kernel: 6.12.113+deb13-amd64
+SPIKE net-modules-on-disk: 1255
+SPIKE firmware-files: 0
+SPIKE net 0: if=[enp0s4 lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 ] driverless-usb=[] driverless-virtio=[]
+SPIKE net 1: if=[enp0s4 lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 ] driverless-usb=[] driverless-virtio=[]
+SPIKE net 2: if=[enp0s4 lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 ] driverless-usb=[] driverless-virtio=[]
+SPIKE net 3: if=[enp0s4 enp1s0 lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 ] driverless-usb=[] driverless-virtio=[]
+SPIKE net 7: if=[enp0s1u2i1 enp0s4 enp1s0 lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 ] driverless-usb=[1-2:1.0=02 ] driverless-virtio=[]
+SPIKE net 8: if=[enp0s1u2i1 enp0s4 enp1s0 lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 ] driverless-usb=[1-2:1.0=02 ] driverless-virtio=[]
+SPIKE net 59: if=[enp0s1u2i1 enp0s4 enp1s0 lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 ] driverless-usb=[1-2:1.0=02 ] driverless-virtio=[]
+SPIKE dmesg: [    0.566910] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+SPIKE dmesg: [    0.573278] audit: initializing netlink subsys (disabled)
+SPIKE dmesg: [    0.992050] NET: Registered PF_INET protocol family
+SPIKE dmesg: [    1.025739] NET: Registered PF_UNIX/PF_LOCAL protocol family
+SPIKE dmesg: [    1.027336] NET: Registered PF_XDP protocol family
+SPIKE dmesg: [    1.532836] NET: Registered PF_INET6 protocol family
+SPIKE dmesg: [    1.542401] NET: Registered PF_PACKET protocol family
+SPIKE dmesg: [    2.862078] virtio_net virtio1 enp0s4: renamed from eth0
+SPIKE dmesg: [   15.740640] e1000e: Intel(R) PRO/1000 Network Driver
+SPIKE dmesg: [   15.741830] e1000e: Copyright(c) 1999 - 2015 Intel Corporation.
+SPIKE dmesg: [   15.744435] e1000e 0000:01:00.0: enabling device (0000 -> 0002)
+SPIKE dmesg: [   15.748911] e1000e 0000:01:00.0: Interrupt Throttling Rate (ints/sec) set to dynamic conservative mode
+SPIKE dmesg: [   15.798756] e1000e 0000:01:00.0 0000:01:00.0 (uninitialized): registered PHC clock
+SPIKE dmesg: [   15.860790] e1000e 0000:01:00.0 eth0: (PCI Express:2.5GT/s:Width x1) 52:54:00:12:34:57
+SPIKE dmesg: [   15.862630] e1000e 0000:01:00.0 eth0: Intel(R) PRO/1000 Network Connection
+SPIKE dmesg: [   15.864252] e1000e 0000:01:00.0 eth0: MAC: 3, PHY: 8, PBA No: 000000-000
+SPIKE dmesg: [   15.871105] e1000e 0000:01:00.0 enp1s0: renamed from eth0
+SPIKE dmesg: [   28.089353] usb 1-2: Product: RNDIS/QEMU USB Network Device
+SPIKE dmesg: [   28.154552] cdc_subset 1-2:1.1 usb0: register 'cdc_subset' at usb-0000:00:01.0-2, Linux Device, ae:c5:9f:9d:8f:ce
+SPIKE dmesg: [   28.161189] usbcore: registered new interface driver cdc_subset
+SPIKE dmesg: [   28.166976] cdc_ether 1-2:1.0: probe with driver cdc_ether failed with error -16
+SPIKE dmesg: [   28.169093] usbcore: registered new interface driver cdc_ether
+SPIKE net done
+frames sent on e1000e: 0
+frames sent on usb-net: 0
+frames sent on virtio: 0
+
+## nonet2 (app + nonet + netcheck)
+SPIKE net-modules: rfkill 
+SPIKE kernel: 6.12.113+deb13-amd64
+SPIKE net-modules-on-disk: 280
+SPIKE firmware-files: 0
+SPIKE net 0: if=[lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 ] driverless-usb=[] driverless-virtio=[virtio1=0x0001 ]
+SPIKE net 1: if=[lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 ] driverless-usb=[] driverless-virtio=[virtio1=0x0001 ]
+SPIKE net 2: if=[lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 ] driverless-usb=[] driverless-virtio=[virtio1=0x0001 ]
+SPIKE net 3: if=[lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 0000:01:00.0=0x8086:0x10d3 ] driverless-usb=[] driverless-virtio=[virtio1=0x0001 ]
+SPIKE net 7: if=[lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 0000:01:00.0=0x8086:0x10d3 ] driverless-usb=[1-2:1.0=02 1-2:1.1=0a ] driverless-virtio=[virtio1=0x0001 ]
+SPIKE net 8: if=[lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 0000:01:00.0=0x8086:0x10d3 ] driverless-usb=[1-2:1.0=02 1-2:1.1=0a ] driverless-virtio=[virtio1=0x0001 ]
+SPIKE net 59: if=[lo ] driverless-pci=[0000:00:00.0=0x8086:0x29c0 0000:01:00.0=0x8086:0x10d3 ] driverless-usb=[1-2:1.0=02 1-2:1.1=0a ] driverless-virtio=[virtio1=0x0001 ]
+SPIKE dmesg: [    0.558936] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+SPIKE dmesg: [    0.566613] audit: initializing netlink subsys (disabled)
+SPIKE dmesg: [    0.989058] NET: Registered PF_INET protocol family
+SPIKE dmesg: [    1.026598] NET: Registered PF_UNIX/PF_LOCAL protocol family
+SPIKE dmesg: [    1.028306] NET: Registered PF_XDP protocol family
+SPIKE dmesg: [    1.449051] NET: Registered PF_INET6 protocol family
+SPIKE dmesg: [    1.460487] NET: Registered PF_PACKET protocol family
+SPIKE dmesg: [   28.063826] usb 1-2: Product: RNDIS/QEMU USB Network Device
+SPIKE net done
+frames sent on e1000e: 0
+frames sent on usb-net: 0
+frames sent on virtio: 0

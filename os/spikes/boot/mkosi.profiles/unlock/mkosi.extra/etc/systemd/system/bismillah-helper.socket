@@ -1,0 +1,11 @@
+[Unit]
+Description=bismillah helper socket (spike)
+
+[Socket]
+ListenStream=/run/bismillah/helper.sock
+SocketUser=writer
+SocketMode=0600
+Accept=yes
+
+[Install]
+WantedBy=sockets.target

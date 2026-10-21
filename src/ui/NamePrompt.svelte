@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Dialog } from "bits-ui";
+  import { tick } from "svelte";
   import { copy } from "../core/copy.ts";
   import type { NamePrompt } from "../core/workspace.svelte.ts";
 
@@ -35,9 +36,10 @@
 
   /** The field takes focus as it enters the page, with its first part selected, so
    * the first key typed after F2 already lands in it. */
-  function focusOnMount(field: HTMLInputElement, select: number) {
-    field.focus();
-    field.setSelectionRange(0, select);
+  async function focusName() {
+    await tick();
+    input?.focus();
+    input?.setSelectionRange(0, current?.select ?? 0);
   }
 
   async function submit(event: SubmitEvent) {
@@ -47,7 +49,11 @@
     error = await current.submit(value);
     busy = false;
     if (error === null) open = false;
-    else input?.focus();
+    else {
+      await tick();
+      input?.focus();
+      document.getElementById("prompt-error")?.scrollIntoView({ block: "nearest" });
+    }
   }
 </script>
 
@@ -57,7 +63,10 @@
     <Dialog.Content
       class="prompt"
       aria-describedby={undefined}
-      onOpenAutoFocus={(event) => event.preventDefault()}
+      onOpenAutoFocus={(event) => {
+        event.preventDefault();
+        void focusName();
+      }}
       onCloseAutoFocus={(event) => {
         event.preventDefault();
         const done = current;
@@ -66,14 +75,15 @@
       }}
     >
       {#if current}
-        <Dialog.Title class="prompt-title"><bdi>{current.title}</bdi></Dialog.Title>
+        <Dialog.Title class="prompt-title" title={current.title}
+          ><bdi>{current.title}</bdi></Dialog.Title
+        >
         <form onsubmit={submit}>
           <label for="prompt-name">{t.name}</label>
           <input
             id="prompt-name"
             bind:this={input}
             bind:value
-            use:focusOnMount={current.select}
             dir="auto"
             spellcheck="false"
             autocomplete="off"
@@ -112,6 +122,10 @@
     inset-inline-start: 50%;
     transform: translateX(-50%);
     width: min(28rem, calc(100vw - 2 * var(--space-4)));
+    /* Leave room below the 20vh top offset, including when a long name or an
+       inline error makes the form taller than the minimum desktop window. */
+    max-block-size: calc(80vh - var(--space-4));
+    overflow: auto;
     box-sizing: border-box;
     padding: var(--space-6);
     background: var(--surface-editor);
@@ -124,7 +138,9 @@
     margin: 0 0 var(--space-4);
     font-size: 1.05rem;
     font-weight: 600;
-    overflow-wrap: anywhere;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   form {
     display: grid;
@@ -185,5 +201,11 @@
   :global(.prompt-button:focus-visible) {
     outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
+  }
+  @media (max-height: 480px) {
+    :global(.prompt) {
+      inset-block-start: var(--space-4);
+      max-block-size: calc(100vh - 2 * var(--space-4));
+    }
   }
 </style>

@@ -1,13 +1,14 @@
 <script lang="ts">
   import { Dialog } from "bits-ui";
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
+  import { colourThemes } from "./core/themes.svelte.ts";
   import { runCommand, type CommandId } from "./core/commands.ts";
   import { copy } from "./core/copy.ts";
   import * as ipc from "./core/ipc.ts";
   import { installMenu } from "./core/menu.ts";
-  import { settings } from "./core/settings.svelte.ts";
+  import { settings, type Settings } from "./core/settings.svelte.ts";
   import { installTestHooks } from "./core/testHooks.ts";
-  import { workspace } from "./core/workspace.svelte.ts";
+  import { workspace, type NamePrompt as Prompt } from "./core/workspace.svelte.ts";
   import { remeasure } from "./editor/typography.ts";
   import AboutDialog from "./ui/AboutDialog.svelte";
   import LibraryPanel from "./ui/LibraryPanel.svelte";
@@ -63,9 +64,12 @@
 
   // Settings apply to the page and the editor whenever they change.
   $effect(() => {
-    const values = settings.values;
-    if (started) workspace.applySettings(values);
+    const values = { ...settings.values };
+    void colourThemes.list;
+    if (started) untrack(() => workspace.applySettings(values));
   });
+
+  $effect(() => workspace.syncMenu());
 
   // The writing column moves clear of a docked library (DESIGN.md §7).
   $effect(() => {
@@ -90,7 +94,7 @@
       if (workspace.editor) remeasure(workspace.editor.view);
       workspace.measureLayout();
     };
-    (async () => {
+    void (async () => {
       try {
         await unlocked();
         await workspace.start(host, installMenu);
@@ -182,8 +186,15 @@
         event.preventDefault();
         library.requestFocus();
       }}
+      onCloseAutoFocus={(event) => {
+        if (library.takeEditorFocusRequest()) {
+          event.preventDefault();
+          // As in Picker: wait until the focus trap and its inert layer are removed.
+          setTimeout(() => workspace.focusEditor(), 0);
+        }
+      }}
     >
-      <LibraryPanel {library} {...panel} />
+      <LibraryPanel {library} {...panel} dismiss={() => library.closeForDocument()} />
     </Dialog.Content>
   </Dialog.Portal>
 </Dialog.Root>
@@ -191,14 +202,15 @@
 <SettingsDialog
   bind:open={workspace.settingsOpen}
   values={settings.values}
-  change={(patch) => void settings.set(patch)}
+  saveError={settings.notSaved}
+  change={(patch: Partial<Settings>) => void settings.set(patch)}
   {library}
   folders={workspace.info.folders}
   customFont={workspace.customFont}
   section={workspace.settingsSection}
   shown={() => (workspace.settingsSection = null)}
   openFolder={() => void workspace.openFolder()}
-  showFolder={(folder) => workspace.showFolder(folder)}
+  showFolder={(folder: ipc.Folder) => workspace.showFolder(folder)}
   createKeybindings={() => workspace.createKeybindings()}
   openAbout={() => (workspace.aboutOpen = true)}
 />
@@ -210,11 +222,11 @@
   {library}
   context={workspace.context}
   close={() => (workspace.picker = null)}
-  openFile={(path) => void workspace.openFromLibrary(path)}
+  openFile={(path: string) => void workspace.openFromLibrary(path)}
   runCommand={run}
 />
 
-<NamePrompt prompt={workspace.prompt} closed={(p) => workspace.promptClosed(p)} />
+<NamePrompt prompt={workspace.prompt} closed={(p: Prompt) => workspace.promptClosed(p)} />
 
 <Suggestions checking={workspace.checking} />
 
@@ -227,6 +239,8 @@
   .window {
     height: 100%;
     display: grid;
+    /* The writing surface and status must fit the window even at enlarged sizes. */
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr) auto;
   }
   .notices-row {
@@ -237,6 +251,7 @@
     position: relative;
     min-height: 0;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
   }
   .status-row {
     grid-row: 3;
