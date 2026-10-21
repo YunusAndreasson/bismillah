@@ -526,13 +526,13 @@ pub struct Battery {
     charging: bool,
 }
 
-/// Debug builds may read another folder, for the e2e suite's fake battery.
+/// Where the batteries are: `/sys/class/power_supply`, or a fake folder of the same
+/// shape for tests. Debian's kernel has no fake battery (`test_power`) and QEMU no
+/// battery device, so the debug image's session and the e2e suite name one here; the
+/// release session never sets it.
 fn power_supplies() -> PathBuf {
-    #[cfg(debug_assertions)]
-    if let Some(path) = std::env::var_os("BISMILLAH_POWER_SUPPLY") {
-        return PathBuf::from(path);
-    }
-    PathBuf::from("/sys/class/power_supply")
+    std::env::var_os("BISMILLAH_POWER_SUPPLY")
+        .map_or_else(|| PathBuf::from("/sys/class/power_supply"), PathBuf::from)
 }
 
 #[tauri::command]

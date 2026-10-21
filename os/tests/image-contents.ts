@@ -272,6 +272,7 @@ function checkImage(profile: Profile): void {
   check(!/WEBKIT_INSPECTOR/.test(units), `${profile}: nothing opens WebKit's inspector`);
   if (profile === "release") {
     check(!/BISMILLAH_MARKS/.test(units), `${profile}: no boot marks`);
+    check(!/BISMILLAH_POWER_SUPPLY/.test(units), `${profile}: the real battery, not a fake`);
     check(!has("/usr/libexec/bismillah-debug-console"), `${profile}: no debug command line`);
     for (const unit of [
       "systemd-journald.service",

@@ -779,8 +779,25 @@ const APP = "bismillah WebKitWebProcess WebKitNetworkProcess";
 const signalApp = (vm: Vm, signal: string) =>
   vm.run(`for p in ${APP}; do pkill -${signal} -x "$p"; done; true`);
 
-/** A frame that shows the document: (nearly) the document's own screenshot. */
-const showsDocument = (frame: Screen, doc: Screen) => changed(frame, doc) < 0.02;
+const bright = (s: Screen, i: number) =>
+  (s.rgb[i] ?? 0) + (s.rgb[i + 1] ?? 0) + (s.rgb[i + 2] ?? 0) > 360;
+
+/**
+ * The document's own ink: pixels bright in its screenshot and not in the lock view's
+ * (the Basmallah, which both show, drops out). The whole screen is too blunt a
+ * measure: a black frame differs from a dark document by only a few percent.
+ */
+function documentInk(doc: Screen, lock: Screen): number[] {
+  const ink: number[] = [];
+  for (let i = 0; i < doc.rgb.length; i += 3) if (bright(doc, i) && !bright(lock, i)) ink.push(i);
+  return ink;
+}
+
+/** A frame that shows the document: most of its ink is there. */
+function showsDocument(frame: Screen, doc: Screen, ink: number[]): boolean {
+  if (frame.width !== doc.width || frame.height !== doc.height || ink.length === 0) return false;
+  return ink.filter((i) => bright(frame, i)).length / ink.length > 0.5;
+}
 
 /**
  * Takes frames until `stop` says so (or `seconds` pass), every 0.2 s. Returns how many
@@ -790,6 +807,7 @@ async function watchFrames(
   vm: Vm,
   label: string,
   doc: Screen,
+  ink: number[],
   seconds: number,
   stop: () => Promise<boolean> = () => Promise.resolve(false),
 ): Promise<{ frames: number; shown: number }> {
@@ -799,7 +817,7 @@ async function watchFrames(
     if (await stop()) break;
     const frame = await vm.screen("frame");
     count++;
-    if (showsDocument(frame, doc)) {
+    if (showsDocument(frame, doc, ink)) {
       shown++;
       await vm.screen(`${label}-shown-${String(shown)}`);
     }
@@ -830,20 +848,29 @@ interface SleepCase {
 }
 
 /**
- * One suspend: frames from the request until the guest sleeps and for 8 s after
- * `system_wakeup`, none of which may show the document; then the passphrase brings the
- * document back.
+ * One suspend. While the helper waits for the app (up to 1.5 s) the document may still
+ * show; what is on screen once the guest sleeps, and every frame for 8 s after
+ * `system_wakeup`, may not. Then the passphrase brings the document back.
  */
-async function sleepCase(vm: Vm, scenario: string, c: SleepCase, doc: Screen): Promise<void> {
+async function sleepCase(
+  vm: Vm,
+  scenario: string,
+  c: SleepCase,
+  doc: Screen,
+  ink: number[],
+): Promise<void> {
   const from = here(vm);
   await vm.run(`${c.before ? `${c.before}; ` : ""}systemctl --no-block suspend`);
-  const before = await watchFrames(vm, `${c.name}-before`, doc, 15, () => vm.asleep());
+  const waiting = await watchFrames(vm, `${c.name}-waiting`, doc, ink, 15, () => vm.asleep());
   check(await vm.asleep(), `${scenario} ${c.name}: the system went to sleep`);
+  const asleep = await vm.screen(`${c.name}-asleep`);
   await sleep(1000);
   await vm.wakeup();
-  await mark(vm, "helper-resumed", 30, from);
+  // The kernel's own line too: the journal's lines interleave on the serial console,
+  // and one can be lost.
+  await vm.waitSerial(/BISMILLAH_MARK helper-resumed|PM: suspend exit/, 30, from);
   if (c.afterWake) await vm.run(c.afterWake);
-  const after = await watchFrames(vm, `${c.name}-after`, doc, 8);
+  const after = await watchFrames(vm, `${c.name}-after`, doc, ink, 8);
   const log = vm.serial().slice(from);
   check(
     new RegExp(`BISMILLAH_MARK helper-${c.expect} `).test(log),
@@ -857,8 +884,8 @@ async function sleepCase(vm: Vm, scenario: string, c: SleepCase, doc: Screen): P
     `${scenario} ${c.name}: decided within logind's delay (${decided.toFixed(2)} s of 5 s)`,
   );
   check(
-    before.shown === 0 && after.shown === 0,
-    `${scenario} ${c.name}: no frame showed the document (${String(before.frames)} before sleep, ${String(after.frames)} after wake)`,
+    !showsDocument(asleep, doc, ink) && after.shown === 0,
+    `${scenario} ${c.name}: nothing of the document on screen asleep or in ${String(after.frames)} frames after wake (it showed in ${String(waiting.shown)} of ${String(waiting.frames)} while the helper waited)`,
   );
   check(
     await unlockAt(vm, c.name, doc),
@@ -893,9 +920,10 @@ async function suspendLock(): Promise<void> {
     await mark(vm, "page-lock-painted", 15, from);
     const lock = await vm.settled(20);
     await vm.screen("lock-view");
+    const ink = documentInk(doc, lock);
     check(
-      changed(lock, doc) > 0.02,
-      `${name}: Lock covers the document (${(changed(lock, doc) * 100).toFixed(1)}% of the screen differs)`,
+      ink.length > 500 && !showsDocument(lock, doc, ink),
+      `${name}: Lock covers the document (${String(ink.length)} pixels of its text gone)`,
     );
     await vm.key("ctrl", "n");
     await sleep(1000);
@@ -936,7 +964,7 @@ async function suspendLock(): Promise<void> {
     ];
     for (const c of cases) {
       try {
-        await sleepCase(vm, name, c, doc);
+        await sleepCase(vm, name, c, doc, ink);
       } catch (error) {
         check(false, `${name} ${c.name}: ${String(error)}`);
         await signalApp(vm, "CONT").catch(() => undefined);
@@ -949,28 +977,31 @@ async function suspendLock(): Promise<void> {
 }
 
 /**
- * Power: low battery warns at 10% and at 3% saves and powers off (a fake battery,
- * test_power); Power off (Ctrl+Q) saves and powers off cleanly. Each next boot finds
+ * Power: low battery warns at 10% and at 3% saves and powers off (a fake battery
+ * the debug session reads); Power off (Ctrl+Q) saves and powers off cleanly. Each next boot finds
  * the text and a clean file system.
  */
 async function power(): Promise<void> {
   const name = "power";
   const disk = stickFrom(imageFor("debug"), join(out, name, "stick.raw"));
   let vm = await boot(name, "1-battery", { disk });
-  const battery = "/sys/module/test_power/parameters";
+  // The debug session reads its battery here (QEMU has none, Debian no test_power).
+  const battery = "/run/bismillah-power/BAT0";
   try {
     await setUpQuickly(vm);
     await mark(vm, "page-editable", 60);
     await openNote(vm, "First line.");
     let from = here(vm);
-    await vm.run(`modprobe test_power && echo 9 > ${battery}/battery_capacity`);
+    await vm.run(
+      `mkdir -p ${battery} && echo Battery > ${battery}/type && echo Discharging > ${battery}/status && echo 9 > ${battery}/capacity`,
+    );
     await mark(vm, "page-battery-low", 60, from);
     await sleep(1000);
     await vm.screen("battery-low");
     check(true, `${name}: a notice at 9%`);
     await vm.type(" Unsaved when the battery ran down.");
     from = here(vm);
-    await vm.run(`echo 3 > ${battery}/battery_capacity`);
+    await vm.run(`echo 3 > ${battery}/capacity`);
     await mark(vm, "page-battery-critical", 60, from);
     await mark(vm, "helper-power-poweroff", 30, from);
     for (let i = 0; vm.running && i < 600; i++) await sleep(100);
