@@ -12,7 +12,10 @@ export default defineConfig(
       "target/",
       "src-tauri/",
       "spikes/",
-      "os/",
+      "os/spikes/",
+      "os/out/",
+      "os/cache/",
+      "os/mkosi/",
       "node_modules/",
       "fonts/",
       "coverage/",
@@ -29,7 +32,15 @@ export default defineConfig(
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
   {
-    files: ["src/**/*.ts", "src/**/*.svelte", "tests/**/*.ts", "scripts/**/*.ts", "vite.config.ts"],
+    files: [
+      "src/**/*.ts",
+      "src/**/*.svelte",
+      "tests/**/*.ts",
+      "scripts/**/*.ts",
+      "os/scripts/**/*.ts",
+      "os/tests/**/*.ts",
+      "vite.config.ts",
+    ],
     extends: [ts.configs.recommendedTypeChecked],
     languageOptions: {
       parserOptions: {

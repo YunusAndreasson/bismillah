@@ -1,11 +1,20 @@
 # Debian 13 build container for bismillah (os/PLAN.md, OS-0 "App on Debian").
 # The stick runs trixie's WebKitGTK, so the app is compiled against it here.
 # This is the dev machine's build environment, never part of the stick.
-# OS-1 pins this image by digest and the toolchains in os/inputs.lock.
-FROM docker.io/library/debian:trixie
+# Its inputs are recorded in os/inputs.lock; os/scripts/fetch.sh passes them as
+# build arguments and saves the image to os/cache/, so later builds need no network.
+ARG CONTAINER_BASE
+FROM ${CONTAINER_BASE}
 
-RUN printf 'deb http://deb.debian.org/debian-security trixie-security main\n' \
-      > /etc/apt/sources.list.d/security.list \
+# The same Debian snapshot as the image, so the app links against the WebKitGTK
+# the stick ships (trixie-security). Plain HTTP: the base has no CA certificates yet,
+# and apt checks the archive signatures itself.
+ARG DEBIAN_SNAPSHOT
+RUN rm -f /etc/apt/sources.list.d/* \
+ && printf '%s\n' \
+      "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/$DEBIAN_SNAPSHOT trixie main" \
+      "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/$DEBIAN_SNAPSHOT trixie-security main" \
+      > /etc/apt/sources.list \
  && apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       build-essential ca-certificates curl git pkg-config xz-utils \
@@ -14,12 +23,12 @@ RUN printf 'deb http://deb.debian.org/debian-security trixie-security main\n' \
  && rm -rf /var/lib/apt/lists/*
 
 # trixie's rustc is 1.85; the workspace needs >= 1.90 (Cargo.toml rust-version).
-ARG RUST_VERSION=1.99.0
+ARG RUST_VERSION
 ENV RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:/opt/node/bin:$PATH
 RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain "$RUST_VERSION"
 
-ARG NODE_VERSION=26.12.0
-ARG PNPM_VERSION=11.2.2
+ARG NODE_VERSION
+ARG PNPM_VERSION
 RUN curl -sSfL "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-x64.tar.xz" \
       | tar -xJ -C /opt && mv "/opt/node-v$NODE_VERSION-linux-x64" /opt/node \
  && npm install -g "pnpm@$PNPM_VERSION"

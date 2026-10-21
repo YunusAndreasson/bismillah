@@ -23,7 +23,13 @@
     "test:offline": "scripts/offline.sh",
     "perf": "scripts/headless.sh node scripts/perf.ts",
     "a11y": "BISMILLAH_A11Y=1 scripts/headless.sh node scripts/a11y.ts",
-    "verify": "scripts/verify.sh"
+    "verify": "scripts/verify.sh",
+    "os:fetch": "os/scripts/fetch.sh",
+    "os:app": "os/build/build-app.sh",
+    "os:build": "os/scripts/build.sh",
+    "os:vm": "node os/scripts/vm.ts",
+    "os:test": "node os/scripts/test.ts",
+    "os:verify": "os/scripts/verify.sh"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

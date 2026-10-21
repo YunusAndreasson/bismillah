@@ -1,0 +1,33 @@
+[Unit]
+Description=bismillah under cage on tty1
+After=systemd-user-sessions.service systemd-logind.service systemd-tmpfiles-setup.service
+RequiresMountsFor=/home/writer
+Conflicts=getty@tty1.service
+# The display the firmware booted on. Debian's kernel has no simpledrm, so until the
+# real driver binds there is no DRM device at all (docs/spikes/os-gpu-display.md).
+Wants=dev-dri-boot\x2dvga.device
+After=dev-dri-boot\x2dvga.device
+
+[Service]
+User=writer
+PAMName=login
+TTYPath=/dev/tty1
+StandardInput=tty
+StandardOutput=null
+StandardError=null
+UtmpIdentifier=tty1
+TTYReset=yes
+TTYVHangup=yes
+Environment=XDG_SESSION_TYPE=wayland
+# Only the boot display: on a hybrid the other GPU stays closed and can power down.
+# WebKit's render device isn't pinned (pinning it broke rendering in the GPU spike).
+Environment=WLR_DRM_DEVICES=/dev/dri/boot-vga
+# Font and shader caches in RAM, never in the writer's home.
+Environment=XDG_CACHE_HOME=/run/user/1000/cache
+ExecStart=/usr/bin/cage -d -- /usr/bin/bismillah --appliance
+# If the app or cage ends, the session starts again.
+Restart=always
+RestartSec=0
+
+[Install]
+WantedBy=graphical.target

@@ -1,0 +1,16 @@
+# The recorded inputs of the bismillah stick (os/PLAN.md, *Development environment*).
+# os/scripts/fetch.sh (pnpm os:fetch) fetches exactly these into os/cache/, and every
+# later stage builds from os/cache/ with the network off. Change a value here, then
+# run os:fetch again. The Debian snapshot is also in os/mkosi/mkosi.conf (Snapshot=,
+# ToolsTreeSnapshot=), and os/scripts/build.sh refuses to build when they differ.
+
+# Debian 13 packages for the image and mkosi's tools tree (snapshot.debian.org).
+DEBIAN_SNAPSHOT=20261021T083704Z
+# The app's build container (os/build/Containerfile): its base by digest, not a tag.
+CONTAINER_BASE=docker.io/library/debian@sha256:913f6706df59a68922d1dd08f78c2476560a8d367897200a6005b00e5f67c2d5
+# trixie's rustc is 1.85; the workspace needs >= 1.90 (Cargo.toml rust-version).
+RUST_VERSION=1.99.0
+NODE_VERSION=26.12.0
+PNPM_VERSION=11.2.2
+# The host's mkosi; build.sh refuses another version.
+MKOSI_VERSION=27.1

@@ -1,0 +1,7 @@
+# The root is read-only erofs. What the system must change lives in RAM, and
+# /var/cache keeps the image's prebuilt font cache.
+tmpfs /var/lib tmpfs mode=0755,size=64M,nosuid,nodev 0 0
+tmpfs /var/tmp tmpfs mode=1777,size=64M,nosuid,nodev 0 0
+tmpfs /var/log tmpfs mode=0755,size=16M,nosuid,nodev,noexec 0 0
+# Firmware variables are read, never written, by anything on the stick.
+efivarfs /sys/firmware/efi/efivars efivarfs ro,nosuid,nodev,noexec 0 0

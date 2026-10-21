@@ -1,0 +1,8 @@
+#!/bin/sh
+# Debug image only: runs each line from the second serial port as root, with its
+# output on the first, so the VM tests can inspect and drive the system.
+stty -F /dev/ttyS1 raw -echo
+while IFS= read -r line; do
+  echo "DEBUG cmd: $line" >/dev/ttyS0
+  sh -c "$line" >/dev/ttyS0 2>&1
+done </dev/ttyS1

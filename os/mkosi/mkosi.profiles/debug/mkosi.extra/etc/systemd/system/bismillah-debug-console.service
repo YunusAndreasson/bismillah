@@ -1,0 +1,9 @@
+[Unit]
+Description=Root command line on ttyS1 (debug image only)
+
+[Service]
+ExecStart=/usr/libexec/bismillah-debug-console
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

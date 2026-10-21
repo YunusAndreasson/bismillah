@@ -1,6 +1,6 @@
 # 0013 — Appliance OS: bismillah on a bootable stick
 
-- **Status:** Proposed (OS-0 complete in the VM and on the Dell; awaiting the author's acceptance)
+- **Status:** Accepted (2026-10-21, when the author moved on to OS-1)
 - **Date:** 2026-10-21
 - **Amends:** [0009](0009-desktop-only.md) (a single-app appliance is still desktop), [0003](0003-offline-boundary.md) (offline guarantees at the OS level)
 

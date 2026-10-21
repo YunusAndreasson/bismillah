@@ -1,0 +1,3 @@
+# The display the firmware booted on, as /dev/dri/boot-vga and a systemd device unit,
+# so the session can wait for it and use only that one.
+SUBSYSTEM=="drm", KERNEL=="card[0-9]*", ATTRS{boot_vga}=="1", SYMLINK+="dri/boot-vga", TAG+="systemd"
