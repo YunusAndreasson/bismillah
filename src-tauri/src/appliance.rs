@@ -110,6 +110,22 @@ fn ask(request: Request) -> Result<Answer, String> {
     serde_json::from_str(&answer).map_err(|_| "answer: not understood".to_owned())
 }
 
+/// Whether the writer's home is a mount of its own (the encrypted home), not the RAM
+/// `/home` it sits on before unlock. The e2e suite's stand-in helper mounts nothing.
+fn home_mounted() -> bool {
+    use std::os::unix::fs::MetadataExt;
+    #[cfg(debug_assertions)]
+    if std::env::var_os("BISMILLAH_HELPER_SOCKET").is_some() {
+        return true;
+    }
+    let Some(home) = home() else { return false };
+    let device = |p: &std::path::Path| std::fs::metadata(p).map(|m| m.dev()).ok();
+    match (device(&home), home.parent().and_then(device)) {
+        (Some(home), Some(parent)) => home != parent,
+        _ => false,
+    }
+}
+
 type Start = Box<dyn FnOnce(&AppHandle) -> Result<(), String> + Send>;
 
 /// The startup that waits for home: state, settings, recovery, the dictionary, the
@@ -184,6 +200,12 @@ pub async fn appliance_open(
         let answer = ask(request)?;
         mark("app-unlock-answered");
         if answer == Answer::Ok {
+            // The texts must go to the encrypted home, never to the RAM under it.
+            if !home_mounted() {
+                return Ok(Answer::Failed {
+                    step: "home-not-mounted".into(),
+                });
+            }
             gate.open(&app)?;
             mark("app-started");
         }

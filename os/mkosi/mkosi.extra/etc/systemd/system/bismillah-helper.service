@@ -7,5 +7,6 @@ After=bismillah-helper.socket
 # Root: it formats, opens and mounts the home partition (crates/bismillah-appliance).
 ExecStart=/usr/libexec/bismillah-helper
 NoNewPrivileges=yes
-PrivateNetwork=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
+# No PrivateNetwork=, ProtectHome= or other namespacing: they give the service its own
+# mount namespace, and the home it mounts must be the session's.
