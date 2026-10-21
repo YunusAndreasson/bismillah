@@ -16,20 +16,31 @@
     newHere: (kind: "file" | "folder", folder: string) => void;
     escape: () => void;
     retry: () => void;
+    dismiss?: () => void;
   }
-  let { library, open, run, newHere, escape, retry }: Props = $props();
+  let { library, open, run, newHere, escape, retry, dismiss }: Props = $props();
   const t = copy.library;
   const view = $derived(library.view);
 </script>
 
 <div class="panel">
+  {#if dismiss}
+    <div class="heading">
+      <h2 class="title" title={view.kind === "none" ? t.region : view.name}>
+        <bdi>{view.kind === "none" ? t.region : view.name}</bdi>
+      </h2>
+      <button type="button" class="button close" aria-label={t.close} onclick={dismiss}>
+        {copy.picker.close}
+      </button>
+    </div>
+  {/if}
   {#if view.kind === "none"}
     <p class="state">{t.none}</p>
     <button type="button" class="button" onclick={() => run("library.openFolder")}>
       {t.openFolder}
     </button>
   {:else}
-    <h2 class="title"><bdi>{view.name}</bdi></h2>
+    {#if !dismiss}<h2 class="title" title={view.name}><bdi>{view.name}</bdi></h2>{/if}
     {#if view.kind === "unavailable"}
       <p class="state">{t.unavailable(view.name)}</p>
       <div class="actions">
@@ -73,6 +84,19 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .heading {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+  .heading .title {
+    flex: 1;
+    min-width: 0;
+  }
+  .heading .close {
+    flex-shrink: 0;
+    margin: 0;
   }
   /* The tree fills the rest of the panel, so its context menu also opens on the empty
      space below the last row, without making the panel scroll. */
