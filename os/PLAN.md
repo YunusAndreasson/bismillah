@@ -21,7 +21,7 @@ This file is the plan for that work, written to be carried out over several sess
 - Copy as rich text removed in appliance mode.
 - Our own WebKitGTK scheduled after the stick's 1.0.
 
-**Status:** Phase OS-2 built (2026-10-21) and waiting for the author's check on the Dell: a blank stick asks for a keyboard, a passphrase and a time zone once, formats its home (LUKS2, Argon2id) and from then on boots to the bismillah unlock screen. Every VM scenario passes; the result is in *Phase OS-2 result* below. OS-1 was accepted when the author moved on. Working rule from the author: make it work first, then optimise.
+**Status:** Phase OS-3 built (2026-10-21) and waiting for the author's check on the Dell: lock before sleep and on the lid, power in the menu, the clock and battery, Settings › This stick (*Phase OS-3 result* below). The author moved on from OS-2 before its Dell check; that check is still listed under *Phase OS-2 result*. Phase OS-2 built (2026-10-21): a blank stick asks for a keyboard, a passphrase and a time zone once, formats its home (LUKS2, Argon2id) and from then on boots to the bismillah unlock screen. Every VM scenario passes; the result is in *Phase OS-2 result* below. OS-1 was accepted when the author moved on. Working rule from the author: make it work first, then optimise.
 
 ---
 
@@ -495,7 +495,56 @@ Goal: the stick can be used every day without a desktop.
 - The author uses the stick for a writing session on the Dell.
 
 ### Phase OS-3 result
-*(to be written)*
+
+Built 2026-10-21 (commits 9db0b85 to the OS-3 result). The app's unit and e2e tests, the contents check and the VM scenarios pass; see *Gates* below.
+
+**What exists:**
+- **The helper keeps the lock** (`crates/bismillah-appliance/src/helper/session.rs`, `sleep.rs`, `lid.rs`, `vt.rs`):
+  - The app holds one **events connection** (`events` verb): the helper sends `{"event":"lock"}`, the app answers `{"report":"painted"}`.
+  - A logind **delay inhibitor** (the `dbus` crate, already in Tauri's tree). Before sleep: lock, and 1.5 s for `painted`; otherwise VT 8 (empty). After a fallback: 3 s for `painted` on resume, else the session's processes are ended (SIGTERM, SIGCONT, SIGKILL after 2 s), VT 1, a new session. logind's `InhibitDelayMaxSec=5` is now set explicitly, with `HandleLidSwitch=suspend` on battery and mains.
+  - **The lid** (`SW_LID`, read from its evdev device) locks at once, whether or not sleep follows.
+  - **A dropped connection** keeps the lock up: until a passphrase is verified the helper answers only `status`, `verify`, `resume` and `power` (`Answer::Locked` otherwise). A restarted helper starts locked if home is mounted.
+  - `power{suspend}` joins off and reboot. `resume` lets the session that a keyboard change restarted reopen home once, within a minute, without the passphrase.
+- **The app** (`src-tauri/src/appliance.rs`, `src/appliance/`, `workspace.svelte.ts`):
+  - **The lock view** is the Unlock screen titled *Locked*, over everything; the rest is `inert` and no command runs (`runCommand` refuses while locked, so native-menu accelerators don't act either). It reports `painted` two frames after it is shown, and saves behind it. It shows on the helper's `lock`, on *Lock*, before *Suspend*, and whenever the events connection drops. While the gate is still up, Rust answers `painted` itself.
+  - **Commands:** *Lock*, *Suspend*, *Restart*, *Power off* (`Ctrl+Q`) in File and the palette; each saves first. Quit, Open…, Open folder…, Copy as rich text, Open link and Fullscreen are left out of the registry on the stick (`useStickCommands()`), and Rust refuses links and the file manager (`LinkError::Stick`; Ctrl+click explains). Window size is neither restored nor remembered. The first screen offers only *New file…* and the guide.
+  - **Clock and battery** at the end of the status line: 24-hour, in the `time_zone` setting, through `Intl`; the battery summed over `/sys/class/power_supply`. A notice at 10%; at 3% it saves and powers off.
+  - **Settings › This stick:** up to four layouts and the switch key (Alt+Shift, Ctrl+Shift, Super+Space, Caps Lock), applied with one button: save, store in the header, leave the caret's offset in `$XDG_RUNTIME_DIR`, restart, `resume`, caret back. The time zone, and *This computer's clock keeps local time* (`clock_keeps_local_time`): the clock is corrected by the zone's offset and the RTC never written. *Another font* and *Show in file manager* are hidden; Files & privacy says what the stick keeps unencrypted (the layout names).
+  - **About** names the Debian snapshot and the commit; the stick now carries the licences About points to (`/usr/share/licenses/bismillah/`).
+- **Docs:** the guide's *On the bismillah stick*, DESIGN.md §19, ARCHITECTURE.md §12.4 and the `dbus` row in §2.
+- **Tests:** helper unit tests (lock gating, the events handshake, resume once, session scopes, lid device and events), app unit tests (battery reading), `power.test.ts` (levels, zone offsets, the clock correction), `commands.stick.test.ts` (the stick's registry, nothing runs behind the lock), `appliance.e2e.ts` (clock, battery notice, palette, the helper's lock and the `painted` report, shortcuts blocked behind it, verify, Settings › This stick, Ctrl+Q), and the VM scenarios `suspend-lock` and `power`.
+
+**Proved in VMs** (debug image, S3 with `-device VGA`, `system_wakeup`):
+
+| Case | The helper | Document on screen asleep or after wake |
+|---|---|---|
+| Normal | locked before sleep, 0.08–0.10 s after the request | never |
+| App frozen (all its processes stopped) | fallback at 1.53 s; session restarted 3 s after wake | never (it showed for those 1.5 s while the helper waited) |
+| Frozen, continued after wake | fallback; the app painted late, back on VT 1 | never |
+| App killed just before | no app to ask: empty VT at once | never |
+| Helper killed (connection dropped) | the app locked itself, reconnected; the next sleep handshaked normally | never |
+
+Every case decided within logind's 5 s delay, and the passphrase brought the document back. *Lock* from the palette covers the text and `Ctrl+N` doesn't act behind it; a restarted helper locks the app at once. `power`: a fake battery (below) at 9% shows the notice; at 3% the app saved unsaved typing and powered off, home clean (`e2fsck`: clean); `Ctrl+Q` saved and powered off cleanly.
+
+**Deviations and findings:**
+- **"Inhibitor delay exceeded"** is tested as its guarantee: the helper's longest decision (1.53 s, app frozen) stays well inside logind's 5 s, which is now set explicitly; logind never logged its timeout. Lowering it below 1.5 s would let the system sleep before the fallback.
+- **The fake battery is a folder**, not `test_power`: Debian's kernel doesn't build it, Secure Boot lockdown wouldn't load one we built, and QEMU has no battery device. The app reads `BISMILLAH_POWER_SUPPLY` when set; only the debug session sets it, and the contents check refuses it in release.
+- **The battery is read by the app**, not sent by the helper (`battery_critical` isn't a helper event): the app must save before powering off anyway. A frozen app won't power off at 3%.
+- **The keyboard change returns to the caret without the passphrase** (`resume`), which the plan implied but didn't specify. Not run in a VM; the e2e test covers the request, the Dell check the restart.
+- **Clock correction is a switch** (*keeps local time*), not a number of hours: the offset follows from the time zone, summer time included.
+- **cage's pointer still shows** in the middle of the screen: hiding it while typing works only once the pointer has been over the page, because cage draws it itself until then. Left for OS-4/OS-5 (a cage option, or moving the pointer to a corner at start).
+- **Brightness keys** wait for the Dell check: only if its firmware doesn't handle them.
+- **The lid** can't be tested in QEMU (no lid device); the Dell check covers it.
+- **The serial console loses journal lines** now and then (interleaved with the kernel's); the suspend scenario also accepts the kernel's `PM: suspend exit`.
+
+**The author's acceptance check:**
+1. Flash the release image (`bash os/scripts/flash.sh release`; this erases the stick's texts, as setup is new) and set it up on the Dell, or keep the OS-2 stick and reflash only if you accept losing its texts.
+2. Write for a while. Check the clock and battery at the bottom right, and that they fade with the rest while you type.
+3. Close the lid, wait, open it: the lock view, never your text. Type the passphrase. Close and open the lid again within 30 s of the last resume: still locked.
+4. *Lock*, *Suspend*, *Restart* and *Power off* from the File menu (Alt) and the palette; `Ctrl+Q` powers off.
+5. Settings › This stick: add a layout, *Apply layouts*; bismillah restarts and returns to your caret without asking for the passphrase. Change the time zone; if the clock is off by whole hours, try *This computer's clock keeps local time*.
+6. Try the brightness keys and say whether they work.
+7. Use the stick for a writing session.
 
 ---
 

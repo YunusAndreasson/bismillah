@@ -1022,7 +1022,10 @@ async function power(): Promise<void> {
       (await noteText(vm)).includes("Unsaved when the battery ran down."),
       `${name}: it saved before powering off`,
     );
-    check(/helper\[\d+\]: texts: clean,/.test(vm.serial().slice(from)), `${name}: home was left clean`);
+    check(
+      /helper\[\d+\]: texts: clean,/.test(vm.serial().slice(from)),
+      `${name}: home was left clean`,
+    );
     await vm.key("ctrl", "p");
     await sleep(800);
     await vm.type("note");
@@ -1050,7 +1053,10 @@ async function power(): Promise<void> {
       (await noteText(vm)).includes("Typed before Power off."),
       `${name}: Power off saved first`,
     );
-    check(/helper\[\d+\]: texts: clean,/.test(vm.serial().slice(from)), `${name}: home was left clean`);
+    check(
+      /helper\[\d+\]: texts: clean,/.test(vm.serial().slice(from)),
+      `${name}: home was left clean`,
+    );
   } finally {
     await vm.powerdown();
     vm.pngs();

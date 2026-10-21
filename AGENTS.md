@@ -108,7 +108,7 @@ The Norman-inspired UX follow-up explains immediate Settings changes, limits and
 font defaults, keeps invalid navigation correctable, exposes settings-save retry
 inside the modal, and acknowledges explicit document saves honestly. Evidence:
 [the experience audit](docs/audits/2026-10-20-experience.md).
-The current gate covers 419 frontend and 180 Rust tests, all 27
+The current gate covers 426 frontend and 189 Rust tests, all 27
 real-app suites and 16 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.
