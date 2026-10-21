@@ -21,7 +21,7 @@ This file is the plan for that work, written to be carried out over several sess
 - Copy as rich text removed in appliance mode.
 - Our own WebKitGTK scheduled after the stick's 1.0.
 
-**Status:** Phase OS-0 built (2026-10-21) and waiting for the author's acceptance: every spike is answered, in the VM and on the Dell ([os/spikes/boot/DELL-CHECK.md](spikes/boot/DELL-CHECK.md)), and [ADR-0013](../docs/decisions/0013-appliance-os.md) records the decisions as *Proposed*. The result is in *Phase OS-0 result* below. The spike app code is on main behind `BISMILLAH_SPIKE_*`, so `os/build/build-app.sh` builds the current editor. Working rule from the author: make it work first, then optimise.
+**Status:** Phase OS-1 built (2026-10-21) and waiting for the author's look on the Dell: the stick image builds offline from recorded inputs, boots to bismillah with Secure Boot on in every VM key set, sends nothing on any network card, and passes its contents check. The result is in *Phase OS-1 result* below. OS-0 was accepted when the author moved on (ADR-0013 accepted). The unlock gate is still the OS-0 spike code behind `BISMILLAH_SPIKE_*`, until OS-2. Working rule from the author: make it work first, then optimise.
 
 ---
 
@@ -302,7 +302,52 @@ Goal: `pnpm os:build && pnpm os:vm` boots to bismillah on the stick layout, read
 - The author has looked at it on the Dell from a real stick.
 
 ### Phase OS-1 result
-*(to be written)*
+
+Built 2026-10-21 (commits 64773f1 to the OS-1 result). `os/scripts/verify.sh` passes: the app and both images built offline, the contents check, and every VM scenario.
+
+**What exists:**
+- `os/mkosi/`: the product image at Debian snapshot `20261021T083704Z`. Release and debug profiles, the repart definitions (512 MiB ESP, zstd erofs root under dm-verity, an empty home), `loader.conf` (`timeout 0`, `editor no`) and the units. The session runs `cage -d -- bismillah --appliance` and starts again whenever it ends.
+- **Release:** no shell, perl, apt, dpkg database, getty, `login`, `su` or `sulogin`. journald and the emergency, rescue and debug shells are masked, systemd logs nowhere and every unit's output goes to `/dev/null`. `quiet`, no serial console, no SysRq. Home is RAM only (tmpfs) until OS-2 encrypts it, so nothing unencrypted is ever written to the stick.
+- **Debug:** the serial console with the journal on it, the app's boot marks (`BISMILLAH_MARKS=1`), a root command line on ttyS1, and a plain ext4 test home.
+- **Both:** no network modules or firmware, efivarfs read-only, `noresume`, no `fbx64.efi`, and every getty, networkd, resolved and timesyncd unit masked.
+- **The app** (`src-tauri/src/appliance.rs`): `--appliance` makes `~/Texts` the library (mode 0700) and scales screens of 192 dpi or more to 2x through `wlr-randr`, so the session needs no shell script. It prints boot marks only where `BISMILLAH_MARKS` is set.
+- **Recorded inputs:** `os/inputs.lock` (snapshot, container base digest, Rust, Node, pnpm, mkosi). `pnpm os:fetch` is the only networked stage and fills `os/cache/`: the build container, vendored crates, the pnpm store and metadata cache, mkosi's package and metadata caches, and its tools tree. `pnpm os:app` and `pnpm os:build` run with the network off.
+- **Tests:** `os/scripts/vm.ts` (the QMP harness), `os/scripts/test.ts` (the scenarios, `pnpm os:test`), `os/tests/image-contents.ts`, `os/scripts/verify.sh` (`pnpm os:verify`), `os/scripts/rebuild-offline.sh` and `os/scripts/flash.sh`.
+
+**Measured (VM, Secure Boot on, Microsoft keys):**
+
+| | ssd | good stick | cheap stick |
+|---|---|---|---|
+| systemd-analyze (kernel + initrd + userspace) | 1.1 + 3.5 + 2.0 = 6.6 s | 1.2 + 3.8 + 2.1 = 7.1 s | 1.2 + 3.8 + 3.0 = 8.0 s |
+| kernel start → app process | 8.4 s | 9.0 s | 12.9 s |
+| kernel start → editor ready (`page-editable`) | 9.9 s | 10.5 s | 15.8 s |
+| release: QEMU start → settled screen | 16–21 s | | 24.3 s |
+
+- Root 488 MiB (budget 600). Verity 3.9 MiB.
+- ESP payload about 48 MB: kernel 12.2 MB, initrd 34.5 MB, plus shim and systemd-boot (budget 40, initrd budget 15). Unchanged since OS-0; OS-4 cuts the initrd.
+
+**Proved:**
+- **Secure Boot:** the release image boots and the editor answers typing with the 2011-only, 2023-only and both-CA variable sets.
+- **No network:** zero frames on a virtio NIC, and on an e1000e and a USB NIC hot-plugged while it ran.
+- **Inside the debug image:** Secure Boot on, lockdown `integrity`, the root `erofs ro` and verified, efivarfs `ro`, only `lo`, no getty unit, the app as `writer`.
+- **Offline rebuild:** a clean checkout of 5a36a4a, given only `os/cache/`, built the app from nothing (403 crates) and both images in a network namespace with only `lo`. mkosi synced no metadata.
+
+**Deviations and findings:**
+- **The app ships as a file tree, not a `.deb`:** `os/out/app/` goes in through `ExtraTrees=`, with the commit in `/usr/share/bismillah/commit`. The image has no dpkg to install a package with.
+- **The contents check is a plain Node script** (`os/tests/image-contents.ts`), not a vitest suite, so `pnpm test` doesn't need images.
+- **The tools tree is a recorded input:** mkosi builds its default tools tree with its own settings, ignoring `CacheOnly=` and our cache directories, so a clean checkout rebuilt it online. It is now built by `os:fetch` and kept in `os/cache/mkosi.tools`.
+- **pnpm 11 checks the lockfile against its supply-chain policy even offline,** which needs registry metadata. The metadata cache is therefore kept in `os/cache/pnpm-cache`, and the check still runs.
+- **Host hardware stays untouched beyond OS-0's list:** Debian's systemd enables `systemd-tpm2-setup` (it would store a key in the laptop's TPM), the pcrlock and pcrphase units, and `systemd-pstore` (it deletes crash records from firmware variables). All are masked, as are GRUB's suspend hook, the network generator and sysext/confext. The contents check asserts it.
+- **The umask comes from PAM:** the login session takes its umask from PAM, not from the unit, so the app creates `~/Texts` 0700 itself.
+- **Welcome screen not painted:** under software rendering (the VM has no 3D, so Mesa uses `kms_swrast`), WebKit never paints the empty-library welcome screen. It is there, and a click reaches it. The guide and the editor paint. With `WEBKIT_DISABLE_COMPOSITING_MODE=1` it paints. The VM scenarios therefore open the guide (F1, a sample that is never saved) before typing. Whether real GPUs show it is the Dell's question; OS-3 decides what an empty stick opens on.
+- **OVMF sometimes reports "No bootable option"** for a stick it boots the next time, as it did in OS-0. `vm.ts` boots up to three times.
+
+**The author's acceptance check:**
+1. Flash the release image: `bash os/scripts/flash.sh release` (it asks for sudo and for the stick's model name).
+2. With Secure Boot on, boot the Dell from it (F12). It should go straight to bismillah, dark, at 2x.
+3. Note whether the welcome screen ("Nothing open", with its three actions) is visible, and roughly how long from power-on to the screen.
+4. Press F1 and type in the guide. Nothing you type is kept: home is in RAM until OS-2.
+5. Power off with the power button.
 
 ---
 

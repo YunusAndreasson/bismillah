@@ -58,6 +58,7 @@ cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check
 cargo deny check                 # banned crates, licences, advisories
 pnpm verify                      # all checks incl. build, e2e and visual; the gate before every commit (--fast skips the real-app suites)
 pnpm verify --online             # also require fresh Rust advisories + pnpm audit; accepts --fast
+pnpm os:fetch && pnpm os:verify  # the bismillah stick (os/PLAN.md): fetch inputs once, then build offline and test in VMs
 cd packaging/arch && makepkg -si # build the committed HEAD and install it on this machine
 ```
 

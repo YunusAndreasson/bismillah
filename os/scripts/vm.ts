@@ -208,17 +208,18 @@ export class Vm {
   }
 
   /**
-   * Boots, and boots once more if the firmware didn't find the stick: OVMF sometimes
+   * Boots, up to three times if the firmware doesn't find the stick: OVMF sometimes
    * reports "No bootable option" for a stick it boots the next time (seen since OS-0).
    */
   static async boot(options: BootOptions): Promise<Vm> {
-    const vm = await Vm.start(options);
-    if ((await vm.firmwareOutcome()) !== "missed") return vm;
-    vm.kill();
-    for (let i = 0; vm.running && i < 50; i++) await sleep(100);
-    await sleep(2000);
-    console.log("the firmware didn't find the stick; booting once more");
-    return Vm.start(options);
+    for (let attempt = 1; ; attempt++) {
+      const vm = await Vm.start(options);
+      if (attempt === 3 || (await vm.firmwareOutcome()) !== "missed") return vm;
+      vm.kill();
+      for (let i = 0; vm.running && i < 50; i++) await sleep(100);
+      await sleep(5000);
+      console.log(`the firmware didn't find the stick (attempt ${attempt}); booting again`);
+    }
   }
 
   private static async start(options: BootOptions): Promise<Vm> {
