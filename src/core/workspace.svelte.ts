@@ -1,3 +1,4 @@
+import { tick } from "svelte";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -7,8 +8,8 @@ import { linkAt } from "../editor/links.ts";
 import { createEditor, type Editor } from "../editor/setup.ts";
 import { remeasure } from "../editor/typography.ts";
 import { toggleTransliteration, transliterationOn } from "../editor/typingAids.ts";
-import { countWords } from "../editor/wordCount.ts";
-import { runCommand, type CommandContext } from "./commands.ts";
+import { WordCounter } from "../editor/wordCount.ts";
+import { runCommand, type CommandContext, type CommandId } from "./commands.ts";
 import { copy, nameError, when } from "./copy.ts";
 import * as ipc from "./ipc.ts";
 import {
@@ -124,8 +125,11 @@ export class Workspace {
   testMode = false;
 
   #host: HTMLElement | null = null;
-  #menu: NativeMenu | null = null;
+  #menu = $state.raw<NativeMenu | null>(null);
   #wordTimer: ReturnType<typeof setTimeout> | undefined;
+  #wordCounter = new WordCounter();
+  #wordCountRuns = 0;
+  #wordCountPaused = false;
   #onChange: (() => void) | null = null;
   /** The dialect the document was last checked in. */
   #dialect: Settings["english_dialect"] | null = null;
@@ -288,12 +292,14 @@ export class Workspace {
     menu: (context: CommandContext) => Promise<NativeMenu>,
   ): Promise<void> {
     this.#host = host;
+    performance.mark("bismillah:start");
     const [info] = await Promise.all([
       ipc.appInfo(),
       settings.load(),
       shortcuts.load().catch(() => false),
       colourThemes.load().catch(() => {}),
     ]);
+    performance.mark("bismillah:configuration");
     this.testMode = info.test_mode;
     this.info = { version: info.version, folders: info.folders };
     applyAppearance(settings.values);
@@ -305,10 +311,13 @@ export class Workspace {
     // Before startup, which may change the library (a folder on the command line).
     await listen<ipc.LibraryView>("library-changed", ({ payload }) => this.library.apply(payload));
     const first = await ipc.startup();
+    performance.mark("bismillah:document");
     const panel = await ipc.libraryGet(false);
+    performance.mark("bismillah:library");
     this.library.apply(panel.view);
     this.library.docked = panel.open;
     await fonts;
+    performance.mark("bismillah:fonts");
     if (first.kind === "document") {
       this.#show(first.document);
       // Other files' recovered text is mentioned at launch only, never on every open.
@@ -320,6 +329,7 @@ export class Workspace {
     }
     this.#listen();
     this.measureLayout();
+    performance.mark("bismillah:editor");
     // The native menu takes some sixty calls to Rust; nothing needs it before the text
     // is editable, so it is built after (ARCHITECTURE.md §14).
     // Then the fonts the first screen didn't need.
@@ -336,6 +346,11 @@ export class Workspace {
   /** Resolves once the native menu is built and every font loaded, after the text is
    * editable (the test hooks wait for it). */
   ready: Promise<void> = Promise.resolve();
+
+  /** Test hooks only: reads the installed native menu, rather than registry intent. */
+  menuItemEnabledForTest(id: CommandId): Promise<boolean | null> {
+    return this.#menu?.isEnabled(id) ?? Promise.resolve(null);
+  }
 
   #listen(): void {
     const appWindow = getCurrentWindow();
@@ -366,7 +381,10 @@ export class Workspace {
     window.addEventListener("keydown", (event) => {
       if (event.defaultPrevented || this.editor?.view.hasFocus) return;
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest('[role="dialog"], [role="alertdialog"]')) return;
+      const dialog = target?.closest('[role="dialog"], [role="alertdialog"]');
+      // The overlay is the same library as the docked panel, so its file and
+      // navigation shortcuts still work. Other dialogs keep commands behind them inert.
+      if (dialog && !dialog.classList.contains("library-overlay")) return;
       const key = keyOf(event);
       const field = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
       if (field && !key.startsWith("Mod-")) return;
@@ -457,6 +475,10 @@ export class Workspace {
       keymap.of(
         shortcuts.bound().map(({ command, key }) => ({
           key,
+          scope:
+            command.id.startsWith("edit.find") || command.id === "edit.replace"
+              ? "editor search-panel"
+              : "editor",
           run: () => runCommand(command.id, "keymap", this.context),
         })),
       ),
@@ -492,6 +514,7 @@ export class Workspace {
     // Before the text loads: its images are asked for by this id.
     this.#documentId = opened.id;
     this.welcome = false;
+    if (!options.quiet) this.library.closeForDocument();
     const existing = this.editor;
     const editor = existing ?? this.#createEditor(opened.text, opened.read_only);
     if (existing && options.quiet) editor.reloadQuietly(opened.text);
@@ -501,6 +524,7 @@ export class Workspace {
       save: (id, text, revision, force) => ipc.saveDocument(id, text, revision, force),
     });
     this.#onChange = () => {
+      this.checking.clearNote();
       session.edited();
       this.typing = true;
       this.#countWords();
@@ -521,7 +545,7 @@ export class Workspace {
     this.checking.documentShown();
     this.#countWords(0);
     void this.#setTitle(opened.name);
-    if (!options.quiet) editor.view.focus();
+    if (!options.quiet) void tick().then(() => editor.view.focus());
   }
 
   /** Test hooks only: shows a document opened by `test_open`. */
@@ -608,14 +632,31 @@ export class Workspace {
         this.measureLayout();
       });
     }
+  }
+
+  /** A separate reactive bridge: menu availability never reapplies typography. */
+  syncMenu(): void {
     void this.#menu?.sync();
   }
 
   #countWords(delay = WORD_COUNT_DELAY_MS): void {
     clearTimeout(this.#wordTimer);
+    if (this.#wordCountPaused) return;
     this.#wordTimer = setTimeout(() => {
-      this.words = this.editor ? countWords(this.editor.text()) : 0;
+      if (this.testMode) this.#wordCountRuns++;
+      this.words = this.#wordCounter.count(this.editor?.text() ?? "");
     }, delay);
+  }
+
+  /** Test hooks only: distinguish counting work from painting the status line. */
+  wordCounterForTest(paused?: boolean): { runs: number; paused: boolean } {
+    if (!this.testMode) throw new Error("word counter probe requires test mode");
+    if (paused !== undefined && paused !== this.#wordCountPaused) {
+      this.#wordCountPaused = paused;
+      clearTimeout(this.#wordTimer);
+      if (!paused) this.#countWords(0);
+    }
+    return { runs: this.#wordCountRuns, paused: this.#wordCountPaused };
   }
 
   /**
@@ -681,7 +722,7 @@ export class Workspace {
 
   /** Opens a file from the library, then puts the caret back in the text. */
   async openFromLibrary(path: string): Promise<void> {
-    this.library.overlay = false;
+    this.library.closeForDocument();
     if (path === this.library.active && this.session) {
       this.editor?.view.focus();
       return;
@@ -864,8 +905,13 @@ export class Workspace {
   /** Called when the name prompt closes: focus goes back where it belongs. */
   promptClosed(prompt: NamePrompt): void {
     if (this.prompt === prompt) this.prompt = null;
-    if (prompt.returnTo === "tree" && this.library.visible) this.library.requestFocus();
-    else this.focusEditor();
+    // Restore focus after the prompt's inert layer has been removed, including
+    // when returning to a row inside the still-open library overlay.
+    setTimeout(() => {
+      if (this.prompt) return;
+      if (prompt.returnTo === "tree" && this.library.visible) this.library.requestFocus();
+      else this.focusEditor();
+    }, 0);
   }
 
   async openFolder(): Promise<void> {
@@ -1011,19 +1057,35 @@ export class Workspace {
   /** The commands' view of the workspace. */
   readonly context: CommandContext;
 
+  /** Explicit saves acknowledge the result; autosave remains quiet. */
+  async saveNow(): Promise<void> {
+    const session = this.session;
+    if (!session || this.welcome) return;
+    this.typing = false;
+    this.checking.clearNote();
+    if (session.sample) {
+      this.#info("sample-save", copy.save.sample);
+      return;
+    }
+    if (session.readOnly) {
+      this.#info("read-only", copy.readOnly(session.name));
+      return;
+    }
+    const saved = await session.save();
+    if (this.session === session && !this.welcome && saved && session.state.kind === "saved")
+      this.checking.say(copy.save.confirmed);
+  }
+
   constructor() {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- the getter below needs the workspace
     const self = this;
     this.context = {
       get view() {
-        return self.editor?.view ?? null;
+        return self.session && !self.welcome ? (self.editor?.view ?? null) : null;
       },
       newFile: () => void this.newFile(),
       openFile: () => void this.#openWith(ipc.openDialog),
-      save: () => {
-        this.typing = false;
-        void this.session?.save();
-      },
+      save: () => void this.saveNow(),
       openSettings: () => this.openSettings(),
       openAbout: () => (this.aboutOpen = true),
       openGuide: () => void this.#openWith(ipc.openGuide),

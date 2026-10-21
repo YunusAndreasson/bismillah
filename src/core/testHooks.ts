@@ -1,11 +1,13 @@
 import { forceParsing } from "@codemirror/language";
+import { Compartment, StateEffect } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { setProfile, setTheme, type Profile, type Theme } from "./appearance.ts";
 import type { Editor } from "../editor/setup.ts";
+import { caretBlink } from "../editor/caretBlink.ts";
 import { remeasure } from "../editor/typography.ts";
 import { visibleDiagnostics } from "../editor/diagnostics.ts";
 import { lintIdle } from "../editor/linter.ts";
-import { setTransliteration } from "../editor/typingAids.ts";
+import { transliterationOn } from "../editor/typingAids.ts";
 import { geometry, type Geometry } from "./testGeometry.ts";
 import { commandLog, runCommand, type CommandId } from "./commands.ts";
 import {
@@ -40,8 +42,15 @@ export interface TestHooks {
   setTypewriter(on: boolean): void;
   setTransliteration(on: boolean): void;
   setSmartPunctuation(on: boolean): void;
+  /** Exercise normal caret blinking instead of the harness's steady caret. */
+  blinkCaret(on: boolean): void;
+  /** Count actual word-count computations; optionally pause/resume for an A/B probe. */
+  wordCounter(paused?: boolean): { runs: number; paused: boolean };
+  /** The open document's word count (behind the status line's reading time). */
+  words(): number;
   commandLog: typeof commandLog;
   menuState(): Promise<MenuState>;
+  menuItemEnabled(id: CommandId): Promise<boolean | null>;
   /** Replaces the whole document (spike tests load their own fixtures). */
   setDoc(text: string): Promise<void>;
   /** Resolves after layout settles (two frames plus a CodeMirror measure). */
@@ -104,6 +113,8 @@ export interface TestHooks {
   } | null;
   /** Opens Settings, at a section if given. */
   openSettings(section?: "files" | "appearance" | null): void;
+  /** Visual fixtures only: labels never change Rust's actual storage locations. */
+  setFolderLabels(folders: { config: string; data: string }): void;
   /** Each command's shortcut now, and why lines of keybindings.toml weren't used. */
   shortcuts(): { keys: Record<string, string>; problems: string[]; changed: number };
   /** The colour themes Settings lists, with their problems as Settings words them. */
@@ -142,6 +153,8 @@ function frames(n: number): Promise<void> {
 
 export function installTestHooks(editor: Editor, workspace: Workspace): void {
   const { view } = editor;
+  const blinking = new Compartment();
+  let blinkingInstalled = false;
   const settle = async () => {
     await document.fonts.ready;
     // Screenshots and probes may jump anywhere in the document; parse all of it first.
@@ -152,9 +165,21 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
   };
   window.__bismillah = {
     view,
+    wordCounter: (paused) => workspace.wordCounterForTest(paused),
+    words: () => workspace.words,
+    blinkCaret(on) {
+      const extension = on ? caretBlink() : [];
+      view.dispatch({
+        effects: blinkingInstalled
+          ? blinking.reconfigure(extension)
+          : StateEffect.appendConfig.of(blinking.of(extension)),
+      });
+      blinkingInstalled = true;
+    },
     geometry: geometry(view),
     commandLog,
     menuState,
+    menuItemEnabled: (id) => workspace.menuItemEnabledForTest(id),
     // Appearance and editor switches go through the settings, like the real controls,
     // so a later settings change can't silently undo them; each also applies at once.
     setTheme(theme) {
@@ -182,7 +207,9 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
       editor.setTypewriter(on);
       void settings.set({ typewriter_scrolling: on });
     },
-    setTransliteration: (on) => view.dispatch({ effects: setTransliteration.of(on) }),
+    setTransliteration(on) {
+      if (view.state.field(transliterationOn) !== on) workspace.context.toggleTransliteration();
+    },
     setSmartPunctuation(on) {
       editor.setSmartPunctuation(on);
       void settings.set({ smart_punctuation: on });
@@ -336,6 +363,9 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
       };
     },
     openSettings: (section = null) => workspace.openSettings(section),
+    setFolderLabels: (folders) => {
+      workspace.info.folders = folders;
+    },
     shortcuts: () => ({
       keys: Object.fromEntries(shortcuts.keys),
       problems: shortcuts.problems.map((p) => copy.shortcuts.problem(p)),

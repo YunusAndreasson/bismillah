@@ -79,10 +79,14 @@ export const copy = {
     sample: "Sample — changes aren't saved",
     guide: "Guide — changes aren't saved",
     readOnly: "Read-only",
-    words: (n: number) => `${n.toLocaleString()} ${n === 1 ? "word" : "words"}`,
     minutes: (n: number) => `${n} min read`,
     transliteration: "Transliteration",
     region: "Document status",
+  },
+  save: {
+    confirmed: "Saved now.",
+    sample:
+      "This is a sample, so changes aren't saved. To keep them, copy the text into a new file.",
   },
   failure: (name: string, error: SaveError) =>
     `Couldn't save ${quote(name)} — ${saveReason(error)}. Your text is kept in recovery.`,
@@ -138,9 +142,11 @@ export const copy = {
     open: "Open a file…",
     create: "New file…",
     drop: "Or drop a Markdown file or folder here.",
+    guide: "Guide",
   },
   library: {
     region: "Library",
+    close: "Close library",
     toggle: "Library",
     none: "No folder is open.",
     openFolder: "Open a folder…",
@@ -173,11 +179,28 @@ export const copy = {
     quickOpen: "Quick open",
     quickOpenPlaceholder: "Find a file by name or folder",
     noFile: "No file matches.",
+    emptyLibrary: "No Markdown files in this folder yet.",
+    unavailableLibrary: "The library folder isn't available. Choose another folder to continue.",
+    fileKeys: "↑ ↓ to choose · Enter to open · Esc to close",
+    commandKeys: "↑ ↓ to choose · Enter to run · Esc to close",
+    close: "Close",
     palette: "Command palette",
     palettePlaceholder: "Find a command",
     noCommand: "No command matches.",
     on: "On",
+    off: "Off",
     libraryOnly: "in the library",
+  },
+  search: {
+    prompt: "Type text to find in this document.",
+    noMatches: "No matches. Try different text or turn off a search option.",
+    matchFound: "Match found. Enter for next · Shift+Enter for previous.",
+    invalidExpression:
+      "Invalid regular expression. Check the pattern or turn off Regular expression.",
+  },
+  navigation: {
+    hint: "Enter a line (12), relative move (+10 or -10), percentage (50%), or line:column (12:4; columns start at 0).",
+    invalid: "Enter a number, such as 12, +10, 50%, or 12:4. Your position hasn't changed.",
   },
   checking: {
     spelling: "Possible spelling mistake",
@@ -252,6 +275,8 @@ export const copy = {
   },
   settings: {
     title: "Settings",
+    immediate: "Changes apply immediately.",
+    fontDefault: "font default",
     appearance: "Appearance",
     writing: "Writing",
     checking: "Language & checking",

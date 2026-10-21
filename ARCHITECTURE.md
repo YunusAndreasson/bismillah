@@ -34,7 +34,7 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | Tauri 2 | Desktop shell, IPC, packaging, system webview |
 | Svelte 5 + TypeScript + Vite | Small UI with compile-time reactivity |
 | Bits UI | Unstyled, accessible primitives (dialog, popover, menu, listbox, select): focus management and keyboard behaviour we would otherwise hand-write |
-| CodeMirror 6 + `@codemirror/lang-markdown` (Lezer) | Editing, IME, bidi, undo, search, accessibility |
+| CodeMirror 6 + `@codemirror/lang-markdown` (Lezer) + `@codemirror/search` | Editing, IME, bidi, undo, search, accessibility |
 | markdown-it | Copy as rich text: the document as HTML (raw HTML disabled, no typographer); loaded on first use |
 | markdown-it-footnote | Footnotes in that HTML, from the same project |
 | DOMPurify | Sanitises that HTML after all rendering extensions have run (an allow-list of tags and attributes; styles only for table alignment) |
@@ -54,6 +54,17 @@ A dependency is added only when it replaces difficult correctness, accessibility
 **Development only** (never shipped): WebdriverIO + `tauri-driver` (real-app e2e), `pixelmatch` + `pngjs` (screenshot comparison), Vitest + jsdom, ESLint + Prettier, svelte-check. Spike and font tooling run through `uv`: fontTools (font build), `uharfbuzz` (rendering reference, and the pre-shaped Basmallah outlines in `src/editor/basmallahInk.ts`), `python-xlib` (raw X input and clipboard).
 
 The editor's Markdown language is built from `@codemirror/lang-markdown`'s own parser and language data (`src/editor/dialect.ts`), not with its `markdown()`, which would also bundle and load the HTML, CSS and JavaScript grammars at every launch to highlight HTML that bismillah shows as text. Its Enter/Backspace keymap for lists and quotes and its link on pasting an address over a selection are kept as they were.
+
+`@codemirror/view@6.43.14` has a pinned pnpm patch in
+`patches/@codemirror__view.patch` (ESM and CommonJS). Its default text-size probe
+always uses its existing undecorated measuring line. Sampling a short heading or
+code line instead can give unseen prose the heading's padding/font metrics, causing
+viewport estimates to oscillate and leaving visible virtual spacers after the
+measure retry limit. The patch changes only the default estimate, preserving actual
+per-line measurements, typography and virtualization. The scrolling regression
+(`tests/e2e/scrolling.e2e.ts`) covers all four bundled profiles. Re-evaluate this
+patch when upgrading CodeMirror; do not silently carry it to a new version.
+
 
 Whether the writer's *Another font* is installed is asked of fontconfig's `fc-list -q` (`platform.rs`), a program that comes with fontconfig, which WebKitGTK needs anyway; the webview can't tell, because WebKitGTK draws an unknown family in a substitute font.
 
@@ -107,7 +118,8 @@ bismillah/
 │  │                          test hooks (only with BISMILLAH_TEST=1)
 │  ├─ editor/                 CodeMirror setup + one extension per concern: dialect (frontmatter),
 │  │                          markdownStyling, hangingMarks, bidi, scriptRuns, basmallah, typewriter,
-│  │                          zuhd, typingAids (smart punctuation, transliteration mode), lintBlocks
+│  │                          zuhd, typingAids (smart punctuation, transliteration mode), paragraphs
+│  │                          (Enter as a paragraph break), rest (Escape puts the pen down), lintBlocks
 │  │                          (what is prose), linter (when to check), diagnostics, livePreview
 │  │                          (what is revealed, the rendered look, the mouse), previewBlocks
 │  │                          (folded frontmatter, images, addresses on hover), previewTables
@@ -183,6 +195,13 @@ The writer's text is a trust. These rules are requirements, each with a test.
 
 If any step fails, the original file is untouched, the temporary file is removed, and the typed error is surfaced.
 
+Temporary basenames have bounded length: a stable local path identifier plus process
+and counter values, opened with `create_new`. They do not append to the document's
+basename, so a legal 255-byte filename can still be saved. Opening a document cleans
+up its interrupted-save temporaries, including the earlier basename-based pattern;
+other documents' temporaries and malformed names are retained. Tests cover maximum
+ASCII and Arabic filename lengths, a rename-stage failure and retry, and cleanup.
+
 ### 5.3 Preserving the file
 - Text is written back **byte-for-byte as edited**: no Unicode normalisation, no diacritic stripping, no punctuation or whitespace rewriting, no frontmatter rewriting.
 - **Line endings** (LF/CRLF) are detected on open and preserved on save. A UTF-8 BOM is preserved if present.
@@ -199,6 +218,7 @@ If any step fails, the original file is untouched, the temporary file is removed
 ### 5.5 Autosave and Save now
 - Autosave runs about 500ms after typing pauses, when switching documents, on window blur and when quitting.
 - `Mod-S` (`file.save`) flushes immediately and confirms visibly. Quitting waits for pending writes (with a timeout that leaves the text in recovery).
+- `Workspace.saveNow` acknowledges an explicit request only after `DocumentSession.save` succeeds and the same session still has state `saved`. Edits/document switches clear passing feedback. Samples and non-UTF-8 files instead receive an explanatory notice. This does not alter the durable-write or recovery protocol.
 
 ### 5.6 Failures
 - Disk full, read-only volume, permission denied, file removed or volume unmounted: each has a typed error and a plain message (DESIGN.md §14).
@@ -273,8 +293,8 @@ Diagnostic   { from_utf16, to_utf16, kind: spelling|grammar, lang: en|ar, messag
 - *Ignore* is per document and per app session, in memory only: the word (spelling) or the rule and text (grammar).
 
 ### 7.5 Threads and warm-up
-- The checker's thread builds Harper's dictionary and rule group on the first request, or after a second with nothing to check, and then warms the parser's model (2–4 s of CPU in all, off the UI path). Memory: about 200 MiB after warm-up (§14), plus 45 MiB once Arabic is checked.
-- Corrections are found on a second long-lived thread through a `Suggester` handle that shares the dictionaries. Harper keeps its search automata per thread (1–2 s to build), so that thread is warmed once the dictionary exists and serves every popover; a fresh thread per request would pay the cost again.
+- The checker's thread builds Harper's dictionary and rule group on the first block containing unmasked English prose. Punctuation, numbers and whitespace around masked runs alone do not load English. There is no speculative idle warm-up: empty, disabled and Arabic-only sessions retain no English checker. Once English is used it stays warm for fast subsequent checks and navigation. Memory: about 200 MiB after warm-up (§14), plus 45 MiB once Arabic is checked.
+- Corrections are found on a second long-lived thread through a `Suggester` handle that shares the dictionaries. Harper keeps its search automata per thread (1–2 s to build), so that thread is warmed after the first English check, once the dictionary exists, and serves every popover; a fresh thread per request would pay the cost again.
 
 ## 8. Extensibility
 
@@ -344,6 +364,11 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 - The Vite build target matches the oldest supported webview engine.
 - Unit tests stub IPC with `@tauri-apps/api/mocks` (`mockIPC`) instead of keeping a browser mode alive.
 
+The command context exposes no editor view after the document is closed, even
+though the workspace keeps the editor instance to reuse when another document
+opens. The application grids constrain their single columns with `minmax(0, 1fr)`,
+so enlarged document text cannot increase the page width beyond the desktop window.
+
 ### 12.2 Desktop integration
 - **Native application menu**, generated from the command registry (`src/core/commands.ts` → `src/core/menu.ts`, Tauri's JS menu API) with the same labels, IDs and accelerators as the palette and the editor keymap.
   - On macOS it lives in the global menu bar and must include the standard App and Edit menus, because without them `Cmd-C`/`Cmd-V`/`Cmd-Q` do not work in the webview.
@@ -362,6 +387,16 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 - **Native dialogs** for choosing a library folder and for "Save mine as…" (conflicts).
 - **Quitting** flushes pending saves first (§5.5), including from the window manager's close and from `Mod-Q`.
 
+#### Document navigation and UI synchronization
+
+`src/editor/search.ts` installs CodeMirror search state and Escape handling; the command registry supplies only bismillah’s chosen search shortcuts. CodeMirror owns Unicode-aware match offsets, explicit undoable replacement, accessible announcements and line navigation panels. These editor-owned panels use semantic interface styles rather than custom dialog machinery. The unused Select all matches control is hidden because the editor has a single caret; Replace all is available. Search normalization never changes the document; full-form replacement is explicit and imprecise partial compatibility-character matches cannot be replaced.
+
+`src/editor/goToLine.ts` adds examples and validation to CodeMirror's existing navigation panel. Capture handlers retain invalid submissions for correction, while CodeMirror still parses valid numeric positions, clamps them, moves the caret and manages closing/focus. No parallel navigation calculation or document transformation is introduced.
+
+The native menu is created from fresh recursive option objects in one `Menu.new` request. One root and four section enumerations retrieve item handles for availability, accelerators and check marks. Settings application snapshots settings and tracks colour-theme changes explicitly, then uses Svelte `untrack` around editor/DOM work. A separate effect tracks menu readiness and the context read by menu synchronization, so document/library changes keep menu availability current without reapplying settings.
+
+Search feedback extends CodeMirror's existing panel with a polite status region and an accessible field description. It uses the same `SearchQuery` cursor, stops at the first match, and does not rescan on selection-only transactions. No document edits or parallel search implementation are involved. Picker recovery actions close the modal before opening a native file dialog; visible Close controls preserve focus return.
+
 ### 12.3 Platforms
 - **For now bismillah runs only on the author's Linux machine.** It is installed with a local Arch `PKGBUILD` (`makepkg -si`), so it appears in the launcher and opens `.md` files from the file manager. The package holds the binary (fonts, the dictionary and the guide compiled in), the desktop entry (`text/markdown`, `text/x-markdown`; its name, the Wayland app id and `StartupWMClass` are all `bismillah`), the icon from 32 px to scalable, the guide, README and PRIVACY under `/usr/share/doc/bismillah/`, and the licences. `packaging/check.sh` checks a built package: its files, the entry, *Open with* opening a file (launched from the entry under the harness), `--version`, and that every linked library belongs to a declared dependency.
 - Public packaging (AppImage, .deb, .rpm, AUR, Flatpak) and macOS (WKWebView) / Windows (WebView2) builds come later. Until then, portability is protected by discipline (`platform.rs`, Tauri path APIs, `Mod-` shortcuts), not by CI.
@@ -375,6 +410,50 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 
 ## 13. Testing strategy
 
+### Code-quality gate
+
+`pnpm verify` is the local gate (there is no remote or hosted CI). It fails on
+TypeScript/Svelte diagnostics, formatting differences, ESLint warnings, failing
+unit tests, Rust formatting differences, Clippy warnings, cargo-deny policy violations,
+build failures, and real-app e2e or visual regressions. `--fast` skips only the
+real-app build and suites. Unknown arguments fail rather than silently skipping
+checks. Cargo checks, tests and the app build use `--locked`.
+
+TypeScript uses `strict`, checked indexed access, exact optional properties,
+explicit override checking, checked returns, switch fallthrough and side-effect
+imports, and rejects unreachable code and unused labels. `svelte-check` checks the
+app, Svelte components, tests, scripts and Vite config with warnings fatal. ESLint
+adds the strict syntax rules and recommended type-aware rules using TypeScript's
+project service, including unhandled promises, misused promises and unsafe `any`
+flows. The Svelte parser and its `prefer-const` rule preserve reactive bindings;
+Prettier owns formatting. Generated output and historical spikes are excluded.
+No type-aware rules are disabled for application or test code.
+
+Both Rust crates inherit the workspace lint policy: ignored must-use results and
+unsafe operations inside unsafe functions are errors; Clippy flags `unwrap`,
+`expect`, undocumented unsafe blocks, debug macros and unfinished implementations.
+Assertions may panic in tests, including their setup helpers. The two diagnostic
+examples return errors. The pure checking crate forbids unsafe code; native FFI
+stays in `platform.rs` with safety comments. The machine's packaged Rust supplies
+Clippy and rustfmt (currently Rust 1.99); the manifest's Rust 1.90 minimum is not a
+claim that the gate tests older compilers.
+
+For a connected supply-chain check, run `pnpm verify --online` (also accepts
+`--fast`): cargo-deny must refresh successfully and `pnpm audit` must pass for all
+dependencies, including development tools. Registry failures fail this mode.
+Normal verification retains the cached Rust-advisory fallback for offline work;
+it does not claim a fresh npm audit. New environments should first install with
+`pnpm install --frozen-lockfile`.
+
+Biome was considered on 2026-10-19. Its complete Svelte support remains experimental
+([configuration](https://biomejs.dev/reference/configuration/)); retaining the
+official Svelte ESLint plugin and Prettier avoids losing framework-specific checks
+or adding a second formatter. Typed linting follows the
+[typescript-eslint project-service guidance](https://typescript-eslint.io/troubleshooting/typed-linting/)
+and the [Svelte plugin setup](https://sveltejs.github.io/eslint-plugin-svelte/user-guide/).
+
+### Test layers
+
 | Layer | Tool | Covers |
 |---|---|---|
 | Rust unit | `cargo test --workspace` | Save contract (fault injection: disk full, read-only, rename failure), path validation (traversal, symlinks), line endings/BOM round-trip, UTF-16 offset conversion, the personal dictionary file (failed writes included) |
@@ -387,11 +466,13 @@ bismillah is a desktop application only. It will never be a web or mobile app (A
 | Contrast | Unit test over the token table (`tokens.test.ts`), and `themes.rs` for built-in themes | Every semantic pair (DESIGN.md §9.4), high contrast at 7:1, Zuhd mode's faint text |
 | Arabic rendering | `pnpm test:visual` (`tests/visual/arabic-rendering.visual.ts`) | Ink of every vocalised fixture word against a HarfBuzz reference, per bundled Arabic font; fails when a word gets worse, notes when WebKitGTK improves (ADR-0011) |
 | Accessibility | `pnpm a11y` (`scripts/a11y.ts`, `a11y_tree.py`) | The tree Orca reads over AT-SPI, from a private accessibility bus inside the harness, in every screen and state: named controls and dialogs, Settings' headings, the library tree and its selected file, the palette's options, a failure as an alert, the first screen |
-| Performance | `pnpm perf` (`scripts/perf.ts`) | §14's budgets in the release build: launch to an editable caret, typing in a 1 MB document, idle CPU, memory |
+| Performance | `pnpm perf` (`scripts/perf.ts`) | §14's budgets in the release build: launch to an editable caret, typing in a 1 MB document, synchronous edits, scrolling, idle CPU, memory; a separate Node comparison of word counting |
 | Package | `packaging/check.sh <package>` | §12.3 |
 | Supply chain | `cargo deny check`, `pnpm audit` | Banned crates, licences, advisories |
 
 All real-app runs go through `scripts/headless.sh` (private Xvfb, D-Bus, runtime, config and data directories), so they never touch the author's desktop, settings, recovery journal or trash (the freedesktop trash lives under the private data directory); the test harness refuses to start outside it. Rust unit tests use a stand-in trash in their scratch folder, never the system's. The library suite (`tests/e2e/library.e2e.ts`) works on a scratch copy of `tests/fixtures/library` and drives every library action from the keyboard, including attempts to leave the library through the IPC commands directly. File-safety e2e tests open real files with `test_open` and inject failures with `test_fault` (disk full, rename failure), both compiled into debug builds only and refused outside the harness. Native input that WebDriver can't produce (menus, accelerators, dead keys, layout switching, the clipboard) is driven with real X events (`xdotool`, raw XTEST via `spikes/webview/xtest.py`).
+
+The test-mode-only `setFolderLabels` frontend hook supplies deterministic display metadata for visual fixtures. Random temporary folder names can wrap differently and alter fractional scroll positions; this hook does not change Rust’s actual storage locations or folder-opening authority.
 
 Round-trip acceptance checks that must always pass:
 - Vocalised Arabic, mixed-script text and CRLF files save unchanged.
@@ -400,10 +481,60 @@ Round-trip acceptance checks that must always pass:
 
 ## 14. Performance budgets
 
+The [resource-use follow-up](docs/audits/2026-10-20-resource-use.md) removes
+speculative English loading from sessions that do not need it and skips identical
+remembered-state writes (retrying failures, including a return to an old value).
+Quick open caches Unicode-folded keys weakly by candidate, checking the original
+name/path for changes, and retains only its best 50 matches instead of sorting every
+match. Empty searches gather recent files and the first page in library order.
+Matching, recency and tie-break rules remain the same. `pnpm perf -- --parts
+resources,navigation` measures demand-loading and a 10,000-file quick-open workload;
+launch output also records frontend milestones to distinguish UI work from native
+GTK/WebKit startup. Deferring closed dialog roots was evaluated and rejected: its
+small startup saving did not justify a Settings screenshot regression. Full
+measurements and limits are in the audit.
+
+The follow-up [hot-path audit](docs/audits/2026-10-19-hot-paths.md) records the
+author-requested editing and scrolling investigation. Table previews compare the
+revealed block's mapped boundaries when typing, so changing its length moves existing
+grids instead of rebuilding them. Word counting still removes frontmatter and URLs
+from a temporary copy of the whole text, then caches `Intl.Segmenter` totals by line
+(newlines are word boundaries). Only lines in the current count are retained. The
+300 ms debounce and document bytes are unchanged. The counter uses the dialect's
+`frontmatterEnd` rule, including unclosed frontmatter, so metadata never becomes
+prose just because its closing delimiter is temporarily missing.
+
+The scrolling follow-up also stops direction detection at the first strong prose
+letter, walking the text lazily and skipping parsed code/URLs/Markdown syntax.
+Long paragraphs no longer require a full syntax scan for each visible line. Block
+line styling clips traversal to visible lines even inside a book-length code block
+or quote. Neither change alters direction rules, decoration classes or source text.
+
+The [framework-guided follow-up](docs/audits/2026-10-20-frameworks.md) also maps
+previews during ordinary prose edits beside unchanged inline code. The edit must
+leave delimiters, escapes and the enclosing block's mapped boundaries intact;
+syntax-sensitive edits still rebuild. Paragraph-end lookups check both sides of
+the syntax boundary. Checker batching uses a cursor to stop the whole tree walk
+at its UTF-16 budget, including the same whole blocks and inclusive range edges.
+Library snapshots use Svelte's `$state.raw` because Rust replaces them as a whole;
+expansion/focus/selection stay reactive. `library_get` uses Tauri async command
+dispatch so startup joins and filesystem refreshes do not run on GTK's main thread.
+Its payload and locking/path-validation behavior are unchanged.
+
+Frontmatter edits bypass the preview fast path: changing a delimiter, even after
+trailing spaces, can reclassify every following block.
+
+`pnpm perf -- --parts editing,scrolling` measures synchronous transactions and frame
+intervals during a scripted scroll of the 1 MB book in the real webview.
+`--parts wordcount` compares the original and cached counters in Node's Intl engine;
+those CPU timings are separate from WebKit measurements. `--out <path>` saves samples.
+Use the default release binary for budget claims; `--binary target/debug/bismillah`
+is useful for controlled before/after experiments.
+
 - Launch to an editable caret: under 400ms on a mid-range Linux laptop. **Measured for 1.0** (`pnpm perf`, release build, headless: Xvfb without a GPU, on the author's i7-7820HQ): 524 ms at the median of warm launches (730 ms cold) with a short document on a quiet machine, 521 ms with 50,000 words; in a later run with another busy process on the machine, 588 ms without a library and 586 ms with a remembered library of 1,000 files. Not met. Of the 524 ms, 274 ms pass before the page starts loading (GTK, the window and WebKit's processes), 32 ms until its script runs, and 214 ms in the start: settings, the document from Rust, the first fonts and the editor. Phase 6 took 190 ms off (it was 716 ms): only the fonts the first screen uses are loaded before it, while Rust opens the document, and the others once the window is ready; the native menu is built after the text is editable; the Markdown language no longer loads the HTML, CSS and JavaScript grammars (the script went from 917 KB to 732 KB); and the remembered library is listed and watched on a thread of its own while the window starts, so a library of 1,000 files costs nothing measurable (it cost 50 ms on the main thread).
 - No dropped frames while typing in a 1MB document. **Measured for 1.0** (key to painted frame, keys typed in bursts with pauses): a short document 10 ms at the median, 19 ms at p95; a 1 MB book (175,000 words) 19 ms at the median and 37 ms at p95 in prose, 24 ms and 42 ms on a line with code; frames longer than two refresh intervals while typing: 0.8 %, 4.4 % and 9 %. Not quite met at 1 MB. Phase 6 took it from about a second a key: drawn tables, images and link definitions were rebuilt for the whole document on every key, and are now kept across edits that can't change them (`inlineEdit` in `livePreview.ts`). What remains is CodeMirror's Markdown parser re-reading the document's block structure on each edit (Lezer's incremental parse walks every top-level block: about 6 ms in V8, 15 ms in WebKit's JavaScript engine, for 7,200 blocks).
 - Lint results within 500ms of a typing pause. Measured 2026-10-18 (`cargo run -p bismillah-lint --release --example bench -- <corpus>`, 8 cores at load ≈ 4): one edited paragraph takes 8–25 ms at the median and 46–163 ms at p95 on 50,000-word Gutenberg texts, after the 300 ms pause; a first pass over 50,000 words takes 16–38 s of background CPU, visible blocks first; the session cache answers a reopened document in 2 ms. The checker holds about 200 MiB after warm-up and 260 MiB after a 50,000-word pass, plus 45 MiB once Arabic is checked.
-- No CPU use when idle (no polling). **Measured for 1.0:** 30 ms of CPU in a quiet minute across the app's three processes, with a library of 1,000 files open (0.05 %). Before Phase 6 fixed the watcher (§5.4) the same library kept 5 % of a core busy for as long as it was open. Under the harness no window has focus, so the caret doesn't blink; in a focused window it repaints twice a second.
+- No CPU use when idle (no polling). **Quiet-harness measurement for 1.0:** 30 ms of CPU in a quiet minute across the app's three processes, with a library of 1,000 files open (0.05 %). Before Phase 6 fixed the watcher (§5.4) the same library kept 5 % of a core busy for as long as it was open. **The native idle budget is open:** the [live CPU investigation](docs/audits/2026-10-19-idle-cpu.md) reproduced about 50.5 % main-process CPU plus 11.4 % renderer CPU in a long-running Wayland instance. CPU-time samples attributed most hot UI-thread work to GTK/Cairo/Pixman painting and buffer filling. A native A/B/A comparison confirmed the unfocused caret-layer CSS animation as the trigger: about 55% main + 11% renderer CPU fell to 0.3% combined when it was disabled, and rose again when restored. The fix replaces CodeMirror's infinite CSS caret animation with discrete 600 ms visibility updates (`src/editor/caretBlink.ts`), resting visibly after about ten idle seconds and paused when unfocused/hidden/read-only and under reduced motion. The still-running old process has a temporary steady-caret workaround verified at 0.1% main and 0% renderer CPU; the rebuilt app retains bounded blinking. The default harness disables caret blinking, starts unfocused and disables the DMA-BUF renderer, so its quiet result does not establish native idle behaviour. `pnpm perf -- --parts caret --idle 15` separately tests focused blinking and unfocused idle in private X11; it still does not cover native Wayland/GPU behaviour.
 - Memory, recorded for 1.0: 755 MiB resident across the three processes with a short document open and checked and a library of 1,000 files (bismillah 479 MiB, of which the checker holds about 245 MiB with Arabic; WebKit's web process 214 MiB; its network process 62 MiB), 915 MiB with a 1 MB book.
 
 All budgets are measured, not assumed (`pnpm perf`; the run behind these numbers is in docs/audits/2026-10-19-personal-1.0.md). Package size is a tracked number; "small" is the goal, not a promise. 1.0 (`packaging/check.sh`): a 10.8 MiB package, 28.9 MiB installed, almost all of it the stripped binary (28.8 MiB), which carries the fonts (5.6 MiB), the Arabic dictionary (7 MiB), Harper's data and the frontend.

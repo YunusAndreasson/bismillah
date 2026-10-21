@@ -1,4 +1,7 @@
-import { redo, selectAll, undo } from "@codemirror/commands";
+import { redo, redoDepth, selectAll, undo, undoDepth } from "@codemirror/commands";
+import { findNext, findPrevious, openSearchPanel } from "@codemirror/search";
+import { openGoToLine } from "../editor/goToLine.ts";
+import { openReplace } from "../editor/search.ts";
 import type { EditorView } from "@codemirror/view";
 
 /**
@@ -24,6 +27,11 @@ export type CommandId =
   | "edit.selectAll"
   | "edit.copyRich"
   | "edit.openLink"
+  | "edit.find"
+  | "edit.replace"
+  | "edit.findNext"
+  | "edit.findPrevious"
+  | "edit.goToLine"
   | "editor.toggleTransliteration"
   | "check.suggestions"
   | "check.next"
@@ -187,6 +195,7 @@ export const COMMANDS: readonly Command[] = [
     section: "File",
     key: "Mod-s",
     separatorBefore: true,
+    available: (c) => c.view !== null,
     run: (c) => c.save(),
   },
   {
@@ -248,6 +257,7 @@ export const COMMANDS: readonly Command[] = [
     label: "Undo",
     section: "Edit",
     key: "Mod-z",
+    available: (c) => c.view !== null && !c.view.state.readOnly && undoDepth(c.view.state) > 0,
     run: (c) => withView(c, undo),
   },
   {
@@ -256,6 +266,7 @@ export const COMMANDS: readonly Command[] = [
     label: "Redo",
     section: "Edit",
     key: "Mod-Shift-z",
+    available: (c) => c.view !== null && !c.view.state.readOnly && redoDepth(c.view.state) > 0,
     run: (c) => withView(c, redo),
   },
   {
@@ -264,6 +275,7 @@ export const COMMANDS: readonly Command[] = [
     label: "Select all",
     section: "Edit",
     key: "Mod-a",
+    available: (c) => c.view !== null,
     run: (c) => withView(c, selectAll),
   },
   {
@@ -284,6 +296,50 @@ export const COMMANDS: readonly Command[] = [
     description: "Opens the link at the caret in your browser or mail app, as Ctrl+click does.",
     available: (c) => c.view !== null,
     run: (c) => c.openLink(),
+  },
+  {
+    id: "edit.find",
+    label: "Find…",
+    section: "Edit",
+    key: "Mod-f",
+    separatorBefore: true,
+    aliases: ["search", "document"],
+    available: (c) => c.view !== null,
+    run: (c) => withView(c, openSearchPanel),
+  },
+  {
+    id: "edit.replace",
+    label: "Replace…",
+    section: "Edit",
+    key: "Mod-h",
+    available: (c) => c.view !== null && !c.view.state.readOnly,
+    run: (c) => withView(c, openReplace),
+  },
+  {
+    id: "edit.findNext",
+    label: "Find next",
+    section: "Edit",
+    key: "F3",
+    available: (c) => c.view !== null,
+    run: (c) => withView(c, findNext),
+  },
+  {
+    id: "edit.findPrevious",
+    label: "Find previous",
+    section: "Edit",
+    key: "Shift-F3",
+    available: (c) => c.view !== null,
+    run: (c) => withView(c, findPrevious),
+  },
+  {
+    id: "edit.goToLine",
+    label: "Go to line…",
+    section: "Edit",
+    key: "Mod-Alt-g",
+    aliases: ["jump", "position", "percent", "percentage", "column"],
+    description: "A line number, +10 or -10 lines, 50%, or a line:column (column starts at 0).",
+    available: (c) => c.view !== null,
+    run: (c) => withView(c, openGoToLine),
   },
   {
     id: "editor.toggleTransliteration",

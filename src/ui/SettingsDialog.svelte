@@ -28,6 +28,7 @@
     open: boolean;
     values: Settings;
     change: (patch: Partial<Settings>) => void;
+    saveError: SaveError | null;
     library: LibraryStore;
     /** Where bismillah keeps its files, as the writer reads them. */
     folders: { config: string; data: string };
@@ -46,6 +47,7 @@
     open = $bindable(),
     values,
     change,
+    saveError,
     library,
     folders,
     customFont,
@@ -60,6 +62,8 @@
   const t = copy.settings;
   const lineHeight = $derived(values.line_height ?? PROFILE_LINE_HEIGHT[values.writing_profile]);
   const percent = $derived(`${Math.round(values.text_scale * 100)}%`);
+  let headerHeight = $state(0);
+  let footerHeight = $state(0);
 
   const SECTIONS: { id: Section; label: string }[] = [
     { id: "appearance", label: t.appearance },
@@ -70,6 +74,17 @@
 
   function showSection(id: Section) {
     const heading = document.getElementById(`settings-${id}`);
+    const panel = heading?.closest<HTMLElement>(".settings-dialog");
+    const header = panel?.querySelector("header");
+    if (panel && header) {
+      // Use the same rounded measurement as the size binding. A later footer
+      // measurement must not replace a fractional navigation offset with an integer.
+      headerHeight = header.offsetHeight;
+      panel.style.setProperty(
+        "--settings-header-offset",
+        `calc(${headerHeight}px + var(--space-4))`,
+      );
+    }
     heading?.scrollIntoView({ block: "start" });
     heading?.focus({ preventScroll: true });
   }
@@ -181,13 +196,22 @@
   plus: () => void,
   reset: () => void,
   atDefault: boolean,
+  canDecrease: boolean,
+  canIncrease: boolean,
 )}
   <div class="setting">
     <span class="label" {id}>{label}</span>
     <div class="stepper" role="group" aria-labelledby={id}>
-      <button type="button" aria-label="{t.smaller} ({label})" onclick={minus}>−</button>
+      <button
+        type="button"
+        aria-label="{t.smaller} ({label})"
+        disabled={!canDecrease}
+        onclick={minus}>−</button
+      >
       <output aria-live="polite">{shownValue}</output>
-      <button type="button" aria-label="{t.bigger} ({label})" onclick={plus}>+</button>
+      <button type="button" aria-label="{t.bigger} ({label})" disabled={!canIncrease} onclick={plus}
+        >+</button
+      >
       <button type="button" class="reset" disabled={atDefault} onclick={reset}>{t.reset}</button>
     </div>
   </div>
@@ -224,14 +248,26 @@
 <Dialog.Root bind:open>
   <Dialog.Portal>
     <Dialog.Overlay class="settings-overlay" />
-    <Dialog.Content class="settings-dialog" aria-describedby={undefined}>
-      <header>
+    <Dialog.Content
+      class="settings-dialog"
+      style={`--settings-header-offset: calc(${headerHeight}px + var(--space-4)); --settings-footer-offset: calc(${footerHeight}px + var(--space-4))`}
+    >
+      <header bind:offsetHeight={headerHeight}>
         <Dialog.Title class="settings-title">{t.title}</Dialog.Title>
+        <Dialog.Description class="settings-description">{t.immediate}</Dialog.Description>
         <nav aria-label={t.sections}>
           {#each SECTIONS as s (s.id)}
             <button type="button" onclick={() => showSection(s.id)}>{s.label}</button>
           {/each}
         </nav>
+        {#if saveError}
+          <div class="settings-save-error" role="alert">
+            <p>{copy.settingsNotSaved(saveError)}</p>
+            <button type="button" class="action" onclick={() => change({ ...values })}>
+              {copy.actions.tryAgain}
+            </button>
+          </div>
+        {/if}
       </header>
 
       <section aria-labelledby="settings-appearance">
@@ -325,6 +361,8 @@
           () => change({ text_scale: clampScale(values.text_scale + TEXT_SCALE.step) }),
           () => change({ text_scale: DEFAULTS.text_scale }),
           values.text_scale === DEFAULTS.text_scale,
+          values.text_scale > TEXT_SCALE.min,
+          values.text_scale < TEXT_SCALE.max,
         )}
         {@render choice(
           "set-measure",
@@ -337,11 +375,13 @@
         {@render stepper(
           "set-line",
           t.lineHeight,
-          lineHeight.toFixed(1),
+          `${lineHeight.toFixed(1)}${values.line_height === null ? ` (${t.fontDefault})` : ""}`,
           () => change({ line_height: clampLineHeight(lineHeight - LINE_HEIGHT.step) }),
           () => change({ line_height: clampLineHeight(lineHeight + LINE_HEIGHT.step) }),
           () => change({ line_height: null }),
           values.line_height === null,
+          lineHeight > LINE_HEIGHT.min,
+          lineHeight < LINE_HEIGHT.max,
         )}
         {@render toggle("set-fade", t.fadeChrome, null, values.fade_chrome, (fade_chrome) =>
           change({ fade_chrome }),
@@ -495,7 +535,7 @@
         {@render note(t.privacy, t.privacyText)}
       </section>
 
-      <footer>
+      <footer bind:offsetHeight={footerHeight}>
         <button type="button" class="action" onclick={openAbout}>{t.about}</button>
         <Dialog.Close class="done">{t.done}</Dialog.Close>
       </footer>
@@ -516,11 +556,15 @@
     inset-block-start: 50%;
     inset-inline-start: 50%;
     transform: translate(-50%, -50%);
-    width: min(36rem, calc(100vw - 2 * var(--space-4)));
+    width: min(46rem, calc(100vw - 2 * var(--space-4)));
     max-height: calc(100vh - 2 * var(--space-6));
     overflow: auto;
+    /* Section links and focused controls must clear the actual sticky header,
+       whose navigation can wrap in a small desktop window. */
+    scroll-padding-block-start: var(--settings-header-offset, 6.5rem);
+    scroll-padding-block-end: var(--settings-footer-offset, 5rem);
     box-sizing: border-box;
-    padding: 0 var(--space-6);
+    padding: 0 var(--space-8);
     background: var(--surface-editor);
     color: var(--text-primary);
     border: 1px solid var(--border-control);
@@ -536,13 +580,32 @@
   }
   header {
     inset-block-start: 0;
-    padding-block: var(--space-6) var(--space-3);
+    padding-block: var(--space-8) var(--space-4);
     border-block-end: 1px solid var(--border-control);
   }
   :global(.settings-title) {
     margin: 0 0 var(--space-2);
     font-size: 1.15rem;
     font-weight: 600;
+  }
+  :global(.settings-description) {
+    margin: 0 0 var(--space-3);
+    color: var(--text-secondary);
+  }
+  .settings-save-error {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    margin-block-start: var(--space-3);
+    padding-inline-start: var(--space-3);
+    border-inline-start: 3px solid var(--status-error);
+    color: var(--status-error);
+  }
+  .settings-save-error p {
+    flex: 1 1 16rem;
+    margin: 0;
+    overflow-wrap: anywhere;
   }
   nav {
     display: flex;
@@ -561,8 +624,8 @@
   }
   section {
     display: grid;
-    gap: var(--space-6);
-    padding-block: var(--space-4) var(--space-6);
+    gap: var(--space-8);
+    padding-block: var(--space-6) var(--space-8);
   }
   section + section {
     border-block-start: 1px solid var(--border-control);
@@ -575,8 +638,6 @@
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
-    /* Clears the sticky header when a section link scrolls to it. */
-    scroll-margin-block-start: 6.5rem;
   }
   h2:focus {
     outline: none;
@@ -591,7 +652,7 @@
   }
   .setting {
     display: grid;
-    gap: var(--space-2);
+    gap: var(--space-3);
   }
   .setting.row {
     grid-template-columns: 1fr auto;
@@ -612,6 +673,7 @@
   }
   .hint {
     margin: var(--space-1) 0 0;
+    max-width: 38rem;
     color: var(--text-secondary);
   }
   .hint.error {
@@ -684,6 +746,7 @@
   }
   .stepper {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
   }
@@ -735,7 +798,7 @@
     display: flex;
     justify-content: space-between;
     gap: var(--space-4);
-    padding-block: var(--space-4) var(--space-6);
+    padding-block: var(--space-4) var(--space-8);
     border-block-start: 1px solid var(--border-control);
   }
   :global(.segment:focus-visible),
@@ -751,6 +814,17 @@
   @media (prefers-reduced-motion: reduce) {
     :global(.thumb) {
       transition: none;
+    }
+  }
+  @media (max-height: 480px) {
+    header {
+      padding-block: var(--space-4) var(--space-2);
+    }
+    footer {
+      padding-block: var(--space-2);
+    }
+    :global(.settings-description) {
+      margin-block-end: var(--space-2);
     }
   }
 </style>

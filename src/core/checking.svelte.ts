@@ -108,8 +108,15 @@ export class Checking {
 
   /** A document was shown: it keeps what was ignored in it earlier this session. */
   documentShown(): void {
+    this.clearNote();
+    this.#opening++;
     this.menu = null;
     this.host.editor()?.setIgnored(this.#ignored.of(this.#document()));
+  }
+
+  clearNote(): void {
+    clearTimeout(this.#noteTimer);
+    this.note = null;
   }
 
   say(message: string): void {
@@ -185,6 +192,9 @@ export class Checking {
 
   /** Closes the menu; focus goes back to the text. */
   close(): void {
+    // A spelling lookup can finish after Escape or after another action closed
+    // the menu. Its response must not reopen a dismissed popup.
+    this.#opening++;
     this.menu = null;
     this.host.editor()?.view.focus();
   }

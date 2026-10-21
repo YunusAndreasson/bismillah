@@ -18,11 +18,13 @@ Your writing lives in **Markdown files** (ending in `.md` or `.markdown`) in a f
 - *New file…* (`Ctrl+N`) asks where to save a new file, starting in the folder you have selected in the library. It never replaces a file that is already there.
 - You can also drop a file or a folder on the window, or open one from your file manager with *Open with › bismillah*.
 
-When nothing is open, bismillah offers just those three: open a folder, open a file, or start a new one.
+When nothing is open, bismillah offers those three: open a folder, open a file, or start a new one. A quiet *Guide* button opens this guide.
 
 ### Saving
 
 bismillah saves as you write. The status line at the bottom of the window says *Saving…* from your first change, and *Saved* only once the text is safely on disk. `Ctrl+S` (*Save now*) saves at once and shows that it did.
+
+An explicit save confirms *Saved now* once it has finished; that message clears when you edit or change documents. Saving a sample explains that its changes cannot be saved: copy text you want to keep into a new file. A read-only file stays unchanged.
 
 Your text is saved **exactly as you typed it**: line endings, vocalisation, punctuation and frontmatter are never changed. A file that isn’t UTF-8 text opens read-only and stays as it is.
 
@@ -45,6 +47,8 @@ Your document reads as **rendered text**: emphasis without its asterisks, links 
 - Tables are drawn as grids, and code blocks sit on a quiet ground.
 - The frontmatter at the top of a file (between two lines of `---`) folds to one quiet line until the caret goes into it.
 - Footnotes and reference links are shown as such only when they are defined, so a scholarly [sic] keeps its brackets.
+- `Enter` starts a new paragraph, with the blank line Markdown needs, so one press is enough; `Backspace` straight away takes it back. `Shift+Enter` breaks the line within the paragraph, and in a list `Enter` starts the next item.
+- `Esc` puts the pen down: the caret goes, the paragraph you were in shows its rendered look, and Zuhd mode lights nothing, so you can read the page as a whole. Any key that types or moves the caret, or a click, carries on where you were.
 
 ### Links and images
 
@@ -103,7 +107,7 @@ The dot comes before its letter, so a full stop after a word never changes it, a
 - **Fullscreen** (`F11`) leaves only the text.
 - The status line can fade while you type (Settings › Appearance). Notices about saving never fade.
 - Every document opens with the **Basmallah**, set above the text. It is never part of your file, never counted or checked, and Settings › Appearance can turn it off. A document that already begins with the Basmallah doesn’t show it twice.
-- The status line shows the number of words and the reading time: information, never a target.
+- The status line shows the reading time, quietly, at the right: information, never a target.
 
 ## Spelling and grammar
 
@@ -126,14 +130,28 @@ bismillah checks English and Arabic spelling and suggests English grammar correc
 - `Ctrl+Shift+N` (*New folder…*) makes a folder in the selected one.
 - `Delete` moves the selected file or folder to the trash, and *Undo* puts it straight back. bismillah never deletes anything outright.
 - Files are listed in natural order, as a catalogue would list them: “Chapter 2” before “Chapter 10”, and “ʿIlm” under I.
+- In a narrow window the library opens over the writing. Its *Close* button returns to the text.
 
 ### Quick open and the command palette
 
 - **Quick open** (`Ctrl+P`) finds a file by its name or its folder. Matching ignores case, diacritics and vocalisation, so “hadith” finds “ḥadīth.md”, and files with the same name show their folders.
-- **The command palette** (`Ctrl+Shift+P`) finds every command by its name or by other words for it, with its shortcut.
+- **The command palette** (`Ctrl+Shift+P`) finds every command by its name or by other words for it, with its shortcut. Switches say *On* or *Off*.
+- Both show keyboard hints and a *Close* button. Quick open offers *New file…* when the library is empty. Hover over a shortened file name or path to read it in full.
 - **The menu bar** appears when you press `Alt` or `F10`.
 
+## Finding text and moving around
+
+**Find…** (`Ctrl+F`) searches this document; **Replace…** (`Ctrl+H`) focuses the replacement field. `Enter` finds the next match, `Shift+Enter` the previous; `F3` and `Shift+F3` also work while writing. The panel offers case-sensitive, whole-word and regular-expression search. Replacement happens only when you choose *Replace* or *Replace all*, and Undo restores it. Search compares Unicode-equivalent forms on a temporary copy; it never changes the document by itself. Arabic vowel marks remain part of the query. `Esc` closes search and returns to writing.
+
+The search panel tells you when there are no matches and explains an invalid regular expression beside the field. Search and replacement text follow their own writing direction.
+
+**Go to line…** (`Ctrl+Alt+G`) accepts a line number, `+10` or `-10` lines from here, `50%` of the document’s lines, or `12:4` (line 12, column 4; columns start at 0). It moves the caret without changing text.
+
+The panel shows these examples. If a position cannot be understood, it stays open with an explanation so you can correct it or press `Esc`. Spaces around a position are ignored.
+
 ## Settings, colours and shortcuts
+
+Settings changes apply immediately. Size controls stop at their limits. A line height marked *font default* follows your writing font; Reset returns to that default. If settings cannot be saved, the dialog explains why and offers *Try again* for your current choices.
 
 **Settings** (`Ctrl+,`) is one screen in four parts: Appearance, Writing, Language & checking, and Files & privacy. Every change applies at once and is saved.
 
@@ -197,6 +215,11 @@ Changes apply everywhere as soon as you save the file, and an empty shortcut lea
 | Select all | `Ctrl+A` |
 | Copy as rich text | `Ctrl+Shift+C` |
 | Open link | `Ctrl`+click |
+| Find… | `Ctrl+F` |
+| Replace… | `Ctrl+H` |
+| Find next | `F3` |
+| Find previous | `Shift+F3` |
+| Go to line… | `Ctrl+Alt+G` |
 | Transliteration mode | `Ctrl+Shift+T` |
 | Show suggestions | `Ctrl+.` |
 | Next issue | `F7` |

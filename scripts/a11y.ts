@@ -14,7 +14,7 @@
  * fails on any problem. What it can't check is what Orca says aloud.
  */
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { remote } from "webdriverio";
@@ -155,6 +155,8 @@ const escape = async () => {
   await settle();
 };
 const showing = (n: A11yNode) => n.states.includes("showing");
+const settingsFolder = join(process.env.XDG_CONFIG_HOME ?? "", "bismillah");
+let settingsMode: number | undefined;
 
 /** One screen or state: how to reach it, what it must offer, how to leave it. */
 interface State {
@@ -184,6 +186,82 @@ const STATES: State[] = [
       if (unnamed.length) out.push(`${unnamed.length} menu items without a name`);
       return out;
     },
+  },
+  {
+    name: "document search",
+    enter: async () => {
+      await run("edit.find");
+      await browser.$(".cm-search").waitForDisplayed();
+      await settle();
+    },
+    expect: (doc) => {
+      const fields = find(doc, (n) => n.role === "entry").map((n) => n.name);
+      return ["Find", "Replace"]
+        .filter((label) => !fields.includes(label))
+        .map((label) => `no named ${label} field`);
+    },
+    leave: escape,
+  },
+  {
+    name: "invalid search expression",
+    enter: async () => {
+      await run("edit.find");
+      await browser.execute(() => {
+        const field = document.querySelector<HTMLInputElement>('.cm-search input[name="search"]');
+        const regex = document.querySelector<HTMLInputElement>('.cm-search input[name="re"]');
+        if (regex && !regex.checked) regex.click();
+        if (field) {
+          field.value = "[";
+          field.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      });
+      await settle();
+    },
+    expect: (doc) =>
+      find(
+        doc,
+        (n) =>
+          n.role === "entry" &&
+          n.name === "Find" &&
+          n.description.includes("Invalid regular expression"),
+      ).length
+        ? []
+        : ["the Find field doesn't describe its invalid expression"],
+    leave: escape,
+  },
+  {
+    name: "go to line",
+    enter: async () => {
+      await run("edit.goToLine");
+      await browser.$(".cm-goto-line").waitForDisplayed();
+      await settle();
+    },
+    expect: (doc) =>
+      find(doc, (n) => n.role === "entry" && n.name.startsWith("Go to line")).length
+        ? []
+        : ["no named Go to line field"],
+    leave: escape,
+  },
+  {
+    name: "invalid line position",
+    enter: async () => {
+      await run("edit.goToLine");
+      await browser.$(".cm-goto-line input").setValue("not a position");
+      await browser.keys("Enter");
+      await settle();
+    },
+    expect: (doc) =>
+      find(
+        doc,
+        (n) =>
+          n.role === "entry" &&
+          n.name.startsWith("Go to line") &&
+          n.states.includes("invalid") &&
+          n.description.includes("Your position hasn't changed"),
+      ).length
+        ? []
+        : ["invalid navigation is not described beside the field"],
+    leave: escape,
   },
   {
     name: "the guide",
@@ -219,6 +297,39 @@ const STATES: State[] = [
       return out;
     },
     leave: escape,
+  },
+  {
+    name: "Settings could not be saved",
+    enter: async () => {
+      await browser.execute(async () => {
+        await window.__bismillah?.changeSettings({ theme: "light" });
+        window.__bismillah?.openSettings("appearance");
+      });
+      await browser.$(".settings-dialog").waitForDisplayed();
+      settingsMode = statSync(settingsFolder).mode & 0o777;
+      chmodSync(settingsFolder, 0o555);
+      await browser.$(".settings-dialog").$("button=Dark").click();
+      await browser.$(".settings-save-error").waitForDisplayed();
+      await settle();
+    },
+    expect: (doc) => {
+      const dialog = find(doc, (n) => n.role === "dialog" && showing(n))[0];
+      return dialog &&
+        find(
+          dialog,
+          (n) =>
+            (n.attributes["xml-roles"] === "alert" || /alert|notification/.test(n.role)) &&
+            showing(n),
+        ).length &&
+        find(dialog, (n) => /button$/.test(n.role) && n.name === "Try again" && showing(n)).length
+        ? []
+        : ["Settings has no visible alert and named retry control"];
+    },
+    leave: async () => {
+      if (settingsMode !== undefined) chmodSync(settingsFolder, settingsMode);
+      await browser.execute(async () => window.__bismillah?.changeSettings({ theme: "system" }));
+      await escape();
+    },
   },
   {
     name: "About",
@@ -362,7 +473,7 @@ const STATES: State[] = [
     },
     expect: (doc) => {
       const buttons = find(doc, (n) => /button$/.test(n.role) && showing(n)).map((n) => n.name);
-      return ["Open a folder…", "Open a file…", "New file…"].every((b) =>
+      return ["Open a folder…", "Open a file…", "New file…", "Guide"].every((b) =>
         buttons.some((name) => name.startsWith(b)),
       )
         ? []
