@@ -534,3 +534,15 @@ Every new or changed screen answers five questions before it merges:
 5. Does it hold up at narrow and wide widths, in both themes, with RTL/mixed content and enlarged text?
 
 It is also checked against [docs/specimen.md](docs/specimen.md) at content widths of **640, 1280, 1920 and 2560 px**, in a short window, and at increased zoom, both in the real Tauri app and in the visual-regression suite.
+
+## 19. The bismillah stick
+
+On the stick bismillah is the whole screen (os/PLAN.md). The same principles hold; these are the differences.
+
+- **First screens:** Setup, Unlock, Finish setup and the trouble screens share one frame: the ﷽ wordmark in `text-secondary` above one centred column, with *Power off* as a quiet button below. Wrong passphrases get a calm sentence, never a countdown or lockout.
+- **The lock view** is the Unlock screen titled *Locked*, drawn over everything. Focus starts in the passphrase field; nothing behind it takes keys.
+- **The status line** ends with the battery and a 24-hour clock in faint text, and fades with the rest of the quiet chrome. A low battery is a notice that stays until the battery charges.
+- **Commands:** *Power off* takes Quit's place and key (`Ctrl+Q`), beside *Lock*, *Suspend* and *Restart* in the File menu and the palette. Commands that need another app, a file outside the library or a window manager are left out rather than shown disabled.
+- **Settings › This stick:** keyboard layouts are chosen and then applied with one button, because applying restarts the app; everything else there applies immediately, like the rest of Settings.
+- **The pointer** hides while the writer types, and returns when the mouse moves.
+

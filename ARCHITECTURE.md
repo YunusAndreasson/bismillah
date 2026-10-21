@@ -51,6 +51,7 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | `toml_edit` | `settings.toml` rewritten without losing the writer's comments, layout or unknown keys (§9) |
 | `gtk` (Linux only, already in Tauri's tree) | Focus the native menu bar on `Alt`/`F10`; put Copy as rich text on the clipboard as `text/html` and text; hand a checked link or folder to the desktop's default app through GIO (`platform.rs`), instead of `tauri-plugin-clipboard-manager` and `tauri-plugin-opener` |
 | `zeroize` (the stick only, `crates/bismillah-appliance`) | Clears passphrases from memory once the helper or the app has used them (os/PLAN.md, OS-2) |
+| `dbus` (the stick's helper only; already in Tauri's tree, through tao) | logind's sleep signal and its delay inhibitor, so the helper can lock the app before the system sleeps (os/PLAN.md, OS-3). D-Bus over the system bus's Unix socket |
 | `zxcvbn` (the stick only) | Rates a passphrase at setup, so the stick refuses a guessable one; strength estimation is a hard problem we would otherwise get wrong. The six-word suggestions come from the EFF large word list (CC BY 3.0 US), bundled in the crate |
 
 **Development only** (never shipped): WebdriverIO + `tauri-driver` (real-app e2e), `pixelmatch` + `pngjs` (screenshot comparison), Vitest + jsdom, ESLint + Prettier, svelte-check. Spike and font tooling run through `uv`: fontTools (font build), `uharfbuzz` (rendering reference, and the pre-shaped Basmallah outlines in `src/editor/basmallahInk.ts`), `python-xlib` (raw X input and clipboard).
@@ -409,6 +410,17 @@ Search feedback extends CodeMirror's existing panel with a polite status region 
   - Screen-reader support goes through WebKitGTK's AT-SPI bridge and is tested with **Orca**.
   - Keyboard layout switching (e.g. English ↔ Arabic via XKB/Hyprland), dead keys and compose sequences are tested in the editor.
   - Some GPU/driver combinations need `WEBKIT_DISABLE_DMABUF_RENDERER=1`; this is documented in the README.
+
+### 12.4 The bismillah stick (appliance mode)
+
+The stick runs this app with `--appliance` under cage, as its only program (os/PLAN.md, ADR-0013). A desktop launch never passes the flag, and nothing below runs there.
+
+- **The gate.** Everything that reads home waits in `appliance::Gate` while the page shows Setup or Unlock; the helper (`crates/bismillah-appliance`, root) opens the encrypted home over `/run/bismillah/helper.sock`, one JSON line each way, and the app then starts in the same process. The app refuses to start unless home is a mount of its own.
+- **The lock handshake.** The app keeps one *events* connection to the helper. The helper holds a logind delay inhibitor; before sleep it sends `lock`, and the page shows the lock view over everything (the rest is `inert`, and no command runs) and reports `painted` two frames later. Without that report within 1.5 s the helper switches to an empty VT, so nothing of the document is on screen while the machine sleeps; on resume it stays there until the app paints its lock, or restarts the session, which always opens locked. Closing the lid locks at once, because logind ignores a lid closed soon after a resume. A dropped connection locks too: the app shows the lock itself, and the helper answers only status, verify and power until the passphrase is verified.
+- **Power.** Power off, Restart and Suspend save first (with the same timeout as quitting), then ask the helper; systemd unmounts home and closes LUKS on the way down. At 3% battery (read from `/sys/class/power_supply`) the app does the same.
+- **Keyboard.** cage reads its layouts only at start, so applying new ones stores them in home's LUKS2 header, leaves the caret's offset in `$XDG_RUNTIME_DIR`, and exits for a session restart. The helper lets the restarted app reopen home once, within a minute, without the passphrase (`resume`).
+- **What isn't there.** The registry leaves out Quit, Open…, Open folder…, Copy as rich text, Open link and Fullscreen (`useStickCommands()`); Rust also refuses links and the file manager (`LinkError::Stick`). Window size is neither restored nor remembered.
+- **Time.** The clock uses the `time_zone` setting through `Intl`. The hardware clock is never written; `clock_keeps_local_time` corrects a host whose clock keeps local time.
 
 ## 13. Testing strategy
 

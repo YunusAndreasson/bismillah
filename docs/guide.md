@@ -240,6 +240,16 @@ Changes apply everywhere as soon as you save the file, and an empty shortcut lea
 | About bismillah | — |
 | Show the menu bar | `Alt` or `F10` |
 
+## On the bismillah stick
+
+The bismillah stick starts a computer straight into bismillah, with your texts encrypted on the stick. Your passphrase opens them; nothing else runs, and nothing leaves the stick.
+
+- **Lock** hides your texts until you type the passphrase again. Closing the lid, and *Suspend*, lock before the computer sleeps.
+- **Power off** (`Ctrl`+`Q`), **Restart** and **Suspend** are in the File menu and the command palette. Each saves first.
+- The **battery** and the **clock** are at the end of the status line. At 10% bismillah tells you; at 3% it saves and powers off. That narrows the chance of losing what you just typed, but a battery can still die suddenly, so save as you would anywhere.
+- **Settings › This stick** has your keyboard layouts (up to four, and the key that switches between them), the time zone, and a correction for computers whose clock keeps local time, as Windows sets it. Applying layouts restarts bismillah, which saves first and comes back to where you were.
+- The library is always the `Texts` folder on the stick. Links can't open, because there is no browser on the stick, and *Copy as rich text* isn't there, because there is no other app to paste into.
+
 ## Your privacy
 
 bismillah has no accounts, no sync, no telemetry, no advertising and no generative AI: nothing writes your text for you. It has no networking features, and it works without a network. The only things that leave it are the links you open yourself, which go to your browser.
