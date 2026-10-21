@@ -46,3 +46,4 @@ os/out/
 os/mkosi/mkosi.output/
 os/mkosi/mkosi.cache/
 os/mkosi/mkosi.tools/
+os/mkosi/mkosi.tools.manifest
