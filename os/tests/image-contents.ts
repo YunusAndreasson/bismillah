@@ -129,6 +129,12 @@ function checkImage(profile: Profile): void {
       `${profile}: no ${name} module`,
     );
   check(modules.length > 100, `${profile}: ${modules.length} modules in all`);
+  // By hardware class (mkosi.conf): the stick has no sound.
+  const sound = matching(/\/kernel\/sound\//);
+  check(
+    sound.length === 0,
+    `${profile}: no sound modules (${sound.slice(0, 3).join(" ") || "none"})`,
+  );
   const firmware = readdirSync(join(tree, "usr/lib/firmware")).sort();
   const gpu = /^(i915|xe|amdgpu|radeon|nvidia|amd|intel|regulatory\.db.*|.*\.(txt|md))$/;
   const other = firmware.filter((f) => !gpu.test(f));

@@ -1,0 +1,75 @@
+# The files a VM can't open, kept in the image with the traced ones (os/PLAN.md, OS-4;
+# os/mkosi/prune.py). Globs: "**" crosses folders, "*" and "?" don't. A line starting
+# with "debug:" is for the debug image only. Kernel modules and firmware aren't listed:
+# mkosi.conf's KernelModules= chooses them by hardware class, and mkosi keeps the
+# firmware they ask for. /etc is the image's configuration and is kept whole.
+
+# Read by systemd before the recorder starts, or run after it stops: units, generators,
+# presets, the settings early services read, and the shutdown.
+/usr/lib/os-release
+/usr/lib/systemd/system/**
+/usr/lib/systemd/user/**
+/usr/lib/systemd/system-generators/**
+/usr/lib/systemd/user-generators/**
+/usr/lib/systemd/system-preset/**
+/usr/lib/systemd/system-shutdown/**
+/usr/lib/systemd/system-sleep/**
+/usr/lib/systemd/systemd
+/usr/lib/systemd/systemd-executor
+/usr/lib/systemd/systemd-shutdown
+/usr/lib/systemd/systemd-sleep
+/usr/lib/systemd/*.conf
+/usr/lib/systemd/*.conf.d/**
+/usr/lib/tmpfiles.d/**
+/usr/lib/sysusers.d/**
+/usr/lib/sysctl.d/**
+/usr/lib/modprobe.d/**
+/usr/lib/modules-load.d/**
+/usr/lib/environment.d/**
+/usr/share/dbus-1/**
+# udev's rules, its helpers and the hardware database: they name and set up hardware
+# the VM doesn't have (a laptop's keys, its backlight, its touchpad).
+/usr/lib/udev/**
+/usr/share/libinput/**
+
+# Every keyboard layout (Settings › This stick offers them all) and every time zone
+# (none is installed: the clock takes its zones from ICU, which the app opens).
+/usr/share/X11/xkb/**
+/usr/share/zoneinfo/**
+# Every font, and fontconfig's settings.
+/usr/share/fonts/**
+/usr/share/fontconfig/**
+# The GPU families the stick supports: Intel, AMD, NVIDIA (nouveau) and virtio. Mesa
+# ships them in one library; these are its drivers' entry points, their data and the
+# GPU names.
+/usr/lib/x86_64-linux-gnu/dri/**
+/usr/lib/x86_64-linux-gnu/gbm/**
+/usr/lib/x86_64-linux-gnu/libgallium-*.so
+/usr/lib/x86_64-linux-gnu/libdrm_*.so*
+/usr/lib/x86_64-linux-gnu/libEGL_mesa.so*
+/usr/share/glvnd/**
+/usr/share/drirc.d/**
+/usr/share/libdrm/**
+# The C locale. CPU microcode: none is installed (the firmware's own is used).
+/usr/lib/locale/**
+
+# bismillah: the app, the helper, the licences About names, the commit and snapshot.
+/usr/bin/bismillah
+/usr/libexec/bismillah-helper
+/usr/share/bismillah/**
+/usr/share/licenses/bismillah/**
+# The tools the helper runs for setup, unlock, a damaged home and power.
+/usr/sbin/cryptsetup
+/usr/sbin/mkfs.ext4
+/usr/sbin/mke2fs
+/usr/sbin/e2fsck
+/usr/sbin/blkid
+/usr/bin/lsblk
+/usr/bin/systemctl
+/usr/bin/cage
+
+# The debug image: its command line, the recorder and the tests' tools.
+debug: /usr/bin/**
+debug: /usr/sbin/**
+debug: /usr/libexec/bismillah-debug-console
+debug: /usr/libexec/bismillah-trace

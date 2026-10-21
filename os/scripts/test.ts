@@ -1021,6 +1021,127 @@ async function power(): Promise<void> {
   }
 }
 
+// ---- OS-4: a tour of the app, so that the allowlist's trace sees every part ----------
+
+/** Runs a command from the palette by typing its name. */
+async function palette(vm: Vm, command: string): Promise<void> {
+  await vm.key("ctrl", "shift", "p");
+  await sleep(800);
+  await vm.type(command);
+  await sleep(800);
+  await vm.key("ret");
+  await sleep(1500);
+}
+
+/**
+ * Every part of the app a writer reaches on the stick, by keyboard: English and
+ * vocalised Arabic, spelling and grammar, Settings, both themes, the guide, About,
+ * the native New file dialog, find, the views, Lock, then Restart. Run with
+ * BISMILLAH_TRACE=1 it records what they open (os/scripts/allowlist.ts); either way
+ * it checks that each answers.
+ */
+async function tour(): Promise<void> {
+  const name = "tour";
+  const vm = await boot(name, "1", {});
+  const step = async (label: string, act: () => Promise<void>, wait = 1500) => {
+    const before = await vm.screen(`${label}-before`);
+    await act();
+    await sleep(wait);
+    const after = await vm.screen(label);
+    check(changed(before, after) > 0.0005, `${name}: ${label} answers`);
+  };
+  try {
+    await setUpQuickly(vm);
+    await mark(vm, "page-editable", 60);
+    await vm.run(
+      `printf '%s\\n' '# بسم الله' '' 'الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ' '' 'A mixed line: the word كتاب means book.' > /home/writer/Texts/arabic.md && chown writer:writer /home/writer/Texts/arabic.md`,
+    );
+    await sleep(1500);
+    await step(
+      "arabic",
+      async () => {
+        await vm.key("ctrl", "p");
+        await sleep(800);
+        await vm.type("arabic");
+        await sleep(800);
+        await vm.key("ret");
+      },
+      4000,
+    );
+    await step(
+      "english",
+      async () => {
+        await vm.key("ctrl", "end");
+        await vm.key("ret");
+        await vm.type("This are a sentance with teh errors, and a [link](https://example.org).");
+      },
+      5000,
+    );
+    await step("transliteration", async () => {
+      await vm.key("ret");
+      await vm.key("ctrl", "shift", "t");
+      await vm.type("bismillah");
+      await vm.key("ctrl", "shift", "t");
+    });
+    await step("suggestions", async () => {
+      await vm.key("f7");
+      await sleep(500);
+      await vm.key("ctrl", "dot");
+    });
+    await vm.key("esc");
+    await step("settings", async () => {
+      await vm.key("ctrl", "comma");
+      await sleep(1000);
+      for (let i = 0; i < 60; i++) await vm.key("tab");
+    });
+    await vm.key("esc");
+    await sleep(800);
+    await step("theme", () => vm.key("ctrl", "shift", "l"));
+    await step("theme-again", () => vm.key("ctrl", "shift", "l"));
+    await step("guide", async () => {
+      await vm.key("f1");
+      await sleep(1500);
+      for (let i = 0; i < 5; i++) await vm.key("pgdn");
+    });
+    await step("about", () => palette(vm, "about"));
+    await vm.key("esc");
+    await sleep(800);
+    await step("new-file-dialog", () => vm.key("ctrl", "n"), 3000);
+    await vm.type("tour");
+    await vm.key("ret");
+    await sleep(2000);
+    await vm.type("Written after the native dialog.");
+    await vm.key("ctrl", "s");
+    await sleep(2000);
+    check(
+      /Written after the native dialog/.test(await vm.run("cat /home/writer/Texts/tour.md 2>&1")),
+      `${name}: New file made tour.md through the native dialog`,
+    );
+    await step("find", async () => {
+      await vm.key("ctrl", "f");
+      await vm.type("dialog");
+    });
+    await vm.key("esc");
+    await step("library", () => vm.key("ctrl", "backslash"));
+    await step("zuhd", () => vm.key("ctrl", "d"));
+    await vm.key("ctrl", "d");
+    await step("markdown", () => vm.key("ctrl", "r"));
+    await step("bigger", () => vm.key("ctrl", "equal"));
+    await vm.key("ctrl", "0");
+    await step("lock", () => palette(vm, "lock"));
+    await vm.type(PLAIN);
+    await vm.key("ret");
+    await sleep(4000);
+    await vm.screen("unlocked");
+    await palette(vm, "restart");
+    for (let i = 0; vm.running && i < 600; i++) await sleep(100);
+    check(!vm.running, `${name}: Restart restarts the computer`);
+  } finally {
+    vm.kill();
+    vm.pngs();
+  }
+}
+
 const scenarios: Record<string, () => Promise<void>> = {
   "release-both": () => releaseBoots("release-both", "both"),
   "release-ca2011": () => releaseBoots("release-ca2011", "ca2011"),
@@ -1038,6 +1159,7 @@ const scenarios: Record<string, () => Promise<void>> = {
   "home-saved": savedMeansSaved,
   "suspend-lock": suspendLock,
   power,
+  tour,
 };
 
 const chosen = process.argv.slice(2);

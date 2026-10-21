@@ -1,0 +1,54 @@
+# What the initrd keeps (os/PLAN.md, OS-4; `prune.py initrd`): the programs its boot
+# runs, which the debug image's serial log lists, and what they read. prune.py adds the
+# libraries they need (DT_NEEDED and the loader); the libraries systemd opens only when
+# it needs them (dlopen) are named here. Globs as in allowlist-declared.txt. /etc is
+# kept whole.
+
+# systemd, its units and generators, and the services the initrd starts.
+/usr/lib/os-release
+/usr/lib/systemd/system/**
+/usr/lib/systemd/system-generators/**
+/usr/lib/systemd/*.conf
+/usr/lib/systemd/systemd
+/usr/lib/systemd/systemd-executor
+/usr/lib/systemd/systemd-journald
+/usr/lib/systemd/systemd-udevd
+/usr/lib/systemd/systemd-veritysetup
+/usr/lib/systemd/systemd-fsck
+/usr/lib/systemd/systemd-modules-load
+/usr/lib/systemd/systemd-sysctl
+/usr/lib/systemd/systemd-sysroot-fstab-check
+/usr/lib/systemd/systemd-volatile-root
+/usr/lib/systemd/systemd-shutdown
+/usr/lib/systemd/systemd-reply-password
+/usr/bin/systemctl
+/usr/bin/systemd-tmpfiles
+/usr/bin/systemd-ask-password
+/usr/bin/systemd-tty-ask-password-agent
+/usr/bin/systemd-escape
+/usr/lib/tmpfiles.d/**
+/usr/lib/sysctl.d/**
+/usr/lib/modprobe.d/**
+/usr/lib/modules-load.d/**
+# udev: its rules and helpers (the database was removed in mkosi.initrd.conf), device
+# mapper's rules and the tool they run, and modprobe.
+/usr/lib/udev/**
+/usr/bin/udevadm
+/usr/sbin/dmsetup
+/usr/bin/kmod
+/usr/sbin/modprobe
+/usr/bin/mount
+/usr/bin/umount
+# The loader, and what systemd opens only when it needs it: modules and their
+# compression, verity, the root's mount, and user names.
+/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+/usr/lib64/ld-linux-x86-64.so.2
+/usr/lib/x86_64-linux-gnu/libkmod.so*
+/usr/lib/x86_64-linux-gnu/libzstd.so*
+/usr/lib/x86_64-linux-gnu/liblzma.so*
+/usr/lib/x86_64-linux-gnu/libcryptsetup.so*
+/usr/lib/x86_64-linux-gnu/libblkid.so*
+/usr/lib/x86_64-linux-gnu/libmount.so*
+/usr/lib/x86_64-linux-gnu/libseccomp.so*
+/usr/lib/x86_64-linux-gnu/libnss_files.so*
+/usr/lib/locale/C.utf8/**
