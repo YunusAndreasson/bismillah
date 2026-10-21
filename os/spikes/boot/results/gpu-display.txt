@@ -1,0 +1,324 @@
+# OS-0 GPU and display: gpu-test.sh work/both.fd work/gpu-<case> work/img-gpu/bismillah-spike-boot.raw <case> (2026-10-21)
+
+=== virtio
+      3 libEGL debug: using driver virtio_gpu for 15
+      1 libEGL debug: using driver virtio_gpu for 22
+      3 libEGL debug: using driver virtio_gpu for 23
+      3 libEGL debug: using driver virtio_gpu for 28
+      1 libEGL warning: NEEDS EXTENSION: falling back to kms_swrast
+SPIKE gpu begin
+00:02.0 VGA compatible controller [0300]: Red Hat, Inc. Virtio 1.0 GPU [1af4:1050] (rev 01)
+	Subsystem: Red Hat, Inc. QEMU [1af4:1100]
+	Kernel driver in use: virtio-pci
+SPIKE drm /sys/class/drm/card0 driver=virtio-pci boot_vga=1
+total 0
+lrwxrwxrwx  1 root root          5 Oct 21 06:45 boot-vga -> card0
+drwxr-xr-x  2 root root         80 Oct 21 06:45 by-path
+crw-rw----+ 1 root video  226,   0 Oct 21 06:45 card0
+crw-rw----+ 1 root render 226, 128 Oct 21 06:45 renderD128
+SPIKE fd 517 cage /dev/dri/card0
+SPIKE fd 517 cage /dev/dri/renderD128
+SPIKE fd 565 WebKitWebProces /dev/dri/card0
+SPIKE journal [    1.799489] localhost kernel: efifb: probing for efifb
+SPIKE journal [    1.799498] localhost kernel: efifb: framebuffer at 0x80000000, using 4000k, total 4000k
+SPIKE journal [    1.799507] localhost kernel: efifb: mode is 1280x800x32, linelength=5120, pages=1
+SPIKE journal [    1.799519] localhost kernel: efifb: scrolling: redraw
+SPIKE journal [    1.799528] localhost kernel: efifb: Truecolor: size=8:8:8:8, shift=24:16:8:0
+SPIKE journal [    1.799537] localhost kernel: Console: switching to colour frame buffer device 160x50
+SPIKE journal [    2.300546] localhost kernel: ACPI: bus type drm_connector registered
+SPIKE journal [    2.900793] localhost kernel: [drm] pci: virtio-vga detected at 0000:00:02.0
+SPIKE journal [    2.900822] localhost kernel: Console: switching to colour dummy device 80x25
+SPIKE journal [    2.905290] localhost kernel: [drm] features: -virgl +edid -resource_blob -host_visible
+SPIKE journal [    2.905305] localhost kernel: [drm] features: -context_init
+SPIKE journal [    2.908085] localhost kernel: [drm] number of scanouts: 1
+SPIKE journal [    2.908112] localhost kernel: [drm] number of cap sets: 0
+SPIKE journal [    2.916081] localhost kernel: [drm] Initialized virtio_gpu 0.1.0 for 0000:00:02.0 on minor 0
+SPIKE journal [    2.916170] localhost kernel: fbcon: virtio_gpudrmfb (fb0) is primary device
+SPIKE journal [    2.916195] localhost kernel: Console: switching to colour frame buffer device 160x50
+SPIKE journal [    2.928053] localhost kernel: virtio-pci 0000:00:02.0: [drm] fb0: virtio_gpudrmfb frame buffer device
+SPIKE ps     501 Ss         00:11 /usr/lib/systemd/systemd --user
+SPIKE ps     505 S          00:11 (sd-pam)
+SPIKE ps     517 Ssl+       00:10 /usr/bin/cage -d -- /usr/libexec/bismillah-session /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     522 S+         00:10 (sd-pam)
+SPIKE ps     531 S+         00:08 /bin/sh /usr/libexec/bismillah-session /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     535 Sl+        00:08 /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     540 Ss         00:08 /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+SPIKE ps     547 SLl+       00:07 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess 1 15
+SPIKE ps     565 SLl+       00:07 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess 4 30
+SPIKE app -- No entries --
+
+=== virgl
+      1 libEGL debug: using driver virtio_gpu for 15
+      1 libEGL debug: using driver virtio_gpu for 20
+SPIKE gpu begin
+
+00:02.0 VGA compatible controller [0300]: Red Hat, Inc. Virtio 1.0 GPU [1af4:1050] (rev 01)
+	Subsystem: Red Hat, Inc. QEMU [1af4:1100]
+	Kernel driver in use: virtio-pci
+
+SPIKE drm /sys/class/drm/card0 driver=virtio-pci boot_vga=1
+
+total 0
+lrwxrwxrwx  1 root root          5 Oct 21 06:44 boot-vga -> card0
+drwxr-xr-x  2 root root         80 Oct 21 06:44 by-path
+crw-rw----+ 1 root video  226,   0 Oct 21 06:44 card0
+crw-rw----+ 1 root render 226, 128 Oct 21 06:44 renderD128
+
+SPIKE fd 515 cage /dev/dri/card0
+SPIKE fd 515 cage /dev/dri/renderD128
+
+SPIKE fd 515 cage /dev/dri/renderD128
+SPIKE fd 515 cage /dev/dri/card0
+
+SPIKE fd 515 cage /dev/dri/renderD128
+
+SPIKE fd 551 WebKitWebProces /dev/dri/renderD128
+
+SPIKE fd 551 WebKitWebProces /dev/dri/renderD128
+
+SPIKE fd 529 bismillah /dev/dri/renderD128
+
+SPIKE journal [    1.787377] localhost kernel: efifb: probing for efifb
+SPIKE journal [    1.787387] localhost kernel: efifb: framebuffer at 0x80000000, using 4000k, total 4000k
+SPIKE journal [    1.787417] localhost kernel: efifb: mode is 1280x800x32, linelength=5120, pages=1
+SPIKE journal [    1.787442] localhost kernel: efifb: scrolling: redraw
+SPIKE journal [    1.787451] localhost kernel: efifb: Truecolor: size=8:8:8:8, shift=24:16:8:0
+SPIKE journal [    1.787464] localhost kernel: Console: switching to colour frame buffer device 160x50
+SPIKE journal [    2.328676] localhost kernel: ACPI: bus type drm_connector registered
+SPIKE journal [    2.893047] localhost kernel: [drm] pci: virtio-vga detected at 0000:00:02.0
+SPIKE journal [    2.893085] localhost kernel: Console: switching to colour dummy device 80x25
+SPIKE journal [    2.897302] localhost kernel: [drm] features: +virgl +edid -resource_blob -host_visible
+SPIKE journal [    2.897335] localhost kernel: [drm] features: +context_init
+SPIKE journal [    2.900137] localhost kernel: [drm] number of scanouts: 1
+SPIKE journal [    2.900172] localhost kernel: [drm] number of cap sets: 2
+SPIKE journal [    2.918313] localhost kernel: [drm] cap set 0: id 1, max-version 1, max-size 308
+SPIKE journal [    2.918684] localhost kernel: [drm] cap set 1: id 2, max-version 2, max-size 1408
+SPIKE journal [    2.918698] localhost kernel: [drm] Initialized virtio_gpu 0.1.0 for 0000:00:02.0 on minor 0
+SPIKE journal [    2.924617] localhost kernel: fbcon: virtio_gpudrmfb (fb0) is primary device
+SPIKE journal [    2.940990] localhost kernel: Console: switching to colour frame buffer device 160x50
+SPIKE journal [    2.964071] localhost kernel: virtio-pci 0000:00:02.0: [drm] fb0: virtio_gpudrmfb frame buffer device
+
+SPIKE ps     501 Ss         00:11 /usr/lib/systemd/systemd --user
+SPIKE ps     503 S          00:11 (sd-pam)
+SPIKE ps     515 Ssl+       00:11 /usr/bin/cage -d -- /usr/libexec/bismillah-session /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     520 S+         00:11 (sd-pam)
+SPIKE ps     525 S+         00:10 /bin/sh /usr/libexec/bismillah-session /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     529 Sl+        00:10 /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     534 Ss         00:09 /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+SPIKE ps     541 SLl+       00:09 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess 1 15
+SPIKE ps     551 SLl+       00:07 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess 4 23
+
+SPIKE app -- No entries --
+
+=== std
+      1 00:00:00.491 [render/egl.c:319] Software rendering detected, please use the WLR_RENDERER_ALLOW_SOFTWARE environment variable to proceed
+      1 00:00:00.494 [render/egl.c:571] Failed to initialize EGL context
+SPIKE gpu begin
+00:01.0 VGA compatible controller [0300]: Device [1234:1111] (rev 02)
+	Subsystem: Red Hat, Inc. Device [1af4:1100]
+	Kernel driver in use: bochs-drm
+	Kernel modules: bochs
+SPIKE drm /sys/class/drm/card0 driver=bochs-drm boot_vga=1
+total 0
+lrwxrwxrwx  1 root root       5 Oct 21 06:49 boot-vga -> card0
+drwxr-xr-x  2 root root      60 Oct 21 06:49 by-path
+crw-rw----+ 1 root video 226, 0 Oct 21 06:49 card0
+SPIKE fd 518 cage /dev/dri/card0
+SPIKE journal [    2.063956] localhost kernel: efifb: probing for efifb
+SPIKE journal [    2.063965] localhost kernel: efifb: framebuffer at 0x80000000, using 4000k, total 4000k
+SPIKE journal [    2.063975] localhost kernel: efifb: mode is 1280x800x32, linelength=5120, pages=1
+SPIKE journal [    2.063984] localhost kernel: efifb: scrolling: redraw
+SPIKE journal [    2.063994] localhost kernel: efifb: Truecolor: size=8:8:8:8, shift=24:16:8:0
+SPIKE journal [    2.064003] localhost kernel: Console: switching to colour frame buffer device 160x50
+SPIKE journal [    2.540444] localhost kernel: ACPI: bus type drm_connector registered
+SPIKE journal [    2.648181] localhost kernel: Console: switching to colour dummy device 80x25
+SPIKE journal [    2.681518] localhost kernel: bochs-drm 0000:00:01.0: vgaarb: deactivate vga console
+SPIKE journal [    2.681826] localhost kernel: [drm] Found bochs VGA, ID 0xb0c5.
+SPIKE journal [    2.681840] localhost kernel: [drm] Framebuffer size 16384 kB @ 0x80000000, mmio @ 0x81011000.
+SPIKE journal [    2.695082] localhost kernel: [drm] Found EDID data blob.
+SPIKE journal [    2.695381] localhost kernel: [drm] Initialized bochs-drm 1.0.0 for 0000:00:01.0 on minor 0
+SPIKE journal [    2.695397] localhost kernel: fbcon: bochs-drmdrmfb (fb0) is primary device
+SPIKE journal [    2.695409] localhost kernel: Console: switching to colour frame buffer device 160x50
+SPIKE journal [    2.704076] localhost kernel: bochs-drm 0000:00:01.0: [drm] fb0: bochs-drmdrmfb frame buffer device
+SPIKE ps     501 Ss         00:10 /usr/lib/systemd/systemd --user
+SPIKE ps     506 S          00:10 (sd-pam)
+SPIKE ps     518 Ss+        00:10 /usr/bin/cage -d -- /usr/libexec/bismillah-session /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     521 S+         00:10 (sd-pam)
+SPIKE ps     526 S+         00:09 /bin/sh /usr/libexec/bismillah-session /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     530 Rl+        00:09 /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     535 Ss         00:09 /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+SPIKE ps     542 SLl+       00:09 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess 1 15
+SPIKE ps     560 RLl+       00:08 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess 4 26
+SPIKE app -- No entries --
+
+=== std-nocomp
+SPIKE gpu begin
+00:01.0 VGA compatible controller [0300]: Device [1234:1111] (rev 02)
+	Subsystem: Red Hat, Inc. Device [1af4:1100]
+	Kernel driver in use: bochs-drm
+	Kernel modules: bochs
+SPIKE drm /sys/class/drm/card0 driver=bochs-drm boot_vga=1
+total 0
+lrwxrwxrwx  1 root root       5 Oct 21 06:39 boot-vga -> card0
+drwxr-xr-x  2 root root      60 Oct 21 06:39 by-path
+crw-rw----+ 1 root video 226, 0 Oct 21 06:39 card0
+SPIKE fd 515 cage /dev/dri/card0
+SPIKE journal [    2.344295] localhost kernel: efifb: probing for efifb
+SPIKE journal [    2.344305] localhost kernel: efifb: framebuffer at 0x80000000, using 4000k, total 4000k
+SPIKE journal [    2.344324] localhost kernel: efifb: mode is 1280x800x32, linelength=5120, pages=1
+SPIKE journal [    2.344347] localhost kernel: efifb: scrolling: redraw
+SPIKE journal [    2.344358] localhost kernel: efifb: Truecolor: size=8:8:8:8, shift=24:16:8:0
+SPIKE journal [    2.344367] localhost kernel: Console: switching to colour frame buffer device 160x50
+SPIKE journal [    2.780319] localhost kernel: ACPI: bus type drm_connector registered
+SPIKE journal [    3.380292] localhost kernel: Console: switching to colour dummy device 80x25
+SPIKE journal [    3.384068] localhost kernel: bochs-drm 0000:00:01.0: vgaarb: deactivate vga console
+SPIKE journal [    3.384359] localhost kernel: [drm] Found bochs VGA, ID 0xb0c5.
+SPIKE journal [    3.384375] localhost kernel: [drm] Framebuffer size 16384 kB @ 0x80000000, mmio @ 0x81011000.
+SPIKE journal [    3.388122] localhost kernel: [drm] Found EDID data blob.
+SPIKE journal [    3.392059] localhost kernel: [drm] Initialized bochs-drm 1.0.0 for 0000:00:01.0 on minor 0
+SPIKE journal [    3.392099] localhost kernel: fbcon: bochs-drmdrmfb (fb0) is primary device
+SPIKE journal [    3.405339] localhost kernel: Console: switching to colour frame buffer device 160x50
+SPIKE journal [    3.412033] localhost kernel: bochs-drm 0000:00:01.0: [drm] fb0: bochs-drmdrmfb frame buffer device
+
+=== hybrid
+      1 00:00:00.481 [render/egl.c:319] Software rendering detected, please use the WLR_RENDERER_ALLOW_SOFTWARE environment variable to proceed
+      1 00:00:00.481 [render/egl.c:571] Failed to initialize EGL context
+      3 libEGL debug: using driver virtio_gpu for 21
+      3 libEGL debug: using driver virtio_gpu for 24
+SPIKE gpu begin
+00:01.0 VGA compatible controller [0300]: Device [1234:1111] (rev 02)
+	Subsystem: Red Hat, Inc. Device [1af4:1100]
+	Kernel driver in use: bochs-drm
+	Kernel modules: bochs
+00:03.0 Display controller [0380]: Red Hat, Inc. Virtio 1.0 GPU [1af4:1050] (rev 01)
+	Subsystem: Red Hat, Inc. QEMU [1af4:1100]
+	Kernel driver in use: virtio-pci
+SPIKE drm /sys/class/drm/card0 driver=bochs-drm boot_vga=1
+SPIKE drm /sys/class/drm/card1 driver=virtio-pci boot_vga=
+total 0
+lrwxrwxrwx  1 root root          5 Oct 21 06:48 boot-vga -> card0
+drwxr-xr-x  2 root root        100 Oct 21 06:48 by-path
+crw-rw----+ 1 root video  226,   0 Oct 21 06:48 card0
+crw-rw----+ 1 root video  226,   1 Oct 21 06:48 card1
+crw-rw----+ 1 root render 226, 128 Oct 21 06:48 renderD128
+SPIKE fd 516 cage /dev/dri/card0
+SPIKE fd 562 WebKitWebProces /dev/dri/card1
+SPIKE journal [    1.865122] localhost kernel: efifb: probing for efifb
+SPIKE journal [    1.865133] localhost kernel: efifb: framebuffer at 0x80000000, using 4000k, total 4000k
+SPIKE journal [    1.865142] localhost kernel: efifb: mode is 1280x800x32, linelength=5120, pages=1
+SPIKE journal [    1.865150] localhost kernel: efifb: scrolling: redraw
+SPIKE journal [    1.865159] localhost kernel: efifb: Truecolor: size=8:8:8:8, shift=24:16:8:0
+SPIKE journal [    1.865167] localhost kernel: Console: switching to colour frame buffer device 160x50
+SPIKE journal [    2.360177] localhost kernel: ACPI: bus type drm_connector registered
+SPIKE journal [    2.980464] localhost kernel: Console: switching to colour dummy device 80x25
+SPIKE journal [    2.980542] localhost kernel: bochs-drm 0000:00:01.0: vgaarb: deactivate vga console
+SPIKE journal [    2.987026] localhost kernel: [drm] Found bochs VGA, ID 0xb0c5.
+SPIKE journal [    2.987081] localhost kernel: [drm] Framebuffer size 16384 kB @ 0x80000000, mmio @ 0x81012000.
+SPIKE journal [    3.004067] localhost kernel: [drm] Found EDID data blob.
+SPIKE journal [    3.013636] localhost kernel: [drm] pci: virtio-gpu-pci detected at 0000:00:03.0
+SPIKE journal [    3.014054] localhost kernel: [drm] Initialized bochs-drm 1.0.0 for 0000:00:01.0 on minor 0
+SPIKE journal [    3.014071] localhost kernel: [drm] features: -virgl +edid -resource_blob -host_visible
+SPIKE journal [    3.014084] localhost kernel: [drm] features: -context_init
+SPIKE journal [    3.021793] localhost kernel: [drm] number of scanouts: 1
+SPIKE journal [    3.021858] localhost kernel: [drm] number of cap sets: 0
+SPIKE journal [    3.029333] localhost kernel: fbcon: bochs-drmdrmfb (fb0) is primary device
+SPIKE journal [    3.032021] localhost kernel: Console: switching to colour frame buffer device 160x50
+SPIKE journal [    3.048030] localhost kernel: bochs-drm 0000:00:01.0: [drm] fb0: bochs-drmdrmfb frame buffer device
+SPIKE journal [    3.048293] localhost kernel: [drm] Initialized virtio_gpu 0.1.0 for 0000:00:03.0 on minor 1
+SPIKE journal [    3.056699] localhost kernel: virtio-pci 0000:00:03.0: [drm] fb1: virtio_gpudrmfb frame buffer device
+SPIKE ps     502 Ss         00:10 /usr/lib/systemd/systemd --user
+SPIKE ps     504 S          00:10 (sd-pam)
+SPIKE ps     516 Rs+        00:10 /usr/bin/cage -d -- /usr/libexec/bismillah-session /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     522 S+         00:10 (sd-pam)
+SPIKE ps     528 S+         00:09 /bin/sh /usr/libexec/bismillah-session /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     532 Sl+        00:09 /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     537 Ss         00:09 /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+SPIKE ps     544 SLl+       00:09 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess 1 15
+SPIKE ps     562 SLl+       00:08 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess 4 25
+SPIKE app -- No entries --
+
+=== hybrid-pin
+      6 libEGL debug: using driver virtio_gpu for 15
+      5 libEGL debug: using driver virtio_gpu for 16
+      1 libEGL debug: using driver virtio_gpu for 21
+      6 libEGL debug: using driver virtio_gpu for 22
+      5 libEGL debug: using driver virtio_gpu for 23
+      5 libEGL debug: using driver virtio_gpu for 28
+      2 libEGL warning: NEEDS EXTENSION: falling back to kms_swrast
+      2 lrwxrwxrwx  1 root root         10 Oct 21 07:00 boot-vga-render -> renderD129
+      2 SPIKE before-pin 559 /dev/dri/card1
+      1 SPIKE cmd: for p in $(pgrep -f WebKitWebProcess); do for f in /proc/$p/fd/*; do case $(readlink $f) in /dev/dri/*) echo "SPIKE before-pin $p $(readlink $f)";; esac; done; done
+      1 SPIKE cmd: mkdir -p /run/udev/rules.d; echo "SUBSYSTEM==\"drm\", KERNEL==\"renderD*\", ATTRS{boot_vga}==\"1\", SYMLINK+=\"dri/boot-vga-render\"" >/run/udev/rules.d/70-boot-vga-render.rules; udevadm control --reload; udevadm trigger --settle --subsystem-match=drm; systemctl set-environment WEBKIT_WEB_RENDER_DEVICE_FILE=/dev/dri/boot-vga-render; systemctl restart bismillah-session; ls -l /dev/dri | grep boot; echo SPIKE-pinned
+SPIKE gpu begin
+00:03.0 VGA compatible controller [0300]: Red Hat, Inc. Virtio 1.0 GPU [1af4:1050] (rev 01)
+	Subsystem: Red Hat, Inc. QEMU [1af4:1100]
+	Kernel driver in use: virtio-pci
+00:02.0 Display controller [0380]: Red Hat, Inc. Virtio 1.0 GPU [1af4:1050] (rev 01)
+	Subsystem: Red Hat, Inc. QEMU [1af4:1100]
+	Kernel driver in use: virtio-pci
+SPIKE drm /sys/class/drm/card0 driver=virtio-pci boot_vga=
+SPIKE drm /sys/class/drm/card1 driver=virtio-pci boot_vga=1
+total 0
+lrwxrwxrwx  1 root root          5 Oct 21 07:00 boot-vga -> card1
+lrwxrwxrwx  1 root root         10 Oct 21 07:00 boot-vga-render -> renderD129
+drwxr-xr-x  2 root root        120 Oct 21 07:00 by-path
+crw-rw----+ 1 root video  226,   0 Oct 21 07:00 card0
+crw-rw----+ 1 root video  226,   1 Oct 21 07:00 card1
+crw-rw----+ 1 root render 226, 128 Oct 21 07:00 renderD128
+crw-rw----+ 1 root render 226, 129 Oct 21 07:00 renderD129
+SPIKE fd 684 cage /dev/dri/card1
+SPIKE fd 684 cage /dev/dri/renderD129
+SPIKE fd 724 WebKitWebProces /dev/dri/card1
+SPIKE journal [    1.993000] localhost kernel: efifb: probing for efifb
+SPIKE journal [    1.993018] localhost kernel: efifb: framebuffer at 0x80000000, using 4000k, total 4000k
+SPIKE journal [    1.993035] localhost kernel: efifb: mode is 1280x800x32, linelength=5120, pages=1
+SPIKE journal [    1.993045] localhost kernel: efifb: scrolling: redraw
+SPIKE journal [    1.993055] localhost kernel: efifb: Truecolor: size=8:8:8:8, shift=24:16:8:0
+SPIKE journal [    1.993064] localhost kernel: Console: switching to colour frame buffer device 160x50
+SPIKE journal [    2.536032] localhost kernel: ACPI: bus type drm_connector registered
+SPIKE journal [    2.628342] localhost kernel: [drm] pci: virtio-gpu-pci detected at 0000:00:02.0
+SPIKE journal [    2.628397] localhost kernel: [drm] features: -virgl +edid -resource_blob -host_visible
+SPIKE journal [    2.628411] localhost kernel: [drm] features: -context_init
+SPIKE journal [    2.632054] localhost kernel: [drm] number of scanouts: 1
+SPIKE journal [    2.632089] localhost kernel: [drm] number of cap sets: 0
+SPIKE journal [    2.636949] localhost kernel: [drm] Initialized virtio_gpu 0.1.0 for 0000:00:02.0 on minor 0
+SPIKE journal [    2.637001] localhost kernel: virtio-pci 0000:00:02.0: [drm] fb1: virtio_gpudrmfb frame buffer device
+SPIKE journal [    2.660487] localhost kernel: [drm] pci: virtio-vga detected at 0000:00:03.0
+SPIKE journal [    2.660534] localhost kernel: Console: switching to colour dummy device 80x25
+SPIKE journal [    2.660787] localhost kernel: [drm] features: -virgl +edid -resource_blob -host_visible
+SPIKE journal [    2.660802] localhost kernel: [drm] features: -context_init
+SPIKE journal [    2.664767] localhost kernel: [drm] number of scanouts: 1
+SPIKE journal [    2.664837] localhost kernel: [drm] number of cap sets: 0
+SPIKE journal [    2.668274] localhost kernel: [drm] Initialized virtio_gpu 0.1.0 for 0000:00:03.0 on minor 1
+SPIKE journal [    2.674841] localhost kernel: fbcon: virtio_gpudrmfb (fb0) is primary device
+SPIKE journal [    2.674929] localhost kernel: Console: switching to colour frame buffer device 160x50
+SPIKE journal [    2.680022] localhost kernel: virtio-pci 0000:00:03.0: [drm] fb0: virtio_gpudrmfb frame buffer device
+SPIKE ps     498 Ss         00:31 /usr/lib/systemd/systemd --user
+SPIKE ps     500 S          00:31 (sd-pam)
+SPIKE ps     534 Ss         00:29 /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+SPIKE ps     684 Ssl+       00:20 /usr/bin/cage -d -- /usr/libexec/bismillah-session /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     689 S+         00:20 (sd-pam)
+SPIKE ps     696 S+         00:20 /bin/sh /usr/libexec/bismillah-session /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     700 Sl+        00:20 /usr/bin/bismillah /home/writer/Texts/specimen.md
+SPIKE ps     711 SLl+       00:20 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess 1 16
+SPIKE ps     724 SLl+       00:20 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess 4 29
+SPIKE app -- No entries --
+
+=== sizes (gpu-sizes.py work/gpu-root)
+family                   own mods  shared firmware  (MiB, on disk)
+Intel (i915)                  1.5     0.6     10.0
+Intel (xe)                    1.0     0.6      3.0
+AMD (amdgpu)                  3.9     0.6     77.8
+AMD, pre-GCN (radeon)         0.6     0.6      3.2
+NVIDIA (nouveau)              0.9     0.6     61.6
+virtio-gpu                    0.1     0.3      0.0
+QEMU std VGA (bochs)          0.0     0.4      0.0
+
+Shared by two or more families:    0.6 MiB: cec drm drm_buddy drm_display_helper drm_exec drm_gpuvm drm_kms_helper drm_suballoc_helper drm_ttm_helper gpu-sched i2c-algo-bit rc-core ttm video wmi
+All families together: modules    8.7 MiB, firmware  155.6 MiB
+All kernel modules in the image:   72.6 MiB
+
+=== WEBKIT_WEB_RENDER_DEVICE_FILE (img-gpu, set at runtime with systemctl set-environment, session restarted, 30 s)
+std VGA:   default 0.092 (dark specimen) | pinned to /dev/dri/nonexistent 0.950 (light specimen) | unset again 0.092 (dark)
+virtio:    default 0.092 (dark specimen) | pinned to /dev/dri/renderD128 0.208 (cage's grey background, no window) | set empty 0.092 (dark)
+(mean screen brightness of the QMP screendump; work/pin-exp)

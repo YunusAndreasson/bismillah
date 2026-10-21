@@ -1,0 +1,263 @@
+#!/usr/bin/python3
+"""OS-0 spike "Suspend lock fallback" (os/PLAN.md): a stand-in for the helper's sleep role.
+
+Holds logind's delay inhibitor. Before sleep it asks the app to lock and waits
+BEFORE_SLEEP seconds for "painted"; without it, it switches to an empty VT so the
+compositor loses the display, then lets the machine sleep. After a fallback it stays
+on the empty VT until the app reports its lock view painted, restarting the session
+when the app doesn't answer. The real helper is Rust (OS-2).
+
+SIGUSR1 drops the app's connection, to test a disconnected app.
+"""
+
+import fcntl
+import glob
+import os
+import signal
+import socket
+import struct
+import subprocess
+import threading
+import time
+
+from gi.repository import Gio, GLib
+
+SOCKET = "/run/bismillah/events.sock"
+MUST_LOCK = "/run/bismillah/must-lock"
+EMPTY_VT, SESSION_VT = 8, 1
+BEFORE_SLEEP = 1.5
+AFTER_RESUME = 3.0
+AFTER_RESTART = 30.0
+VT_ACTIVATE, VT_WAITACTIVE = 0x5606, 0x5607
+WRITER = 1000
+
+
+def mark(name):
+    with open("/proc/uptime") as f:
+        uptime = f.read().split()[0]
+    print(f"BISMILLAH_MARK sleepd-{name} {uptime}", flush=True)
+
+
+def active_vt():
+    with open("/sys/class/tty/tty0/active") as f:
+        return f.read().strip()
+
+
+def switch(vt):
+    fd = os.open("/dev/tty0", os.O_RDWR | os.O_NOCTTY)
+    try:
+        fcntl.ioctl(fd, VT_ACTIVATE, vt)
+        fcntl.ioctl(fd, VT_WAITACTIVE, vt)
+    finally:
+        os.close(fd)
+    mark(f"vt-{vt}-active-{active_vt()}")
+
+
+class App:
+    """The one connection to the app, and whether it has painted its lock view."""
+
+    def __init__(self):
+        self.guard = threading.Lock()
+        self.conn = None
+        self.painted = threading.Event()
+
+    def serve(self):
+        os.makedirs(os.path.dirname(SOCKET), exist_ok=True)
+        try:
+            os.unlink(SOCKET)
+        except FileNotFoundError:
+            pass
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server.bind(SOCKET)
+        os.chown(SOCKET, WRITER, WRITER)
+        os.chmod(SOCKET, 0o600)
+        server.listen(4)
+        while True:
+            conn, _ = server.accept()
+            creds = conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
+            _, uid, _ = struct.unpack("3i", creds)
+            if uid != WRITER:
+                conn.close()
+                continue
+            with self.guard:
+                old, self.conn = self.conn, conn
+            if old:
+                old.close()
+            mark("app-connected")
+            threading.Thread(target=self.read, args=(conn,), daemon=True).start()
+
+    def read(self, conn):
+        try:
+            for line in conn.makefile("r"):
+                if line.strip() == "painted":
+                    mark("app-painted")
+                    self.painted.set()
+        except OSError:  # a crashed app resets the connection
+            pass
+        with self.guard:
+            current = self.conn is conn
+            if current:
+                self.conn = None
+        if current:
+            # A dropped connection means the app may no longer be able to lock.
+            must_lock()
+            mark("app-disconnected")
+
+    def ask_lock(self):
+        self.painted.clear()
+        with self.guard:
+            if not self.conn:
+                return False
+            try:
+                self.conn.sendall(b"lock\n")
+                return True
+            except OSError:
+                return False
+
+    def drop(self):
+        with self.guard:
+            if self.conn:
+                self.conn.shutdown(socket.SHUT_RDWR)
+        return GLib.SOURCE_CONTINUE
+
+
+def end_session():
+    """Ends every process of the writer's sessions, frozen ones too.
+
+    Stopping the service alone hangs: cage waits for its stopped client, and the
+    client lives in PAM's session scope, which the service's stop doesn't continue.
+    """
+    scopes = glob.glob(f"/sys/fs/cgroup/user.slice/user-{WRITER}.slice/session-*.scope/cgroup.procs")
+
+    def pids():
+        found = []
+        for procs in scopes:
+            try:
+                with open(procs) as f:
+                    found += [int(p) for p in f.read().split()]
+            except OSError:
+                pass
+        return found
+
+    for sig in (signal.SIGTERM, signal.SIGCONT):
+        for pid in pids():
+            try:
+                os.kill(pid, sig)
+            except ProcessLookupError:
+                pass
+    for _ in range(20):
+        if not pids():
+            return
+        time.sleep(0.1)
+    for pid in pids():
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    mark("session-killed")
+
+
+def must_lock():
+    open(MUST_LOCK, "w").close()
+
+
+class Sleep:
+    def __init__(self, app):
+        self.app = app
+        self.bus = Gio.bus_get_sync(Gio.BusType.SYSTEM)
+        self.fd = None
+        self.fell_back = False
+        self.bus.signal_subscribe(
+            "org.freedesktop.login1",
+            "org.freedesktop.login1.Manager",
+            "PrepareForSleep",
+            "/org/freedesktop/login1",
+            None,
+            Gio.DBusSignalFlags.NONE,
+            self.on_prepare,
+        )
+        self.inhibit()
+
+    def inhibit(self):
+        _, fds = self.bus.call_with_unix_fd_list_sync(
+            "org.freedesktop.login1",
+            "/org/freedesktop/login1",
+            "org.freedesktop.login1.Manager",
+            "Inhibit",
+            GLib.Variant("(ssss)", ("sleep", "bismillah", "Lock before sleep", "delay")),
+            GLib.VariantType("(h)"),
+            Gio.DBusCallFlags.NONE,
+            -1,
+            None,
+            None,
+        )
+        self.fd = fds.steal_fds()[0]
+        mark("inhibitor-taken")
+
+    def release(self):
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
+        mark("inhibitor-released")
+
+    def on_prepare(self, _bus, _sender, _path, _iface, _signal, params):
+        (starting,) = params.unpack()
+        if starting:
+            self.before_sleep()
+        else:
+            self.after_resume()
+
+    def before_sleep(self):
+        mark(f"prepare-sleep-vt-{active_vt()}")
+        must_lock()
+        locked = self.app.ask_lock() and self.app.painted.wait(BEFORE_SLEEP)
+        self.fell_back = not locked
+        if locked:
+            mark("locked-before-sleep")
+        else:
+            mark("fallback")
+            switch(EMPTY_VT)
+        self.release()
+
+    def after_resume(self):
+        mark(f"resumed-vt-{active_vt()}")
+        self.inhibit()
+        if self.fell_back:
+            threading.Thread(target=self.recover, daemon=True).start()
+
+    def recover(self):
+        """Leaves the empty VT only for a painted lock view, or a fresh session."""
+        if self.app.ask_lock() and self.app.painted.wait(AFTER_RESUME):
+            mark("late-lock-painted")
+        else:
+            mark("restart-session")
+            self.app.painted.clear()
+            subprocess.run(["systemctl", "stop", "--no-block", "bismillah-session.service"], check=False)
+            end_session()
+            subprocess.run(["systemctl", "stop", "bismillah-session.service"], check=False)
+            mark("session-ended")
+            # wlroots won't start on an inactive VT. Nothing of the old session is
+            # left to show, so the session's VT can come back first.
+            switch(SESSION_VT)
+            subprocess.run(["systemctl", "start", "bismillah-session.service"], check=False)
+            mark("session-started")
+            if self.app.painted.wait(AFTER_RESTART):
+                mark("restarted-lock-painted")
+            else:
+                mark("restart-no-paint")
+            self.fell_back = False
+            return
+        switch(SESSION_VT)
+        self.fell_back = False
+
+
+def main():
+    app = App()
+    threading.Thread(target=app.serve, daemon=True).start()
+    Sleep(app)
+    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, app.drop)
+    mark("ready")
+    GLib.MainLoop().run()
+
+
+main()

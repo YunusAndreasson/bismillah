@@ -1,0 +1,8 @@
+[Unit]
+Description=bismillah helper request (spike)
+
+[Service]
+ExecStart=/usr/libexec/bismillah-helper-spike
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal

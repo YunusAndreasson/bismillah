@@ -1,0 +1,10 @@
+[Unit]
+Description=Boot-device binding spike report
+After=multi-user.target spike-report.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/spike-bind-report
+
+[Install]
+WantedBy=multi-user.target

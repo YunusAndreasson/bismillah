@@ -1,0 +1,8 @@
+[Unit]
+Description=OS-0 Dell check: write a report to the stick's ESP every 20 s
+
+[Service]
+ExecStart=/usr/libexec/dell-report
+
+[Install]
+WantedBy=multi-user.target

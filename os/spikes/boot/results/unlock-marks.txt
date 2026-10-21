@@ -1,0 +1,43 @@
+[    0.000000] secureboot: Secure boot enabled
+SPIKE dmesg: [    0.000000] secureboot: Secure boot enabled
+BISMILLAH_MARK app-process-start 8.62
+BISMILLAH_MARK page-gate-shown 9.86
+BISMILLAH_MARK app-unlock-sent 12.63
+BISMILLAH_MARK helper-unlock-start 12.74
+BISMILLAH_MARK helper-kdf-open-done 13.94
+BISMILLAH_MARK app-unlock-answered 13.94
+BISMILLAH_MARK app-unlock-sent 19.45
+BISMILLAH_MARK helper-unlock-start 19.54
+BISMILLAH_MARK helper-kdf-open-done 20.75
+BISMILLAH_MARK helper-unlock-done 20.96
+BISMILLAH_MARK app-unlock-answered 20.96
+BISMILLAH_MARK app-started 20.98
+BISMILLAH_MARK page-editable 21.15
+[    0.000000] secureboot: Secure boot enabled
+SPIKE dmesg: [    0.000000] secureboot: Secure boot enabled
+BISMILLAH_MARK app-process-start 8.69
+BISMILLAH_MARK page-gate-shown 9.96
+BISMILLAH_MARK app-unlock-sent 13.50
+BISMILLAH_MARK helper-unlock-start 13.62
+BISMILLAH_MARK helper-kdf-open-done 14.88
+BISMILLAH_MARK helper-unlock-done 15.07
+BISMILLAH_MARK app-unlock-answered 15.07
+BISMILLAH_MARK app-exit-for-restart 15.07
+BISMILLAH_MARK app-process-start 15.20
+BISMILLAH_MARK page-gate-shown 15.73
+BISMILLAH_MARK app-unlock-sent 15.73
+BISMILLAH_MARK app-unlock-answered 15.76
+BISMILLAH_MARK app-started 15.77
+BISMILLAH_MARK page-editable 15.92
+[    0.000000] secureboot: Secure boot enabled
+SPIKE dmesg: [    0.000000] secureboot: Secure boot enabled
+BISMILLAH_MARK app-process-start 8.50
+BISMILLAH_MARK page-gate-shown 9.75
+BISMILLAH_MARK app-unlock-sent 13.34
+BISMILLAH_MARK helper-setup-start 13.45
+BISMILLAH_MARK helper-kdf-format-done 17.85
+BISMILLAH_MARK helper-kdf-open-done 19.01
+BISMILLAH_MARK helper-setup-done 19.29
+BISMILLAH_MARK app-unlock-answered 19.29
+BISMILLAH_MARK app-started 19.30
+BISMILLAH_MARK page-editable 19.49

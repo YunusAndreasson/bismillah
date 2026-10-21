@@ -1,0 +1,456 @@
+# OS-0 size and boot baseline (2026-10-21)
+
+## Root partition by compression (img-slim-*: app+unlock+nonet+gpu+probe+slim)
+zstd esp 512.0 MiB
+zstd root-x86-64 499.8 MiB
+zstd root-x86-64-verity 3.9 MiB
+zstd bismillah-home 512.0 MiB
+lz4hc esp 512.0 MiB
+lz4hc root-x86-64 520.4 MiB
+lz4hc root-x86-64-verity 4.1 MiB
+lz4hc bismillah-home 512.0 MiB
+none esp 512.0 MiB
+none root-x86-64 929.6 MiB
+none root-x86-64-verity 7.3 MiB
+none bismillah-home 512.0 MiB
+
+## ESP payload (img-slim2-zstd)
+EFI          <DIR>     2026-10-21   7:12 
+        3 files                   0 bytes
+Directory for ::/EFI
+        5 files                   0 bytes
+Directory for ::/EFI/Linux
+        2 files                   0 bytes
+Directory for ::/EFI/systemd
+SYSTEM~1 EFI    125912 2026-04-13  19:38  systemd-bootx64.efi
+        3 files             125 912 bytes
+Directory for ::/EFI/BOOT
+BOOTX64  EFI   1036152 2026-06-22  21:30 
+grubx64  EFI    125912 2026-04-13  19:38 
+mmx64    efi    873904 2026-04-03  16:18 
+        5 files           2 035 968 bytes
+initrd        32042432 2026-10-21   7:11 
+        4 files          32 042 432 bytes
+vmlinuz       12154816 2026-10-15  15:02 
+KERNEL~1 INI   2086473 2026-10-21   7:13  kernel-modules.initrd
+        4 files          14 241 289 bytes
+        6 files                  36 bytes
+        3 files                 395 bytes
+        2 files                   0 bytes
+Total files listed:
+       37 files          48 446 032 bytes
+
+## Root contents by component (uncompressed root of img-slim-none)
+Total   927.9 MiB in 12201 files
+
+By component (MiB):
+    197.0  WebKit
+    155.7  Firmware
+    150.1  LLVM
+     97.6  Base system
+     72.6  Kernel modules
+     54.6  GTK/GLib/Pango/Cairo
+     44.6  Mesa
+     36.5  ICU
+     36.4  The app
+     18.7  systemd/udev/dbus
+     17.0  GStreamer
+     14.4  Generated caches
+      8.9  Encryption
+      8.7  Unowned: var/lib
+      4.4  Boot packages (not used from the root)
+      3.9  cage/wlroots/seat
+      3.5  Fonts
+      2.7  Unowned: usr/share
+      0.4  Python (spike only)
+      0.1  WebKit sandbox
+      0.0  Kernel image
+
+Largest packages (MiB):
+    123.7  libllvm19
+     95.9  libwebkit2gtk-4.1-0
+     81.1  firmware-amd-graphics
+     61.7  firmware-nvidia-graphics
+     55.6  linux-image-6.12.113+deb13-amd64
+     40.6  mesa-libgallium
+     36.5  libicu76
+     32.2  libjavascriptcoregtk-4.1-0
+     26.5  libz3-4
+     25.8  libflite1
+     13.0  firmware-intel-graphics
+     12.6  adwaita-icon-theme
+     12.2  libc6
+      9.8  udev
+      9.5  libgtk-3-0t64
+      7.6  libsvtav1enc2
+      7.4  libssl3t64
+      7.2  gstreamer1.0-plugins-good
+      7.1  perl-base
+      6.6  libsystemd-shared
+      6.6  systemd
+      6.5  coreutils
+      5.4  libaom3
+      4.6  libhwy1t64
+      4.0  util-linux
+      3.8  libglib2.0-0t64
+      3.8  libgtk-3-common
+      3.5  libjxl0.11
+      3.4  libvpx9
+      3.4  libopus0
+
+Strippable by directory (MiB):
+      8.5  var/lib/dpkg/
+      1.4  var/cache/
+      0.0  var/log/
+
+Kernel modules by directory (MiB):
+     41.1  kernel/drivers
+     11.6  vmlinuz
+      7.2  kernel/sound
+      5.4  kernel/fs
+      1.3  modules.alias
+      1.2  modules.alias.bin
+      1.0  kernel/arch
+      0.8  modules.symbols.bin
+      0.8  modules.dep.bin
+      0.7  modules.symbols
+      0.6  modules.dep
+      0.4  kernel/crypto
+      0.3  kernel/lib
+      0.2  modules.order
+      0.1  kernel/block
+
+## Boot timing (boot-test.sh; throttles: good 150 MB/s + 2500 req/s, cheap 25 MB/s + 400 req/s)
+=== zstd
+== ssd
+ssd qemu-start-to-unlock-screen 13.91
+BISMILLAH_MARK app-process-start 8.59
+BISMILLAH_MARK page-gate-shown 11.07
+BISMILLAH_MARK app-unlock-sent 15.60
+BISMILLAH_MARK helper-kdf-open-done 17.21
+BISMILLAH_MARK helper-unlock-done 17.45
+BISMILLAH_MARK app-unlock-answered 17.45
+BISMILLAH_MARK page-editable 17.65
+SPIKE analyze Startup finished in 1.188s (kernel) + 3.448s (initrd) + 2.711s (userspace) = 7.348s 
+SPIKE chain bismillah-session.service +115ms
+SPIKE chain └─systemd-logind.service @2.224s +118ms
+SPIKE chain   └─basic.target @2.171s
+SPIKE chain     └─sockets.target @2.169s
+SPIKE chain       └─bismillah-helper.socket @2.139s +28ms
+SPIKE chain         └─sysinit.target @2.123s
+SPIKE chain           └─systemd-update-done.service @2.098s +22ms
+SPIKE chain             └─systemd-journal-catalog-update.service @2.019s +75ms
+SPIKE chain               └─systemd-tmpfiles-setup.service @1.934s +65ms
+SPIKE chain                 └─local-fs.target @1.925s
+SPIKE chain                   └─run-user-1000.mount @2.694s
+SPIKE chain                     └─local-fs-pre.target @985ms
+SPIKE chain                       └─systemd-tmpfiles-setup-dev.service @963ms +19ms
+SPIKE chain                         └─systemd-tmpfiles-setup-dev-early.service @927ms +35ms
+SPIKE chain                           └─kmod-static-nodes.service @747ms +106ms
+SPIKE chain                             └─systemd-journald.socket
+SPIKE chain                               └─system.slice
+SPIKE chain                                 └─-.slice
+SPIKE blame 2.299s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartnum-1.device
+SPIKE blame 2.299s dev-disk-by\x2dpartlabel-esp.device
+SPIKE blame 2.299s dev-disk-by\x2ddiskseq-1\x2dpart1.device
+SPIKE blame 2.299s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dlabel-ESP.device
+SPIKE blame 2.299s dev-sda1.device
+SPIKE blame 2.299s sys-devices-pci0000:00-0000:00:02.0-usb2-2\x2d1-2\x2d1:1.0-host0-target0:0:0-0:0:0:0-block-sda-sda1.device
+SPIKE blame 2.299s dev-disk-by\x2dpartuuid-818a5298\x2d4b47\x2d466b\x2d8329\x2dade20cd0739a.device
+SPIKE blame 2.299s dev-disk-by\x2did-usb\x2dQEMU_QEMU_HARDDISK_1\x2d0000:00:02.0\x2d1\x2d0:0\x2dpart1.device
+SPIKE blame 2.299s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusbv3\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart1.device
+SPIKE blame 2.299s dev-disk-by\x2duuid-4E40\x2dBCC3.device
+SPIKE stage [    3.560142] localhost kernel: sd 0:0:0:0: [sda] Attached SCSI disk
+SPIKE stage [    6.640118] localhost kernel: [drm] Initialized bochs-drm 1.0.0 for 0000:00:01.0 on minor 0
+== good
+good qemu-start-to-unlock-screen 14.05
+BISMILLAH_MARK app-process-start 8.41
+BISMILLAH_MARK page-gate-shown 10.89
+BISMILLAH_MARK app-unlock-sent 15.52
+BISMILLAH_MARK helper-kdf-open-done 17.40
+BISMILLAH_MARK helper-unlock-done 17.67
+BISMILLAH_MARK app-unlock-answered 17.67
+BISMILLAH_MARK page-editable 17.94
+SPIKE analyze Startup finished in 1.171s (kernel) + 3.381s (initrd) + 2.391s (userspace) = 6.944s 
+SPIKE chain bismillah-session.service +171ms
+SPIKE chain └─systemd-logind.service @2.052s +104ms
+SPIKE chain   └─basic.target @2.008s
+SPIKE chain     └─sockets.target @2.006s
+SPIKE chain       └─bismillah-helper.socket @1.984s +19ms
+SPIKE chain         └─sysinit.target @1.970s
+SPIKE chain           └─systemd-update-done.service @1.939s +28ms
+SPIKE chain             └─systemd-journal-catalog-update.service @1.867s +67ms
+SPIKE chain               └─systemd-tmpfiles-setup.service @1.821s +36ms
+SPIKE chain                 └─local-fs.target @1.815s
+SPIKE chain                   └─boot.mount @2.088s +108ms
+SPIKE chain                     └─dev-sda1.device
+SPIKE blame 2.295s dev-disk-by\x2dpartlabel-bismillah\x2dhome.device
+SPIKE blame 2.295s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartuuid-245c51ce\x2de7a3\x2d4f93\x2d9b6e\x2df956d6a64a39.device
+SPIKE blame 2.295s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartlabel-bismillah\x2dhome.device
+SPIKE blame 2.295s dev-disk-by\x2dlabel-bismillah.device
+SPIKE blame 2.295s dev-disk-by\x2did-usb\x2dQEMU_QEMU_HARDDISK_1\x2d0000:00:02.0\x2d1\x2d0:0\x2dpart4.device
+SPIKE blame 2.295s dev-disk-by\x2duuid-534829c0\x2d7167\x2d457d\x2dbd75\x2d595e25d3d5e4.device
+SPIKE blame 2.295s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dlabel-bismillah.device
+SPIKE blame 2.295s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2duuid-534829c0\x2d7167\x2d457d\x2dbd75\x2d595e25d3d5e4.device
+SPIKE blame 2.295s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart4.device
+SPIKE blame 2.295s dev-disk-by\x2dpartuuid-245c51ce\x2de7a3\x2d4f93\x2d9b6e\x2df956d6a64a39.device
+SPIKE stage [    3.488093] localhost kernel: sd 0:0:0:0: [sda] Attached SCSI disk
+SPIKE stage [    5.976337] localhost kernel: [drm] Initialized bochs-drm 1.0.0 for 0000:00:01.0 on minor 0
+== cheap
+cheap qemu-start-to-unlock-screen 21.54
+BISMILLAH_MARK app-process-start 12.97
+BISMILLAH_MARK page-gate-shown 17.14
+BISMILLAH_MARK app-unlock-sent 21.76
+BISMILLAH_MARK helper-kdf-open-done 23.55
+BISMILLAH_MARK helper-unlock-done 24.11
+BISMILLAH_MARK app-unlock-answered 24.11
+BISMILLAH_MARK page-editable 24.43
+SPIKE analyze Startup finished in 1.263s (kernel) + 3.938s (initrd) + 3.849s (userspace) = 9.051s 
+SPIKE chain bismillah-session.service +146ms
+SPIKE chain └─systemd-logind.service @2.869s +110ms
+SPIKE chain   └─basic.target @2.834s
+SPIKE chain     └─sockets.target @2.834s
+SPIKE chain       └─bismillah-helper.socket @2.810s +24ms
+SPIKE chain         └─sysinit.target @2.806s
+SPIKE chain           └─systemd-update-done.service @2.770s +35ms
+SPIKE chain             └─systemd-journal-catalog-update.service @2.699s +66ms
+SPIKE chain               └─systemd-tmpfiles-setup.service @2.660s +33ms
+SPIKE chain                 └─local-fs.target @2.654s
+SPIKE chain                   └─boot.mount @3.449s +51ms
+SPIKE chain                     └─dev-sda1.device
+SPIKE blame 3.996s dev-disk-by\x2ddiskseq-1.device
+SPIKE blame 3.996s sys-devices-pci0000:00-0000:00:02.0-usb2-2\x2d1-2\x2d1:1.0-host0-target0:0:0-0:0:0:0-block-sda.device
+SPIKE blame 3.996s dev-sda.device
+SPIKE blame 3.996s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0.device
+SPIKE blame 3.996s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusbv3\x2d0:1:1.0\x2dscsi\x2d0:0:0:0.device
+SPIKE blame 3.996s dev-disk-by\x2did-usb\x2dQEMU_QEMU_HARDDISK_1\x2d0000:00:02.0\x2d1\x2d0:0.device
+SPIKE blame 3.970s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartnum-3.device
+SPIKE blame 3.970s dev-disk-by\x2did-usb\x2dQEMU_QEMU_HARDDISK_1\x2d0000:00:02.0\x2d1\x2d0:0\x2dpart3.device
+SPIKE blame 3.970s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2duuid-2e1f9e82\x2d7193\x2d4dd2\x2dbbad\x2dec30f1873d44.device
+SPIKE blame 3.970s dev-sda3.device
+SPIKE stage [    3.644841] localhost kernel: sd 0:0:0:0: [sda] Attached SCSI disk
+SPIKE stage [    7.480067] localhost kernel: [drm] Initialized bochs-drm 1.0.0 for 0000:00:01.0 on minor 0
+=== lz4hc
+== ssd
+ssd qemu-start-to-unlock-screen 14.93
+BISMILLAH_MARK app-process-start 9.47
+BISMILLAH_MARK page-gate-shown 11.93
+BISMILLAH_MARK app-unlock-sent 16.56
+BISMILLAH_MARK helper-kdf-open-done 18.21
+BISMILLAH_MARK helper-unlock-done 18.44
+BISMILLAH_MARK app-unlock-answered 18.44
+BISMILLAH_MARK page-editable 18.64
+SPIKE analyze Startup finished in 1.175s (kernel) + 3.833s (initrd) + 2.649s (userspace) = 7.658s 
+SPIKE chain bismillah-session.service +193ms
+SPIKE chain └─systemd-logind.service @2.321s +126ms
+SPIKE chain   └─basic.target @2.272s
+SPIKE chain     └─sockets.target @2.272s
+SPIKE chain       └─bismillah-helper.socket @2.260s +12ms
+SPIKE chain         └─sysinit.target @2.242s
+SPIKE chain           └─systemd-update-done.service @2.187s +39ms
+SPIKE chain             └─systemd-journal-catalog-update.service @2.067s +113ms
+SPIKE chain               └─systemd-tmpfiles-setup.service @2.009s +48ms
+SPIKE chain                 └─local-fs.target @2.003s
+SPIKE chain                   └─boot.mount @2.333s +108ms
+SPIKE chain                     └─dev-sda1.device
+SPIKE blame 2.974s dev-disk-by\x2dlabel-bismillah.device
+SPIKE blame 2.974s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2duuid-ccfd7414\x2d170c\x2d470a\x2d9f0c\x2d05239be663ca.device
+SPIKE blame 2.974s dev-disk-by\x2did-usb\x2dQEMU_QEMU_HARDDISK_1\x2d0000:00:02.0\x2d1\x2d0:0\x2dpart4.device
+SPIKE blame 2.974s dev-sda4.device
+SPIKE blame 2.974s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartlabel-bismillah\x2dhome.device
+SPIKE blame 2.974s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart4.device
+SPIKE blame 2.974s dev-disk-by\x2duuid-ccfd7414\x2d170c\x2d470a\x2d9f0c\x2d05239be663ca.device
+SPIKE blame 2.974s sys-devices-pci0000:00-0000:00:02.0-usb2-2\x2d1-2\x2d1:1.0-host0-target0:0:0-0:0:0:0-block-sda-sda4.device
+SPIKE blame 2.974s dev-disk-by\x2dpartuuid-7501a7c9\x2d1f6f\x2d477a\x2d94b6\x2d099bf2605859.device
+SPIKE blame 2.974s dev-disk-by\x2dpartlabel-bismillah\x2dhome.device
+SPIKE stage [    3.547073] localhost kernel: sd 0:0:0:0: [sda] Attached SCSI disk
+SPIKE stage [    6.560778] localhost kernel: [drm] Initialized bochs-drm 1.0.0 for 0000:00:01.0 on minor 0
+== good
+good qemu-start-to-unlock-screen 14.28
+BISMILLAH_MARK app-process-start 8.84
+BISMILLAH_MARK page-gate-shown 11.17
+BISMILLAH_MARK app-unlock-sent 15.80
+BISMILLAH_MARK helper-kdf-open-done 17.44
+BISMILLAH_MARK helper-unlock-done 17.67
+BISMILLAH_MARK app-unlock-answered 17.67
+BISMILLAH_MARK page-editable 17.93
+SPIKE analyze Startup finished in 1.136s (kernel) + 3.738s (initrd) + 2.324s (userspace) = 7.198s 
+SPIKE chain bismillah-session.service +145ms
+SPIKE chain └─systemd-logind.service @2.006s +105ms
+SPIKE chain   └─basic.target @1.966s
+SPIKE chain     └─sockets.target @1.965s
+SPIKE chain       └─bismillah-helper.socket @1.943s +19ms
+SPIKE chain         └─sysinit.target @1.929s
+SPIKE chain           └─systemd-update-done.service @1.899s +27ms
+SPIKE chain             └─systemd-journal-catalog-update.service @1.811s +83ms
+SPIKE chain               └─systemd-tmpfiles-setup.service @1.754s +52ms
+SPIKE chain                 └─local-fs.target @1.747s
+SPIKE chain                   └─boot.mount @2.034s +107ms
+SPIKE chain                     └─dev-sda1.device
+SPIKE blame 2.647s dev-disk-by\x2dpartlabel-root\x2dx86\x2d64.device
+SPIKE blame 2.647s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2duuid-c3f967b3\x2df49d\x2d4bb9\x2dab84\x2df3b6a8be8c3e.device
+SPIKE blame 2.647s dev-disk-by\x2ddiskseq-1\x2dpart2.device
+SPIKE blame 2.647s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartuuid-6d5f1b91\x2dce66\x2d7adc\x2d7ca2\x2d2a0b18af8f28.device
+SPIKE blame 2.647s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusbv3\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart2.device
+SPIKE blame 2.647s dev-disk-by\x2did-usb\x2dQEMU_QEMU_HARDDISK_1\x2d0000:00:02.0\x2d1\x2d0:0\x2dpart2.device
+SPIKE blame 2.647s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartlabel-root\x2dx86\x2d64.device
+SPIKE blame 2.647s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart2.device
+SPIKE blame 2.647s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartnum-2.device
+SPIKE blame 2.647s sys-devices-pci0000:00-0000:00:02.0-usb2-2\x2d1-2\x2d1:1.0-host0-target0:0:0-0:0:0:0-block-sda-sda2.device
+SPIKE stage [    3.479569] localhost kernel: sd 0:0:0:0: [sda] Attached SCSI disk
+SPIKE stage [    6.239883] localhost kernel: [drm] Initialized bochs-drm 1.0.0 for 0000:00:01.0 on minor 0
+== cheap
+cheap qemu-start-to-unlock-screen 21.71
+BISMILLAH_MARK app-process-start 13.24
+BISMILLAH_MARK page-gate-shown 17.58
+BISMILLAH_MARK app-unlock-sent 22.17
+BISMILLAH_MARK helper-kdf-open-done 23.95
+BISMILLAH_MARK helper-unlock-done 24.44
+BISMILLAH_MARK app-unlock-answered 24.45
+BISMILLAH_MARK page-editable 24.74
+SPIKE analyze Startup finished in 1.092s (kernel) + 4.082s (initrd) + 3.249s (userspace) = 8.424s 
+SPIKE chain bismillah-session.service +357ms
+SPIKE chain └─systemd-logind.service @2.694s +113ms
+SPIKE chain   └─basic.target @2.615s
+SPIKE chain     └─sockets.target @2.615s
+SPIKE chain       └─bismillah-helper.socket @2.593s +20ms
+SPIKE chain         └─sysinit.target @2.589s
+SPIKE chain           └─systemd-update-done.service @2.552s +34ms
+SPIKE chain             └─systemd-journal-catalog-update.service @2.489s +60ms
+SPIKE chain               └─systemd-tmpfiles-setup.service @2.444s +39ms
+SPIKE chain                 └─local-fs.target @2.440s
+SPIKE chain                   └─boot.mount @2.727s +141ms
+SPIKE chain                     └─dev-sda1.device
+SPIKE blame 3.971s sys-devices-pci0000:00-0000:00:02.0-usb2-2\x2d1-2\x2d1:1.0-host0-target0:0:0-0:0:0:0-block-sda-sda3.device
+SPIKE blame 3.971s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartuuid-8e13c7ce\x2d807b\x2df0a7\x2d7a29\x2d40bb85287910.device
+SPIKE blame 3.971s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartnum-3.device
+SPIKE blame 3.971s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusbv3\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart3.device
+SPIKE blame 3.971s dev-disk-by\x2did-usb\x2dQEMU_QEMU_HARDDISK_1\x2d0000:00:02.0\x2d1\x2d0:0\x2dpart3.device
+SPIKE blame 3.971s dev-disk-by\x2duuid-f95d8bfe\x2d62d2\x2d4406\x2da8f7\x2d5abc9791fcff.device
+SPIKE blame 3.971s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart3.device
+SPIKE blame 3.971s dev-disk-by\x2dpartuuid-8e13c7ce\x2d807b\x2df0a7\x2d7a29\x2d40bb85287910.device
+SPIKE blame 3.971s dev-disk-by\x2ddiskseq-1\x2dpart3.device
+SPIKE blame 3.971s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartlabel-root\x2dx86\x2d64\x2dverity.device
+SPIKE stage [    3.454668] localhost kernel: sd 0:0:0:0: [sda] Attached SCSI disk
+SPIKE stage [    7.292718] localhost kernel: [drm] Initialized bochs-drm 1.0.0 for 0000:00:01.0 on minor 0
+=== none
+== ssd
+ssd qemu-start-to-unlock-screen 16.18
+BISMILLAH_MARK app-process-start 10.00
+BISMILLAH_MARK page-gate-shown 13.09
+BISMILLAH_MARK app-unlock-sent 17.71
+BISMILLAH_MARK helper-kdf-open-done 19.26
+BISMILLAH_MARK helper-unlock-done 19.49
+BISMILLAH_MARK app-unlock-answered 19.49
+BISMILLAH_MARK page-editable 19.71
+SPIKE analyze Startup finished in 1.166s (kernel) + 3.777s (initrd) + 2.756s (userspace) = 7.700s 
+SPIKE chain bismillah-session.service +239ms
+SPIKE chain └─systemd-logind.service @2.342s +128ms
+SPIKE chain   └─basic.target @2.264s
+SPIKE chain     └─sockets.target @2.263s
+SPIKE chain       └─bismillah-helper.socket @2.260s +2ms
+SPIKE chain         └─sysinit.target @2.255s
+SPIKE chain           └─systemd-update-done.service @2.216s +38ms
+SPIKE chain             └─systemd-journal-catalog-update.service @2.147s +61ms
+SPIKE chain               └─systemd-tmpfiles-setup.service @2.108s +32ms
+SPIKE chain                 └─local-fs.target @2.102s
+SPIKE chain                   └─boot.mount @2.411s +99ms
+SPIKE chain                     └─dev-sda1.device
+SPIKE blame 3.011s dev-disk-by\x2dpartuuid-e995f091\x2d9061\x2d4983\x2d964c\x2dfe9cd425fe89.device
+SPIKE blame 3.011s dev-disk-by\x2dlabel-bismillah.device
+SPIKE blame 3.011s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart4.device
+SPIKE blame 3.011s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartuuid-e995f091\x2d9061\x2d4983\x2d964c\x2dfe9cd425fe89.device
+SPIKE blame 3.011s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusbv3\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart4.device
+SPIKE blame 3.011s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dlabel-bismillah.device
+SPIKE blame 3.011s sys-devices-pci0000:00-0000:00:02.0-usb2-2\x2d1-2\x2d1:1.0-host0-target0:0:0-0:0:0:0-block-sda-sda4.device
+SPIKE blame 3.011s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2duuid-3f405d84\x2d9070\x2d4df1\x2dade1\x2d6a5df79098cc.device
+SPIKE blame 3.011s dev-disk-by\x2duuid-3f405d84\x2d9070\x2d4df1\x2dade1\x2d6a5df79098cc.device
+SPIKE blame 3.011s dev-disk-by\x2dpartlabel-bismillah\x2dhome.device
+SPIKE stage [    3.588810] localhost kernel: sd 0:0:0:0: [sda] Attached SCSI disk
+SPIKE stage [    6.866107] localhost kernel: [drm] Initialized bochs-drm 1.0.0 for 0000:00:01.0 on minor 0
+== good
+good qemu-start-to-unlock-screen 14.38
+BISMILLAH_MARK app-process-start 8.91
+BISMILLAH_MARK page-gate-shown 11.41
+BISMILLAH_MARK app-unlock-sent 16.04
+BISMILLAH_MARK helper-kdf-open-done 17.69
+BISMILLAH_MARK helper-unlock-done 17.92
+BISMILLAH_MARK app-unlock-answered 17.92
+BISMILLAH_MARK page-editable 18.12
+SPIKE analyze Startup finished in 1.129s (kernel) + 3.742s (initrd) + 2.427s (userspace) = 7.299s 
+SPIKE chain bismillah-session.service +136ms
+SPIKE chain └─systemd-logind.service @2.104s +137ms
+SPIKE chain   └─basic.target @2.044s
+SPIKE chain     └─sockets.target @2.042s
+SPIKE chain       └─bismillah-helper.socket @2.023s +17ms
+SPIKE chain         └─sysinit.target @2.007s
+SPIKE chain           └─systemd-update-done.service @1.984s +22ms
+SPIKE chain             └─systemd-journal-catalog-update.service @1.904s +73ms
+SPIKE chain               └─systemd-tmpfiles-setup.service @1.848s +43ms
+SPIKE chain                 └─systemd-journal-flush.service @1.730s +101ms
+SPIKE chain                   └─var.mount @1.632s +70ms
+SPIKE chain                     └─local-fs-pre.target @943ms
+SPIKE chain                       └─systemd-tmpfiles-setup-dev.service @912ms +30ms
+SPIKE chain                         └─systemd-tmpfiles-setup-dev-early.service @871ms +34ms
+SPIKE chain                           └─kmod-static-nodes.service @670ms +137ms
+SPIKE chain                             └─systemd-journald.socket
+SPIKE chain                               └─system.slice
+SPIKE chain                                 └─-.slice
+SPIKE blame 2.554s sys-devices-pci0000:00-0000:00:02.0-usb2-2\x2d1-2\x2d1:1.0-host0-target0:0:0-0:0:0:0-block-sda.device
+SPIKE blame 2.554s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0.device
+SPIKE blame 2.554s dev-disk-by\x2ddiskseq-1.device
+SPIKE blame 2.554s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusbv3\x2d0:1:1.0\x2dscsi\x2d0:0:0:0.device
+SPIKE blame 2.554s dev-disk-by\x2did-usb\x2dQEMU_QEMU_HARDDISK_1\x2d0000:00:02.0\x2d1\x2d0:0.device
+SPIKE blame 2.554s dev-sda.device
+SPIKE blame 2.522s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2duuid-3f405d84\x2d9070\x2d4df1\x2dade1\x2d6a5df79098cc.device
+SPIKE blame 2.522s dev-disk-by\x2dpartlabel-bismillah\x2dhome.device
+SPIKE blame 2.522s dev-sda4.device
+SPIKE blame 2.522s dev-disk-by\x2duuid-3f405d84\x2d9070\x2d4df1\x2dade1\x2d6a5df79098cc.device
+SPIKE stage [    3.544231] localhost kernel: sd 0:0:0:0: [sda] Attached SCSI disk
+SPIKE stage [    6.309255] localhost kernel: [drm] Initialized bochs-drm 1.0.0 for 0000:00:01.0 on minor 0
+== cheap
+cheap qemu-start-to-unlock-screen 25.28
+BISMILLAH_MARK app-process-start 15.21
+BISMILLAH_MARK page-gate-shown 21.00
+BISMILLAH_MARK app-unlock-sent 25.63
+BISMILLAH_MARK helper-kdf-open-done 27.05
+BISMILLAH_MARK helper-unlock-done 27.69
+BISMILLAH_MARK app-unlock-answered 27.69
+BISMILLAH_MARK page-editable 28.02
+SPIKE analyze Startup finished in 1.131s (kernel) + 3.909s (initrd) + 3.457s (userspace) = 8.499s 
+SPIKE chain bismillah-session.service +491ms
+SPIKE chain └─systemd-logind.service @2.742s +152ms
+SPIKE chain   └─basic.target @2.703s
+SPIKE chain     └─sockets.target @2.702s
+SPIKE chain       └─bismillah-helper.socket @2.692s +9ms
+SPIKE chain         └─sysinit.target @2.684s
+SPIKE chain           └─systemd-update-done.service @2.648s +30ms
+SPIKE chain             └─systemd-journal-catalog-update.service @2.510s +132ms
+SPIKE chain               └─systemd-tmpfiles-setup.service @2.446s +56ms
+SPIKE chain                 └─systemd-journal-flush.service @2.378s +52ms
+SPIKE chain                   └─var.mount @2.338s +25ms
+SPIKE chain                     └─local-fs-pre.target @1.687s
+SPIKE chain                       └─systemd-tmpfiles-setup-dev.service @1.649s +36ms
+SPIKE chain                         └─systemd-tmpfiles-setup-dev-early.service @1.612s +33ms
+SPIKE chain                           └─kmod-static-nodes.service @1.377s +161ms
+SPIKE chain                             └─systemd-journald.socket
+SPIKE chain                               └─system.slice
+SPIKE chain                                 └─-.slice
+SPIKE blame 3.871s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartnum-1.device
+SPIKE blame 3.871s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartlabel-esp.device
+SPIKE blame 3.871s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart1.device
+SPIKE blame 3.871s dev-sda1.device
+SPIKE blame 3.871s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dlabel-ESP.device
+SPIKE blame 3.871s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2duuid-CC87\x2dFE85.device
+SPIKE blame 3.871s dev-disk-by\x2dlabel-ESP.device
+SPIKE blame 3.871s dev-disk-by\x2ddiskseq-1\x2dpart1.device
+SPIKE blame 3.871s dev-disk-by\x2dpartlabel-esp.device
+SPIKE blame 3.871s dev-disk-by\x2dpath-pci\x2d0000:00:02.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartuuid-94328750\x2d2787\x2d4846\x2dabd8\x2d797577e433aa.device
+SPIKE stage [    3.547199] localhost kernel: sd 0:0:0:0: [sda] Attached SCSI disk
+SPIKE stage [    7.834520] localhost kernel: [drm] Initialized bochs-drm 1.0.0 for 0000:00:01.0 on minor 0
+
+## Earlier run with throttling.iops-size=4096 (caps all reads at 1.6 / 10 MB/s; superseded)
+setup qemu-start-to-unlock-screen 15.38
+ssd qemu-start-to-unlock-screen 14.16
+good qemu-start-to-unlock-screen 28.14
+cheap qemu-start-to-unlock-screen 132.34

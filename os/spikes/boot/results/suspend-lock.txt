@@ -1,0 +1,348 @@
+# OS-0 suspend lock fallback: suspend-test.sh work/both.fd work/susp9 work/img-suspend/bismillah-spike-boot.raw (2026-10-21)
+# Cases in order: normal, frozen, late, crashed, disconnected. Screenshot bursts: before sleep every 0.1 s, after wake every 0.25 s.
+
+## guest
+freeze mem
+s2idle [deep]
+
+## marks (uptime seconds)
+[    2.281745] pstore: Registered efi_pstore as persistent store backend
+[    2.811298] xhci_hcd 0000:00:02.0: xHCI Host Controller
+[    2.827041] xhci_hcd 0000:00:02.0: xHCI Host Controller
+[    2.834267] usb usb1: Product: xHCI Host Controller
+[    2.855857] usb usb2: Product: xHCI Host Controller
+BISMILLAH_MARK sleepd-inhibitor-taken 7.95
+BISMILLAH_MARK sleepd-ready 7.95
+BISMILLAH_MARK events-connected 10.17
+BISMILLAH_MARK sleepd-app-connected 10.17
+BISMILLAH_MARK page-gate-shown 11.06
+BISMILLAH_MARK sleepd-app-disconnected 13.41
+BISMILLAH_MARK sleepd-app-connected 14.44
+BISMILLAH_MARK events-connected 14.44
+BISMILLAH_MARK page-gate-shown 14.79
+BISMILLAH_MARK page-editable 26.01
+SPIKE cmd: systemctl suspend
+BISMILLAH_MARK sleepd-prepare-sleep-vt-tty1 28.12
+BISMILLAH_MARK app-lock-requested 28.12
+BISMILLAH_MARK page-locked 28.13
+BISMILLAH_MARK app-lock-painted 28.16
+BISMILLAH_MARK sleepd-app-painted 28.16
+BISMILLAH_MARK sleepd-locked-before-sleep 28.17
+BISMILLAH_MARK sleepd-inhibitor-released 28.17
+user-1000.slice: Unit now frozen[   28.529510] PM: suspend entry (deep)
+[   29.483322] xhci_hcd 0000:00:02.0: xHC error in resume, USBSTS 0x401, Reinit
+[   29.967746] PM: suspend exit
+BISMILLAH_MARK sleepd-resumed-vt-tty1 29.67
+BISMILLAH_MARK sleepd-inhibitor-taken 29.67
+BISMILLAH_MARK page-lock-passed 44.73
+SPIKE cmd: for p in $(cat /sys/fs/cgroup$(cut -d: -f3 /proc/$(pgrep -x bismillah)/cgroup)/cgroup.procs); do [ "$(cat /proc/$p/comm)" = cage ] || kill -STOP $p; done; systemctl suspend
+BISMILLAH_MARK sleepd-prepare-sleep-vt-tty1 47.10
+BISMILLAH_MARK sleepd-fallback 48.61
+BISMILLAH_MARK sleepd-vt-8-active-tty8 48.63
+BISMILLAH_MARK sleepd-inhibitor-released 48.64
+[   49.092658] PM: suspend entry (deep)
+[   49.999385] xhci_hcd 0000:00:02.0: xHC error in resume, USBSTS 0x401, Reinit
+[   50.481612] PM: suspend exit
+BISMILLAH_MARK sleepd-resumed-vt-tty8 50.19
+BISMILLAH_MARK sleepd-inhibitor-taken 50.21
+BISMILLAH_MARK sleepd-restart-session 53.22
+BISMILLAH_MARK sleepd-app-discon[   53.638146] audit: type=1131 audit(1792563772.552:140): pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=bismillah-session comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+BISMILLAH_MARK sleepd-session-ended 53.39
+BISMILLAH_MARK sleepd-vt-1-active-tty1 53.39
+BISMILLAH_MARK sleepd-session-started 53.59
+BISMILLAH_MARK events-connected 54.12
+BISMILLAH_MARK sleepd-app-connected 54.12
+BISMILLAH_MARK page-gate-shown 54.49
+BISMILLAH_MARK app-lock-painted 54.54
+BISMILLAH_MARK sleepd-app-painted 54.54
+BISMILLAH_MARK sleepd-restarted-lock-painted 54.54
+BISMILLAH_MARK page-editable 65.00
+SPIKE cmd: for p in $(cat /sys/fs/cgroup$(cut -d: -f3 /proc/$(pgrep -x bismillah)/cgroup)/cgroup.procs); do [ "$(cat /proc/$p/comm)" = cage ] || kill -STOP $p; done; systemctl suspend
+BISMILLAH_MARK sleepd-prepare-sleep-vt-tty1 67.16
+BISMILLAH_MARK sleepd-fallback 68.66
+BISMILLAH_MARK sleepd-vt-8-active-tty8 68.68
+BISMILLAH_MARK sleepd-inhibitor-released 68.68
+user-1000.slice: Unit now frozen-by-parent.[   69.096620] PM: suspend entry (deep)
+[   70.014549] xhci_hcd 0000:00:02.0: xHC error in resume, USBSTS 0x401, Reinit
+[   70.483220] PM: suspend exit
+00:00:15.689 [backend/drm/atomic.c:79] connector Virtual-1: Atomic commit failed: Permission denied
+BISMILLAH_MARK sleepd-resumed-vt-tty8 70.21
+BISMILLAH_MARK sleepd-inhibitor-taken 70.22
+SPIKE cmd: for p in $(cat /sys/fs/cgroup$(cut -d: -f3 /proc/$(pgrep -x bismillah)/cgroup)/cgroup.procs); do kill -CONT $p; done
+BISMILLAH_MARK app-lock-requested 70.30
+BISMILLAH_MARK app-lock-requested 70.31
+BISMILLAH_MARK page-locked 70.36
+BISMILLAH_MARK app-lock-painted 70.41
+BISMILLAH_MARK sleepd-app-painted 70.42
+BISMILLAH_MARK app-lock-painted 70.42
+BISMILLAH_MARK sleepd-app-painted 70.42
+BISMILLAH_MARK sleepd-late-lock-painted 70.42
+BISMILLAH_MARK sleepd-vt-1-active-tty1 70.42
+BISMILLAH_MARK page-lock-passed 89.78
+SPIKE cmd: pkill -KILL -x bismillah; systemctl suspend
+BISMILLAH_MARK sleepd-prepare-sleep-vt-tty1 92.10
+BISMILLAH_MARK sleepd-app-disconnected 92.13Killed
+BISMILLAH_MARK events-connected 93.09
+BISMILLAH_MARK sleepd-app-connected 93.10
+BISMILLAH_MARK page-gate-shown 93.46
+BISMILLAH_MARK app-lock-painted 93.51
+BISMILLAH_MARK sleepd-app-painted 93.51
+BISMILLAH_MARK sleepd-locked-before-sleep 93.51
+BISMILLAH_MARK sleepd-inhibitor-released 93.51
+[   93.883135] PM: suspend entry (deep)
+[   94.649117] xhci_hcd 0000:00:02.0: xHC error in resume, USBSTS 0x401, Reinit
+[   95.132066] PM: suspend exit
+BISMILLAH_MARK sleepd-resumed-vt-tty1 94.85
+BISMILLAH_MARK sleepd-inhibitor-taken 94.87
+BISMILLAH_MARK page-editable 109.75
+SPIKE cmd: pkill -USR1 -f bismillah-sleepd
+BISMILLAH_MARK events-closed 111.92
+BISMILLAH_MARK sleepd-app-disconnected 111.92
+SPIKE cmd: systemctl suspend
+BISMILLAH_MARK sleepd-prepare-sleep-vt-tty1 112.02
+BISMILLAH_MARK sleepd-fallback 112.02
+BISMILLAH_MARK sleepd-vt-8-active-tty8 112.0300:00:18.601 [backend/drm/atomic.c:79] connector Virtual-1: Atomic commit failed: Permission denied
+BISMILLAH_MARK sleepd-inhibitor-released 112.04
+[  112.435645] PM: suspend entry (deep)
+[  113.285364] xhci_hcd 0000:00:02.0: xHC error in resume, USBSTS 0x401, Reinit
+[  113.759635] PM: suspend exit
+BISMILLAH_MARK sleepd-resumed-vt-tty8 113.47
+BISMILLAH_MARK sleepd-inhibitor-taken 113.48
+BISMILLAH_MARK sleepd-restart-session 113.48
+BISMILLAH_MARK sleepd-session-ended 113.61
+BISMILLAH_MARK sleepd-vt-1-active-tty1 113.61
+BISMILLAH_MARK sleepd-session-started 113.76
+BISMILLAH_MARK events-connected 114.35
+BISMILLAH_MARK sleepd-app-connected 114.35
+BISMILLAH_MARK page-gate-shown 114.71
+BISMILLAH_MARK app-lock-painted 114.76
+BISMILLAH_MARK sleepd-app-painted 114.76
+BISMILLAH_MARK sleepd-restarted-lock-painted 114.76
+BISMILLAH_MARK page-editable 128.36
+BISMILLAH_MARK sleepd-app-disconnected 130.61
+
+## qmp: sleep and wake bursts (frame, seconds, state)
+== normal
+000 0.00 running
+001 0.11 running
+002 0.22 running
+003 0.36 suspended
+state: suspended
+000 0.07
+001 0.26
+002 0.52
+003 0.78
+004 1.01
+005 1.26
+006 1.51
+007 1.76
+008 2.01
+009 2.26
+010 2.51
+011 2.77
+012 3.03
+013 3.28
+014 3.53
+015 3.78
+016 4.03
+017 4.28
+018 4.53
+019 4.78
+020 5.03
+021 5.28
+022 5.53
+023 5.78
+024 6.03
+025 6.28
+026 6.53
+027 6.78
+028 7.03
+029 7.28
+030 7.53
+031 7.78
+032 8.03
+033 8.28
+034 8.53
+035 8.78
+036 9.03
+037 9.28
+038 9.53
+039 9.78
+== frozen
+000 0.00 running
+001 0.13 running
+002 0.26 running
+003 0.38 running
+004 0.51 running
+005 0.64 running
+006 0.76 running
+007 0.89 running
+008 1.02 running
+009 1.14 running
+010 1.27 running
+011 1.40 running
+012 1.52 running
+013 1.65 running
+014 1.78 running
+015 1.91 suspended
+state: suspended
+000 0.08
+001 0.26
+002 0.52
+003 0.78
+004 1.03
+005 1.28
+006 1.53
+007 1.78
+008 2.03
+009 2.28
+010 2.53
+011 2.78
+012 3.03
+013 3.28
+014 3.53
+015 3.78
+016 4.03
+017 4.27
+018 4.53
+019 4.76
+020 5.01
+021 5.26
+022 5.53
+023 5.78
+024 6.03
+025 6.28
+026 6.53
+027 6.78
+028 7.03
+029 7.28
+030 7.53
+031 7.77
+032 8.03
+033 8.28
+034 8.53
+035 8.78
+036 9.03
+037 9.28
+038 9.53
+039 9.78
+== late
+000 0.00 running
+001 0.11 running
+002 0.23 running
+003 0.36 running
+004 0.48 running
+005 0.61 running
+006 0.74 running
+007 0.86 running
+008 0.99 running
+009 1.11 running
+010 1.24 running
+011 1.37 running
+012 1.50 running
+013 1.62 running
+014 1.75 running
+015 1.88 suspended
+state: suspended
+000 0.05
+== crashed
+000 0.00 running
+001 0.13 running
+002 0.25 running
+003 0.38 running
+004 0.51 running
+005 0.66 running
+006 0.77 running
+007 0.88 running
+008 0.99 running
+009 1.10 running
+010 1.21 running
+011 1.32 running
+012 1.43 running
+013 1.53 suspended
+state: suspended
+000 0.07
+001 0.26
+002 0.52
+003 0.78
+004 1.01
+005 1.28
+006 1.53
+007 1.78
+008 2.03
+009 2.28
+010 2.53
+011 2.78
+012 3.03
+013 3.28
+014 3.53
+015 3.78
+016 4.03
+017 4.28
+018 4.53
+019 4.78
+020 5.03
+021 5.27
+022 5.53
+023 5.78
+024 6.03
+025 6.28
+026 6.52
+027 6.78
+028 7.03
+029 7.28
+030 7.53
+031 7.78
+032 8.03
+033 8.28
+034 8.53
+035 8.78
+036 9.03
+037 9.28
+038 9.53
+039 9.78
+== disconnected
+000 0.00 running
+001 0.11 running
+002 0.22 suspended
+state: suspended
+000 0.08
+001 0.26
+002 0.51
+003 0.78
+004 1.01
+005 1.27
+006 1.51
+007 1.76
+008 2.01
+009 2.26
+010 2.53
+011 2.78
+012 3.03
+013 3.28
+014 3.53
+015 3.78
+016 4.03
+017 4.28
+018 4.53
+019 4.78
+020 5.03
+021 5.28
+022 5.53
+023 5.78
+024 6.03
+025 6.28
+026 6.53
+027 6.78
+028 7.03
+029 7.28
+030 7.53
+031 7.78
+032 8.03
+033 8.28
+034 8.53
+035 8.78
+036 9.03
+037 9.28
+038 9.53
+039 9.78

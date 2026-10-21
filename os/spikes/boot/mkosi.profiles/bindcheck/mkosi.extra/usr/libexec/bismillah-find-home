@@ -1,0 +1,34 @@
+#!/bin/sh
+# The helper's lookup of its own home partition (OS-0 "Boot-device binding"), without
+# labels. Prints the home device, or "refuse <reason>" and exits 1.
+#   1. The root disk: the disk under the dm-verity root's data device.
+#   2. The loader disk: the disk holding systemd-boot's partition (LoaderDevicePartUUID).
+#      It must be exactly one disk, and the root disk.
+#   3. Home: the one partition of the home GPT type on that disk.
+home_type=933ac7e1-2eb4-4f13-b844-0e14e2aef915
+refuse() { echo "refuse $1"; exit 1; }
+disk_of() { basename "$(readlink -f "/sys/class/block/$1/..")"; }
+
+root_dm=$(basename "$(readlink -f "$(findmnt -no SOURCE /)")")
+[ -n "$root_dm" ] || refuse "no root device"
+root_disk=
+for part in /sys/class/block/"$root_dm"/slaves/*; do
+  d=$(disk_of "$(basename "$part")")
+  [ -z "$root_disk" ] || [ "$root_disk" = "$d" ] || refuse "root spans disks"
+  root_disk=$d
+done
+[ -n "$root_disk" ] || refuse "root has no underlying disk"
+
+var=/sys/firmware/efi/efivars/LoaderDevicePartUUID-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+[ -r "$var" ] || refuse "no LoaderDevicePartUUID"
+# efivarfs files cannot seek, so skip the 4 attribute bytes from a pipe.
+loader=$(cat "$var" | tail -c +5 | tr -d '\000' | tr 'A-F' 'a-f')
+loader_disks=$(lsblk -rno PARTUUID,PKNAME | awk -v u="$loader" '$1 == u { print $2 }' | sort -u)
+[ -n "$loader_disks" ] || refuse "loader partition $loader not found"
+[ "$(echo "$loader_disks" | wc -l)" = 1 ] || refuse "loader partition on several disks: $(echo $loader_disks)"
+[ "$loader_disks" = "$root_disk" ] || refuse "root on $root_disk, loader on $loader_disks"
+
+homes=$(lsblk -rno NAME,PARTTYPE "/dev/$root_disk" | awk -v t="$home_type" '$2 == t { print $1 }')
+[ -n "$homes" ] || refuse "no home partition on $root_disk"
+[ "$(echo "$homes" | wc -l)" = 1 ] || refuse "several home partitions on $root_disk"
+echo "/dev/$homes"

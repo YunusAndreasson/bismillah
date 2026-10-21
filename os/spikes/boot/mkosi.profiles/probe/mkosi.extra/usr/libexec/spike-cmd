@@ -1,0 +1,8 @@
+#!/bin/sh
+# Spike only: runs each line from the second serial port as root, so the test can
+# freeze or kill the app. Output goes to the serial log on ttyS0.
+stty -F /dev/ttyS1 raw -echo
+while IFS= read -r line; do
+  echo "SPIKE cmd: $line" >/dev/ttyS0
+  sh -c "$line" >/dev/ttyS0 2>&1
+done </dev/ttyS1

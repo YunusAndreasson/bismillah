@@ -1,0 +1,19 @@
+#!/bin/sh
+# Lines for os/spikes/boot/nonet-test.sh; the test hot-plugs NICs while this runs.
+# serial-getty@ttyS0 is masked: its hangup broke writes to the console.
+exec >/dev/ttyS0 2>&1
+echo "SPIKE net-modules: $(lsmod | awk 'NR > 1 { print $1 }' | grep -E -i 'net|wl|wifi|80211|bt|blue|nfc|can|usbnet|cdc_|rndis|e1000|r8169|igb|rfkill' | tr '\n' ' ')"
+echo "SPIKE net-modules-on-disk: $(find /usr/lib/modules -path '*/kernel/net/*' -o -path '*/kernel/drivers/net/*' -o -path '*/drivers/bluetooth/*' | wc -l)"
+echo "SPIKE firmware-files: $(find /usr/lib/firmware -type f 2>/dev/null | wc -l)"
+i=0
+while [ $i -lt 60 ]; do
+  nets=$(ls /sys/class/net | tr '\n' ' ')
+  pci=$(for d in /sys/bus/pci/devices/*; do [ -e "$d/driver" ] || echo "$(basename "$d")=$(cat "$d/vendor"):$(cat "$d/device")"; done | tr '\n' ' ')
+  usb=$(for d in /sys/bus/usb/devices/*:*; do [ -e "$d/driver" ] || echo "$(basename "$d")=$(cat "$d/bInterfaceClass")"; done 2>/dev/null | tr '\n' ' ')
+  virtio=$(for d in /sys/bus/virtio/devices/*; do [ -e "$d/driver" ] || echo "$(basename "$d")=$(cat "$d/device")"; done 2>/dev/null | tr '\n' ' ')
+  echo "SPIKE net $i: if=[$nets] driverless-pci=[$pci] driverless-usb=[$usb] driverless-virtio=[$virtio]"
+  i=$((i + 1))
+  sleep 3
+done
+dmesg | grep -i -E 'eth|net|e1000|usb.*(cdc|rndis|ax88)' | sed 's/^/SPIKE dmesg: /'
+echo "SPIKE net done"

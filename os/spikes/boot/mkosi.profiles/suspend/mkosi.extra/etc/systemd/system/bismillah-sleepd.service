@@ -1,0 +1,12 @@
+[Unit]
+Description=bismillah sleep daemon (suspend lock spike)
+After=systemd-logind.service
+Before=bismillah-session.service
+
+[Service]
+ExecStart=/usr/bin/python3 -u /usr/libexec/bismillah-sleepd
+StandardOutput=file:/dev/ttyS0
+StandardError=file:/dev/ttyS0
+
+[Install]
+WantedBy=multi-user.target
