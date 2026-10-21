@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Builds the stick's image with mkosi (pnpm os:build): os/out/image/bismillah-<profile>.raw.
-# Offline, from mkosi's package cache in os/cache/, unless --online (fetch.sh only).
+# Offline, from mkosi's package cache and tools tree in os/cache/, unless --online
+# (fetch.sh only), which builds a fresh tools tree in os/mkosi/mkosi.tools.
 # Refuses an mkosi or a Debian snapshot other than the ones os/inputs.lock records.
 # Usage: os/scripts/build.sh [--online] [release|debug]
 set -euo pipefail
 root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 # shellcheck source=../inputs.lock
 source "$root/os/inputs.lock"
-cache_only=always
-[ "${1:-}" = --online ] && { cache_only=never; shift; }
+cache_only=always tools=()
+[ "${1:-}" = --online ] && { cache_only=never tools=(--tools-tree=yes); shift; }
 profile=${1:-release}
 case $profile in
   release | debug) ;;
@@ -30,5 +31,7 @@ done
 
 mkdir -p "$root/os/cache/mkosi" "$root/os/cache/mkosi-metadata" "$root/os/out/image" "$root/os/out/work"
 cd "$root/os/mkosi"
-mkosi --profile="$profile" --output="bismillah-$profile" --cache-only="$cache_only" -f build
+[ ${#tools[@]} -gt 0 ] || [ -d "$root/os/cache/mkosi.tools" ] ||
+  { echo "No os/cache/mkosi.tools: run pnpm os:fetch first." >&2; exit 1; }
+mkosi "${tools[@]}" --profile="$profile" --output="bismillah-$profile" --cache-only="$cache_only" -f build
 echo "$root/os/out/image/bismillah-$profile.raw"

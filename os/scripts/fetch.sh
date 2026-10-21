@@ -36,8 +36,12 @@ echo "== the app (offline) and both images (online once, for the package cache)"
 "$root/os/build/build-app.sh"
 "$root/os/scripts/build.sh" --online release
 "$root/os/scripts/build.sh" --online debug
+# The tools tree they were built with, kept for the offline builds.
+rm -rf "$cache/mkosi.tools"
+mv "$root/os/mkosi/mkosi.tools" "$cache/mkosi.tools"
+rm -f "$root/os/mkosi/mkosi.tools.manifest"
 
 echo "== what was fetched: os/cache/SHA256SUMS"
-(cd "$cache" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum) \
+(cd "$cache" && find . -path ./mkosi.tools -prune -o -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum) \
   >"$cache/SHA256SUMS"
 du -sh "$cache"/* | sort -h
