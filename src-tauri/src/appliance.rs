@@ -6,6 +6,7 @@
 //! (OS-2) still runs through the spike modules behind `BISMILLAH_SPIKE_*`.
 
 use std::io::Write;
+use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -17,11 +18,16 @@ pub fn enabled(args: &[String]) -> bool {
     args.iter().skip(1).any(|a| a == FLAG)
 }
 
-/// The library on the stick, `~/Texts`, made on the first start. `None` when it can't
-/// be made: the app then starts with no library, as on the desktop.
+/// The library on the stick, `~/Texts`, made on the first start and private to the
+/// writer whatever the session's umask (PAM's login session sets its own). `None` when
+/// it can't be made: the app then starts with no library, as on the desktop.
 pub fn library() -> Option<PathBuf> {
     let dir = Path::new(&std::env::var_os("HOME")?).join("Texts");
-    match std::fs::create_dir_all(&dir) {
+    match std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(&dir)
+    {
         Ok(()) => Some(dir),
         Err(e) => {
             eprintln!("bismillah: no library folder: {:?}", e.kind());
