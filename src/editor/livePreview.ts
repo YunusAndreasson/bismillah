@@ -20,6 +20,7 @@ import {
 } from "@codemirror/view";
 import type { SyntaxNode, Tree } from "@lezer/common";
 import { lineHang, prefixWidth } from "./hangingMarks.ts";
+import { isResting, restChanged } from "./rest.ts";
 import { remeasureTypography } from "./typography.ts";
 
 /**
@@ -93,9 +94,14 @@ function unitAt(tree: Tree, pos: number, side: -1 | 1): SyntaxNode | null {
 /**
  * The lines that show their Markdown: those of the block that holds the caret (the
  * selection's head), and always the caret's own line, so the caret never sits beside a
- * hidden mark. On a blank line it is just that line.
+ * hidden mark. On a blank line it is just that line. With the pen down (rest.ts),
+ * nothing: the whole document shows its rendered look.
  */
+/** No lines: every position falls outside it. */
+const NOTHING: Span = { from: -1, to: -1 };
+
 export function revealedLines(state: EditorState): Span {
+  if (isResting(state)) return NOTHING;
   const { doc } = state;
   const head = state.selection.main.head;
   const line = doc.lineAt(head);
@@ -119,21 +125,74 @@ export function revealedLines(state: EditorState): Span {
 /** Characters that open or close a structure that reaches beyond its own line, or that
  * live preview draws from elsewhere: tables, code, HTML, links, definitions, images. */
 const STRUCTURE = /[|`~<>[\]!]/;
+const OTHER_STRUCTURE = /[|~<>[\]!\\]/;
+
+/** Inline code elsewhere on a prose line needn't invalidate document-wide previews.
+ * Its delimiters must stay untouched and separate: deleting a space between two
+ * backtick runs, or changing an escape, can change how following lines parse. */
+function stableInlineCode(
+  tr: Transaction,
+  fromA: number,
+  toA: number,
+  fromB: number,
+  toB: number,
+): boolean {
+  const before = tr.startState.doc.lineAt(fromA);
+  const after = tr.state.doc.lineAt(fromB);
+  if (OTHER_STRUCTURE.test(before.text) || OTHER_STRUCTURE.test(after.text)) return false;
+  if (
+    /[`\\]/.test(tr.startState.sliceDoc(fromA, toA)) ||
+    /[`\\]/.test(tr.state.sliceDoc(fromB, toB))
+  )
+    return false;
+  for (const [line, from, to] of [
+    [before, fromA, toA],
+    [after, fromB, toB],
+  ] as const) {
+    for (const pos of [from, to]) {
+      const offset = pos - line.from;
+      if (line.text.charAt(offset - 1) === "`" || line.text.charAt(offset) === "`") return false;
+    }
+  }
+  const oldTree = syntaxTree(tr.startState);
+  const nextTree = syntaxTree(tr.state);
+  const old = unitAt(oldTree, fromA, 1) ?? unitAt(oldTree, fromA, -1);
+  const next = unitAt(nextTree, fromB, 1) ?? unitAt(nextTree, fromB, -1);
+  return (
+    !!old &&
+    !!next &&
+    (old.name === "Paragraph" ||
+      old.name === "Task" ||
+      /^(?:ATX|Setext)Heading[1-6]$/.test(old.name)) &&
+    old.name === next.name &&
+    tr.changes.mapPos(old.from, -1) === next.from &&
+    tr.changes.mapPos(old.to, 1) === next.to
+  );
+}
 
 /**
  * Whether a transaction only typed or deleted inside the revealed block's lines, without
  * changing anything that could reach beyond them: no line break added or removed, nothing
  * at a line's start (indentation, list, quote and heading marks, fences), and no
  * character that makes a table, code, HTML, a link, a definition or an image, on the
- * line before or after. Typing prose is almost always such an edit. The document's
+ * line before or after. Unchanged inline-code delimiters are allowed when the
+ * edit stays away from them and the enclosing prose block is unchanged. Typing
+ * prose is almost always such an edit. The document's
  * tables, images and definitions then stand as they were, and their decorations only
- * move, so a key in a 1 MB document costs no more than in a short one (ARCHITECTURE.md
- * §14). Everything else rebuilds them.
+ * move, avoiding document-wide preview rebuilds (ARCHITECTURE.md §14). Advancing
+ * background parsing and all other edits rebuild them.
  */
 export function inlineEdit(tr: Transaction): boolean {
   if (!tr.docChanged) return true;
+  // Background parsing can reveal tables, images and definitions beyond the old
+  // tree in the same transaction as an edit. Mapping old decorations alone would
+  // omit them, even when the typed character cannot change Markdown structure.
+  if (syntaxTree(tr.state).length > tr.changes.mapPos(syntaxTree(tr.startState).length, 1))
+    return false;
   const open = tr.startState.field(revealed, false)?.lines;
   if (!open) return false;
+  const first = syntaxTree(tr.startState).topNode.firstChild;
+  const nextFirst = syntaxTree(tr.state).topNode.firstChild;
   let inline = true;
   tr.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
     if (!inline) return;
@@ -141,6 +200,10 @@ export function inlineEdit(tr: Transaction): boolean {
     const after = tr.state.doc.lineAt(fromB);
     const lead = /^[ \t]*/.exec(after.text)?.[0].length ?? 0;
     inline =
+      // A delimiter with trailing spaces can change the entire document's parse
+      // even when the edit is past the first three columns.
+      !(first?.name === "Frontmatter" && fromA <= first.to) &&
+      !(nextFirst?.name === "Frontmatter" && fromB <= nextFirst.to) &&
       inserted.lines === 1 &&
       toA <= before.to &&
       toB <= after.to &&
@@ -148,8 +211,8 @@ export function inlineEdit(tr: Transaction): boolean {
       toA <= open.to &&
       fromB - after.from > lead + 3 &&
       fromA - before.from > lead + 3 &&
-      !STRUCTURE.test(before.text) &&
-      !STRUCTURE.test(after.text);
+      ((!STRUCTURE.test(before.text) && !STRUCTURE.test(after.text)) ||
+        stableInlineCode(tr, fromA, toA, fromB, toB));
   });
   return inline;
 }
@@ -180,6 +243,7 @@ export const revealed = StateField.define<Reveal>({
       value.held ||
       tr.docChanged ||
       tr.selection !== undefined ||
+      restChanged(tr.startState, tr.state) ||
       syntaxTree(tr.state) !== syntaxTree(tr.startState);
     if (!stale) return value;
     const lines = revealedLines(tr.state);
@@ -256,6 +320,7 @@ function collectReferences(state: EditorState): References {
         return false;
       }
       if (UNITS.has(node.name)) return false;
+      return true;
     },
   });
   const found = { links, footnotes };
@@ -441,22 +506,22 @@ export function renderedDecorations(
             } else {
               out.push(look.hidden.range(node.from, node.to));
             }
-            return;
+            return true;
           }
           case "QuoteMark":
             quoteMark(node);
-            return;
+            return true;
           case "ListMark": {
             const item = node.parent;
             if (item?.getChild("Task")) out.push(look.hidden.range(node.from, node.to));
             else if (item?.parent?.name === "BulletList")
               out.push(look.bullet.range(node.from, node.to));
             else out.push(look.number.range(node.from, node.to));
-            return;
+            return true;
           }
           case "TaskMarker":
             out.push((/x/i.test(text(node)) ? look.taskDone : look.task).range(node.from, node.to));
-            return;
+            return true;
           case "HorizontalRule":
             out.push(look.hidden.range(node.from, node.to));
             out.push(look.rule.range(state.doc.lineAt(node.from).from));
@@ -468,7 +533,7 @@ export function renderedDecorations(
           case "EmphasisMark":
           case "StrikethroughMark":
             hide(node.from, node.to);
-            return;
+            return true;
           case "InlineCode": {
             const marks = node.getChildren("CodeMark");
             const first = marks[0];
@@ -489,7 +554,7 @@ export function renderedDecorations(
           case "Link":
           case "Image":
             linkLike(node, ref.name === "Image");
-            return;
+            return true;
           case "Autolink": {
             const marks = node.getChildren("LinkMark");
             const url = node.getChild("URL");
@@ -506,6 +571,7 @@ export function renderedDecorations(
             }
             return false;
         }
+        return true;
       },
     });
   }

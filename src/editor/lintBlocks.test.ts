@@ -72,6 +72,28 @@ describe("lint units", () => {
     expect(u?.from).toBe(8);
     expect(u?.skip).toEqual([[5, 8]]);
   });
+
+  it("keeps inclusive range edges and whole-block budgets inside nested containers", () => {
+    const state = stateOf(
+      "# Title\n\n> quoted\n>\n> - one\n> - [ ] two\n\n| a | b |\n|---|---|\n| 😀 | عَرَبِيّ |\n\n```\nnot prose\n```\n\nLast.",
+    );
+    const all = lintUnits(state, 0, state.doc.length);
+    for (let from = 0; from <= state.doc.length; from++) {
+      for (const to of [from, Math.min(from + 7, state.doc.length), state.doc.length]) {
+        const overlapping = all.filter((u) => u.from <= to && u.to >= from);
+        for (const budget of [0, 1, 8, Infinity]) {
+          const expected: LintUnit[] = [];
+          let size = 0;
+          for (const unit of overlapping) {
+            if (size >= budget) break;
+            expected.push(unit);
+            size += unit.text.length;
+          }
+          expect(lintUnits(state, from, to, budget), `${from}..${to}, ${budget}`).toEqual(expected);
+        }
+      }
+    }
+  });
 });
 
 describe("the document's language", () => {

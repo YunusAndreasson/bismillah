@@ -329,3 +329,46 @@ describe("live preview: tables and code", () => {
     expect(await counts()).toEqual({ tables: 2, code: 5 });
   });
 });
+
+describe("editing beside inline code", () => {
+  for (const paragraph of [
+    "A paragraph with `code` and mixed العربية to edit here.",
+    "فقرة بالعَرَبِيَّةِ مع `code` وكلمات إنجليزية English هنا.",
+  ]) {
+    it(`preserves the grid and undo after typing in ${paragraph.startsWith("A") ? "English" : "Arabic"}`, async () => {
+      await waitForApp(browser);
+      await browser.execute(async () => {
+        await window.__bismillah?.changeSettings({
+          always_show_markdown: false,
+          focus_mode: false,
+        });
+      });
+      const doc = `${paragraph}\n\n| Name | Value |\n|---|---|\n| A | B |\n`;
+      await loadDoc(doc);
+      await browser.execute((anchor: number) => {
+        const view = window.__bismillah?.view;
+        view?.dispatch({ selection: { anchor }, scrollIntoView: true });
+        view?.focus();
+      }, paragraph.length);
+      await browser.pause(600); // Keep the load and the typed key in separate undo steps.
+      await browser.keys("x");
+      await settle(browser);
+      const expected = [{ dir: "ltr", head: ["Name", "Value"], rows: [["A", "B"]] }];
+      expect(await grids()).toEqual(expected);
+      expect(await browser.execute(() => window.__bismillah?.view.state.doc.toString())).toBe(
+        `${paragraph}x${doc.slice(paragraph.length)}`,
+      );
+      await press("Control", "z");
+      await browser.keys("Control");
+      await settle(browser);
+      expect(await browser.execute(() => window.__bismillah?.view.state.doc.toString())).toBe(doc);
+      expect(await grids()).toEqual(expected);
+      // Opening a fence is structural: the old grid must disappear immediately.
+      await browser.execute(() => {
+        window.__bismillah?.view.dispatch({ changes: { from: 0, insert: "```\n" } });
+      });
+      await settle(browser);
+      expect(await grids()).toEqual([]);
+    });
+  }
+});

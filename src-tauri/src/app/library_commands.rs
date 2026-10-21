@@ -369,7 +369,9 @@ impl AppState {
 
 /// The library for the panel. With `refresh`, it is listed again first (window focus,
 /// or the writer asked to try an unavailable folder again).
-#[tauri::command]
+/// Listing or joining the startup worker must not block GTK's main thread. Tauri's
+/// async dispatch keeps this synchronous, mutex-protected operation off that thread.
+#[tauri::command(async)]
 pub fn library_get(state: State<'_, AppState>, refresh: bool) -> LibraryPanel {
     state.library_ready();
     if refresh {
