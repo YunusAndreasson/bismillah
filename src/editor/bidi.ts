@@ -28,7 +28,6 @@ import { revealed } from "./livePreview.ts";
  */
 
 const RTL_CHAR = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/u;
-const STRONG_CHAR = /\p{L}/u;
 
 /** Syntax that never decides a block's direction. */
 const SKIP = new Set([
@@ -68,28 +67,29 @@ export type Dir = "ltr" | "rtl";
 
 /** Direction of the first strong character in [from, to), ignoring Markdown syntax. */
 export function firstStrongDirection(state: EditorState, from: number, to: number): Dir | null {
-  const skipped: [number, number][] = [];
-  syntaxTree(state).iterate({
-    from,
-    to,
-    enter(node) {
-      if (SKIP.has(node.name)) {
-        skipped.push([node.from, node.to]);
-        return false;
+  const tree = syntaxTree(state);
+  const letters = /\p{L}/gu;
+  let offset = from;
+  let skipTo = from;
+  // Usually the first word decides. Walk text lazily and inspect only candidate
+  // letters, instead of collecting every syntax mark in the whole paragraph for
+  // each visible line. A skipped URL/code span can cross iterator chunks.
+  for (const text of state.doc.iterRange(from, to)) {
+    const base = offset;
+    offset += text.length;
+    if (skipTo >= offset) continue;
+    letters.lastIndex = Math.max(0, skipTo - base);
+    for (let match; (match = letters.exec(text));) {
+      const pos = base + match.index;
+      for (let node: SyntaxNode | null = tree.resolveInner(pos, 1); node; node = node.parent) {
+        if (SKIP.has(node.name)) skipTo = Math.max(skipTo, node.to);
       }
-    },
-  });
-  const text = state.sliceDoc(from, to);
-  let s = 0;
-  let offset = 0;
-  for (const ch of text) {
-    const pos = from + offset;
-    offset += ch.length;
-    while (s < skipped.length && (skipped[s]?.[1] ?? 0) <= pos) s++;
-    const range = skipped[s];
-    if (range && range[0] <= pos && pos < range[1]) continue;
-    if (RTL_CHAR.test(ch) && STRONG_CHAR.test(ch)) return "rtl";
-    if (STRONG_CHAR.test(ch)) return "ltr";
+      if (skipTo > pos) {
+        letters.lastIndex = Math.max(letters.lastIndex, skipTo - base);
+        continue;
+      }
+      return RTL_CHAR.test(match[0]) ? "rtl" : "ltr";
+    }
   }
   return null;
 }
@@ -171,6 +171,7 @@ function build(view: EditorView): { lines: DecorationSet; isolates: DecorationSe
           if (part && part.to > part.from) isolates.add(part.from, part.to, isolateDeco);
           return false;
         }
+        return true;
       },
     });
   }
