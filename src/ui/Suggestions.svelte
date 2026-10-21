@@ -118,7 +118,10 @@
 
 <style>
   :global(.suggestions) {
+    box-sizing: border-box;
     max-inline-size: min(24rem, calc(100vw - 2 * var(--space-4)));
+    max-block-size: var(--bits-dropdown-menu-content-available-height);
+    overflow-y: auto;
   }
   .head {
     display: grid;
