@@ -1,0 +1,4 @@
+# Assertions may panic in tests; production code must handle errors or document a
+# narrowly scoped lint expectation for an invariant.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true

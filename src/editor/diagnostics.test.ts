@@ -44,7 +44,8 @@ function decorated(state: EditorState): string[] {
   const out: string[] = [];
   const set = state.field(diagnosticField).decorations;
   for (let it = set.iter(); it.value; it.next()) {
-    out.push(`${state.sliceDoc(it.from, it.to)}:${it.value.spec.class as string}`);
+    const spec = it.value.spec as { class: string };
+    out.push(`${state.sliceDoc(it.from, it.to)}:${spec.class}`);
   }
   return out;
 }
@@ -60,7 +61,8 @@ describe("diagnostics", () => {
       "a apple:cm-diag cm-diag-grammar",
     ]);
     const set = state.field(diagnosticField).decorations;
-    expect(set.iter().value?.spec.attributes).toEqual({ "aria-invalid": "spelling" });
+    const spec = set.iter().value?.spec as { attributes: Record<string, string> } | undefined;
+    expect(spec?.attributes).toEqual({ "aria-invalid": "spelling" });
   });
 
   it("replaces a block's results when new ones arrive", () => {

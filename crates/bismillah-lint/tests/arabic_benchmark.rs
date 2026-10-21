@@ -3,6 +3,11 @@
 //! It catches a `spellbook` or dictionary upgrade that changes verdicts, and the system
 //! `hunspell` CLI, where installed, serves as an independent oracle.
 
+#![allow(
+    clippy::expect_used,
+    reason = "invalid bundled fixtures should fail the test"
+)]
+
 use std::collections::HashSet;
 use std::io::Write;
 use std::process::{Command, Stdio};

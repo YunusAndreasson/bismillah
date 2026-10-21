@@ -156,7 +156,7 @@ export const diagnosticField = StateField.define<DiagnosticState>({
         ignored = e.value;
         dirty = true;
       } else if (e.is(clearDiagnostics)) {
-        all = RangeSet.empty;
+        all = RangeSet.of<Diagnostic>([]);
         dirty = true;
       } else if (e.is(forgetWord)) {
         const word = e.value;

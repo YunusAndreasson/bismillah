@@ -8,6 +8,7 @@ paths:
 # Rust conventions
 
 - Keep `cargo clippy --workspace --all-targets -- -D warnings` and `cargo fmt --all --check` clean.
+- Every workspace crate opts into `[lints] workspace = true`. Workspace rules flag panic-prone calls, unfinished code and undocumented unsafe blocks; tests may panic in assertions and setup. `bismillah-lint` forbids unsafe code. Verification uses `--locked` so dependency changes are deliberate.
 - Return errors as `thiserror` enums, serialised to the frontend as typed errors the UI can explain in plain words (DESIGN.md §14). `unwrap`/`expect` belong in tests or provably infallible spots with a comment, because a panic in the backend can lose a writer's unsaved text.
 - Put every `cfg(target_os)` branch in `src-tauri/src/platform.rs`, so platform behaviour stays reviewable in one place.
 - `crates/bismillah-lint` stays free of Tauri dependencies, so it can be tested and benchmarked on its own.
