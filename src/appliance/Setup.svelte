@@ -19,6 +19,7 @@
     layouts,
     opened,
     power,
+    changed,
   }: {
     keyboardChosen: boolean;
     /** The layouts the session runs with now, e.g. "se,ara". */
@@ -26,6 +27,8 @@
     layouts: ipc.KeyboardLayout[];
     opened: (timeZone: string) => void;
     power: (action: "off" | "reboot") => void;
+    /** Home's state may have changed: the gate asks the helper again. */
+    changed: () => void;
   } = $props();
 
   const text = copy.appliance;
@@ -76,8 +79,10 @@
       // On success the session restarts and this page reloads at step 2.
       const answer = await ipc.applianceSetKeyboard(chosen, chosen.includes(",") ? SWITCH : "");
       problem = describe(answer);
+      if (answer.answer === "refused") changed();
     } catch {
       problem = text.helperDown;
+      changed();
     }
     busy = false;
   }
@@ -113,9 +118,11 @@
         return;
       }
       problem = describe(answer);
+      if (answer.answer === "refused") changed();
       if (answer.answer === "too_weak") step = 2;
     } catch {
       problem = text.helperDown;
+      changed();
     }
     busy = false;
   }

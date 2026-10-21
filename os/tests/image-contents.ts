@@ -28,6 +28,8 @@ type Profile = "release" | "debug";
 
 const ESP = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b";
 const ROOT = "4f68bce3-e8cd-4db1-96e7-fbcaf984b709"; // root, x86-64
+const HOME = "933ac7e1-2eb4-4f13-b844-0e14e2aef915";
+const MIB = 1024 * 1024;
 
 let failures = 0;
 function check(ok: boolean, what: string): void {
@@ -41,8 +43,16 @@ function guid(b: Buffer): string {
   return `${swap(h.slice(0, 8))}-${swap(h.slice(8, 12))}-${swap(h.slice(12, 16))}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
-/** The byte offset of each partition type on the image (GPT, 512-byte sectors). */
-function partitions(image: string): Map<string, number> {
+interface Part {
+  /** Byte offset and size on the image. */
+  offset: number;
+  bytes: number;
+  /** The GPT attribute flags (bit 63: no-auto). */
+  flags: bigint;
+}
+
+/** Each partition type on the image (GPT, 512-byte sectors). */
+function partitions(image: string): Map<string, Part> {
   const fd = openSync(image, "r");
   try {
     const header = Buffer.alloc(92);
@@ -53,14 +63,30 @@ function partitions(image: string): Map<string, number> {
     const size = header.readUInt32LE(84);
     const table = Buffer.alloc(count * size);
     readSync(fd, table, 0, table.length, start);
-    const found = new Map<string, number>();
+    const found = new Map<string, Part>();
     for (let i = 0; i < count; i++) {
       const entry = table.subarray(i * size, (i + 1) * size);
       const type = guid(entry.subarray(0, 16));
       if (type !== "00000000-0000-0000-0000-000000000000")
-        found.set(type, Number(entry.readBigUInt64LE(32)) * 512);
+        found.set(type, {
+          offset: Number(entry.readBigUInt64LE(32)) * 512,
+          bytes: Number(entry.readBigUInt64LE(40) - entry.readBigUInt64LE(32) + 1n) * 512,
+          flags: entry.readBigUInt64LE(48),
+        });
     }
     return found;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** Whether `length` bytes of the image from `offset` are all zero. */
+function zeros(image: string, offset: number, length: number): boolean {
+  const fd = openSync(image, "r");
+  try {
+    const buffer = Buffer.alloc(length);
+    readSync(fd, buffer, 0, length, offset);
+    return buffer.every((b) => b === 0);
   } finally {
     closeSync(fd);
   }
@@ -93,10 +119,18 @@ function esp(image: string, offset: number, args: string[]): string {
 function checkImage(profile: Profile): void {
   const image = join(images, `bismillah-${profile}.raw`);
   const parts = partitions(image);
-  const rootAt = parts.get(ROOT);
-  const espAt = parts.get(ESP);
+  const rootAt = parts.get(ROOT)?.offset;
+  const espAt = parts.get(ESP)?.offset;
   check(rootAt !== undefined && espAt !== undefined, `${profile}: has an ESP and an x86-64 root`);
   if (rootAt === undefined || espAt === undefined) return;
+  // Home: flashed as zeros, which the helper reads as Blank, and never auto-mounted.
+  const home = parts.get(HOME);
+  check(home !== undefined && home.flags >> 63n === 1n, `${profile}: home is marked no-auto`);
+  if (home)
+    check(
+      zeros(image, home.offset, 8 * MIB) && zeros(image, home.offset + home.bytes - MIB, MIB),
+      `${profile}: home is blank (zeros) as flashed`,
+    );
 
   // The root, extracted without owners (we aren't root), into os/out/contents/.
   const tree = join(root, "os/out/contents", profile);
@@ -203,6 +237,34 @@ function checkImage(profile: Profile): void {
   check(
     has("/usr/bin/bismillah") && has("/usr/share/bismillah/commit"),
     `${profile}: the app and its commit`,
+  );
+  // The helper (OS-2): socket-activated, only for the writer, and its tools.
+  check(has("/usr/libexec/bismillah-helper"), `${profile}: the helper`);
+  const socket = text("/etc/systemd/system/bismillah-helper.socket");
+  check(
+    /SocketUser=writer/.test(socket) && /SocketMode=0600/.test(socket),
+    `${profile}: the helper's socket is the writer's alone`,
+  );
+  check(
+    isLink(join(tree, "etc/systemd/system/sockets.target.wants/bismillah-helper.socket")),
+    `${profile}: the helper's socket is enabled`,
+  );
+  for (const tool of [
+    "/usr/sbin/cryptsetup",
+    "/usr/sbin/mkfs.ext4",
+    "/usr/sbin/e2fsck",
+    "/usr/sbin/blkid",
+    "/usr/bin/lsblk",
+  ])
+    check(has(tool), `${profile}: ${tool}`);
+  check(
+    /ExecStartPre=\+\/usr\/libexec\/bismillah-helper keyboard-env/.test(session) &&
+      /XDG_DATA_HOME=\/run\//.test(session),
+    `${profile}: cage's layouts come from the helper, and XDG data stays in RAM`,
+  );
+  check(
+    /^tmpfs \/home tmpfs/m.test(text("/etc/fstab")),
+    `${profile}: /home is RAM until the helper mounts the writer's home`,
   );
   const units = matching(/^\/(etc|usr\/lib)\/systemd\/system\/.*\.(service|conf)$/)
     .map((p) => text(p))

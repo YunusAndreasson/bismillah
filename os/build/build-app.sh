@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the bismillah release binary for Debian 13 in the build container, with the
+# Builds the bismillah release binary and its helper for Debian 13 in the build container, with the
 # network off, from a committed ref and os/cache/ alone (pnpm os:app). The repository
 # is mounted read-only and the build clones the ref, so the working tree and target/
 # are never touched. The result is the image's app tree, os/out/app/, which records
@@ -36,8 +36,10 @@ docker run --rm --network=none \
       >"$CARGO_HOME/config.toml"
     pnpm install --offline --frozen-lockfile --store-dir /cache/pnpm-store --cache-dir /cache/pnpm-cache
     pnpm tauri build --no-bundle -- --locked
+    cargo build --release --locked -p bismillah-appliance --bin bismillah-helper
     install -D -m755 target/release/bismillah /out/usr/bin/bismillah
+    install -D -m755 target/release/bismillah-helper /out/usr/libexec/bismillah-helper
     mkdir -p /out/usr/share/bismillah
     git rev-parse HEAD >/out/usr/share/bismillah/commit
     chown -R "$OWNER" /out'
-echo "$out/usr/bin/bismillah ($(cat "$out/usr/share/bismillah/commit"))"
+echo "$out/usr/bin/bismillah, usr/libexec/bismillah-helper ($(cat "$out/usr/share/bismillah/commit"))"

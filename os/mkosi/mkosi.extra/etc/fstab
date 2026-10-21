@@ -5,3 +5,6 @@ tmpfs /var/tmp tmpfs mode=1777,size=64M,nosuid,nodev 0 0
 tmpfs /var/log tmpfs mode=0755,size=16M,nosuid,nodev,noexec 0 0
 # Firmware variables are read, never written, by anything on the stick.
 efivarfs /sys/firmware/efi/efivars efivarfs ro,nosuid,nodev,noexec 0 0
+# Home is RAM until the helper mounts the writer's encrypted home at /home/writer,
+# so nothing written before unlock reaches the stick unencrypted.
+tmpfs /home tmpfs mode=0755,size=16M,nosuid,nodev 0 0

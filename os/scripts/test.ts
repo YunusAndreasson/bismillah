@@ -8,9 +8,21 @@
  *
  * Results go to os/out/test/<scenario>/ and the summary to os/out/test/report.txt.
  */
+import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { changed, frames, imageFor, root, Vm, type Stick, type Vars } from "./vm.ts";
+import {
+  changed,
+  frames,
+  imageFor,
+  root,
+  stickFrom,
+  Vm,
+  type BootOptions,
+  type Stick,
+  type Vars,
+} from "./vm.ts";
 
 const out = join(root, "os/out/test");
 const report = join(out, "report.txt");
@@ -38,12 +50,13 @@ async function releaseBoots(name: string, vars: Vars, stick: Stick = "ssd"): Pro
     await vm.settled(240);
     const seconds = vm.elapsed() - 2; // settled() waits 2 s of stillness
     await vm.screen("booted");
-    // An empty library opens on the welcome screen, which has no editor; the guide is a
-    // sample document (never saved) to type into. Under software rendering the welcome
-    // screen's first frame isn't painted (os/PLAN.md, OS-1 result), so this also gives
-    // the screen something to show.
-    await vm.key("f1");
-    const before = await vm.settled(30);
+    // A blank stick opens on setup. Its first step chooses the keyboard (US is chosen)
+    // and restarts the session; the second takes the passphrase, typed here.
+    await vm.key("tab");
+    await vm.key("tab");
+    await vm.key("ret");
+    await sleep(3000);
+    const before = await vm.settled(60);
     await vm.type("Bismillah, the stick boots.");
     await sleep(1500);
     const after = await vm.screen("typed");
@@ -89,6 +102,7 @@ async function debugInside(stick: Stick = "ssd"): Promise<void> {
   const name = `debug-${stick}`;
   const vm = await Vm.boot({ image: imageFor("debug"), out: join(out, name), debug: true, stick });
   try {
+    await setUpQuickly(vm);
     await vm.waitSerial(/BISMILLAH_MARK page-editable/, 240);
     await sleep(2000);
     await vm.screen("editor");
@@ -150,6 +164,610 @@ async function debugInside(stick: Stick = "ssd"): Promise<void> {
   }
 }
 
+// ---- OS-2: the encrypted home, setup and unlock -------------------------------
+
+/** The writer's passphrase in the VMs: Swedish and Arabic letters, then words. */
+const PASSPHRASE = "åäö بلا lantern orbit velvet";
+/** For the sticks set up on the US layout. */
+const PLAIN = "lantern orbit velvet canyon";
+const HOME_DEV = "/dev/disk/by-partlabel/bismillah-home";
+
+/**
+ * Types PASSPHRASE on the se,ara layouts: å ä ö are Swedish keys ([ ' ;), Alt+Shift
+ * switches to Arabic, where f g h are ب ل ا (docs/spikes/os-keyboard.md).
+ */
+async function typePassphrase(vm: Vm): Promise<void> {
+  for (const key of ["bracket_left", "apostrophe", "semicolon"]) await vm.key(key);
+  await vm.type(" ");
+  await vm.key("alt", "shift");
+  for (const key of ["f", "g", "h"]) await vm.key(key);
+  await vm.key("alt", "shift");
+  await vm.type(" lantern orbit velvet");
+}
+
+/** The serial log's length now: wait for marks after this point. */
+const here = (vm: Vm) => vm.serial().length;
+
+async function mark(vm: Vm, name: string, seconds: number, from = 0): Promise<number> {
+  const m = await vm.waitSerial(new RegExp(`BISMILLAH_MARK ${name} ([\\d.]+)`), seconds, from);
+  return Number(m[1]);
+}
+
+/** Home's state from the helper itself (debug image). */
+async function status(
+  vm: Vm,
+): Promise<{
+  home: { state: string; reason?: string };
+  keyboard: { layouts: string; source: string };
+}> {
+  const line = (await vm.run("bismillah-helper status")).split("\n").find((l) => l.startsWith("{"));
+  return JSON.parse(line ?? "{}") as Awaited<ReturnType<typeof status>>;
+}
+
+/**
+ * Setup's steps 2 and 3 by keyboard: the passphrase twice, then the time zone and
+ * *Set up the stick*. `typed` types the passphrase into the focused field.
+ */
+async function passphraseAndCreate(vm: Vm, typed: (vm: Vm) => Promise<void>): Promise<void> {
+  await typed(vm);
+  await vm.key("tab");
+  await typed(vm);
+  await sleep(1500); // the strength meter answers
+  await vm.key("ret");
+  await sleep(1000);
+  await vm.key("tab"); // Back
+  await vm.key("tab"); // Set up the stick
+  await vm.key("ret");
+}
+
+/**
+ * Sets up a blank debug stick on the US layout without the keyboard step: the choice
+ * is placed where setup's first step puts it, and the session restarted.
+ */
+async function setUpQuickly(vm: Vm): Promise<void> {
+  await mark(vm, "page-gate-shown", 240);
+  const from = here(vm);
+  await vm.run(
+    `echo '{"layouts":"us","options":""}' > /run/bismillah/keyboard.pending && systemctl restart bismillah-session`,
+  );
+  await mark(vm, "page-gate-shown", 60, from);
+  await sleep(1000);
+  await passphraseAndCreate(vm, (v) => v.type(PLAIN));
+  await mark(vm, "helper-ready", 120, from);
+}
+
+/** A file with known text in the library, opened in the editor with Ctrl+P. */
+async function openNote(vm: Vm, text: string): Promise<void> {
+  await vm.run(
+    `printf '%s\\n' '${text}' > /home/writer/Texts/note.md && chown writer:writer /home/writer/Texts/note.md`,
+  );
+  await sleep(1500);
+  await vm.key("ctrl", "p");
+  await sleep(800);
+  await vm.type("note");
+  await sleep(800);
+  await vm.key("ret");
+  await sleep(1500);
+  await vm.key("ctrl", "end");
+}
+
+const noteText = (vm: Vm) => vm.run("cat /home/writer/Texts/note.md");
+
+/** Waits until the note on the stick contains `text` (a durable save). */
+async function saved(vm: Vm, text: string, seconds = 20): Promise<boolean> {
+  for (const end = Date.now() + seconds * 1000; Date.now() < end; await sleep(1000))
+    if ((await noteText(vm)).includes(text)) return true;
+  return false;
+}
+
+async function boot(name: string, part: string, options: Partial<BootOptions>): Promise<Vm> {
+  return Vm.boot({ image: imageFor("debug"), out: join(out, name, part), debug: true, ...options });
+}
+
+/**
+ * The round trip: setup with se,ara and a Swedish and Arabic passphrase → write and
+ * save → power off → a wrong passphrase, then the right one → the text is intact.
+ */
+async function roundTrip(): Promise<void> {
+  const name = "home-round-trip";
+  const disk = stickFrom(imageFor("debug"), join(out, name, "stick.raw"));
+  let vm = await boot(name, "1-setup", { disk });
+  try {
+    await mark(vm, "page-gate-shown", 240);
+    check((await status(vm)).home.state === "blank", `${name}: a flashed stick is blank`);
+    await vm.screen("keyboard");
+    // Step 1 by keyboard: type-ahead in each list, then Continue.
+    let from = here(vm);
+    await vm.type("swedish");
+    await vm.key("tab");
+    await vm.type("arabic");
+    await vm.key("tab");
+    await vm.key("ret");
+    await mark(vm, "page-gate-shown", 60, from);
+    const chosen = await status(vm);
+    check(
+      chosen.keyboard.layouts === "se,ara" && chosen.keyboard.source === "pending",
+      `${name}: layouts chosen before setup wait in RAM (${chosen.keyboard.layouts}, ${chosen.keyboard.source})`,
+    );
+    const env = await vm.run("cat /run/bismillah/keyboard.env");
+    check(/XKB_DEFAULT_LAYOUT=se,ara/.test(env), `${name}: cage restarted with se,ara`);
+    await sleep(1000);
+    from = here(vm);
+    await passphraseAndCreate(vm, typePassphrase);
+    const setupStart = await mark(vm, "helper-setup-start", 60, from);
+    const ready = await mark(vm, "helper-ready", 120, from);
+    await mark(vm, "page-editable", 60, from);
+    note(`     ${name}: setup (format, KDF, mkfs, ready) ${(ready - setupStart).toFixed(2)} s`);
+    const after = await status(vm);
+    check(after.home.state === "unlocked", `${name}: unlocked after setup (${after.home.state})`);
+    const header = await vm.run(
+      `cryptsetup luksDump ${HOME_DEV} | grep -E '^(Version|Label|\\s+PBKDF|\\s+Memory|\\s+Threads)' | tr -s ' \\t' ' '`,
+    );
+    note(`     ${name}: header ${header.replace(/\s+/g, " ").trim()}`);
+    check(/PBKDF: argon2id/.test(header), `${name}: LUKS2 with Argon2id`);
+    const exact = await vm.run(
+      `printf '%s' '${PASSPHRASE}' | cryptsetup open --test-passphrase --key-file=- ${HOME_DEV} && echo EXACT`,
+    );
+    check(
+      /EXACT/.test(exact),
+      `${name}: the passphrase typed in Swedish and Arabic is exactly ${PASSPHRASE}`,
+    );
+    const tokens = await vm.run(
+      `cryptsetup luksDump --dump-json-metadata ${HOME_DEV} | tr -d ' \\n'`,
+    );
+    check(
+      /"state":"ready"/.test(tokens) && /"layouts":"se,ara"/.test(tokens),
+      `${name}: the header holds the state (ready) and the layouts, nothing else readable`,
+    );
+    const mount = await vm.run("findmnt -no SOURCE,FSTYPE,OPTIONS /home/writer");
+    check(
+      /bismillah-home ext4 .*nosuid,nodev,noatime/.test(mount),
+      `${name}: home mounted ${mount.trim()}`,
+    );
+    const perms = await vm.run("stat -c '%a %U' /home/writer /home/writer/Texts");
+    check(
+      perms
+        .trim()
+        .split("\n")
+        .every((l) => l.trim() === "700 writer"),
+      `${name}: home and Texts are 0700 writer (${perms.replace(/\s*\n\s*/g, ", ").trim()})`,
+    );
+    const settings = await vm.run("cat /home/writer/.config/bismillah/settings.toml");
+    check(/time_zone = "/.test(settings), `${name}: the time zone is in the encrypted settings`);
+    await openNote(vm, "Saved before power off.");
+    await vm.type(" Typed on the stick.");
+    await vm.key("ctrl", "s");
+    check(await saved(vm, "Typed on the stick."), `${name}: the text is saved on the stick`);
+    await vm.screen("writing");
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+
+  vm = await boot(name, "2-unlock", { disk });
+  try {
+    await mark(vm, "page-gate-shown", 240);
+    await sleep(1500);
+    await vm.screen("unlock");
+    const env = await vm.run("cat /run/bismillah/keyboard.env");
+    check(
+      /XKB_DEFAULT_LAYOUT=se,ara/.test(env),
+      `${name}: the layouts come from the header before unlock`,
+    );
+    let from = here(vm);
+    await vm.type("wrong words");
+    await vm.key("ret");
+    await sleep(5000);
+    await vm.screen("wrong");
+    check(
+      !/helper-unlocked/.test(vm.serial().slice(from)) && (await status(vm)).home.state === "ready",
+      `${name}: a wrong passphrase only fails; home stays ready`,
+    );
+    from = here(vm);
+    await typePassphrase(vm);
+    await vm.key("ret");
+    const pressed = await mark(vm, "page-unlock-pressed", 30, from);
+    const unlocked = await mark(vm, "helper-unlocked", 60, from);
+    const editable = await mark(vm, "page-editable", 60, from);
+    note(
+      `     ${name}: Unlock pressed → home mounted ${(unlocked - pressed).toFixed(2)} s → editor ready ${(editable - pressed).toFixed(2)} s`,
+    );
+    const text = await noteText(vm);
+    check(
+      text.includes("Saved before power off.") && text.includes("Typed on the stick."),
+      `${name}: the text is intact after power off and unlock`,
+    );
+    await sleep(2000);
+    await vm.screen("unlocked");
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+}
+
+/**
+ * Setup stopped after each step, by a power cut or by killing the helper: the next
+ * boot finds Initialising (finish or start over) or Ready, never Blank.
+ */
+async function setupInterrupted(): Promise<void> {
+  const cases = [
+    { step: "formatted", how: "kill", then: "finish" },
+    { step: "filesystem", how: "cut", then: "finish" },
+    { step: "marker", how: "cut", then: "start-over" },
+    { step: "ready", how: "cut", then: "unlock" },
+  ] as const;
+  for (const c of cases) {
+    const name = `home-halt-${c.step}`;
+    const disk = stickFrom(imageFor("debug"), join(out, name, "stick.raw"));
+    let vm = await boot(name, "1-setup", { disk });
+    try {
+      await mark(vm, "page-gate-shown", 240);
+      const from = here(vm);
+      await vm.run(
+        `echo ${c.step} > /run/bismillah/test-halt && echo '{"layouts":"us","options":""}' > /run/bismillah/keyboard.pending && systemctl restart bismillah-session`,
+      );
+      await mark(vm, "page-gate-shown", 60, from);
+      await sleep(1000);
+      await passphraseAndCreate(vm, (v) => v.type(PLAIN));
+      await mark(vm, `helper-halted-${c.step}`, 120, from);
+      if (c.how === "kill") {
+        const reload = here(vm);
+        await vm.run("rm /run/bismillah/test-halt; kill -9 $(pidof bismillah-helper)");
+        await sleep(3000);
+        const state = (await status(vm)).home.state;
+        check(state === "initialising", `${name}: helper killed after ${c.step} → ${state}`);
+        await vm.screen("after-kill");
+        // The app asked again, and shows Finish setup; finish it in the same boot.
+        await vm.type(PLAIN);
+        await vm.key("ret");
+        await mark(vm, "helper-ready", 120, reload);
+        await mark(vm, "page-editable", 60, reload);
+        const done = (await status(vm)).home.state;
+        check(done === "unlocked", `${name}: finished with the same passphrase → ${done}`);
+        continue;
+      }
+      await vm.powercut();
+    } finally {
+      if (c.how === "kill") await vm.powerdown();
+      else vm.kill();
+      vm.pngs();
+    }
+
+    vm = await boot(name, "2-after-cut", { disk });
+    try {
+      await mark(vm, "page-gate-shown", 240);
+      await sleep(1500);
+      await vm.screen("after-cut");
+      const state = (await status(vm)).home.state;
+      const expected = c.step === "ready" ? "ready" : "initialising";
+      check(state === expected, `${name}: power cut after ${c.step} → ${state}`);
+      const from = here(vm);
+      if (c.then === "finish") {
+        await vm.type(PLAIN);
+        await vm.key("ret");
+        await mark(vm, "helper-ready", 120, from);
+      } else if (c.then === "unlock") {
+        await vm.type(PLAIN);
+        await vm.key("ret");
+        await mark(vm, "helper-unlocked", 120, from);
+      } else {
+        // Start over… then the typed confirmation.
+        await vm.key("tab"); // Show passphrase
+        await vm.key("tab"); // Start over…
+        await vm.key("ret");
+        await sleep(800);
+        await vm.type("start over");
+        await vm.key("ret");
+        await mark(vm, "page-gate-shown", 30, from).catch(() => 0);
+        await sleep(3000);
+      }
+      const final = (await status(vm)).home.state;
+      const want = c.then === "start-over" ? "blank" : "unlocked";
+      check(final === want, `${name}: then ${c.then} → ${final}`);
+      await vm.screen("after");
+    } finally {
+      await vm.powerdown();
+      vm.pngs();
+    }
+  }
+}
+
+/** sha256 of a block device in the guest. */
+const hashOf = async (vm: Vm, dev: string) =>
+  (await vm.run(`sha256sum ${dev} | cut -c1-16`)).trim();
+
+/**
+ * Damaged or foreign metadata is Unreadable, never Setup, and nothing is written to
+ * it; a damaged keyboard token falls back to US and says so.
+ */
+async function damaged(): Promise<void> {
+  const name = "home-damaged";
+  const disk = stickFrom(imageFor("debug"), join(out, name, "stick.raw"));
+  let vm = await boot(name, "1-setup", { disk });
+  try {
+    await setUpQuickly(vm);
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+  vm = await boot(name, "2-damage", { disk });
+  try {
+    await mark(vm, "page-gate-shown", 240);
+    const dev = HOME_DEV;
+    // The keyboard token: unusable layouts.
+    let from = here(vm);
+    await vm.run(
+      `printf '%s' '{"type":"bismillah-keyboard","keyslots":[],"layouts":"zz;x","options":""}' | cryptsetup token import --token-id 1 --token-replace --json-file - ${dev}; systemctl restart bismillah-session`,
+    );
+    await mark(vm, "page-gate-shown", 60, from);
+    await sleep(1500);
+    await vm.screen("keyboard-damaged");
+    const kb = await status(vm);
+    const env = await vm.run("cat /run/bismillah/keyboard.env | wc -c");
+    check(
+      kb.keyboard.source === "damaged" && kb.home.state === "ready" && env.trim() === "0",
+      `${name}: a damaged keyboard token → ${kb.keyboard.source}, cage on its default (US), home still ${kb.home.state}`,
+    );
+    // A file system that won't check: the passphrase opens it, and nothing is mounted.
+    await vm.run(
+      `printf '%s' '${PLAIN}' | cryptsetup open --key-file=- ${dev} probe && dd if=/dev/zero of=/dev/mapper/probe bs=1M count=1 conv=fsync status=none; cryptsetup close probe`,
+    );
+    from = here(vm);
+    await vm.type(PLAIN);
+    await vm.key("ret");
+    await sleep(8000);
+    await vm.screen("file-system-damaged");
+    const fs = await status(vm);
+    check(
+      !/helper-unlocked/.test(vm.serial().slice(from)) && fs.home.state === "ready",
+      `${name}: a damaged file system isn't mounted, and home stays ${fs.home.state} (never formatted)`,
+    );
+    // Header damage, from mild to foreign: each Unreadable.
+    const variants: [string, string][] = [
+      [
+        "an unknown state",
+        `printf '%s' '{"type":"bismillah-state","keyslots":[],"state":"formatting"}' | cryptsetup token import --token-id 0 --token-replace --json-file - ${dev}`,
+      ],
+      ["no state token (someone else's LUKS)", `cryptsetup token remove --token-id 0 ${dev}`],
+      ["a garbled header", `dd if=/dev/urandom of=${dev} bs=4k count=8 conv=fsync status=none`],
+      ["another file system", `mkfs.ext4 -q -F ${dev}`],
+    ];
+    for (const [what, command] of variants) {
+      await vm.run(command);
+      const s = await status(vm);
+      check(
+        s.home.state === "unreadable",
+        `${name}: ${what} → ${s.home.state} (${s.home.reason ?? ""})`,
+      );
+    }
+    const before = await hashOf(vm, dev);
+    from = here(vm);
+    await vm.run("systemctl restart bismillah-session");
+    await mark(vm, "page-gate-shown", 60, from);
+    await sleep(1500);
+    await vm.screen("unreadable");
+    await vm.key("tab");
+    await vm.type("anything");
+    await vm.key("ret");
+    await sleep(3000);
+    check(
+      (await hashOf(vm, dev)) === before,
+      `${name}: nothing was written to the unreadable home`,
+    );
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+}
+
+const hostHash = (file: string) =>
+  execFileSync("sha256sum", [file], { encoding: "utf8" }).slice(0, 16);
+
+/**
+ * Two sticks: a twin of the same build makes the helper refuse; a stick of another
+ * build (other partition UUIDs) and its home are never touched.
+ */
+async function twoSticks(): Promise<void> {
+  const name = "home-two-sticks";
+  const disk = stickFrom(imageFor("debug"), join(out, name, "stick.raw"));
+  const twin = stickFrom(imageFor("debug"), join(out, name, "twin.raw"));
+  const twinBefore = hostHash(twin);
+  let vm = await boot(name, "1-twin", { disk, others: [twin] });
+  try {
+    await mark(vm, "page-gate-shown", 240);
+    await sleep(1500);
+    await vm.screen("twin");
+    const s = await status(vm);
+    check(
+      s.home.state === "not_found" && s.home.reason === "two_sticks",
+      `${name}: a twin stick attached → ${s.home.state} (${s.home.reason ?? ""})`,
+    );
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+  check(hostHash(twin) === twinBefore, `${name}: the twin's bytes are unchanged`);
+
+  // Another build: every partition and the disk get new UUIDs (sfdisk on the file).
+  const other = stickFrom(imageFor("debug"), join(out, name, "other.raw"));
+  for (let n = 1; n <= 4; n++)
+    execFileSync("sfdisk", ["--quiet", "--part-uuid", other, String(n), randomUUID()]);
+  execFileSync("sfdisk", ["--quiet", "--disk-id", other, randomUUID()]);
+  const otherBefore = hostHash(other);
+  vm = await boot(name, "2-other-build", { disk, others: [other] });
+  try {
+    await setUpQuickly(vm);
+    const s = await status(vm);
+    check(
+      s.home.state === "unlocked",
+      `${name}: with another build's stick attached, its own home is set up (${s.home.state})`,
+    );
+    const where = await vm.run("cryptsetup status bismillah-home | sed -n 's/ *device: *//p'");
+    note(`     ${name}: home opened on ${where.trim()}`);
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+  check(hostHash(other) === otherBefore, `${name}: the other build's stick is unchanged`);
+}
+
+/**
+ * Saved means saved: after an app crash, a power cut and a pulled stick, every save
+ * confirmed before is intact. And a full home fails the save visibly, then recovers.
+ */
+async function savedMeansSaved(): Promise<void> {
+  const name = "home-saved";
+  const disk = stickFrom(imageFor("debug"), join(out, name, "stick.raw"));
+  let vm = await boot(name, "1-crash", { disk });
+  try {
+    await setUpQuickly(vm);
+    await mark(vm, "page-editable", 60);
+    await openNote(vm, "First line.");
+    await vm.type(" Saved before the crash.");
+    await vm.key("ctrl", "s");
+    check(await saved(vm, "Saved before the crash."), `${name}: saved before the crash`);
+    await vm.type(" Unsaved at the crash.");
+    const from = here(vm);
+    await vm.run("pkill -9 -x bismillah");
+    // The session starts again, on the lock screen: home is still open.
+    await mark(vm, "page-gate-shown", 60, from);
+    await sleep(1500);
+    await vm.screen("after-crash");
+    await vm.type(PLAIN);
+    await vm.key("ret");
+    await mark(vm, "page-editable", 60, from);
+    check(
+      (await noteText(vm)).includes("Saved before the crash."),
+      `${name}: app killed → the saved text is intact`,
+    );
+
+    // A full home: the save fails, and succeeds once there is room again.
+    await vm.run(
+      "fallocate -l $(df --output=avail -B1 /home/writer | tail -1) /home/writer/filler; sync",
+    );
+    await vm.key("ctrl", "end");
+    await vm.type(" Written while full.");
+    await vm.key("ctrl", "s");
+    await sleep(4000);
+    await vm.screen("full");
+    const alive = await vm.run("pidof -s bismillah >/dev/null && echo alive");
+    check(
+      !(await noteText(vm)).includes("Written while full.") && /alive/.test(alive),
+      `${name}: a full home fails the save and the app carries on`,
+    );
+    await vm.run("rm /home/writer/filler; sync");
+    await vm.type("!");
+    await vm.key("ctrl", "s");
+    check(
+      await saved(vm, "Written while full.!"),
+      `${name}: with room again, the next save keeps everything`,
+    );
+    await vm.type(" Saved before the power cut.");
+    await vm.key("ctrl", "s");
+    check(await saved(vm, "Saved before the power cut."), `${name}: saved before the power cut`);
+    await vm.type(" Unsaved at the power cut.");
+    await vm.powercut();
+  } finally {
+    vm.kill();
+    vm.pngs();
+  }
+
+  vm = await boot(name, "2-power-cut", { disk });
+  try {
+    await mark(vm, "page-gate-shown", 240);
+    const from = here(vm);
+    await vm.type(PLAIN);
+    await vm.key("ret");
+    await mark(vm, "helper-unlocked", 120, from);
+    await mark(vm, "page-editable", 60, from);
+    check(
+      (await noteText(vm)).includes("Saved before the power cut."),
+      `${name}: power cut → unlocks (journal replayed) and the saved text is intact`,
+    );
+    await vm.key("ctrl", "p");
+    await sleep(800);
+    await vm.type("note");
+    await sleep(800);
+    await vm.key("ret");
+    await sleep(1500);
+    await vm.key("ctrl", "end");
+    await vm.type(" Saved before the stick was pulled.");
+    await vm.key("ctrl", "s");
+    check(
+      await saved(vm, "Saved before the stick was pulled."),
+      `${name}: saved before the stick was pulled`,
+    );
+    await vm.type(" Unsaved when pulled.");
+    await vm.unplug();
+    await sleep(5000);
+    await vm.powercut();
+  } finally {
+    vm.kill();
+    vm.pngs();
+  }
+
+  vm = await boot(name, "3-pulled", { disk });
+  try {
+    await mark(vm, "page-gate-shown", 240);
+    const from = here(vm);
+    await vm.type(PLAIN);
+    await vm.key("ret");
+    await mark(vm, "helper-unlocked", 120, from);
+    await mark(vm, "page-editable", 60, from);
+    check(
+      (await noteText(vm)).includes("Saved before the stick was pulled."),
+      `${name}: stick pulled → unlocks and the saved text is intact`,
+    );
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+}
+
+/** The release image: setup on a blank stick, then the next boot unlocks it. */
+async function releaseSetup(): Promise<void> {
+  const name = "release-setup";
+  const disk = stickFrom(imageFor("release"), join(out, name, "stick.raw"));
+  let vm = await Vm.boot({ image: imageFor("release"), out: join(out, name, "1-setup"), disk });
+  try {
+    await vm.settled(240);
+    await vm.key("tab");
+    await vm.key("tab");
+    await vm.key("ret");
+    await sleep(3000);
+    await vm.settled(60);
+    await vm.screen("passphrase");
+    await passphraseAndCreate(vm, (v) => v.type(PLAIN));
+    await sleep(8000);
+    const opened = await vm.settled(60);
+    await vm.screen("opened");
+    await vm.key("f1");
+    await vm.type("Typed after setup.");
+    await sleep(1500);
+    check(
+      changed(opened, await vm.screen("typed")) > 0.0005,
+      `${name}: set up, and the editor answers typing`,
+    );
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+  vm = await Vm.boot({ image: imageFor("release"), out: join(out, name, "2-unlock"), disk });
+  try {
+    const locked = await vm.settled(240);
+    await vm.screen("unlock");
+    await vm.type(PLAIN);
+    await vm.key("ret");
+    await sleep(6000);
+    const after = await vm.settled(60);
+    await vm.screen("unlocked");
+    check(changed(locked, after) > 0.05, `${name}: the next boot unlocks with the passphrase`);
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+}
+
 const scenarios: Record<string, () => Promise<void>> = {
   "release-both": () => releaseBoots("release-both", "both"),
   "release-ca2011": () => releaseBoots("release-ca2011", "ca2011"),
@@ -159,6 +777,12 @@ const scenarios: Record<string, () => Promise<void>> = {
   "debug-ssd": () => debugInside("ssd"),
   "debug-good": () => debugInside("good"),
   "debug-cheap": () => debugInside("cheap"),
+  "release-setup": releaseSetup,
+  "home-round-trip": roundTrip,
+  "home-interrupted": setupInterrupted,
+  "home-damaged": damaged,
+  "home-two-sticks": twoSticks,
+  "home-saved": savedMeansSaved,
 };
 
 const chosen = process.argv.slice(2);

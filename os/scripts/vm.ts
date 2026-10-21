@@ -35,6 +35,13 @@ const throttle: Record<Stick, string> = {
 export interface BootOptions {
   /** The image to boot; a throwaway copy is booted, never the image itself. */
   image: string;
+  /**
+   * A stick that lasts across boots (made by `stickFrom`), booted as it is instead of a
+   * copy of `image`, so its home survives power-offs and power cuts.
+   */
+  disk?: string;
+  /** More USB disks attached, not booted: a second stick, or a decoy. */
+  others?: string[];
   /** Where the logs, captures and the copy go. Emptied first. */
   out: string;
   vars?: Vars;
@@ -153,6 +160,7 @@ export class Vm {
   private readonly qemu: ChildProcess;
   private readonly qmpPath: string;
   private readonly cmdPath: string | null;
+  private readonly throwaway: string | null;
   private qmpSocket: Socket | null = null;
   private qmpBuffer = "";
   private readonly waiting: ((reply: Record<string, unknown>) => void)[] = [];
@@ -166,8 +174,9 @@ export class Vm {
     this.out = out;
     this.serialLog = join(out, "serial.log");
     writeFileSync(this.serialLog, "");
-    const stick = join(out, "stick.raw");
-    execFileSync("cp", ["--sparse=always", options.image, stick]);
+    const stick = options.disk ?? join(out, "stick.raw");
+    this.throwaway = options.disk ? null : stick;
+    if (!options.disk) execFileSync("cp", ["--sparse=always", options.image, stick]);
     copyFileSync(varsFile(options.vars ?? "both"), join(out, "vars.fd"));
     // An unflushed copy on the encrypted host disk stalls the firmware's reads.
     execFileSync("sync");
@@ -187,7 +196,11 @@ export class Vm {
         "-drive",
         `if=none,id=stick,format=raw,cache=none,aio=native,file=${stick}${throttle[options.stick ?? "ssd"]}`,
       ],
-      ...["-device", "usb-storage,bus=xhci.0,drive=stick,bootindex=0"],
+      ...["-device", "usb-storage,bus=xhci.0,drive=stick,bootindex=0,id=stickdev"],
+      ...(options.others ?? []).flatMap((disk, i) => [
+        ...["-drive", `if=none,id=other${i},format=raw,cache=none,aio=native,file=${disk}`],
+        ...["-device", `usb-storage,bus=xhci.0,drive=other${i}`],
+      ]),
       ...["-device", "virtio-vga"],
       ...(options.window ? [] : ["-display", "none"]),
       "-no-reboot",
@@ -328,10 +341,10 @@ export class Vm {
     return readFileSync(this.serialLog, "latin1");
   }
 
-  /** Waits for a pattern on the serial console (debug image). */
-  async waitSerial(pattern: RegExp, seconds: number): Promise<RegExpExecArray> {
+  /** Waits for a pattern on the serial console (debug image), after offset `from`. */
+  async waitSerial(pattern: RegExp, seconds: number, from = 0): Promise<RegExpExecArray> {
     for (const end = Date.now() + seconds * 1000; Date.now() < end; await sleep(100)) {
-      const match = pattern.exec(this.serial());
+      const match = pattern.exec(this.serial().slice(from));
       if (match) return match;
       if (this.exited) break;
     }
@@ -399,10 +412,21 @@ export class Vm {
     this.kill();
   }
 
+  /** Cuts the power: QEMU stops at once, and nothing the guest hadn't written is kept. */
+  async powercut(): Promise<void> {
+    if (!this.exited) this.qemu.kill("SIGKILL");
+    for (let i = 0; !this.exited && i < 100; i++) await sleep(50);
+  }
+
+  /** Pulls the stick out while the system runs. */
+  async unplug(): Promise<void> {
+    await this.qmp("device_del", { id: "stickdev" });
+  }
+
   kill(): void {
     if (!this.exited) this.qemu.kill("SIGKILL");
     // The throwaway copy of the stick is 1.5 GB; the logs and screens stay.
-    rmSync(join(this.out, "stick.raw"), { force: true });
+    if (this.throwaway) rmSync(this.throwaway, { force: true });
     this.qmpSocket?.destroy();
     rmSync(this.qmpPath, { force: true });
     if (this.cmdPath) rmSync(this.cmdPath, { force: true });
@@ -417,6 +441,14 @@ export class Vm {
       this.out,
     ]);
   }
+}
+
+/** A stick that lasts across boots: a sparse copy of `image` at `path`. */
+export function stickFrom(image: string, path: string): string {
+  mkdirSync(dirname(path), { recursive: true });
+  execFileSync("cp", ["--sparse=always", image, path]);
+  execFileSync("sync");
+  return path;
 }
 
 /** The image a profile builds (os/scripts/build.sh). */

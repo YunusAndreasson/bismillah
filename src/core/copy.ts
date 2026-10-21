@@ -147,7 +147,8 @@ export const copy = {
       `Keyboard: ${layout} · ${rtl ? "right to left" : "left to right"}`,
     capsLock: "Caps Lock is on",
     keyboardDamaged: "Your keyboard layouts couldn't be read, so this screen uses English (US).",
-    helperDown: "The stick isn't answering. Restart to try again; nothing has changed.",
+    helperDown:
+      "The stick isn't answering. Turn the computer off with its power button, then start it again.",
     failed: "That didn't finish, and nothing that holds texts was erased. Try again, or power off.",
     setup: {
       step: (n: number) => `Step ${String(n)} of 3`,

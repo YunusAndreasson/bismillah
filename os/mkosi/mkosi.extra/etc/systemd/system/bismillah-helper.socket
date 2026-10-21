@@ -1,0 +1,14 @@
+[Unit]
+Description=bismillah helper socket
+Documentation=file:///usr/share/bismillah/commit
+
+[Socket]
+# Only the writer may connect; the helper also checks the peer's uid (SO_PEERCRED).
+ListenStream=/run/bismillah/helper.sock
+SocketUser=writer
+SocketMode=0600
+DirectoryMode=0755
+Accept=no
+
+[Install]
+WantedBy=sockets.target

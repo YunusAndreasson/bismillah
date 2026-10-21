@@ -1,0 +1,11 @@
+[Unit]
+Description=bismillah helper: the stick's home partition, unlock and keyboard
+Requires=bismillah-helper.socket
+After=bismillah-helper.socket
+
+[Service]
+# Root: it formats, opens and mounts the home partition (crates/bismillah-appliance).
+ExecStart=/usr/libexec/bismillah-helper
+NoNewPrivileges=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK

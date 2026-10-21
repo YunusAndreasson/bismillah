@@ -58,9 +58,10 @@
     {layouts}
     opened={(timeZone: string) => opened({ timeZone })}
     {power}
+    changed={reload}
   />
 {:else if view.view === "finish"}
-  <Finish {names} opened={() => opened(null)} restarted={reload} {power} />
+  <Finish {names} opened={() => opened(null)} restarted={reload} {power} changed={reload} />
 {:else if view.view === "unlock"}
   <Unlock
     verb={view.verb}
@@ -68,6 +69,7 @@
     {names}
     opened={() => opened(null)}
     {power}
+    changed={reload}
   />
 {:else}
   <Stop title={view.title} body={view.body} restart={view.restart} {power} />

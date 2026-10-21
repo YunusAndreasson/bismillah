@@ -16,12 +16,15 @@
     names,
     opened,
     power,
+    changed,
   }: {
     verb: "unlock" | "verify";
     keyboardDamaged: boolean;
     names: Map<string, string>;
     opened: () => void;
     power: (action: "off" | "reboot") => void;
+    /** Home's state may have changed: the gate asks the helper again. */
+    changed: () => void;
   } = $props();
 
   const text = copy.appliance;
@@ -44,8 +47,10 @@
         return;
       }
       problem = answer.answer === "wrong_passphrase" ? text.unlock.wrong : describe(answer);
+      if (answer.answer === "refused") changed();
     } catch {
       problem = text.helperDown;
+      changed();
     }
     passphrase = "";
     busy = false;

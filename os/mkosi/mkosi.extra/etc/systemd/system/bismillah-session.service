@@ -1,6 +1,8 @@
 [Unit]
 Description=bismillah under cage on tty1
 After=systemd-user-sessions.service systemd-logind.service systemd-tmpfiles-setup.service
+After=bismillah-helper.socket
+Wants=bismillah-helper.socket
 RequiresMountsFor=/home/writer
 Conflicts=getty@tty1.service
 # The display the firmware booted on. Debian's kernel has no simpledrm, so until the
@@ -22,10 +24,19 @@ Environment=XDG_SESSION_TYPE=wayland
 # Only the boot display: on a hybrid the other GPU stays closed and can power down.
 # WebKit's render device isn't pinned (pinning it broke rendering in the GPU spike).
 Environment=WLR_DRM_DEVICES=/dev/dri/boot-vga
-# Font and shader caches in RAM, never in the writer's home.
+# The app starts before home is unlocked, so everything that would write under home
+# by XDG (WebKit's data, GTK, fontconfig and Mesa caches) goes to RAM. The app keeps
+# its own files at fixed places in home (src-tauri/src/appliance.rs).
 Environment=XDG_CACHE_HOME=/run/user/1000/cache
+Environment=XDG_CONFIG_HOME=/run/user/1000/config
+Environment=XDG_DATA_HOME=/run/user/1000/data
+Environment=XDG_STATE_HOME=/run/user/1000/state
+# cage reads its layouts only at start: the helper writes them from home's LUKS2
+# header (or setup's choice) before each start (docs/spikes/os-keyboard.md).
+ExecStartPre=+/usr/libexec/bismillah-helper keyboard-env
+EnvironmentFile=-/run/bismillah/keyboard.env
 ExecStart=/usr/bin/cage -d -- /usr/bin/bismillah --appliance
-# If the app or cage ends, the session starts again.
+# If the app or cage ends, the session starts again (exit 76: new keyboard layouts).
 Restart=always
 RestartSec=0
 
