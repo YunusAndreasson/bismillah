@@ -194,13 +194,13 @@ async function mark(vm: Vm, name: string, seconds: number, from = 0): Promise<nu
 }
 
 /** Home's state from the helper itself (debug image). */
-async function status(
-  vm: Vm,
-): Promise<{
+async function status(vm: Vm): Promise<{
   home: { state: string; reason?: string };
   keyboard: { layouts: string; source: string };
 }> {
-  const line = (await vm.run("bismillah-helper status")).split("\n").find((l) => l.startsWith("{"));
+  const line = (await vm.run("/usr/libexec/bismillah-helper status"))
+    .split("\n")
+    .find((l) => l.startsWith("{"));
   return JSON.parse(line ?? "{}") as Awaited<ReturnType<typeof status>>;
 }
 

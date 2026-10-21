@@ -51,14 +51,17 @@ fn feed<S: AsRef<OsStr>>(program: &str, args: &[S], input: &[u8]) -> Option<i32>
     }
 }
 
-/// The type blkid's low-level probe finds on `device` (`crypto_LUKS`, `ext4`, …), or
-/// `None` only when it is sure there is nothing. Two signatures at once, or a probe
-/// that fails, count as something.
+/// The type blkid's low-level probe finds on `device` (`crypto_LUKS`, `ext4`, a
+/// partition table, …), or `None` when it finds no signature. Two signatures at once,
+/// or a probe that fails, count as something. On an empty partition blkid still
+/// succeeds, with only the partition table's own tags, so an empty answer is nothing.
 pub fn probe(device: &Path) -> Option<String> {
-    let args: [&OsStr; 6] = [
+    let args: [&OsStr; 8] = [
         "--probe".as_ref(),
         "--match-tag".as_ref(),
         "TYPE".as_ref(),
+        "--match-tag".as_ref(),
+        "PTTYPE".as_ref(),
         "--output".as_ref(),
         "value".as_ref(),
         device.as_os_str(),
@@ -66,16 +69,10 @@ pub fn probe(device: &Path) -> Option<String> {
     let Ok(out) = command("blkid", &args).stderr(Stdio::null()).output() else {
         return Some("unknown".into());
     };
+    let found = String::from_utf8_lossy(&out.stdout).trim().to_owned();
     match out.status.code() {
-        Some(2) => None,
-        Some(0) => {
-            let kind = String::from_utf8_lossy(&out.stdout).trim().to_owned();
-            Some(if kind.is_empty() {
-                "unknown".into()
-            } else {
-                kind
-            })
-        }
+        Some(0 | 2) if found.is_empty() => None,
+        Some(0) => found.lines().next().map(str::to_owned),
         _ => Some("unknown".into()),
     }
 }
