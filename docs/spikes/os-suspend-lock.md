@@ -57,6 +57,7 @@ In every case, every frame from wake until unlock showed either black, cage's gr
 
 ## Not covered here
 
-- **The Dell:** real lid close and open, the panel's own wake time (budget: lid open → lock view ≤ 1.0 s), `s2idle` versus `deep`, and the stick surviving a real resume. These are in the Dell check (`os/spikes/boot/DELL-CHECK.md`).
+- **The Dell** is now covered ([the Dell check](../../os/spikes/boot/DELL-CHECK.md)): `deep` S3, the lock view painted 31 ms after the lid closed, both resumes passed the lock, and the stick survived each resume's USB reset without errors. The author saw no document text. The panel's own wake time wasn't timed; it looked immediate.
+- **A lid closed soon after a resume** (found on the Dell): logind ignores lid events for `HoldoffTimeoutSec=` (30 s) from the previous suspend, so the lid suspended 16.7 s late and the document stayed unlocked behind it. OS-2 therefore locks on the lid itself: the helper watches logind's `LidClosed` and asks the app to lock straight away, whether or not sleep follows.
 - **The inhibitor delay limit:** logind's `InhibitDelayMaxSec=` (5 s). The daemon decides within 1.5 s, so it never reached the limit.
 - **Hibernate:** refused under lockdown; not offered.

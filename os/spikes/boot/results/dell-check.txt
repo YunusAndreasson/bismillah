@@ -1,0 +1,260 @@
+# bismillah OS-0 Dell check, written 2026-10-21T09:02:41Z, uptime 2038.26 s
+machine: Dell Inc. Precision 5520 1.40.0 
+kernel: 6.12.113+deb13-amd64
+cmdline: initrd=\bismillah-spike-boot\initrd initrd=\bismillah-spike-boot\6.12.113+deb13-amd64\kernel-modules.initrd roothash=22a98ae6897ca55fbfc6385bd5b097cb9e9bebae3111b74896e1bc01e5978d5e console=ttyS0 systemd.log_target=console systemd.unit=graphical.target vt.global_cursor_default=0
+secure boot: 1 (1 = on)
+
+## boot
+Startup finished in 11.670s (firmware) + 955ms (loader) + 3.265s (kernel) + 3.409s (initrd) + 5.354s (userspace) = 24.655s 
+graphical.target reached after 5.353s in userspace.
+The time when unit became active or started is printed after the "@" character.
+The time the unit took to start is printed after the "+" character.
+
+bismillah-session.service +445ms
+└─dev-dri-boot\x2dvga.device @4.557s
+4.417s systemd-suspend.service
+4.125s sys-devices-pci0000:00-0000:00:16.3-0000:00:16.3:0-0000:00:16.3:0.0-tty-ttyS0.device
+4.125s dev-ttyS0.device
+4.100s dev-ttyS1.device
+4.100s sys-devices-platform-serial8250-serial8250:0-serial8250:0.1-tty-ttyS1.device
+4.099s dev-ttyS2.device
+4.099s sys-devices-platform-serial8250-serial8250:0-serial8250:0.2-tty-ttyS2.device
+4.097s sys-devices-platform-MSFT0101:00-tpmrm-tpmrm0.device
+4.097s dev-tpmrm0.device
+4.097s dev-ttyS3.device
+4.097s sys-devices-platform-serial8250-serial8250:0-serial8250:0.3-tty-ttyS3.device
+4.080s sys-module-fuse.device
+3.026s dev-disk-by\x2dpath-pci\x2d0000:00:14.0\x2dusbv3\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart4.device
+3.026s dev-disk-by\x2dpath-pci\x2d0000:00:14.0\x2dusb\x2d0:1:1.0\x2dscsi\x2d0:0:0:0\x2dpart-by\x2dpartlabel-bismillah\x2dhome.device
+3.026s sys-devices-pci0000:00-0000:00:14.0-usb2-2\x2d1-2\x2d1:1.0-host0-target0:0:0-0:0:0:0-block-sda-sda4.device
+
+## marks (monotonic seconds)
+[    9.628915] localhost python3[527]: BISMILLAH_MARK sleepd-inhibitor-taken 9.62
+[    9.629137] localhost python3[527]: BISMILLAH_MARK sleepd-ready 9.62
+[   17.438898] localhost cage[753]: BISMILLAH_MARK app-process-start 17.43
+[   19.441367] localhost cage[753]: BISMILLAH_MARK events-connected 19.44
+[   19.441760] localhost python3[527]: BISMILLAH_MARK sleepd-app-connected 19.44
+[   20.644724] localhost cage[753]: BISMILLAH_MARK page-gate-shown 20.64
+[   26.586573] localhost cage[753]: BISMILLAH_MARK app-exit-for-keyboard 26.58
+[   26.721686] localhost python3[527]: BISMILLAH_MARK sleepd-app-disconnected 26.72
+[   27.711954] localhost cage[1201]: BISMILLAH_MARK app-process-start 27.71
+[   29.252877] localhost cage[1201]: BISMILLAH_MARK events-connected 29.25
+[   29.253196] localhost python3[527]: BISMILLAH_MARK sleepd-app-connected 29.25
+[   29.557074] localhost cage[1201]: BISMILLAH_MARK page-gate-shown 29.55
+[   34.414378] localhost cage[1201]: BISMILLAH_MARK app-unlock-sent 34.41
+[   41.192512] localhost cage[1201]: BISMILLAH_MARK app-unlock-answered 41.19
+[   41.206272] localhost cage[1201]: BISMILLAH_MARK app-started 41.20
+[   41.507697] localhost cage[1201]: BISMILLAH_MARK page-editable 41.50
+[  133.084954] localhost systemd-logind[504]: Lid closed.
+[  133.092593] localhost python3[527]: BISMILLAH_MARK sleepd-prepare-sleep-vt-tty1 133.09
+[  133.093068] localhost cage[1201]: BISMILLAH_MARK app-lock-requested 133.09
+[  133.100786] localhost cage[1201]: BISMILLAH_MARK page-locked 133.10
+[  133.115585] localhost cage[1201]: BISMILLAH_MARK app-lock-painted 133.11
+[  133.115838] localhost python3[527]: BISMILLAH_MARK sleepd-app-painted 133.11
+[  133.115927] localhost python3[527]: BISMILLAH_MARK sleepd-locked-before-sleep 133.11
+[  133.115988] localhost python3[527]: BISMILLAH_MARK sleepd-inhibitor-released 133.11
+[  133.872030] localhost kernel: PM: suspend entry (deep)
+[  138.908257] localhost kernel: ACPI: PM: Preparing to enter system sleep state S3
+[  138.909404] localhost kernel: ACPI: PM: Waking up from system sleep state S3
+[  138.914431] localhost systemd-logind[504]: Lid opened.
+[  138.936015] localhost kernel: PM: suspend exit
+[  138.943345] localhost python3[527]: BISMILLAH_MARK sleepd-resumed-vt-tty1 143.40
+[  138.944458] localhost python3[527]: BISMILLAH_MARK sleepd-inhibitor-taken 143.41
+[  142.594792] localhost cage[1201]: BISMILLAH_MARK app-verify-sent 147.06
+[  143.717516] localhost cage[1201]: BISMILLAH_MARK app-verify-answered 148.18
+[  143.719050] localhost cage[1201]: BISMILLAH_MARK page-lock-passed 148.18
+[  146.553996] localhost systemd-logind[504]: Lid closed.
+[  163.261798] localhost python3[527]: BISMILLAH_MARK sleepd-prepare-sleep-vt-tty1 167.72
+[  163.261994] localhost cage[1201]: BISMILLAH_MARK app-lock-requested 167.72
+[  163.263061] localhost cage[1201]: BISMILLAH_MARK page-locked 167.72
+[  163.286977] localhost cage[1201]: BISMILLAH_MARK app-lock-painted 167.75
+[  163.287164] localhost python3[527]: BISMILLAH_MARK sleepd-app-painted 167.75
+[  163.287366] localhost python3[527]: BISMILLAH_MARK sleepd-locked-before-sleep 167.75
+[  163.287467] localhost python3[527]: BISMILLAH_MARK sleepd-inhibitor-released 167.75
+[  163.356114] localhost kernel: PM: suspend entry (deep)
+[  167.676620] localhost kernel: ACPI: PM: Preparing to enter system sleep state S3
+[  167.677246] localhost kernel: ACPI: PM: Waking up from system sleep state S3
+[  167.680133] localhost systemd-logind[504]: Lid opened.
+[  167.708129] localhost kernel: PM: suspend exit
+[  167.715092] localhost python3[527]: BISMILLAH_MARK sleepd-resumed-vt-tty1 2015.27
+[  167.716391] localhost python3[527]: BISMILLAH_MARK sleepd-inhibitor-taken 2015.27
+[  171.038498] localhost cage[1201]: BISMILLAH_MARK app-verify-sent 2018.59
+[  172.155903] localhost cage[1201]: BISMILLAH_MARK app-verify-answered 2019.71
+[  172.157000] localhost cage[1201]: BISMILLAH_MARK page-lock-passed 2019.71
+
+## displays
+00:02.0 VGA compatible controller [0300]: Intel Corporation HD Graphics 630 [8086:591b] (rev 04)
+	DeviceName:  Onboard IGD
+	Subsystem: Dell Device [1028:07bf]
+	Kernel driver in use: i915
+--
+01:00.0 3D controller [0302]: NVIDIA Corporation GM107GLM [Quadro M1200 Mobile] [10de:13b6] (rev a2)
+	Subsystem: Dell Device [1028:07bf]
+	Kernel driver in use: nouveau
+	Kernel modules: nouveau
+/sys/class/drm/card0 driver=i915 boot_vga=1
+/sys/class/drm/card1 driver=nouveau boot_vga=
+/dev/dri:
+total 0
+lrwxrwxrwx  1 root root          5 Oct 21 08:28 boot-vga -> card0
+lrwxrwxrwx  1 root root         10 Oct 21 08:28 boot-vga-render -> renderD128
+drwxr-xr-x  2 root root        120 Oct 21 08:28 by-path
+crw-rw----+ 1 root video  226,   0 Oct 21 08:29 card0
+crw-rw----+ 1 root video  226,   1 Oct 21 08:28 card1
+crw-rw----+ 1 root render 226, 128 Oct 21 08:28 renderD128
+crw-rw----+ 1 root render 226, 129 Oct 21 08:28 renderD129
+
+/dev/dri/by-path:
+total 0
+lrwxrwxrwx 1 root root  8 Oct 21 08:28 pci-0000:00:02.0-card -> ../card0
+lrwxrwxrwx 1 root root 13 Oct 21 08:28 pci-0000:00:02.0-render -> ../renderD128
+lrwxrwxrwx 1 root root  8 Oct 21 08:28 pci-0000:01:00.0-card -> ../card1
+lrwxrwxrwx 1 root root 13 Oct 21 08:28 pci-0000:01:00.0-render -> ../renderD129
+0000:00:02.0 0x8086:0x591b runtime=active D0 suspended_ms=0 active_ms=189325
+0000:01:00.0 0x10de:0x13b6 runtime=active D0 suspended_ms=119368 active_ms=66652
+
+## who uses which GPU (DRM fdinfo)
+1180 cage /dev/dri/card0: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 0 drm-resident-system0: 0 drm-resident-stolen-system0: 0 drm-engine-render: 0 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1180 cage /dev/dri/card0: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 0 drm-resident-system0: 0 drm-resident-stolen-system0: 0 drm-engine-render: 0 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1180 cage /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 143672 KiB drm-resident-system0: 143672 KiB drm-resident-stolen-system0: 0 drm-engine-render: 952724713 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1180 cage /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 143672 KiB drm-resident-system0: 143672 KiB drm-resident-stolen-system0: 0 drm-engine-render: 952724713 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1180 cage /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 143672 KiB drm-resident-system0: 143672 KiB drm-resident-stolen-system0: 0 drm-engine-render: 952724713 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1180 cage /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 143672 KiB drm-resident-system0: 143672 KiB drm-resident-stolen-system0: 0 drm-engine-render: 952724713 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1180 cage /dev/dri/card0: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 65868 KiB drm-resident-system0: 65868 KiB drm-resident-stolen-system0: 0 drm-engine-render: 0 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1180 cage /dev/dri/card0: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 65868 KiB drm-resident-system0: 65868 KiB drm-resident-stolen-system0: 0 drm-engine-render: 0 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1180 cage /dev/dri/card0: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 65868 KiB drm-resident-system0: 65868 KiB drm-resident-stolen-system0: 0 drm-engine-render: 0 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1180 cage /dev/dri/card0: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 65868 KiB drm-resident-system0: 65868 KiB drm-resident-stolen-system0: 0 drm-engine-render: 0 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1180 cage /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 0 drm-resident-system0: 0 drm-resident-stolen-system0: 0 drm-engine-render: 0 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1180 cage /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 0 drm-resident-system0: 0 drm-resident-stolen-system0: 0 drm-engine-render: 0 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1201 bismillah /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 158876 KiB drm-resident-system0: 158876 KiB drm-resident-stolen-system0: 0 drm-engine-render: 23512704966 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1201 bismillah /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 158876 KiB drm-resident-system0: 158876 KiB drm-resident-stolen-system0: 0 drm-engine-render: 23512704966 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1201 bismillah /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 158876 KiB drm-resident-system0: 158876 KiB drm-resident-stolen-system0: 0 drm-engine-render: 23512704966 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1201 bismillah /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 158876 KiB drm-resident-system0: 158876 KiB drm-resident-stolen-system0: 0 drm-engine-render: 23512704966 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1201 bismillah /dev/dri/card0: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 0 drm-resident-system0: 0 drm-resident-stolen-system0: 0 drm-engine-render: 0 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1228 WebKitWebProces /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 386440 KiB drm-resident-system0: 386440 KiB drm-resident-stolen-system0: 0 drm-engine-render: 15022629903 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1228 WebKitWebProces /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 386440 KiB drm-resident-system0: 386440 KiB drm-resident-stolen-system0: 0 drm-engine-render: 15022629903 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1228 WebKitWebProces /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 386440 KiB drm-resident-system0: 386440 KiB drm-resident-stolen-system0: 0 drm-engine-render: 15022629903 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1228 WebKitWebProces /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 386440 KiB drm-resident-system0: 386440 KiB drm-resident-stolen-system0: 0 drm-engine-render: 15022629903 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+1228 WebKitWebProces /dev/dri/renderD128: drm-driver: i915 drm-pdev: 0000:00:02.0 drm-total-system0: 386440 KiB drm-resident-system0: 386440 KiB drm-resident-stolen-system0: 0 drm-engine-render: 15022629903 ns drm-engine-video: 0 ns drm-engine-video-enhance: 0 ns 
+
+## memory
+               total        used        free      shared  buff/cache   available
+Mem:           31951        1827       30110         601         987       30124
+Swap:              0           0           0
+writer processes RSS (MiB): 978
+    PID   RSS COMMAND
+   1201 508132 /usr/bin/bismillah /home/writer/Texts/specimen.md
+   1228 303072 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess 4 25
+   1180 88948 /usr/bin/cage -d -- /usr/libexec/bismillah-session /usr/bin/bismillah /home/writer/Texts/specimen.md
+   1212 76456 /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess 1 17
+    693 12072 /usr/lib/systemd/systemd --user
+    760  4188 /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+    696  3568 (sd-pam)
+
+## power
+sleep states: freeze mem; mem_sleep: s2idle [deep]
+
+## stick
+stick: /dev/sda usb    Voyager 3.0 59.6G
+268435456 bytes (268 MB, 256 MiB) copied, 1.72648 s, 155 MB/s
+random 4 KiB reads: 565 per second (2.2 MiB/s)
+
+## kernel messages (GPU, firmware, USB, suspend, errors)
+[    0.014098] PM: hibernation: Registered nosave memory: [mem 0x00000000-0x00000fff]
+[    0.014100] PM: hibernation: Registered nosave memory: [mem 0x00058000-0x00058fff]
+[    0.014102] PM: hibernation: Registered nosave memory: [mem 0x0009e000-0x000fffff]
+[    0.014104] PM: hibernation: Registered nosave memory: [mem 0x64700000-0x64701fff]
+[    0.014106] PM: hibernation: Registered nosave memory: [mem 0x74eaf000-0x750befff]
+[    0.014107] PM: hibernation: Registered nosave memory: [mem 0x7837b000-0x795fefff]
+[    0.014109] PM: hibernation: Registered nosave memory: [mem 0x79600000-0xffffffff]
+[    0.318574] ACPI: PM: Registering ACPI NVS region [mem 0x64700000-0x64700fff] (4096 bytes)
+[    0.318574] ACPI: PM: Registering ACPI NVS region [mem 0x7877f000-0x78e72fff] (7290880 bytes)
+[    0.392810] ACPI: [Firmware Bug]: BIOS _OSI(Linux) query ignored
+[    0.420791] ACPI: PM: (supports S0 S3 S4 S5)
+[    2.614690] clocksource: acpi_pm: mask: 0xffffff max_cycles: 0xffffff, max_idle_ns: 2085701024 ns
+[    3.257581] RAS: Correctable Errors collector initialized.
+[    3.273925] PM: genpd: Disabling unused power domains
+[    3.912221] xhci_hcd 0000:00:14.0: xHCI Host Controller
+[    3.912358] xhci_hcd 0000:00:14.0: new USB bus registered, assigned bus number 1
+[    3.913732] xhci_hcd 0000:00:14.0: hcc params 0x200077c1 hci version 0x100 quirks 0x0000000001109810
+[    3.914454] xhci_hcd 0000:00:14.0: xHCI Host Controller
+[    3.914588] xhci_hcd 0000:00:14.0: new USB bus registered, assigned bus number 2
+[    3.914772] xhci_hcd 0000:00:14.0: Host supports USB 3.0 SuperSpeed
+[    3.915343] usb usb1: Product: xHCI Host Controller
+[    3.915467] usb usb1: Manufacturer: Linux 6.12.113+deb13-amd64 xhci-hcd
+[    3.918159] usb usb2: Product: xHCI Host Controller
+[    3.918283] usb usb2: Manufacturer: Linux 6.12.113+deb13-amd64 xhci-hcd
+[    4.164734] usb 1-4: new full-speed USB device number 2 using xhci_hcd
+[    4.420875] usb 2-1: new SuperSpeed USB device number 2 using xhci_hcd
+[    4.556737] usb 1-9: new full-speed USB device number 3 using xhci_hcd
+[    4.816774] usb 1-12: new high-speed USB device number 4 using xhci_hcd
+[    5.885043] device-mapper: verity: sha256 using shash "sha256-avx2"
+[    5.885416] audit: type=1338 audit(1792571329.242:15): module=verity op=ctr ppid=1 pid=323 auid=4294967295 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=(none) ses=4294967295 comm="systemd-veritys" exe="/usr/lib/systemd/systemd-veritysetup" subj=unconfined dev=254:0 error_msg='success' res=1
+[    5.886072] audit: type=1300 audit(1792571329.242:15): arch=c000003e syscall=16 success=yes exit=0 a0=3 a1=c138fd09 a2=55d8cc7fafa0 a3=0 items=8 ppid=1 pid=323 auid=4294967295 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=(none) ses=4294967295 comm="systemd-veritys" exe="/usr/lib/systemd/systemd-veritysetup" subj=unconfined key=(null)
+[    6.137792] erofs: (device dm-0): mounted with root inode @ nid 37.
+[    7.764288] ACPI: bus type drm_connector registered
+[    7.926275] wmi_bus wmi_bus-PNP0C14:03: [Firmware Bug]: WQBC data block query control method not found
+[   10.049795] i915 0000:00:02.0: [drm] Found KABYLAKE (device ID 591b) display version 9.00 stepping C0
+[   10.050611] i915 0000:00:02.0: [drm] VT-d active for gfx access
+[   10.050993] i915 0000:00:02.0: vgaarb: deactivate vga console
+[   10.051187] i915 0000:00:02.0: [drm] Using Transparent Hugepages
+[   10.052806] i915 0000:00:02.0: vgaarb: VGA decodes changed: olddecodes=io+mem,decodes=io+mem:owns=io+mem
+[   10.058354] i915 0000:00:02.0: [drm] Finished loading DMC firmware i915/kbl_dmc_ver1_04.bin (v1.4)
+[   10.113696] mei_hdcp 0000:00:16.0-b638ab7e-94e2-4ea2-a552-d1c54b627f04: bound 0000:00:02.0 (ops i915_hdcp_ops [i915])
+[   10.129742] [drm] Initialized i915 1.6.0 for 0000:00:02.0 on minor 0
+[   10.156700] snd_hda_intel 0000:00:1f.3: bound 0000:00:02.0 (ops i915_audio_component_bind_ops [i915])
+[   10.184071] fbcon: i915drmfb (fb0) is primary device
+[   10.262704] nouveau: detected PR support, will not use DSM
+[   10.262729] nouveau 0000:01:00.0: enabling device (0006 -> 0007)
+[   10.262802] nouveau 0000:01:00.0: NVIDIA GM107 (117360a2)
+[   10.284563] nouveau 0000:01:00.0: bios: version 82.07.bb.00.12
+[   10.392394] nouveau 0000:01:00.0: fb: 4096 MiB GDDR5
+[   10.392408] nouveau 0000:01:00.0: bus: MMIO read of 00000000 FAULT at 022554 [ PRIVRING ]
+[   10.459529] nouveau 0000:01:00.0: drm: VRAM: 4096 MiB
+[   10.459532] nouveau 0000:01:00.0: drm: GART: 1048576 MiB
+[   10.459535] nouveau 0000:01:00.0: drm: Pointer to TMDS table not found
+[   10.460936] nouveau 0000:01:00.0: drm: MM: using COPY for buffer copies
+[   10.461221] [drm] Initialized nouveau 1.4.0 for 0000:01:00.0 on minor 1
+[   10.461307] nouveau 0000:01:00.0: [drm] No compatible format found
+[   10.461309] nouveau 0000:01:00.0: [drm] Cannot find any crtc or sizes
+[   10.461311] nouveau 0000:01:00.0: drm: Disabling PCI power management to avoid bug
+[   11.311483] i915 0000:00:02.0: [drm] fb0: i915drmfb frame buffer device
+[   19.409067] nouveau 0000:01:00.0: Enabling HDA controller
+[   29.233036] nouveau 0000:01:00.0: Enabling HDA controller
+[   40.714755] audit: type=1338 audit(1792571364.070:134): module=crypt op=ctr ppid=1303 pid=1828 auid=4294967295 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=(none) ses=4294967295 comm="cryptsetup" exe="/usr/sbin/cryptsetup" subj=unconfined dev=254:1 error_msg='success' res=1
+[   41.279674] EXT4-fs (dm-1): mounted filesystem e3fc5233-5c4b-465b-9db1-96755a17ff0b r/w with ordered data mode. Quota mode: none.
+[   42.512608] nouveau 0000:01:00.0: Enabling HDA controller
+[   65.648743] nouveau 0000:01:00.0: Enabling HDA controller
+[   88.820921] nouveau 0000:01:00.0: Enabling HDA controller
+[  111.956686] nouveau 0000:01:00.0: Enabling HDA controller
+[  133.987634] PM: suspend entry (deep)
+[  136.148611] ACPI: PM: Preparing to enter system sleep state S3
+[  136.153018] ACPI: PM: Saving platform NVS memory
+[  136.173254] ACPI: PM: Low-level resume complete
+[  136.173314] ACPI: PM: Restoring platform NVS memory
+[  136.182057] ACPI: PM: Waking up from system sleep state S3
+[  138.227340] usb 1-9: reset full-speed USB device number 3 using xhci_hcd
+[  138.483475] usb 1-4: reset full-speed USB device number 2 using xhci_hcd
+[  138.739315] usb 1-12: reset high-speed USB device number 4 using xhci_hcd
+[  138.995550] usb 2-1: reset SuperSpeed USB device number 2 using xhci_hcd
+[  139.018178] mei_hdcp 0000:00:16.0-b638ab7e-94e2-4ea2-a552-d1c54b627f04: bound 0000:00:02.0 (ops i915_hdcp_ops [i915])
+[  139.051746] PM: suspend exit
+[  141.247704] nouveau 0000:01:00.0: Enabling HDA controller
+[  163.471207] PM: suspend entry (deep)
+[  164.435541] nouveau 0000:01:00.0: Enabling HDA controller
+[  165.059186] ACPI: PM: Preparing to enter system sleep state S3
+[  165.065535] ACPI: PM: Saving platform NVS memory
+[  165.085952] ACPI: PM: Low-level resume complete
+[  165.086011] ACPI: PM: Restoring platform NVS memory
+[  165.095004] ACPI: PM: Waking up from system sleep state S3
+[  166.742116] nouveau 0000:01:00.0: Enabling HDA controller
+[  167.001799] usb 1-9: reset full-speed USB device number 3 using xhci_hcd
+[  167.257987] usb 1-4: reset full-speed USB device number 2 using xhci_hcd
+[  167.513852] usb 1-12: reset high-speed USB device number 4 using xhci_hcd
+[  167.770112] usb 2-1: reset SuperSpeed USB device number 2 using xhci_hcd
+[  167.827024] PM: suspend exit
+[  168.206131] mei_hdcp 0000:00:16.0-b638ab7e-94e2-4ea2-a552-d1c54b627f04: bound 0000:00:02.0 (ops i915_hdcp_ops [i915])
+[  193.365912] nouveau 0000:01:00.0: Enabling HDA controller
+
+## session and sleep daemon (warnings and errors)
+-- No entries --

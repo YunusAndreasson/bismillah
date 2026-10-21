@@ -21,7 +21,7 @@ Short records of decisions with lasting consequences. Each one says what was dec
 | [0010](0010-typing-aids.md) | Typing aids: smart punctuation and transliteration mode | Accepted |
 | [0011](0011-arabic-mark-rendering.md) | Arabic mark rendering in WebKitGTK | Accepted |
 | [0012](0012-live-preview.md) | Live preview: Markdown shows in the caret's paragraph | Accepted |
-| [0013](0013-appliance-os.md) | Appliance OS: bismillah on a bootable stick | Proposed |
+| [0013](0013-appliance-os.md) | Appliance OS: bismillah on a bootable stick | Proposed (awaiting acceptance) |
 
 ## Template
 

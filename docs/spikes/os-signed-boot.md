@@ -2,7 +2,7 @@
 
 **Question** (os/PLAN.md, OS-0): does an mkosi Debian 13 image with the signed shim → systemd-boot → kernel chain boot in OVMF with Secure Boot on and Microsoft keys, with nothing enrolled, for the 2011-only, 2023-only and both-CA variable sets? And on the Dell from a real stick?
 
-**Verdict: go in the VM.** The Dell run is still open (it needs the author to flash a stick).
+**Verdict: go.** It boots in all three VM variable sets, and on the Dell from a real stick with Secure Boot on (2026-10-21, [the Dell check](../../os/spikes/boot/DELL-CHECK.md)). Kernel: Debian 6.12.
 
 ## Setup
 
@@ -39,7 +39,6 @@ The kernel loads Debian's Secure Boot CA into the platform keyring and locks dow
 4. **Kernel choice: Debian 6.12 (trixie-security, 6.12.113) for now.** trixie-backports carries 7.2.9 as `linux-signed-amd64`, so it's signed and could go on the same chain if the Dell or a newer laptop needs it. Neither kernel has `simpledrm` (`CONFIG_DRM_SIMPLEDRM` unset, `CONFIG_SYSFB_SIMPLEFB` unset, `CONFIG_FB_EFI=y`), which confirms the plan's "the app draws the unlock screen".
 5. **Network built-ins:** `modules.builtin` of 6.12.113 contains only `drivers/net/netkit` (a BPF virtual device, no hardware) under network drivers. Every NIC, Wi-Fi, Bluetooth, CAN and NFC driver is a module, so leaving modules and firmware out covers them. The `NET_VENDOR_*=y` lines in the config are menu switches, not drivers.
 
-## Not yet done
+## Not done here
 
-- **The Dell from a real stick** (the author runs the flash; Claude never writes to a block device).
 - Sizes and boot times. The first image's initrd is 127 MB (every module), deliberately left as it is: make it work first, optimise in OS-4.

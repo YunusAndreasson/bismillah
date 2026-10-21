@@ -57,4 +57,21 @@ It's the product-like image: no network drivers, GPU firmware, the stripped and 
 
 ## Results
 
-*(to be filled in from the report)*
+Run by the author on 2026-10-21 with the image above (app at `fb8b9bf`) on the Voyager 3.0 stick. The full report is [`results/dell-check.txt`](results/dell-check.txt). The author checked the screen and reports that it looked right.
+
+| Question | Result |
+|---|---|
+| Secure Boot on | **Yes.** `secure boot: 1`; shim → systemd-boot → Debian 6.12.113 booted with nothing enrolled. |
+| Boot stages | Firmware 11.7 s, loader 1.0 s, kernel 3.3 s, initrd 3.4 s, userspace to `graphical.target` 5.4 s. Unlock screen painted at 20.6 s after kernel start (VM: 11 s), about 33 s from power-on. |
+| Where the time goes after switch-root | i915 binds at 10.0 s, cage's session starts at 11.7 s, **the app process starts at 17.4 s** and paints the unlock screen at 20.6 s. The 5.8 s between the session and the app process, and the app's 3.2 s, are cold reads from a slow stick. |
+| First-boot setup | Format, open, `mkfs`, mount and the specimen copy: 6.8 s from *Set up* to the answer, then 0.31 s to an editable caret. |
+| *Unlock* → caret | **Not measured cold** (the check didn't reboot). The suspend lock's verify, the same 1 s Argon2id slot, took **1.12 s** twice, and the in-process start took 0.31 s, so a cold unlock is about 1.5 s. The next Dell boot measures it. |
+| GPU | cage, bismillah and WebKit all render on i915 (`renderD128`, 23.5 s and 15.0 s of render-engine time). No process opens the NVIDIA card. |
+| NVIDIA card | nouveau binds it and runtime-suspends it: 119 s suspended and 67 s active. It woke about every 23 s, in step with the report's own 20 s probe (`lspci` reads its config space), so the probe accounts for most of the active time. |
+| Firmware | i915 DMC `kbl_dmc_ver1_04` loaded. Kaby Lake doesn't use GuC or HuC by default; nouveau loads none for this card. |
+| Suspend | `deep` (S3). Lid closed → lock view painted **31 ms** later, before sleep, both times. Both resumes passed the lock with the passphrase. |
+| Lid within 30 s of a resume | Closed 8 s after the first resume, the lid only suspended **16.7 s later**: logind holds off lid events for `HoldoffTimeoutSec=` (30 s) from the previous suspend. The document stayed unlocked behind the closed lid for that time. |
+| Stick after resume | Every USB device, the stick included, is reset on resume. No I/O or ext4 errors; the stick kept working. |
+| Stick speed | 155 MB/s sequential, **565 random 4 KiB reads/s** (2.2 MiB/s): between our "cheap" (400/s) and "good" (2500/s) profiles. |
+| Memory | 978 MiB RSS in the writer's processes (app 508, WebKit 303, cage 89, network process 76); 1.8 GiB used system-wide, including the GPU's buffers. |
+

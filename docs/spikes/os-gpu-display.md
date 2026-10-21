@@ -8,7 +8,7 @@
 - Is llvmpipe usable as a fallback (`WEBKIT_DISABLE_COMPOSITING_MODE`)?
 - What do the declared GPU families add in modules and firmware: Intel i915/xe, AMD amdgpu, NVIDIA-only nouveau, and virtio-gpu?
 
-**Verdict: go in the VM; the Dell part is pending.** cage waits for the boot display and uses only that one, and the app renders on every display setup tried. The fallback to software rendering works without any setting. The Dell check covers the rest: i915 rendering, the NVIDIA card left idle and powered down, and WebKit's own GPU choice (`os/spikes/boot/DELL-CHECK.md`).
+**Verdict: go.** cage waits for the boot display and uses only that one, and the app renders on every display setup tried. The fallback to software rendering works without any setting. On the Dell ([the Dell check](../../os/spikes/boot/DELL-CHECK.md)) cage, the app and WebKit all render on i915, no process opens the NVIDIA card, and nouveau runtime-suspends it, so WebKit needs no pin there.
 
 ## Setup
 
@@ -73,16 +73,13 @@ Both belong with the WebKit build that the plan already schedules after 1.0.
 
 ## For OS-1
 
-- Ship the `boot-vga` alias, the session's wait and `WLR_DRM_DEVICES`. Leave `WEBKIT_WEB_RENDER_DEVICE_FILE` unset until the Dell shows it's needed.
+- Ship the `boot-vga` alias, the session's wait and `WLR_DRM_DEVICES`. Leave `WEBKIT_WEB_RENDER_DEVICE_FILE` unset: on the Dell, WebKit chose i915 by itself.
+- Probe the NVIDIA card's power state from `power_state` in sysfs only. `lspci` reads its config space and wakes it, as the Dell report did every 20 s.
 - Keep `EGL_LOG_LEVEL` out of release.
 - The VM harness gains the hybrid and std cases. virgl needs `-display egl-headless`, which has no screenshots.
 
 ## Not covered here
 
-The Dell. Its check covers:
-- which driver and device cage, the app and WebKit use (fdinfo shows i915's render engine time)
-- the NVIDIA card's runtime power state
-- firmware load messages
-- the 2× scale on the 4K panel
+Whether the Dell's NVIDIA card reaches D3cold, rather than D3hot, while suspended: the report's snapshot found it just woken by the report itself. OS-4's battery work measures it without the probe.
 
 AMD and newer NVIDIA hardware are untested; they go into the compatibility list as machines turn up.

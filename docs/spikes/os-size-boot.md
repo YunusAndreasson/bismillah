@@ -2,7 +2,7 @@
 
 **Question** (os/PLAN.md, OS-0): for the first stripped image, how big is each component (WebKit, ICU, Mesa and LLVM, firmware, fonts)? How long does each boot stage take, in the VM with "good" and "cheap" sticks, and on the Dell from a real stick? And which stick should we recommend, given that random-read speed matters?
 
-**Verdict: baseline recorded in the VM; the Dell part is pending.** The first stripping pass and a compressed root meet the root budget: **500 MiB** against 600. The kernel-modules initrd fix brings the ESP from 186 MB to 48 MB, still over its 40 MiB budget because of the 32 MB base initrd. In the VM the boot stages are 3 to 4 times their initial budgets, so OS-4 has a measured baseline to cut from. *Unlock* → caret is 2.1 to 2.7 s against 2.0. Every time below is from QEMU on this laptop. The Dell boot (`os/spikes/boot/DELL-CHECK.md`) gives the real-hardware numbers and the stick's measured speed.
+**Verdict: baseline recorded, in the VM and on the Dell.** The first stripping pass and a compressed root meet the root budget: **500 MiB** against 600. The kernel-modules initrd fix brings the ESP from 186 MB to 48 MB, still over its 40 MiB budget because of the 32 MB base initrd. In the VM the boot stages are 3 to 4 times their initial budgets, so OS-4 has a measured baseline to cut from. *Unlock* → caret is 2.1 to 2.7 s against 2.0. Every time below is from QEMU on this laptop. The Dell boot (`os/spikes/boot/DELL-CHECK.md`) gives the real-hardware numbers and the stick's measured speed.
 
 ## The image
 
@@ -108,16 +108,16 @@ Evidence: `os/spikes/boot/results/size-boot-baseline.txt`.
 
 ## Budgets: baselines and targets
 
-| Measure | Initial target | VM baseline (zstd) | Target for OS-4 |
-|---|---|---|---|
-| Firmware → shim | recorded only | 2.8 s (OVMF, unthrottled) | recorded only; Dell pending |
-| systemd-boot → kernel → switch-root | ≤ 1.5 s (good stick) | 4.6 s (good) | ≤ 2.5 s, then the Dell's number |
-| Switch-root → unlock screen painted | ≤ 1.5 s | 6.3 s (good) | ≤ 3.0 s |
-| *Unlock* pressed → caret | ≤ 2.0 s | 2.4 s (good), KDF ≈ 1.8 s in a 2-vCPU VM | ≤ 2.0 s on the Dell |
-| Same stages on the cheap stick | recorded | 17.1 s to the unlock screen | regressions fail |
-| ESP payload, initrd | ≤ 40 MiB, ≤ 15 MiB | 48.4 MB, base initrd 32.0 MB | ≤ 40 MiB, ≤ 15 MiB (unchanged) |
-| erofs system partition | ≤ 600 MiB | 500 MiB | ≤ 450 MiB, then tightened |
-| RAM after unlock | ≤ 1.2 GiB | 847 MiB | ≤ 1.0 GiB |
+| Measure | Initial target | VM baseline (zstd) | Dell (Voyager 3.0 stick) | Target for OS-4 |
+|---|---|---|---|---|
+| Firmware → shim | recorded only | 2.8 s (OVMF, unthrottled) | 11.7 s, plus 1.0 s loader | recorded only (the machine's own) |
+| systemd-boot → kernel → switch-root | ≤ 1.5 s (good stick) | 4.6 s (good) | 6.7 s | ≤ 2.5 s in the VM, ≤ 4.0 s on the Dell |
+| Switch-root → unlock screen painted | ≤ 1.5 s | 6.3 s (good) | 14.0 s (app process starts after 10.8 s) | ≤ 3.0 s in the VM, ≤ 6.0 s on the Dell |
+| *Unlock* pressed → caret | ≤ 2.0 s | 2.4 s (good), KDF ≈ 1.8 s in a 2-vCPU VM | ≈ 1.5 s (verify 1.12 s + start 0.31 s; cold unlock not run) | ≤ 2.0 s on the Dell, measured cold |
+| Same stages on the cheap stick | recorded | 17.1 s to the unlock screen | — | regressions fail |
+| ESP payload, initrd | ≤ 40 MiB, ≤ 15 MiB | 48.4 MB, base initrd 32.0 MB | same image | ≤ 40 MiB, ≤ 15 MiB (unchanged) |
+| erofs system partition | ≤ 600 MiB | 500 MiB | same image | ≤ 450 MiB, then tightened |
+| RAM after unlock | ≤ 1.2 GiB | 847 MiB | 1.8 GiB used, incl. GPU buffers; 978 MiB RSS in the writer's processes | ≤ 1.0 GiB of RSS; system-wide recorded |
 
 ## The stick to recommend
 
@@ -129,11 +129,5 @@ Minimum size stays 8 GB: today's image is about 1.0 GiB (ESP 512 MiB, root 504 M
 
 ## Not covered here
 
-- **The Dell:**
-  - firmware and loader time
-  - the real stick's speed and boot stages
-  - *Unlock* → caret on its CPU
-  - the cold Mesa shader cache on every boot (from the unlock spike), which the VM's software rendering can't show
-  
-  All of these are in the Dell check report.
+- **The Dell** is now in the table above ([the Dell check](../../os/spikes/boot/DELL-CHECK.md)). Its stick reads 155 MB/s sequentially but only 565 random 4 KiB reads/s, close to our cheap profile, and that is where its boot goes: 5.8 s from cage's session to the app process, and 3.2 s for the app to paint. OS-4's allowlist and read-ahead work starts there. A cold *Unlock* → caret, and the cold Mesa shader cache, are measured on the next Dell boot.
 - **The trace-based allowlist:** OS-4's real pruning, and the size table it produces.

@@ -21,7 +21,7 @@ This file is the plan for that work, written to be carried out over several sess
 - Copy as rich text removed in appliance mode.
 - Our own WebKitGTK scheduled after the stick's 1.0.
 
-**Status:** Phase OS-0 in progress (2026-10-20). Done in the VM: signed boot ([os-signed-boot.md](../docs/spikes/os-signed-boot.md)), the app running under cage on Debian 13 ([os-app-on-debian.md](../docs/spikes/os-app-on-debian.md)), and unlock in the app: go, in-process, 1.70 s from *Unlock* to caret ([os-unlock-in-app.md](../docs/spikes/os-unlock-in-app.md)); keyboard: go, cage with a session restart, layouts from the LUKS2 token before unlock, a mixed Swedish/Arabic passphrase identical at setup, lock and unlock ([os-keyboard.md](../docs/spikes/os-keyboard.md)). No network: go, the stripped image leaves every NIC without a driver and sends nothing ([os-no-network.md](../docs/spikes/os-no-network.md)); host untouched: go, zero writes to the laptop disk, and shim's `SbatLevel` is the one firmware variable written ([os-host-untouched.md](../docs/spikes/os-host-untouched.md)); boot-device binding: go, the lookup refuses when two sticks of one build are attached, since the root may come from the other one ([os-boot-device-binding.md](../docs/spikes/os-boot-device-binding.md)). Suspend lock fallback: go, every case came back locked with no text after wake; a session restart must end the session's processes itself and switch back to its VT first ([os-suspend-lock.md](../docs/spikes/os-suspend-lock.md)). GPU and display: go in the VM, cage waits for the boot display and uses only it; WebKit isn't pinned ([os-gpu-display.md](../docs/spikes/os-gpu-display.md)). Size and boot baseline: recorded in the VM, root 500 MiB zstd, ESP 48 MB after trimming the modules initrd, 11 s from kernel to unlock screen ([os-size-boot.md](../docs/spikes/os-size-boot.md)). The stick boots on the Dell with Secure Boot off; everything OS-0 still needs from the Dell (Secure Boot on, i915 with NVIDIA idle, a real lid, boot timing) is one session with one image: [os/spikes/boot/DELL-CHECK.md](spikes/boot/DELL-CHECK.md). [ADR-0013](../docs/decisions/0013-appliance-os.md) is drafted as *Proposed* from the VM results; the Dell results amend it before acceptance. The spike app code is on main (2026-10-21), behind `BISMILLAH_SPIKE_*`, so `os/build/build-app.sh` builds the current editor. Working rule from the author: make it work first, then optimise.
+**Status:** Phase OS-0 built (2026-10-21) and waiting for the author's acceptance: every spike is answered, in the VM and on the Dell ([os/spikes/boot/DELL-CHECK.md](spikes/boot/DELL-CHECK.md)), and [ADR-0013](../docs/decisions/0013-appliance-os.md) records the decisions as *Proposed*. The result is in *Phase OS-0 result* below. The spike app code is on main behind `BISMILLAH_SPIKE_*`, so `os/build/build-app.sh` builds the current editor. Working rule from the author: make it work first, then optimise.
 
 ---
 
@@ -247,7 +247,27 @@ Each spike ends with a short written result in `docs/spikes/os-*.md`: **go**, **
 | Size and boot baseline | First stripped image: size per component (WebKit, ICU, Mesa and LLVM, firmware, fonts) and boot stages, in VM ("good" and "cheap" sticks) and on the Dell from a real stick. A recommended stick to buy (random-read speed matters). | Budgets table filled with measured baselines and targets |
 
 ### Phase OS-0 result
-*(to be written)*
+
+Built 2026-10-21. Every spike is **go**, two with changes to the plan; the write-ups are in `docs/spikes/os-*.md` and the decisions in [ADR-0013](../docs/decisions/0013-appliance-os.md) (*Proposed*).
+
+| Spike | Verdict | What changes |
+|---|---|---|
+| Signed boot | go: 2011-only, 2023-only and both-CA VMs, and the Dell with Secure Boot on | The ESP is 512 MiB FAT32 (256 MiB reads as FAT16). Kernel: Debian 6.12; backports 7.2 is signed if needed. Shim's `SbatLevel` is disclosed. |
+| App on Debian | go for building and rendering | Dialogs, clipboard, the WebKit sandbox and the network process are checked in OS-1 with the debug shell. |
+| Unlock in the app | go, in-process: 1.70 s in the VM, about 1.5 s on the Dell | None |
+| Keyboard | go: cage with a 1.6 s session restart | None; sway isn't needed |
+| No network | go: zero frames on three NICs, no network modules or firmware | None |
+| Host untouched | go: zero writes to the laptop disk | Firmware boot-manager entries for removable disks are the machine's own; disclosed. |
+| Boot-device binding | go | With two sticks of one build, the helper refuses; the unlock screen asks for the other stick to be removed. |
+| Suspend lock | go: every VM case and both Dell lid closes came back locked | A session restart ends the session's processes and returns to its VT first. **New on the Dell:** the lid locks on `LidClosed` itself, since logind's 30 s hold-off after a resume delayed one suspend by 16.7 s. |
+| GPU and display | go: i915 on the Dell, NVIDIA idle and runtime-suspended | WebKit isn't pinned. nouveau stays for hybrids' power. |
+| Size and boot | baseline recorded | Root 500 MiB (met), ESP 48 MB (over by 8), Dell: unlock screen 20.6 s after kernel start on a 565-reads/s stick. OS-4 targets are in `docs/spikes/os-size-boot.md`. |
+
+**Deviations:** the spike app code went onto main, behind its environment flags, at the author's request (2026-10-21), so the OS builds the current editor; OS-1 and OS-2 replace it. A cold *Unlock* → caret on the Dell wasn't run (the check didn't reboot); OS-1's first Dell image measures it.
+
+**The author's acceptance check:**
+1. Read ADR-0013 and accept it, or say what to change.
+2. Confirm the plan changes above: the 512 MiB ESP, refusing with two sticks of one build, and locking on the lid itself.
 
 ---
 
