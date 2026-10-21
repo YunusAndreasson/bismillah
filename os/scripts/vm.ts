@@ -246,12 +246,19 @@ export class Vm {
     return vm;
   }
 
-  /** What OVMF did with the stick, from its messages on the serial port. */
+  /**
+   * What OVMF did with the stick, from its messages on the serial port. On a miss it
+   * says so, or fails to load the stick's entry and waits; after its timeout it resets,
+   * which ends QEMU (-no-reboot). An exit before any boot is a miss too.
+   */
   private async firmwareOutcome(): Promise<"started" | "missed" | "unknown"> {
-    for (const end = Date.now() + 30_000; Date.now() < end && !this.exited; await sleep(100)) {
+    const missed = /No bootable option|failed to load Boot/;
+    // A miss can take over 30 s: the firmware waits on the USB stick before giving up.
+    for (const end = Date.now() + 90_000; Date.now() < end; await sleep(100)) {
       const log = this.serial();
-      if (/No bootable option/.test(log)) return "missed";
+      if (missed.test(log)) return "missed";
       if (/BdsDxe: starting Boot/.test(log)) return "started";
+      if (this.exited) return "missed";
     }
     return "unknown";
   }
@@ -304,13 +311,16 @@ export class Vm {
     return readPpm(file);
   }
 
-  /** Waits until the screen is lit and has stopped changing for `still` seconds. */
+  /**
+   * Waits until the screen is lit and has stopped changing for `still` seconds. A
+   * blinking text caret (well under 0.02% of the screen) doesn't count as a change.
+   */
   async settled(seconds: number, still = 2): Promise<Screen> {
     let last: Screen | null = null;
     let since = Date.now();
     for (const end = Date.now() + seconds * 1000; Date.now() < end; await sleep(250)) {
       const now = await this.screen("settling");
-      if (!last || lit(now) < 0.05 || changed(last, now) > 0) since = Date.now();
+      if (!last || lit(now) < 0.05 || changed(last, now) > 0.0002) since = Date.now();
       else if (Date.now() - since >= still * 1000) return now;
       last = now;
     }

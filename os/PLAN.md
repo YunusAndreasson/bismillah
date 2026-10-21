@@ -21,7 +21,7 @@ This file is the plan for that work, written to be carried out over several sess
 - Copy as rich text removed in appliance mode.
 - Our own WebKitGTK scheduled after the stick's 1.0.
 
-**Status:** Phase OS-1 built (2026-10-21) and waiting for the author's look on the Dell: the stick image builds offline from recorded inputs, boots to bismillah with Secure Boot on in every VM key set, sends nothing on any network card, and passes its contents check. The result is in *Phase OS-1 result* below. OS-0 was accepted when the author moved on (ADR-0013 accepted). The unlock gate is still the OS-0 spike code behind `BISMILLAH_SPIKE_*`, until OS-2. Working rule from the author: make it work first, then optimise.
+**Status:** Phase OS-2 built (2026-10-21) and waiting for the author's check on the Dell: a blank stick asks for a keyboard, a passphrase and a time zone once, formats its home (LUKS2, Argon2id) and from then on boots to the bismillah unlock screen. Every VM scenario passes; the result is in *Phase OS-2 result* below. OS-1 was accepted when the author moved on. Working rule from the author: make it work first, then optimise.
 
 ---
 
@@ -414,7 +414,60 @@ Goal: a fresh stick asks for a layout and a passphrase once. From then on it boo
 - The unlock-to-caret time is recorded.
 
 ### Phase OS-2 result
-*(to be written)*
+
+Built 2026-10-21 (commits dffbbb0 to the OS-2 result). The app gate (`pnpm verify`), the contents check and every VM scenario pass.
+
+**What exists:**
+- **The helper** (`crates/bismillah-appliance`): the protocol and passphrase rules the app shares, and `bismillah-helper`, root, socket-activated, answering uid 1000 only (`SO_PEERCRED`, socket mode 0600).
+  - Verbs: `status`, `setup`, `finish`, `start_over`, `unlock`, `verify`, `set_keyboard`, `power`. The plan's list plus the two Initialising actions and power, which the screens need before the app has started.
+  - **Which partition:** the OS-0 lookup in Rust (root disk from dm-verity's slaves, `LoaderDevicePartUUID` on exactly that disk, the one home-type partition there). Anything else is `not_found` and touches nothing.
+  - **State:** Blank (no blkid signature, and the first 8 MiB and last MiB are zeros), Initialising, Ready and Unreadable, from two LUKS2 tokens: `bismillah-state` (slot 0) and `bismillah-keyboard` (slot 1). Formatting is reachable from Blank only and erasing (`start_over`) from Initialising only.
+  - **Setup writes the header in one step:** it is made in RAM (`luksFormat --header`, Argon2id at 1 GiB or RAM/4, 4 lanes, `--iter-time 1000`), both tokens are added there, and `luksHeaderRestore` writes it to the stick. So the stick never holds a LUKS header without bismillah's state; a header without it is someone else's, and Unreadable.
+  - Then open, `mkfs.ext4`, mount (`nodev,nosuid,noatime`), folders and a marker, and the state token `ready`, each flushed, each a mark (`helper-formatted`, `-filesystem`, `-marker`, `-ready`). Unlock runs `e2fsck -p` first and mounts nothing it can't check.
+  - Passphrases are `Zeroizing` buffers, go to cryptsetup on stdin only, and never print (`Secret`'s Debug is redacted).
+- **The app** (`src-tauri/src/appliance.rs`, `src/appliance/`): everything that reads home waits behind the gate, which shows:
+  - **Setup:** 1. keyboard (a layout and an optional second, Alt+Shift between them; choosing restarts the session so cage uses them); 2. the passphrase twice, rated by zxcvbn and refused below score 3, with *Suggest a passphrase* (six words from the EFF large list, the kernel's randomness) and "There is no way to recover your texts without this passphrase."; 3. the time zone (stored as the `time_zone` setting; OS-3 applies it).
+  - **Unlock:** ﷽ (the Basmallah's pre-shaped ink, so it draws before any font), the passphrase, *Show passphrase*, the keyboard indicator (layout, direction, Caps Lock), a calm wrong-passphrase message, *Power off*.
+  - **Finish setup** with *Start over…* behind typing "start over"; **Unreadable**, **two sticks** and **not found**, which offer only power.
+  - A session restarted while home is open asks for the passphrase again (`verify`) and reopens nothing.
+  - The app's own files are fixed under home; the session points every `XDG_*_HOME` at RAM, so WebKit, GTK, fontconfig and Mesa write nothing under home before unlock. The app refuses to start unless home is a mount of its own.
+- **The image:** the helper and its socket, `cryptsetup-bin` and `e2fsprogs`, `/home` in RAM until the helper mounts `/home/writer`, and the home partition flashed blank with the GPT no-auto flag. The session runs `bismillah-helper keyboard-env` before cage. The debug image now sets up and unlocks like the release image; its plain ext4 test home is gone.
+- **Tests:** `cargo test` (the lookup, the state tokens, Blank, the protocol, passphrase strength and generation), `src/appliance/gate.test.ts`, `tests/e2e/appliance.e2e.ts` (every screen in the real app against a stand-in helper, a scratch `HOME`, keyboard order, the exact bytes sent, screenshots in both themes), the contents check (helper, socket, tools, no-auto, blank home, `/home` in RAM), and the VM scenarios below.
+
+**Measured (VM, 2 vCPUs, 2 GiB, Secure Boot on):**
+
+| | |
+|---|---|
+| Setup: helper start → ready (header, KDF benchmark, mkfs, folders) | 6.0–7.4 s |
+| Argon2id in the VM | 472 MiB (RAM/4), 2 threads (cryptsetup caps lanes at the CPU count) |
+| *Unlock* pressed → home mounted (KDF + `e2fsck -p` + mount) | 1.37–1.46 s |
+| *Unlock* pressed → editor ready, last document open | **1.51–1.58 s** (budget 2.0) |
+| Release: QEMU start → setup screen settled | 17.3–19.3 s (ssd), 26.7 s (cheap) |
+
+**Proved in VMs** (`node os/scripts/test.ts`):
+- **Round trip** (debug): blank → layouts `se,ara` → a passphrase typed in Swedish and Arabic (`åäö بلا …`, its exact bytes confirmed against the header) → write and save → power off → a wrong passphrase only fails → unlock → the text is intact. The header holds the state token and the layout names; home is mounted `nosuid,nodev,noatime`, home and `Texts` 0700.
+- **Setup interrupted** at every step: the helper killed after *formatted*, and the power cut after *filesystem*, *marker* and *ready*. Each next state is Initialising (Finish setup, or Start over → Blank) or Ready, never Blank.
+- **Damaged metadata** is Unreadable, and nothing is written to it: an unknown state, no state token, a garbled header, another file system. A damaged file system is never mounted or formatted; a damaged keyboard token gives cage's default (US) and says so.
+- **Two sticks:** a twin of the same build → refused, its bytes unchanged; a stick of another build attached → this stick's own home is used, the other unchanged.
+- **Saved means saved:** after `kill -9` of the app, a power cut, and pulling the stick, every save confirmed before is intact; a full home fails the save visibly and the next save after freeing space keeps everything.
+- **Release:** boots with all three key sets and the cheap stick to setup; setup → next boot unlocks.
+
+**Deviations and findings:**
+- **`flash.sh` is unchanged:** editing it (growing home to the rest of the stick, `--wipe-data` for an Unreadable stick) is blocked for the agent, since the script writes block devices. So a real stick's home is still the image's 512 MiB, and Unreadable can only be cleared by reflashing. Both are for the author to add or approve.
+- **`PrivateNetwork=` hid the mount:** it gives a service its own mount namespace, so the home the helper mounted never reached the session, and the app wrote texts to the RAM under it. The helper now runs without namespacing, and the app checks that home is mounted.
+- **`blkid -p` succeeds on an empty partition** (it reports the GPT entry's own tags), so only a `TYPE` or `PTTYPE` counts as a signature.
+- **The welcome screen paints after unlock** in the VM, which OS-1 saw blank under software rendering.
+- **cage's pointer** sits in the middle of the unlock screen. OS-3 hides it while typing.
+- **The VM firmware's misses** ("failed to load Boot… Not Found", then a reset) came more often with sticks booted several times; `vm.ts` now recognises every form of the miss and boots again.
+- Setup runs the helper's KDF benchmark each time, so it takes 6–7 s once per stick, within the plan.
+
+**The author's acceptance check:**
+1. Flash the release image: `bash os/scripts/flash.sh release`.
+2. With Secure Boot on, boot the Dell from it (F12). Setup asks for a keyboard: choose Swedish and, if you like, Arabic as the second. The screen reloads.
+3. Choose a passphrase (or *Suggest a passphrase*), type it again, choose the time zone, and *Set up the stick*. Note roughly how long it takes; the editor opens.
+4. Open the library (*Library*, bottom left), make a new file in `Texts`, write a line, and wait for *Saved*.
+5. Power off with the power button, boot again, type a wrong passphrase, then the right one. Note roughly how long from *Unlock* to the editor, and check the line is there.
+6. Look at Setup and Unlock: keyboard only, and whether the indicator shows Swedish and switches to right to left with Alt+Shift.
 
 ---
 

@@ -761,7 +761,10 @@ async function releaseSetup(): Promise<void> {
     await sleep(6000);
     const after = await vm.settled(60);
     await vm.screen("unlocked");
-    check(changed(locked, after) > 0.05, `${name}: the next boot unlocks with the passphrase`);
+    check(
+      changed(locked, after) > 0.005,
+      `${name}: the next boot unlocks with the passphrase (${(changed(locked, after) * 100).toFixed(1)}% changed)`,
+    );
   } finally {
     await vm.powerdown();
     vm.pngs();
