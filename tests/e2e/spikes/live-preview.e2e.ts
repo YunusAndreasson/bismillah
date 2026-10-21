@@ -156,7 +156,9 @@ describe("live preview (spike)", () => {
           expect([c.text, Math.abs(caret.top - c.top) < 3]).toEqual([c.text, true]);
         }
       }
-    });
+      // This checks both sides of many individual glyphs through WebDriver. Under
+      // the offline proof's strace it can exceed the ordinary one-minute case budget.
+    }).timeout(120_000);
   }
 
   const WORDS: [needle: string, word: string][] = [
@@ -274,10 +276,19 @@ describe("live preview (spike)", () => {
         if (!view) return null;
         const rect = view.coordsAtPos(view.state.selection.main.head);
         const box = view.scrollDOM.getBoundingClientRect();
-        return rect ? { top: rect.top - box.top, height: view.scrollDOM.clientHeight } : null;
+        return rect
+          ? {
+              top: rect.top - box.top,
+              height: view.scrollDOM.clientHeight,
+              scrollTop: view.scrollDOM.scrollTop,
+            }
+          : null;
       });
       if (!offset) throw new Error("no caret");
-      expect([step, Math.abs(offset.top - offset.height * 0.42) <= 2]).toEqual([step, true]);
+      const line = offset.height * 0.42;
+      // Lines above the typewriter line stay put at the top of the document.
+      const held = Math.abs(offset.top - line) <= 2 || (offset.scrollTop === 0 && offset.top < line);
+      expect([step, held]).toEqual([step, true]);
       if ((await head()) >= end.from) break;
     }
     await browser.execute(() => window.__bismillah?.setTypewriter(false));

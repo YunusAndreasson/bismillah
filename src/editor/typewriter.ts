@@ -9,8 +9,9 @@ export const TYPEWRITER_POSITION = 0.42;
  * down the writing area. Every transaction that would scroll the caret into view gets
  * an explicit scroll target instead of CodeMirror's "nearest" scroll, which would only
  * keep the caret somewhere on screen. Mouse clicks don't scroll, so text never jumps
- * away from the pointer. The content gets padding (`.cm-typewriter`) so the first and
- * last lines can reach the 42% line.
+ * away from the pointer. The content gets padding below (`.cm-typewriter`) so the last
+ * line can reach the 42% line. There is none above: a document opens at its top, and
+ * lines above the 42% line stay where they are (the scroll can't go above 0).
  */
 export function typewriter(): Extension {
   // The writing area's height, kept current by the plugin below. A transaction

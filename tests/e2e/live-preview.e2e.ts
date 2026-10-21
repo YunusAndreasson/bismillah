@@ -141,7 +141,10 @@ describe("live preview", () => {
       .up()
       .perform();
     await settle(browser);
-    expect(await head()).toBeLessThan(20);
+    // A block replacement can map a click to either source boundary. The closing
+    // delimiter is a valid caret position too; both must reveal the metadata.
+    const closing = fixture("preview/images.md").indexOf("\n---\n", 4) + 4;
+    expect(await head()).toBeLessThanOrEqual(closing);
     expect(await browser.execute(() => document.querySelector(".cm-frontmatter-fold"))).toBeNull();
   });
 

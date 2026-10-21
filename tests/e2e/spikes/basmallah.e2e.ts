@@ -1,5 +1,6 @@
 import { browser, expect } from "@wdio/globals";
 import { setViewport, settle, waitForApp } from "../../app.ts";
+import { Folder, open } from "../files.ts";
 import { click, fixture, head, loadDoc, press, setCursor } from "./helpers.ts";
 
 /** Top of the caret, relative to the writing area (0 = top, 1 = bottom). */
@@ -29,6 +30,14 @@ async function basmallahBox() {
 describe("Basmallah opening", () => {
   before(async () => {
     await waitForApp(browser);
+    // Crash/recovery specs share this private data directory. Their pending notices
+    // can consume most of the writing area's height; defer them for this geometry
+    // fixture, retaining their recovery files on disk.
+    await browser.execute(async () => {
+      const hooks = window.__bismillah;
+      while (hooks?.notices().some((notice) => notice.actions.includes("Not now")))
+        await hooks.act("Not now");
+    });
     await setViewport(browser, 1280, 900);
     await loadDoc(fixture("bidi.md"));
     await browser.execute(() => window.__bismillah?.setTypewriter(false));
@@ -118,28 +127,57 @@ describe("Basmallah opening", () => {
     expect(restoredLine).toBe(topLine);
   });
 
-  it("keeps the caret line at about 42% in typewriter mode, line 1 included", async () => {
-    await loadDoc(fixture("bidi.md") + "\n" + "More text.\n\n".repeat(60));
+  it("opens at the top in typewriter mode, then keeps the caret line at about 42%", async () => {
     await browser.execute(() => window.__bismillah?.setTypewriter(true));
-    await setCursor(0);
-    await press("ArrowDown");
-    await press("ArrowUp");
-    const positions: number[] = [];
-    for (let i = 0; i < 12; i++) {
-      positions.push(await caretLine());
-      await press("ArrowDown");
-    }
-    for (const p of positions) expect(p).toBeCloseTo(0.42, 2);
-    await setCursor(0);
-    await press("ArrowRight");
-    await press("ArrowLeft");
-    expect(await caretLine()).toBeCloseTo(0.42, 2);
-    // The Basmallah sits above line 1, fully on screen.
+    // Opened as a real file, from a document scrolled well down.
+    const folder = new Folder();
+    await open(folder.file("long.md", fixture("bidi.md") + "\n" + "More text.\n\n".repeat(60)));
+    await settle(browser);
+    // A newly opened document starts at its top, the Basmallah fully on screen above line 1,
+    // which is not pushed down to the typewriter line.
+    const opened = await browser.execute(() => {
+      const view = window.__bismillah?.view;
+      const area = view?.scrollDOM.getBoundingClientRect();
+      const line1 = view?.coordsAtPos(0)?.top;
+      return view && area && line1 !== undefined
+        ? {
+            scrollTop: view.scrollDOM.scrollTop,
+            line1: (line1 - area.top) / area.height,
+            height: area.height,
+            notices: window.__bismillah?.notices().length,
+          }
+        : null;
+    });
+    if (opened?.scrollTop !== 0 || (opened?.line1 ?? 1) >= 0.3)
+      console.log("opening geometry", JSON.stringify(opened));
+    expect(opened?.scrollTop).toBe(0);
+    expect(opened?.line1 ?? 1).toBeLessThan(0.3);
     const box = await basmallahBox();
     const line1 = await browser.execute(() => window.__bismillah?.view.coordsAtPos(0)?.top ?? 0);
     expect(box).not.toBeNull();
     expect(box?.bottom ?? 0).toBeLessThanOrEqual(line1);
     expect(box?.top ?? -1).toBeGreaterThanOrEqual(0);
+
+    // Lines above the typewriter line stay put; from there on the caret line holds at 42%.
+    await setCursor(0);
+    await press("ArrowDown");
+    await press("ArrowUp");
+    const positions: number[] = [];
+    for (let i = 0; i < 24; i++) {
+      positions.push(await caretLine());
+      await press("ArrowDown");
+    }
+    for (const p of positions) expect(p).toBeLessThan(0.43);
+    expect(positions[0]).toBeCloseTo(opened?.line1 ?? 0, 2);
+    for (const p of positions.slice(-6)) expect(p).toBeCloseTo(0.42, 2);
+
+    // Back at line 1 the page returns to its top, never past it.
+    await setCursor(0);
+    await press("ArrowRight");
+    await press("ArrowLeft");
+    expect(await caretLine()).toBeCloseTo(opened?.line1 ?? 0, 2);
+    expect(await browser.execute(() => window.__bismillah?.view.scrollDOM.scrollTop)).toBe(0);
     await browser.execute(() => window.__bismillah?.setTypewriter(false));
+    folder.remove();
   });
 });

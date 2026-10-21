@@ -19,6 +19,11 @@ describe("the pre-shaped ink", () => {
     expect(BASMALLAH_INK.text).toBe(BASMALLAH);
   });
 
+  it("draws the calligraphic ligature, which reads as that text", () => {
+    expect(BASMALLAH_INK.ink).toBe("\uFDFD");
+    expect(isBasmallah(BASMALLAH_INK.ink)).toBe(true);
+  });
+
   it("is one path whose box starts at 0 and spans the advance", () => {
     expect(BASMALLAH_INK.d.startsWith("M")).toBe(true);
     expect(BASMALLAH_INK.advance).toBeGreaterThan(0);

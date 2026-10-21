@@ -124,6 +124,16 @@ describe.each(Object.entries(THEMES))("%s theme contrast", (_name, token) => {
     expect(ratio).toBeLessThan(contrast(token("text-secondary"), token("surface-editor")));
   });
 
+  it("keeps faint text visible, but fainter than text-secondary", () => {
+    // tokens.css: text-faint is text-secondary 40% of the way toward the page. It is drawn
+    // on the editor surface only (the status line, the Basmallah).
+    const faint = over(`${token("text-secondary")}99`, token("surface-editor"));
+    expect(contrast(faint, token("surface-editor"))).toBeGreaterThanOrEqual(2.4);
+    expect(contrast(faint, token("surface-editor"))).toBeLessThan(
+      contrast(token("text-secondary"), token("surface-editor")),
+    );
+  });
+
   it("gives prose more than 7:1", () => {
     expect(contrast(token("text-primary"), token("surface-editor"))).toBeGreaterThan(7);
   });

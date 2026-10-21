@@ -152,3 +152,14 @@
   --diagnostic-spelling: #ff8f87;
   --diagnostic-grammar: #f0cc70;
 }
+
+/* Faint text: the status line's routine parts and the Basmallah wordmark (DESIGN.md
+   §9.4, §11.2, §12), text-secondary 40% of the way to the page in whichever theme is
+   applied. Below 4.5:1 by the author's choice (2026-10-19), and never for a failure.
+   High contrast keeps text-secondary. */
+:root {
+  --text-faint: color-mix(in srgb, var(--text-secondary) 60%, var(--surface-editor));
+}
+:root[data-contrast="high"] {
+  --text-faint: var(--text-secondary);
+}

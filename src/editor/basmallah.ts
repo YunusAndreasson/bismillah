@@ -12,8 +12,8 @@ const SVG_NS = "http://www.w3.org/2000/svg";
  * It is never part of the editable text, the file, counts or linting. Block widgets
  * that change vertical layout must come from a state field, not a view plugin.
  *
- * WebKitGTK misplaces Arabic marks (ADR-0011), so the visible ink is an SVG path
- * pre-shaped by HarfBuzz (`basmallahInk.ts`), laid over the real text. The text stays
+ * The visible ink is a quiet calligraphic wordmark, Amiri's ligature ﷽, as an SVG path
+ * pre-shaped by HarfBuzz (`basmallahInk.ts`, ADR-0011), laid over the real text. The text stays
  * in the page, transparent, so it can be selected and copied and is what screen readers
  * read; the SVG is hidden from them. Text and ink share one line: the SVG's baseline is
  * the text's baseline (its `vertical-align` is its descent), and a negative inline
@@ -61,9 +61,9 @@ class BasmallahWidget extends WidgetType {
     return el;
   }
 
-  /** About 28px × 1.8 plus its margins; measured for real once drawn. */
+  /** About 17px × 1.8 plus its margins; measured for real once drawn. */
   override get estimatedHeight(): number {
-    return 140;
+    return 110;
   }
 
   /** Let the browser handle events inside it, so the text can be selected natively. */
