@@ -253,8 +253,9 @@ export class Vm {
    */
   private async firmwareOutcome(): Promise<"started" | "missed" | "unknown"> {
     const missed = /No bootable option|failed to load Boot/;
-    // A miss can take over 30 s: the firmware waits on the USB stick before giving up.
-    for (const end = Date.now() + 90_000; Date.now() < end; await sleep(100)) {
+    // A miss can take minutes: the firmware waits on the USB stick before giving up. A
+    // good boot says "starting" within seconds, so the long watch costs nothing.
+    for (const end = Date.now() + 240_000; Date.now() < end; await sleep(100)) {
       const log = this.serial();
       if (missed.test(log)) return "missed";
       if (/BdsDxe: starting Boot/.test(log)) return "started";
