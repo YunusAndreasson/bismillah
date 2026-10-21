@@ -75,7 +75,7 @@ describe("images", () => {
     const state = stateWith(doc);
     const found: { at: number; src: string; url: string | null }[] = [];
     imageWidgets(state).between(0, doc.length, (from, _to, deco) => {
-      const widget = deco.spec.widget as { src: string; url: string | null };
+      const { widget } = deco.spec as { widget: { src: string; url: string | null } };
       found.push({ at: from, src: widget.src, url: widget.url });
     });
     const firstLineEnd = doc.indexOf("\n");

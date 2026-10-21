@@ -4,7 +4,7 @@
 
 **A calm Markdown editor. Just you and your words.**
 
-bismillah is a free, open-source writing app in the spirit of the original iA Writer: a typewriter, with only the best of the computer.
+Bismillah is a free, open-source writing app in the spirit of the original iA Writer: a typewriter, with only the best of the computer.
 
 - **Plain Markdown files** in folders you choose. Filenames are the organisation; frontmatter is optional.
 - **Typography first.** A bounded reading measure, carefully chosen fonts, and a document that reads as rendered text: the Markdown shows only in the paragraph you're writing (or everywhere, if you prefer).
