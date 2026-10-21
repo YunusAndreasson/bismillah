@@ -123,7 +123,8 @@ function measureSizes(): Pick<Result, "sizes" | "components"> {
   return {
     sizes: {
       "ESP payload": sum(/./),
-      initrd: sum(/\/initrd/),
+      // The base initrd and the kernel modules' one, which the kernel reads together.
+      initrd: sum(/initrd$/),
       kernel: sum(/\/linux$|vmlinuz/),
       "erofs root": rootPart.bytes,
       "root verity": parts.get(ROOT_VERITY)?.bytes ?? 0,

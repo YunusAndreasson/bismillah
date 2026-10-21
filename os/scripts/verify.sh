@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # The OS gate (os/PLAN.md): for any change under os/ or crates/bismillah-appliance/.
 # Builds the app and both images offline from os/cache/, checks what they contain,
-# then runs the VM scenarios. --fast: the contents check and one boot of each image.
+# then runs the VM scenarios and compares the boot stages and sizes with the committed
+# baseline (perf.ts; a regression fails). --fast: the contents check, one boot of each
+# image and the sizes.
 # Usage: os/scripts/verify.sh [--fast] [--no-build]
 set -euo pipefail
 root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -30,5 +32,11 @@ if [ -n "$fast" ]; then
   node "$root/os/scripts/test.ts" release-both debug-ssd
 else
   node "$root/os/scripts/test.ts"
+fi
+step "boot stages and sizes against os/perf-baseline.json"
+if [ -n "$fast" ]; then
+  node "$root/os/scripts/perf.ts" --sizes
+else
+  node "$root/os/scripts/perf.ts"
 fi
 printf '\n\033[1mos verify: all checks passed\033[0m\n'

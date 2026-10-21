@@ -751,10 +751,18 @@ function documentInk(doc: Screen, lock: Screen): number[] {
   return ink;
 }
 
-/** A frame that shows the document: most of its ink is there. */
+/**
+ * A frame that shows the document: most of its ink is there, and the rest of the screen
+ * looks like it too (a blank white frame lights every ink pixel but isn't the text).
+ */
 function showsDocument(frame: Screen, doc: Screen, ink: number[]): boolean {
   if (frame.width !== doc.width || frame.height !== doc.height || ink.length === 0) return false;
-  return ink.filter((i) => bright(frame, i)).length / ink.length > 0.5;
+  if (ink.filter((i) => bright(frame, i)).length / ink.length <= 0.5) return false;
+  let same = 0;
+  let sampled = 0;
+  for (let i = 0; i < doc.rgb.length; i += 3 * 97, sampled++)
+    if (bright(frame, i) === bright(doc, i)) same++;
+  return same / sampled > 0.9;
 }
 
 /**
@@ -1073,7 +1081,7 @@ async function tour(): Promise<void> {
       async () => {
         await vm.key("ctrl", "end");
         await vm.key("ret");
-        await vm.type("This are a sentance with teh errors, and a [link](https://example.org).");
+        await vm.type("This are a sentance with teh errors, and a link: https://example.org.");
       },
       5000,
     );
@@ -1084,7 +1092,7 @@ async function tour(): Promise<void> {
       await vm.key("ctrl", "shift", "t");
     });
     await step("suggestions", async () => {
-      await vm.key("f7");
+      await vm.key("shift", "f7");
       await sleep(500);
       await vm.key("ctrl", "dot");
     });
@@ -1123,9 +1131,19 @@ async function tour(): Promise<void> {
     });
     await vm.key("esc");
     await step("library", () => vm.key("ctrl", "backslash"));
-    await step("zuhd", () => vm.key("ctrl", "d"));
-    await vm.key("ctrl", "d");
-    await step("markdown", () => vm.key("ctrl", "r"));
+    await vm.key("ctrl", "backslash");
+    await vm.key("esc");
+    await sleep(800);
+    // Zuhd mode and Markdown shown change little on one plain line: run, not judged.
+    for (const keys of [
+      ["ctrl", "d"],
+      ["ctrl", "d"],
+      ["ctrl", "r"],
+      ["ctrl", "r"],
+    ]) {
+      await vm.key(...keys);
+      await sleep(800);
+    }
     await step("bigger", () => vm.key("ctrl", "equal"));
     await vm.key("ctrl", "0");
     await step("lock", () => palette(vm, "lock"));

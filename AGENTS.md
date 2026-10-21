@@ -59,6 +59,8 @@ cargo deny check                 # banned crates, licences, advisories
 pnpm verify                      # all checks incl. build, e2e and visual; the gate before every commit (--fast skips the real-app suites)
 pnpm verify --online             # also require fresh Rust advisories + pnpm audit; accepts --fast
 pnpm os:fetch && pnpm os:verify  # the bismillah stick (os/PLAN.md): fetch inputs once, then build offline and test in VMs
+pnpm os:perf                     # the stick's boot stages, sizes and RAM against os/perf-baseline.json (--sizes, --update)
+os/scripts/trace.sh              # re-record the stick's allowlist (os/mkosi/allowlist.txt) from a traced VM run
 cd packaging/arch && makepkg -si # build the committed HEAD and install it on this machine
 ```
 

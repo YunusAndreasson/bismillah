@@ -21,13 +21,15 @@ import {
   readlinkSync,
   rmSync,
 } from "node:fs";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 import {
   esp,
   ESP,
   extractRoot,
   HOME,
   MIB,
+  dynamic,
+  inTree,
   missingLibraries,
   partitions,
   ROOT,
@@ -96,6 +98,19 @@ function checkImage(profile: Profile): void {
     return isLink(p) && readlinkSync(p) === "/dev/null";
   };
 
+  // The allowlist: nothing the VMs didn't open, the list doesn't declare, or a kept
+  // program doesn't need.
+  const extra = unexplained(tree, profile);
+  check(
+    extra.length === 0,
+    `${profile}: every file is traced, declared or needed (${extra.length} aren't: ${extra.slice(0, 4).join(" ")})`,
+  );
+  const missing = missingLibraries(tree).filter((m) => !m.includes("/caca/"));
+  check(
+    missing.length === 0,
+    `${profile}: every program's libraries are there (${missing.slice(0, 3).join(", ") || "none missing"})`,
+  );
+
   // Nothing to log in with, no package manager.
   for (const bin of ["apt", "apt-get", "dpkg", "agetty", "login", "su", "sudo", "sulogin"])
     check(!has(`/usr/bin/${bin}`) && !has(`/usr/sbin/${bin}`), `${profile}: no ${bin}`);
@@ -129,11 +144,14 @@ function checkImage(profile: Profile): void {
       `${profile}: no ${name} module`,
     );
   check(modules.length > 100, `${profile}: ${modules.length} modules in all`);
-  // By hardware class (mkosi.conf): the stick has no sound.
-  const sound = matching(/\/kernel\/sound\//);
+  // By hardware class (mkosi.conf): the stick has no sound. Sound's core comes only as a
+  // dependency of a laptop driver (thinkpad_acpi's mute lights).
+  const sound = matching(/\/kernel\/sound\/.*\.ko/).filter(
+    (p) => !/\/sound\/(soundcore|core\/snd(-rawmidi|-seq-device)?)\.ko/.test(p),
+  );
   check(
     sound.length === 0,
-    `${profile}: no sound modules (${sound.slice(0, 3).join(" ") || "none"})`,
+    `${profile}: no sound drivers (${sound.slice(0, 3).join(" ") || "none"})`,
   );
   const firmware = readdirSync(join(tree, "usr/lib/firmware")).sort();
   const gpu = /^(i915|xe|amdgpu|radeon|nvidia|amd|intel|regulatory\.db.*|.*\.(txt|md))$/;
@@ -167,6 +185,10 @@ function checkImage(profile: Profile): void {
     "systemd-pcrextend.socket",
     "systemd-pstore.service",
     "grub-common.service",
+    // e2fsprogs' scrubber is a shell script, and the stick has no shell; its home is
+    // checked by the helper's e2fsck at unlock.
+    "e2scrub_reap.service",
+    "e2scrub_all.timer",
   ])
     check(masked(unit), `${profile}: ${unit} masked`);
   check(
@@ -270,6 +292,66 @@ function isLink(path: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** A glob from allowlist-declared.txt as a regex: "**" crosses folders, "*" and "?" don't. */
+function globRe(glob: string): RegExp {
+  const map: Record<string, string> = { "**": ".*", "*": "[^/]*", "?": "[^/]" };
+  const body = glob
+    .split(/(\*\*|\*|\?)/)
+    .map((part) => map[part] ?? part.replace(/[.+^${}()|[\]\\]/g, "\\$&"))
+    .join("");
+  return new RegExp(`^${body}$`);
+}
+
+/**
+ * The allowlist (OS-4): every file outside /etc, the modules and the firmware is one the
+ * system opened in the VMs (allowlist.txt), a declared one (allowlist-declared.txt), or
+ * a library a kept program needs. Returns the files that are none of these.
+ */
+function unexplained(tree: string, profile: Profile): string[] {
+  const lines = (name: string) =>
+    readFileSync(join(root, "os/mkosi", name), "utf8")
+      .split("\n")
+      .map((l) => l.replace(/#.*/, "").trim())
+      .filter(Boolean);
+  const traced = new Set(lines("allowlist.txt"));
+  const globs = lines("allowlist-declared.txt")
+    .filter((l) => profile === "debug" || !l.startsWith("debug:"))
+    .map((l) => globRe(l.replace(/^debug:\s*/, "")));
+  const files: string[] = [];
+  const walk = (rel: string) => {
+    for (const name of readdirSync(join(tree, rel))) {
+      const p = `${rel}/${name}`;
+      const st = lstatSync(join(tree, p));
+      if (st.isDirectory()) walk(p);
+      else if (st.isFile() && !/^\/(etc|var|boot|efi|usr\/lib\/(modules|firmware))\//.test(p))
+        files.push(p);
+    }
+  };
+  walk("");
+  const needed = new Set<string>();
+  for (const f of files) {
+    const d = dynamic(join(tree, f));
+    if (!d) continue;
+    const dirs = [...d.runpath, "/usr/lib/x86_64-linux-gnu", "/usr/lib", dirname(f)];
+    for (const lib of d.needed)
+      for (const dir of dirs) {
+        const found = inTree(tree, `${dir}/${lib}`);
+        if (found) {
+          needed.add(found);
+          break;
+        }
+      }
+  }
+  return files.filter(
+    (f) =>
+      !traced.has(f) &&
+      !needed.has(f) &&
+      !globs.some((g) => g.test(f)) &&
+      // The dynamic loader isn't a DT_NEEDED entry.
+      !/\/ld-linux-x86-64\.so\.2$/.test(f),
+  );
 }
 
 /**
