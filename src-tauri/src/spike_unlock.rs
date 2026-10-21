@@ -5,7 +5,7 @@
 //! the dictionary, the watchers) waits in `Gate` until the helper has unlocked it, then
 //! runs in this same process. `BISMILLAH_SPIKE_RESTART=1` measures the alternative:
 //! the app exits after the unlock and the session starts it again.
-//! Marks go to stdout as `BISMILLAH_MARK <name> <uptime seconds>`.
+//! Marks go to stdout as `BISMILLAH_MARK <name> <uptime seconds>` (appliance.rs).
 
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
@@ -40,12 +40,7 @@ pub fn socket() -> Option<PathBuf> {
     std::env::var_os("BISMILLAH_SPIKE_UNLOCK").map(PathBuf::from)
 }
 
-pub fn mark(name: &str) {
-    let uptime = std::fs::read_to_string("/proc/uptime").unwrap_or_default();
-    let seconds = uptime.split(' ').next().unwrap_or("?");
-    // Not println!, which panics when stdout (the serial port here) can't be written.
-    let _ = writeln!(std::io::stdout(), "BISMILLAH_MARK {name} {seconds}");
-}
+pub(crate) use crate::appliance::mark;
 
 /// One request to the helper: each line sent, then its one-line answer.
 pub(crate) fn ask(socket: &PathBuf, lines: &[&str]) -> Result<String, String> {
@@ -115,10 +110,11 @@ pub async fn spike_unlock(
     .map_err(|e| e.to_string())?
 }
 
-/// Lets the page put its own marks next to the helper's and Rust's.
+/// Lets the page put its own marks next to the helper's and Rust's (only where
+/// `appliance::marks` allows them).
 #[tauri::command]
 pub fn spike_mark(name: String) {
-    if socket().is_some() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+    if name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         mark(&format!("page-{name}"));
     }
 }
