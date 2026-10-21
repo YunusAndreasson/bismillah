@@ -26,9 +26,6 @@ mod lint;
 mod platform;
 mod recovery;
 mod settings;
-mod spike_keyboard;
-mod spike_suspend;
-mod spike_unlock;
 mod state;
 #[cfg(test)]
 mod testing;
@@ -231,9 +228,7 @@ pub fn run() {
         .as_ref()
         .and_then(platform::InstanceListener::cleanup_path);
     let appliance = appliance::enabled(&launch.args);
-    // On the stick the library is always ~/Texts (appliance.rs).
-    let startup = app::cli_path(&launch.args, &launch.cwd)
-        .or_else(|| appliance.then(appliance::library).flatten());
+    let startup = app::cli_path(&launch.args, &launch.cwd);
 
     let navigation_guard = tauri::plugin::Builder::<tauri::Wry>::new("navigation-guard")
         .on_navigation(|_webview, url| is_app_origin(url))
@@ -292,22 +287,31 @@ pub fn run() {
             menu_hide,
             menu_state,
             clipboard_write,
-            spike_unlock::spike_gate,
-            spike_unlock::spike_unlock,
-            spike_unlock::spike_mark,
-            spike_keyboard::spike_keyboard,
-            spike_keyboard::spike_set_keyboard,
-            spike_keyboard::spike_verify,
-            spike_suspend::spike_lock_painted
+            appliance::appliance_gate,
+            appliance::appliance_open,
+            appliance::appliance_start_over,
+            appliance::appliance_set_keyboard,
+            appliance::appliance_power,
+            appliance::appliance_strength,
+            appliance::appliance_generate,
+            appliance::appliance_layouts,
+            appliance::appliance_keyboard,
+            appliance::appliance_mark
         ])
         .setup(move |app| {
             if appliance {
                 std::thread::spawn(appliance::scale_outputs);
             }
-            // Everything that reads the writer's home. The OS-0 unlock spike runs it
-            // only once the helper has unlocked home (spike_unlock.rs).
+            // Everything that reads the writer's home. On the stick it runs only once
+            // the helper has opened home (appliance.rs).
             let begin = move |app: &tauri::AppHandle| -> Result<(), String> {
-                let (config_dir, data_dir) = app::dirs(app).map_err(|e| e.to_string())?;
+                let (config_dir, data_dir) = if appliance {
+                    appliance::dirs().ok_or("no home folder")?
+                } else {
+                    app::dirs(app).map_err(|e| e.to_string())?
+                };
+                // On the stick the library is always ~/Texts.
+                let startup = startup.or_else(|| appliance.then(appliance::library).flatten());
                 let state = AppState::new(app.clone(), &config_dir, &data_dir, startup);
                 if let Some(window) = app.get_webview_window("main") {
                     platform::configure_main_window(&window);
@@ -333,20 +337,19 @@ pub fn run() {
                 }
                 Ok(())
             };
-            if let Some(socket) = spike_unlock::socket() {
+            if appliance {
                 if let Some(window) = app.get_webview_window("main") {
                     platform::configure_main_window(&window);
                     let _ = window.show();
                 }
-                app.manage(spike_unlock::Gate::new(socket, Box::new(begin)));
-                spike_keyboard::watch(app.handle());
-                spike_suspend::connect(app.handle());
+                app.manage(appliance::Gate::new(Box::new(begin)));
+                appliance::watch_keyboard(app.handle());
                 return Ok(());
             }
             begin(app.handle()).map_err(Into::into)
         })
         .on_window_event(|window, event| {
-            // Absent until the unlock spike's gate has started the app.
+            // Absent until the appliance gate has started the app.
             let Some(state) = window.try_state::<AppState>() else {
                 return;
             };

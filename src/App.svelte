@@ -19,42 +19,27 @@
   import StatusLine from "./ui/StatusLine.svelte";
   import Suggestions from "./ui/Suggestions.svelte";
   import Welcome from "./ui/Welcome.svelte";
-  import SpikeUnlock from "./appliance/SpikeUnlock.svelte";
-  import { listen } from "@tauri-apps/api/event";
+  import Gate from "./appliance/Gate.svelte";
 
   let host: HTMLElement;
   let failure = $state<string | null>(null);
   let started = $state(false);
-  // OS-0 unlock spike: set while the passphrase screen waits for the helper.
-  let gate = $state<{ helper: ipc.SpikeHelperState; done: () => void } | null>(null);
+  // On the bismillah stick: home's state while the first screen waits for it to open
+  // (src/appliance/, os/PLAN.md). Null on the desktop.
+  let gate = $state<{
+    initial: ipc.GateState;
+    opened: (setup: { timeZone: string } | null) => void;
+  } | null>(null);
 
-  let gated = false;
-
-  /** Waits for the unlock spike's helper, when the app was started gated. */
-  async function unlocked() {
-    const helper = await ipc.spikeGate();
-    if (helper === null) return;
-    gated = true;
-    void ipc.spikeMark("gate-shown");
-    // OS-0 suspend spike: the sleep daemon asks for the lock view before sleep.
-    void listen("spike-lock", () => {
-      if (gate) {
-        painted();
-        return;
-      }
-      void ipc.spikeMark("locked");
-      gate = { helper: "lock", done: () => ((gate = null), void ipc.spikeMark("lock-passed")) };
-    });
-    if (helper === "unlocked") await ipc.spikeUnlock("unlock", "");
-    else await new Promise<void>((done) => (gate = { helper, done }));
-    // A session restarted while locked opens on the lock view, then starts as usual.
-    if (helper === "lock") await ipc.spikeUnlock("unlock", "");
+  /** Waits until the stick's home is open; returns setup's choices, if it ran. */
+  async function unlocked(): Promise<{ timeZone: string } | null> {
+    const initial = await ipc.applianceGate();
+    if (initial === null) return null;
+    const setup = await new Promise<{ timeZone: string } | null>(
+      (opened) => (gate = { initial, opened }),
+    );
     gate = null;
-  }
-
-  /** Tells the sleep daemon once the frame now being drawn has reached the screen. */
-  function painted() {
-    requestAnimationFrame(() => requestAnimationFrame(() => void ipc.spikeLockPainted()));
+    return setup;
   }
 
   const session = $derived(workspace.session);
@@ -96,30 +81,15 @@
     };
     void (async () => {
       try {
-        await unlocked();
+        const setup = await unlocked();
         await workspace.start(host, installMenu);
+        if (setup) await settings.set({ time_zone: setup.timeZone });
         document.fonts.addEventListener("loadingdone", onFonts);
         started = true;
         // The launch budget's end: the document is in the editor, which has focus
         // (ARCHITECTURE.md §14, measured by scripts/perf.ts).
         performance.mark("bismillah:editable");
-        void ipc.spikeMark("editable");
-        // OS-0 keyboard spike: Ctrl+Alt+L shows the lock view, checked by the helper.
-        if (gated)
-          window.addEventListener(
-            "keydown",
-            (event) => {
-              if (gate || !(event.ctrlKey && event.altKey && event.code === "KeyL")) return;
-              event.preventDefault();
-              event.stopPropagation();
-              void ipc.spikeMark("locked");
-              gate = {
-                helper: "lock",
-                done: () => ((gate = null), void ipc.spikeMark("lock-passed")),
-              };
-            },
-            true,
-          );
+        void ipc.applianceMark("editable");
         if (workspace.testMode && workspace.editor) installTestHooks(workspace.editor, workspace);
       } catch (error) {
         console.error("bismillah: couldn't start", error);
@@ -134,7 +104,7 @@
 </script>
 
 {#if gate}
-  <div class="spike-gate"><SpikeUnlock helper={gate.helper} done={gate.done} /></div>
+  <div class="appliance-gate"><Gate initial={gate.initial} opened={gate.opened} /></div>
 {/if}
 <div class="window">
   <div class="notices-row"><Notices notices={workspace.notices} /></div>
@@ -231,10 +201,11 @@
 <Suggestions checking={workspace.checking} />
 
 <style>
-  .spike-gate {
+  .appliance-gate {
     position: fixed;
     inset: 0;
     z-index: 100;
+    overflow: auto;
   }
   .window {
     height: 100%;

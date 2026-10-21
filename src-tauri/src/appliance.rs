@@ -2,27 +2,46 @@
 //! started by its session as `cage -d -- bismillah --appliance`. A desktop launch never
 //! passes the flag, so none of this runs there.
 //!
-//! Phase OS-1 gives it the fixed library and the high-density scale. The unlock gate
-//! (OS-2) still runs through the spike modules behind `BISMILLAH_SPIKE_*`.
+//! The app starts before the writer's home is open. Everything that reads home waits
+//! in [`Gate`] while the page shows Setup or Unlock; the helper (`bismillah-helper`,
+//! crates/bismillah-appliance) opens home, and the app then continues in this same
+//! process (docs/spikes/os-unlock-in-app.md). The library is always `~/Texts`, and the
+//! app's own files have fixed places under home, while WebKit, GTK, fontconfig and Mesa
+//! keep theirs in RAM (the session's `XDG_*_HOME`).
 
-use std::io::Write;
+use bismillah_appliance::passphrase::{self, Secret, Strength};
+use bismillah_appliance::{Answer, Home, Keyboard, MAX_LINE, PowerAction, Request};
+use serde::Serialize;
+use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::fs::DirBuilderExt;
-use std::path::{Path, PathBuf};
+use std::os::unix::net::UnixStream;
+use std::path::PathBuf;
 use std::process::Command;
+use std::sync::Mutex;
+use tauri::{AppHandle, Emitter, Manager};
 
 /// The flag the stick's session passes.
 const FLAG: &str = "--appliance";
+
+/// Exit code after a keyboard change: systemd restarts the session, and cage starts
+/// with the new layouts (cage has no way to change them while it runs).
+const RESTART_SESSION: i32 = 76;
 
 /// Whether this launch is the stick's session.
 pub fn enabled(args: &[String]) -> bool {
     args.iter().skip(1).any(|a| a == FLAG)
 }
 
-/// The library on the stick, `~/Texts`, made on the first start and private to the
-/// writer whatever the session's umask (PAM's login session sets its own). `None` when
-/// it can't be made: the app then starts with no library, as on the desktop.
+fn home() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(PathBuf::from)
+}
+
+/// The library on the stick, `~/Texts`, private to the writer whatever the session's
+/// umask (PAM's login session sets its own). The helper makes it at setup; this makes
+/// it again if it went missing. `None` when it can't be made: the app then starts with
+/// no library, as on the desktop.
 pub fn library() -> Option<PathBuf> {
-    let dir = Path::new(&std::env::var_os("HOME")?).join("Texts");
+    let dir = home()?.join("Texts");
     match std::fs::DirBuilder::new()
         .recursive(true)
         .mode(0o700)
@@ -36,15 +55,24 @@ pub fn library() -> Option<PathBuf> {
     }
 }
 
-/// Whether boot marks are printed: in the stick's debug image (`BISMILLAH_MARKS=1`) and
-/// in the OS-0 unlock spike. Release images print nothing.
+/// The app's own settings and data folders on the stick: fixed under home, rather than
+/// wherever `XDG_CONFIG_HOME` and `XDG_DATA_HOME` point (RAM, in the session).
+pub fn dirs() -> Option<(PathBuf, PathBuf)> {
+    let home = home()?;
+    Some((
+        home.join(".config/bismillah"),
+        home.join(".local/share/bismillah"),
+    ))
+}
+
+/// Whether boot marks are printed: in the stick's debug image (`BISMILLAH_MARKS=1`).
+/// Release images print nothing.
 pub fn marks() -> bool {
     std::env::var_os("BISMILLAH_MARKS").is_some()
-        || std::env::var_os("BISMILLAH_SPIKE_UNLOCK").is_some()
 }
 
 /// Prints `BISMILLAH_MARK <name> <uptime seconds>`, for the OS boot-stage numbers.
-/// Names and times only, never anything from a document.
+/// Names and times only, never anything from a document or a passphrase.
 pub fn mark(name: &str) {
     if !marks() {
         return;
@@ -53,6 +81,276 @@ pub fn mark(name: &str) {
     let seconds = uptime.split(' ').next().unwrap_or("?");
     // Not println!, which panics when stdout can't be written.
     let _ = writeln!(std::io::stdout(), "BISMILLAH_MARK {name} {seconds}");
+}
+
+/// The helper's socket. Debug builds may name another, for the desktop e2e suite's
+/// stand-in helper (tests/e2e/appliance.e2e.ts).
+fn socket() -> PathBuf {
+    #[cfg(debug_assertions)]
+    if let Some(path) = std::env::var_os("BISMILLAH_HELPER_SOCKET") {
+        return PathBuf::from(path);
+    }
+    PathBuf::from(bismillah_appliance::SOCKET)
+}
+
+/// One request to the helper and its answer. The request line, which may hold a
+/// passphrase, is cleared once it has been sent.
+fn ask(request: Request) -> Result<Answer, String> {
+    let line = request.to_line();
+    let mut stream =
+        UnixStream::connect(socket()).map_err(|e| format!("connect: {:?}", e.kind()))?;
+    stream
+        .write_all(&line)
+        .map_err(|e| format!("write: {:?}", e.kind()))?;
+    drop(line);
+    let mut answer = String::new();
+    BufReader::new(stream.take(MAX_LINE as u64))
+        .read_line(&mut answer)
+        .map_err(|e| format!("read: {:?}", e.kind()))?;
+    serde_json::from_str(&answer).map_err(|_| "answer: not understood".to_owned())
+}
+
+type Start = Box<dyn FnOnce(&AppHandle) -> Result<(), String> + Send>;
+
+/// The startup that waits for home: state, settings, recovery, the dictionary, the
+/// library and the watchers (lib.rs).
+pub struct Gate {
+    start: Mutex<Option<Start>>,
+}
+
+impl Gate {
+    pub fn new(start: Start) -> Self {
+        Self {
+            start: Mutex::new(Some(start)),
+        }
+    }
+
+    fn waiting(&self) -> bool {
+        self.start.lock().map(|s| s.is_some()).unwrap_or(false)
+    }
+
+    /// Runs the deferred startup, once.
+    fn open(&self, app: &AppHandle) -> Result<(), String> {
+        let start = self.start.lock().ok().and_then(|mut s| s.take());
+        match start {
+            Some(start) => start(app),
+            None => Ok(()),
+        }
+    }
+}
+
+/// What the page needs to choose its first screen.
+#[derive(Serialize)]
+pub struct GateState {
+    home: Home,
+    keyboard: Keyboard,
+}
+
+/// Home's state while the app waits for it, or null when the app isn't gated (the
+/// desktop) or has already started.
+#[tauri::command]
+pub async fn appliance_gate(app: AppHandle) -> Result<Option<GateState>, String> {
+    if !app.try_state::<Gate>().is_some_and(|g| g.waiting()) {
+        return Ok(None);
+    }
+    let answer = tauri::async_runtime::spawn_blocking(|| ask(Request::Status))
+        .await
+        .map_err(|e| e.to_string())??;
+    match answer {
+        Answer::Status { home, keyboard } => Ok(Some(GateState { home, keyboard })),
+        _ => Err("answer: not a status".to_owned()),
+    }
+}
+
+/// Sets up, finishes or unlocks home with the passphrase (or, on a session restarted
+/// with home open, checks it); on `ok` the app's startup runs.
+#[tauri::command]
+pub async fn appliance_open(
+    app: AppHandle,
+    verb: String,
+    passphrase: String,
+) -> Result<Answer, String> {
+    let passphrase = Secret::new(passphrase);
+    tauri::async_runtime::spawn_blocking(move || {
+        let gate = app.try_state::<Gate>().ok_or("not gated")?;
+        let request = match verb.as_str() {
+            "setup" => Request::Setup { passphrase },
+            "finish" => Request::Finish { passphrase },
+            "unlock" => Request::Unlock { passphrase },
+            "verify" => Request::Verify { passphrase },
+            _ => return Err("unknown verb".to_owned()),
+        };
+        mark("app-unlock-sent");
+        let answer = ask(request)?;
+        mark("app-unlock-answered");
+        if answer == Answer::Ok {
+            gate.open(&app)?;
+            mark("app-started");
+        }
+        Ok(answer)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Erases an unfinished setup (Initialising home only), back to a blank stick.
+#[tauri::command]
+pub async fn appliance_start_over() -> Result<Answer, String> {
+    tauri::async_runtime::spawn_blocking(|| ask(Request::StartOver))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Stores the keyboard layouts and, once stored, restarts the session so cage uses
+/// them. The page reloads with it.
+#[tauri::command]
+pub async fn appliance_set_keyboard(layouts: String, options: String) -> Result<Answer, String> {
+    let answer = tauri::async_runtime::spawn_blocking(move || {
+        ask(Request::SetKeyboard { layouts, options })
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    if answer == Answer::Ok {
+        mark("app-exit-for-keyboard");
+        std::process::exit(RESTART_SESSION);
+    }
+    Ok(answer)
+}
+
+#[tauri::command]
+pub async fn appliance_power(action: PowerAction) -> Result<Answer, String> {
+    tauri::async_runtime::spawn_blocking(move || ask(Request::Power { action }))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// How guessable a passphrase is, for Setup's meter. The helper checks it again.
+#[tauri::command]
+pub fn appliance_strength(passphrase: String) -> Strength {
+    let passphrase = Secret::new(passphrase);
+    passphrase::strength(passphrase.expose())
+}
+
+/// A passphrase of six words from the EFF list, chosen with the kernel's randomness.
+#[tauri::command]
+pub fn appliance_generate() -> Result<String, String> {
+    let mut random = std::fs::File::open("/dev/urandom").map_err(|e| format!("{:?}", e.kind()))?;
+    let mut failed = false;
+    let generated = passphrase::generate(|bytes| failed |= random.read_exact(bytes).is_err());
+    if failed {
+        return Err("no randomness".to_owned());
+    }
+    Ok(generated.expose().to_owned())
+}
+
+/// An XKB layout or variant the writer can choose, e.g. `se` "Swedish" or
+/// `ara(qwerty)` "Arabic (QWERTY)".
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Layout {
+    id: String,
+    name: String,
+}
+
+/// Every layout and variant XKB knows, by name.
+#[tauri::command]
+pub fn appliance_layouts() -> Vec<Layout> {
+    let rules = std::fs::read_to_string("/usr/share/X11/xkb/rules/evdev.lst").unwrap_or_default();
+    layouts(&rules)
+}
+
+fn layouts(rules: &str) -> Vec<Layout> {
+    let mut section = "";
+    let mut list = Vec::new();
+    for line in rules.lines() {
+        if let Some(name) = line.strip_prefix("! ") {
+            section = name.trim();
+            continue;
+        }
+        let line = line.trim();
+        let Some((id, rest)) = line.split_once(char::is_whitespace) else {
+            continue;
+        };
+        let rest = rest.trim();
+        match section {
+            "layout" => list.push(Layout {
+                id: id.to_owned(),
+                name: rest.to_owned(),
+            }),
+            // "dvorak          se: Swedish (Dvorak)"
+            "variant" => {
+                if let Some((layout, name)) = rest.split_once(": ") {
+                    list.push(Layout {
+                        id: format!("{layout}({id})"),
+                        name: name.to_owned(),
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+    list.sort_by_key(|l| l.name.to_lowercase());
+    list
+}
+
+/// The keyboard indicator: the layouts cage was started with, and what GTK reports.
+#[derive(Clone, Serialize)]
+pub struct KeyboardState {
+    /// In group order.
+    layouts: Vec<String>,
+    /// The active group, as of the last key press.
+    group: u8,
+    rtl: bool,
+    caps: bool,
+}
+
+struct LastKeys(Mutex<crate::platform::KeyState>);
+
+fn keyboard_state(keys: crate::platform::KeyState) -> KeyboardState {
+    KeyboardState {
+        layouts: std::env::var("XKB_DEFAULT_LAYOUT")
+            .unwrap_or_default()
+            .split(',')
+            .filter(|l| !l.is_empty())
+            .map(str::to_owned)
+            .collect(),
+        group: keys.group,
+        rtl: keys.rtl,
+        caps: keys.caps,
+    }
+}
+
+/// Starts reporting keyboard changes to the page as `appliance-keyboard` events.
+pub fn watch_keyboard(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    app.manage(LastKeys(Mutex::new(Default::default())));
+    let handle = app.clone();
+    crate::platform::watch_keyboard(&window, move |keys| {
+        if let Some(last) = handle.try_state::<LastKeys>()
+            && let Ok(mut last) = last.0.lock()
+        {
+            *last = keys;
+        }
+        let _ = handle.emit("appliance-keyboard", keyboard_state(keys));
+    });
+}
+
+#[tauri::command]
+pub fn appliance_keyboard(app: AppHandle) -> KeyboardState {
+    let keys = app
+        .try_state::<LastKeys>()
+        .and_then(|l| l.0.lock().ok().map(|k| *k))
+        .unwrap_or_default();
+    keyboard_state(keys)
+}
+
+/// Lets the page put its own marks next to the helper's and Rust's.
+#[tauri::command]
+pub fn appliance_mark(name: String) {
+    if name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        mark(&format!("page-{name}"));
+    }
 }
 
 /// Scales each high-density screen to 2x. cage always starts at scale 1, which makes
@@ -111,6 +409,12 @@ fn number_before(text: &str, separator: char) -> f64 {
         .unwrap_or(0.0)
 }
 
+/// Whether `path` is inside the writer's home (for tests of the fixed folders).
+#[cfg(test)]
+fn under_home(path: &std::path::Path) -> bool {
+    home().is_some_and(|h| path.starts_with(h))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,6 +430,31 @@ mod tests {
         assert!(!enabled(&args(&["bismillah", "appliance.md"])));
         // The program name itself is never read as the flag.
         assert!(!enabled(&args(&["--appliance"])));
+    }
+
+    #[test]
+    fn the_apps_own_folders_are_fixed_under_home() {
+        let (config, data) = dirs().unwrap();
+        assert!(under_home(&config) && config.ends_with(".config/bismillah"));
+        assert!(under_home(&data) && data.ends_with(".local/share/bismillah"));
+    }
+
+    #[test]
+    fn lists_layouts_and_variants_by_name() {
+        let rules = "\
+! model
+  pc105           Generic 105-key PC
+! layout
+  us              English (US)
+  se              Swedish
+  ara             Arabic
+! variant
+  qwerty          ara: Arabic (QWERTY)
+! option
+  grp:alt_shift_toggle Alt+Shift
+";
+        let ids: Vec<String> = layouts(rules).into_iter().map(|l| l.id).collect();
+        assert_eq!(ids, ["ara", "ara(qwerty)", "us", "se"]);
     }
 
     #[test]

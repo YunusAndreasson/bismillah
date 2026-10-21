@@ -348,25 +348,72 @@ export const clipboardWrite = (html: string, text: string) =>
 export const menuHide = () => invoke<null>("menu_hide");
 export const menuState = () => invoke<MenuState>("menu_state");
 
-// OS-0 spike "Unlock in the app" (os/PLAN.md, src-tauri/src/spike_unlock.rs). Not product code.
-export type SpikeHelperState = "setup" | "locked" | "unlocked" | "lock";
-export const spikeGate = () => invoke<SpikeHelperState | null>("spike_gate");
-export const spikeUnlock = (verb: "setup" | "unlock", passphrase: string) =>
-  invoke<string>("spike_unlock", { verb, passphrase });
-export const spikeMark = (name: string) => invoke("spike_mark", { name });
+// The bismillah stick (os/PLAN.md, src-tauri/src/appliance.rs, crates/bismillah-appliance).
 
-// OS-0 spike "Keyboard" (src-tauri/src/spike_keyboard.rs). Not product code.
-export interface SpikeKeyboard {
-  layouts: string[];
+/** Why the helper won't read home, or can't tell which partition it is. */
+export type Trouble =
+  | "foreign"
+  | "damaged_header"
+  | "unknown_token"
+  | "damaged_file_system"
+  | "two_sticks"
+  | "no_home"
+  | "no_boot_disk";
+
+export type Home =
+  | { state: "blank" | "initialising" | "ready" | "unlocked" }
+  | { state: "unreadable" | "not_found"; reason: Trouble };
+
+export interface HelperKeyboard {
+  layouts: string;
   options: string;
+  source: "token" | "pending" | "default" | "damaged";
+}
+
+export interface GateState {
+  home: Home;
+  keyboard: HelperKeyboard;
+}
+
+export type HelperAnswer =
+  | { answer: "ok" | "wrong_passphrase" | "too_weak" | "invalid_keyboard" }
+  | { answer: "refused"; state: Home }
+  | { answer: "failed"; step: string }
+  | { answer: "status"; home: Home; keyboard: HelperKeyboard };
+
+export interface Strength {
+  score: number;
+  enough: boolean;
+  warning: string | null;
+}
+
+export interface KeyboardLayout {
+  id: string;
+  name: string;
+}
+
+export interface KeyboardState {
+  /** The layouts cage was started with, in group order. */
+  layouts: string[];
+  /** The active group, as of the last key press. */
   group: number;
   rtl: boolean;
   caps: boolean;
 }
-export const spikeKeyboard = () => invoke<SpikeKeyboard>("spike_keyboard");
-export const spikeSetKeyboard = (layouts: string, options: string) =>
-  invoke<string>("spike_set_keyboard", { layouts, options });
-export const spikeVerify = (passphrase: string) => invoke<string>("spike_verify", { passphrase });
 
-// OS-0 spike "Suspend lock fallback" (src-tauri/src/spike_suspend.rs). Not product code.
-export const spikeLockPainted = () => invoke("spike_lock_painted");
+/** Home's state while the app waits for it; null on the desktop or once started. */
+export const applianceGate = () => invoke<GateState | null>("appliance_gate");
+export const applianceOpen = (verb: "setup" | "finish" | "unlock" | "verify", passphrase: string) =>
+  invoke<HelperAnswer>("appliance_open", { verb, passphrase });
+export const applianceStartOver = () => invoke<HelperAnswer>("appliance_start_over");
+/** On success the session restarts, and this page with it. */
+export const applianceSetKeyboard = (layouts: string, options: string) =>
+  invoke<HelperAnswer>("appliance_set_keyboard", { layouts, options });
+export const appliancePower = (action: "off" | "reboot") =>
+  invoke<HelperAnswer>("appliance_power", { action });
+export const applianceStrength = (passphrase: string) =>
+  invoke<Strength>("appliance_strength", { passphrase });
+export const applianceGenerate = () => invoke<string>("appliance_generate");
+export const applianceLayouts = () => invoke<KeyboardLayout[]>("appliance_layouts");
+export const applianceKeyboard = () => invoke<KeyboardState>("appliance_keyboard");
+export const applianceMark = (name: string) => invoke("appliance_mark", { name });

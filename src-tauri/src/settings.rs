@@ -33,6 +33,8 @@ enum Kind {
     /// A font's family name, or "" for none. Free text, but never anything that could
     /// end the CSS string it is set in.
     FontName,
+    /// An IANA time zone name (`Europe/Stockholm`), or "" for the system's.
+    TimeZone,
 }
 
 struct Spec {
@@ -138,6 +140,12 @@ const SPECS: &[Spec] = &[
         kind: Kind::Choice(&["british", "american", "canadian", "australian", "indian"]),
         default: || "british".into(),
     },
+    // Chosen in the stick's setup (os/PLAN.md, OS-2); Settings › Time comes in OS-3.
+    Spec {
+        key: "time_zone",
+        kind: Kind::TimeZone,
+        default: || "".into(),
+    },
 ];
 
 /// Something the writer should know about their settings file.
@@ -193,8 +201,22 @@ fn validate(spec: &Spec, value: &Value) -> Option<Value> {
         {
             Some(s.trim().into())
         }
+        (Kind::TimeZone, Value::String(s)) if time_zone_name(s) => Some(s.as_str().into()),
         _ => None,
     }
+}
+
+/// An IANA zone's shape: "" or segments of letters, digits, `_`, `+` and `-`.
+fn time_zone_name(s: &str) -> bool {
+    s.is_empty()
+        || (s.len() <= 64
+            && s.split('/').all(|part| {
+                !part.is_empty()
+                    && part != ".."
+                    && part
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || "_+-".contains(c))
+            }))
 }
 
 fn from_toml(item: &Item) -> Option<Value> {
@@ -515,6 +537,38 @@ mod tests {
             assert_eq!(
                 store.set(&patch(json!({ key: bad }))),
                 Err(SetError::InvalidValue { key: key.into() }),
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn checks_time_zone_names() {
+        let scratch = Scratch::new();
+        let mut store = Store::load(scratch.path().join("settings.toml"));
+        assert_eq!(store.snapshot().values["time_zone"], "");
+        for good in [
+            "Europe/Stockholm",
+            "America/Argentina/Buenos_Aires",
+            "Etc/GMT+3",
+            "UTC",
+            "",
+        ] {
+            store.set(&patch(json!({ "time_zone": good }))).unwrap();
+            assert_eq!(store.snapshot().values["time_zone"], good);
+        }
+        for bad in [
+            "../etc/passwd",
+            "/UTC",
+            "Europe//Oslo",
+            "Asia/Ho Chi Minh",
+            "Europe/Stockholm\n",
+        ] {
+            assert_eq!(
+                store.set(&patch(json!({ "time_zone": bad }))),
+                Err(SetError::InvalidValue {
+                    key: "time_zone".into()
+                }),
                 "{bad}"
             );
         }

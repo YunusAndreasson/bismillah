@@ -50,6 +50,8 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | `serde`, `serde_json`, `thiserror` | IPC payloads, the recovery sidecars and typed errors |
 | `toml_edit` | `settings.toml` rewritten without losing the writer's comments, layout or unknown keys (§9) |
 | `gtk` (Linux only, already in Tauri's tree) | Focus the native menu bar on `Alt`/`F10`; put Copy as rich text on the clipboard as `text/html` and text; hand a checked link or folder to the desktop's default app through GIO (`platform.rs`), instead of `tauri-plugin-clipboard-manager` and `tauri-plugin-opener` |
+| `zeroize` (the stick only, `crates/bismillah-appliance`) | Clears passphrases from memory once the helper or the app has used them (os/PLAN.md, OS-2) |
+| `zxcvbn` (the stick only) | Rates a passphrase at setup, so the stick refuses a guessable one; strength estimation is a hard problem we would otherwise get wrong. The six-word suggestions come from the EFF large word list (CC BY 3.0 US), bundled in the crate |
 
 **Development only** (never shipped): WebdriverIO + `tauri-driver` (real-app e2e), `pixelmatch` + `pngjs` (screenshot comparison), Vitest + jsdom, ESLint + Prettier, svelte-check. Spike and font tooling run through `uv`: fontTools (font build), `uharfbuzz` (rendering reference, and the pre-shaped Basmallah outlines in `src/editor/basmallahInk.ts`), `python-xlib` (raw X input and clipboard).
 

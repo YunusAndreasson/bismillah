@@ -31,6 +31,8 @@ trash = "5.2"
 url = "2"
 # Spelling and grammar (ADR-0004); the workspace crate, free of Tauri.
 bismillah-lint = { path = "../crates/bismillah-lint", version = "1.0.0" }
+# The stick's helper protocol and passphrase rules (os/PLAN.md, OS-2); the workspace crate.
+bismillah-appliance = { path = "../crates/bismillah-appliance", version = "1.0.0" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Already in Tauri's dependency tree; used only to focus the native menu bar (platform.rs).

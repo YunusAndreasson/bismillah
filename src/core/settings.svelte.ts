@@ -55,6 +55,8 @@ export interface Settings {
   check_spelling: boolean;
   check_grammar: boolean;
   english_dialect: EnglishDialect;
+  /** An IANA time zone, chosen in the stick's setup; "" for the system's. */
+  time_zone: string;
 }
 
 export const DEFAULTS: Settings = {
@@ -77,6 +79,7 @@ export const DEFAULTS: Settings = {
   check_spelling: true,
   check_grammar: true,
   english_dialect: "british",
+  time_zone: "",
 };
 
 export const TEXT_SCALE = { min: 0.5, max: 3, step: 0.1 } as const;

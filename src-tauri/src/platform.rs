@@ -397,6 +397,25 @@ pub fn is_root() -> bool {
     }
 }
 
+/// The keyboard as the toolkit sees it, for the unlock screen's indicator: the layout
+/// group of the last key pressed, the direction of the active layout, and Caps Lock.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct KeyState {
+    pub group: u8,
+    pub rtl: bool,
+    pub caps: bool,
+}
+
+/// Calls `changed` on every key press in `window` and every change of layout group or
+/// modifiers. GTK 3 reports the active group only with each key event; direction and
+/// Caps Lock are live (docs/spikes/os-keyboard.md).
+pub fn watch_keyboard(window: &tauri::WebviewWindow, changed: impl Fn(KeyState) + Clone + 'static) {
+    #[cfg(target_os = "linux")]
+    linux::watch_keyboard(window, changed);
+    #[cfg(not(target_os = "linux"))]
+    let _ = (window, changed);
+}
+
 #[cfg(target_os = "linux")]
 mod linux {
     use gtk::prelude::*;
@@ -409,6 +428,40 @@ mod linux {
         vbox.children()
             .into_iter()
             .find_map(|w| w.downcast::<gtk::MenuBar>().ok())
+    }
+
+    pub fn watch_keyboard(
+        window: &tauri::WebviewWindow,
+        changed: impl Fn(super::KeyState) + Clone + 'static,
+    ) {
+        use gtk::gdk;
+        use std::cell::Cell;
+        use std::rc::Rc;
+        let Ok(toplevel) = window.gtk_window() else {
+            return;
+        };
+        let keymap = || gdk::Display::default().and_then(|d| gdk::Keymap::for_display(&d));
+        let group = Rc::new(Cell::new(0u8));
+        let state = move |group: u8| {
+            let keymap = keymap();
+            super::KeyState {
+                group,
+                rtl: keymap
+                    .as_ref()
+                    .is_some_and(|k| k.direction() == gtk::pango::Direction::Rtl),
+                caps: keymap.as_ref().is_some_and(gdk::Keymap::is_caps_locked),
+            }
+        };
+        // The toplevel sees each key before WebKit does.
+        let (on_key, last) = (changed.clone(), group.clone());
+        toplevel.connect_key_press_event(move |_, event| {
+            last.set(event.group());
+            on_key(state(event.group()));
+            gtk::glib::Propagation::Proceed
+        });
+        if let Some(map) = gdk::Display::default().and_then(|d| gdk::Keymap::for_display(&d)) {
+            map.connect_state_changed(move |_| changed(state(group.get())));
+        }
     }
 
     pub fn focus_menu_bar(window: &tauri::WebviewWindow) {

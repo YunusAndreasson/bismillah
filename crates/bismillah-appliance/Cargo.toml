@@ -1,0 +1,30 @@
+[package]
+name = "bismillah-appliance"
+version.workspace = true
+description = "The bismillah stick's helper (os/PLAN.md): its home partition, unlock and keyboard"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+# The library is the protocol and the passphrase rules, shared with the app
+# (src-tauri/src/appliance.rs). The binary is the helper that runs as root on the stick.
+[lib]
+name = "bismillah_appliance"
+
+[[bin]]
+name = "bismillah-helper"
+path = "src/helper/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Clears passphrases from memory once they have been used.
+zeroize = "1.9"
+# Passphrase strength, so setup can refuse a guessable one (a hard problem).
+zxcvbn = { version = "3.1", default-features = false }
+# Already in the tree: the socket peer's uid (SO_PEERCRED) and the systemd socket.
+libc = "0.2"

@@ -32,8 +32,12 @@ function tauriDriverPath(): string {
   return "tauri-driver";
 }
 
-/** Starts tauri-driver on a free port and resolves once it accepts connections. */
-export async function startDriver(port: number): Promise<ChildProcess> {
+/** Starts tauri-driver on a free port and resolves once it accepts connections. `env`
+ * adds to the environment the app inherits (tests/e2e/appliance.e2e.ts). */
+export async function startDriver(
+  port: number,
+  env: Record<string, string> = {},
+): Promise<ChildProcess> {
   // Never open the app on the author's desktop: only scripts/headless.sh sets this.
   if (!process.env.BISMILLAH_TEST || process.env.WAYLAND_DISPLAY) {
     throw new Error("Run this through scripts/headless.sh (pnpm test:e2e / pnpm app:shot).");
@@ -49,7 +53,7 @@ export async function startDriver(port: number): Promise<ChildProcess> {
       "--native-driver",
       "/usr/bin/WebKitWebDriver",
     ],
-    { stdio: ["ignore", "ignore", "inherit"] },
+    { stdio: ["ignore", "ignore", "inherit"], env: { ...process.env, ...env } },
   );
   for (let attempt = 0; attempt < 100; attempt++) {
     const ok = await fetch(`http://127.0.0.1:${port}/status`)
