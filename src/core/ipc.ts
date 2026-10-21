@@ -367,3 +367,6 @@ export const spikeKeyboard = () => invoke<SpikeKeyboard>("spike_keyboard");
 export const spikeSetKeyboard = (layouts: string, options: string) =>
   invoke<string>("spike_set_keyboard", { layouts, options });
 export const spikeVerify = (passphrase: string) => invoke<string>("spike_verify", { passphrase });
+
+// OS-0 spike "Suspend lock fallback" (src-tauri/src/spike_suspend.rs). Not product code.
+export const spikeLockPainted = () => invoke("spike_lock_painted");

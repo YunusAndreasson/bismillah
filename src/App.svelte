@@ -19,6 +19,7 @@
   import Suggestions from "./ui/Suggestions.svelte";
   import Welcome from "./ui/Welcome.svelte";
   import SpikeUnlock from "./appliance/SpikeUnlock.svelte";
+  import { listen } from "@tauri-apps/api/event";
 
   let host: HTMLElement;
   let failure = $state<string | null>(null);
@@ -34,9 +35,25 @@
     if (helper === null) return;
     gated = true;
     void ipc.spikeMark("gate-shown");
+    // OS-0 suspend spike: the sleep daemon asks for the lock view before sleep.
+    void listen("spike-lock", () => {
+      if (gate) {
+        painted();
+        return;
+      }
+      void ipc.spikeMark("locked");
+      gate = { helper: "lock", done: () => ((gate = null), void ipc.spikeMark("lock-passed")) };
+    });
     if (helper === "unlocked") await ipc.spikeUnlock("unlock", "");
     else await new Promise<void>((done) => (gate = { helper, done }));
+    // A session restarted while locked opens on the lock view, then starts as usual.
+    if (helper === "lock") await ipc.spikeUnlock("unlock", "");
     gate = null;
+  }
+
+  /** Tells the sleep daemon once the frame now being drawn has reached the screen. */
+  function painted() {
+    requestAnimationFrame(() => requestAnimationFrame(() => void ipc.spikeLockPainted()));
   }
 
   const session = $derived(workspace.session);

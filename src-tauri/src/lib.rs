@@ -17,6 +17,7 @@ mod platform;
 mod recovery;
 mod settings;
 mod spike_keyboard;
+mod spike_suspend;
 mod spike_unlock;
 mod state;
 #[cfg(test)]
@@ -285,7 +286,8 @@ pub fn run() {
             spike_unlock::spike_mark,
             spike_keyboard::spike_keyboard,
             spike_keyboard::spike_set_keyboard,
-            spike_keyboard::spike_verify
+            spike_keyboard::spike_verify,
+            spike_suspend::spike_lock_painted
         ])
         .setup(move |app| {
             // Everything that reads the writer's home. The OS-0 unlock spike runs it
@@ -324,6 +326,7 @@ pub fn run() {
                 }
                 app.manage(spike_unlock::Gate::new(socket, Box::new(begin)));
                 spike_keyboard::watch(app.handle());
+                spike_suspend::connect(app.handle());
                 return Ok(());
             }
             begin(app.handle()).map_err(Into::into)

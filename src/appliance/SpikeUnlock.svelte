@@ -25,6 +25,8 @@
   };
 
   onMount(() => {
+    // OS-0 suspend spike: the lock view is up; the sleep daemon may let the machine sleep.
+    if (lock) requestAnimationFrame(() => requestAnimationFrame(() => void ipc.spikeLockPainted()));
     void ipc.spikeKeyboard().then((k) => (keyboard = k));
     const unlisten = listen<ipc.SpikeKeyboard>("spike-keyboard", (e) => (keyboard = e.payload));
     return () => void unlisten.then((stop) => stop());
