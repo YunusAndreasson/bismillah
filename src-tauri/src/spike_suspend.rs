@@ -50,9 +50,9 @@ pub fn connect(app: &AppHandle) {
 #[tauri::command]
 pub fn spike_lock_painted(app: AppHandle) {
     mark("app-lock-painted");
-    if let Some(events) = app.try_state::<Events>() {
-        if let Ok(mut stream) = events.0.lock() {
-            let _ = stream.write_all(b"painted\n");
-        }
+    if let Some(events) = app.try_state::<Events>()
+        && let Ok(mut stream) = events.0.lock()
+    {
+        let _ = stream.write_all(b"painted\n");
     }
 }
