@@ -5,12 +5,14 @@
 # firmware they ask for. /etc is the image's configuration and is kept whole.
 
 # Read by systemd before the recorder starts, or run after it stops: units, generators,
-# presets, the settings early services read, and the shutdown.
+# presets, the settings early services read, and the shutdown. No per-user manager runs
+# (user@.service is masked), so none of its units or generators are kept.
 /usr/lib/os-release
 /usr/lib/systemd/system/**
-/usr/lib/systemd/user/**
-/usr/lib/systemd/system-generators/**
-/usr/lib/systemd/user-generators/**
+# Generators run on every boot; the stick needs only its fstab and the kernel command
+# line's masks. gpt-auto would mount partitions by type, which the stick never wants.
+/usr/lib/systemd/system-generators/systemd-fstab-generator
+/usr/lib/systemd/system-generators/systemd-debug-generator
 /usr/lib/systemd/system-preset/**
 /usr/lib/systemd/system-shutdown/**
 /usr/lib/systemd/system-sleep/**

@@ -327,7 +327,7 @@ function compare(now: Result, base: Result | null): { lines: string[]; regressio
       const b = baseGroups.get(group)?.[key];
       const budget = BUDGETS.find(([g, k]) => g === group && k === key)?.[2];
       // Firmware is the machine's (recorded only); components explain, sizes decide.
-      const judged = !key.startsWith("QEMU") && group !== "components";
+      const judged = !key.includes("QEMU") && group !== "components";
       const regressed = judged && b !== undefined && v > allowed(group, b);
       if (regressed)
         regressions.push(

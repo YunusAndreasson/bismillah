@@ -1,5 +1,8 @@
 # The root is read-only erofs. What the system must change lives in RAM, and
-# /var/cache keeps the image's prebuilt font cache.
+# /var/cache keeps the image's prebuilt font cache. The initrd mounts these RAM folders
+# (its own /etc/fstab, mkosi.initrd.extra/) and they come over with the root: mounted
+# after switch-root, they waited for systemd's mount monitor to leave its rate limit
+# (os/PLAN.md, OS-4). Keep the two lists the same.
 tmpfs /var/lib tmpfs mode=0755,size=64M,nosuid,nodev 0 0
 tmpfs /var/tmp tmpfs mode=1777,size=64M,nosuid,nodev 0 0
 tmpfs /var/log tmpfs mode=0755,size=16M,nosuid,nodev,noexec 0 0

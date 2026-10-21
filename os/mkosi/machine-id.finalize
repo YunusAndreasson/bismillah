@@ -1,0 +1,6 @@
+#!/bin/sh
+# An empty /etc/machine-id: systemd makes up a new one in RAM at every boot, as
+# "uninitialized" does, but doesn't treat each boot as the first and re-apply every
+# unit preset to the read-only /etc (os/PLAN.md, OS-4). mkosi writes "uninitialized"
+# before the finalize scripts run.
+: >"$BUILDROOT/etc/machine-id"

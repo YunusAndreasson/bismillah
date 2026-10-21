@@ -1,0 +1,8 @@
+# The system's RAM folders (its /etc/fstab), mounted here under the root and carried
+# over with it at switch-root. Listed in the initrd's own fstab rather than as
+# x-initrd.mount in the system's, which would cost a daemon-reload in the initrd
+# (os/PLAN.md, OS-4). Keep the two lists the same.
+tmpfs /sysroot/var/lib tmpfs mode=0755,size=64M,nosuid,nodev 0 0
+tmpfs /sysroot/var/tmp tmpfs mode=1777,size=64M,nosuid,nodev 0 0
+tmpfs /sysroot/var/log tmpfs mode=0755,size=16M,nosuid,nodev,noexec 0 0
+tmpfs /sysroot/home tmpfs mode=0755,size=16M,nosuid,nodev 0 0
