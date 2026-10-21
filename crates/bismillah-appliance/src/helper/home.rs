@@ -141,7 +141,8 @@ fn zeros(device: &Path) -> std::io::Result<bool> {
         )?)
 }
 
-fn is_mounted() -> bool {
+/// Whether home is mounted at `/home/writer`.
+pub fn is_mounted() -> bool {
     std::fs::read_to_string("/proc/self/mountinfo")
         .map(|m| m.lines().any(|l| l.split(' ').nth(4) == Some(MOUNT)))
         .unwrap_or(false)

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { copy } from "../core/copy.ts";
   import { GUIDE_NAME } from "../core/guide.ts";
+  import type { Battery } from "../core/ipc.ts";
   import type { SaveState } from "../core/session.svelte.ts";
   import { readingMinutes } from "../editor/wordCount.ts";
   import { shortcuts } from "../core/keybindings.svelte.ts";
@@ -22,9 +23,23 @@
     faded: boolean;
     libraryShown: boolean;
     toggleLibrary: () => void;
+    /** The bismillah stick's clock ("15:04") and battery, at the very end; null on the
+     * desktop, and without a battery. */
+    clock?: string | null;
+    battery?: Battery | null;
   }
-  let { name, state, words, transliteration, note, faded, libraryShown, toggleLibrary }: Props =
-    $props();
+  let {
+    name,
+    state,
+    words,
+    transliteration,
+    note,
+    faded,
+    libraryShown,
+    toggleLibrary,
+    clock = null,
+    battery = null,
+  }: Props = $props();
 
   const failed = $derived(state?.kind === "failed");
   const saveText = $derived.by(() => {
@@ -79,6 +94,17 @@
   <span class="note" role="status">{note ?? ""}</span>
   {#if transliteration}
     <span class="mode" role="status">{copy.status.transliteration}</span>
+  {/if}
+  {#if clock !== null}
+    <div class="quiet stick" class:faded>
+      {#if battery}
+        <span class="battery" title={copy.stick.batteryTitle(battery.percent, battery.charging)}
+          >{copy.stick.battery(battery.percent, battery.charging)}</span
+        >
+        <span class="sep" aria-hidden="true">·</span>
+      {/if}
+      <time class="clock">{clock}</time>
+    </div>
   {/if}
 </footer>
 
@@ -152,5 +178,9 @@
   .mode {
     order: 3;
     color: var(--accent);
+  }
+  .stick {
+    order: 4;
+    flex-shrink: 0;
   }
 </style>

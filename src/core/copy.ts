@@ -212,6 +212,19 @@ export const copy = {
       body: "Nothing on this stick or this computer will change. Restart from the stick, or take it to the computer it was made on.",
     },
   },
+  /** The bismillah stick once it is open (os/PLAN.md, OS-3). */
+  stick: {
+    battery: (percent: number, charging: boolean) =>
+      charging ? `${String(percent)}% charging` : `${String(percent)}%`,
+    batteryTitle: (percent: number, charging: boolean) =>
+      `Battery ${String(percent)}%${charging ? ", charging" : ""}`,
+    batteryLow: (percent: number) =>
+      `The battery is at ${String(percent)}%. Plug the computer in: at 3% bismillah saves and powers off.`,
+    powerFailed: "The stick didn't answer, so the computer is still on.",
+    resuming: "Applying the keyboard layouts…",
+    keyboardUnsaved: "Your text isn't saved yet, so the layouts weren't changed. Save first.",
+    keyboardInvalid: "That keyboard layout isn't one this stick knows.",
+  },
   welcome: {
     title: "Nothing open",
     openFolder: "Open a folder…",
@@ -334,6 +347,12 @@ export const copy = {
     title: "About bismillah",
     tagline: "A calm Markdown editor. Just you and your words.",
     version: (v: string) => `Version ${v}`,
+    /** The stick's system: its Debian snapshot ("20261021T083704Z") and commit. */
+    stick: (snapshot: string, commit: string) => {
+      const day = /^(\d{4})(\d{2})(\d{2})/.exec(snapshot);
+      const date = day ? `${day[1]}-${day[2]}-${day[3]}` : "an unknown date";
+      return `The stick: Debian 13 as of ${date}, built from ${commit ? commit.slice(0, 12) : "an unknown commit"}.`;
+    },
     inspiration: "Inspiration",
     inspirationText: [
       "bismillah is inspired by Islamic ethics: the writer's words are a trust (amanah), their privacy is kept, and the tool practises restraint. These shape how it saves, what it refuses to collect, and how little it asks of your attention.",
@@ -357,6 +376,29 @@ export const copy = {
     writing: "Writing",
     checking: "Language & checking",
     files: "Files & privacy",
+    stick: {
+      title: "This stick",
+      keyboard: "Keyboard",
+      keyboardHint:
+        "Up to four layouts. Applying them restarts bismillah, which saves first and comes back to where you were.",
+      layout: (n: number) => `Layout ${String(n)}`,
+      noLayout: "None",
+      switchKey: "Switch layouts with",
+      switches: {
+        "grp:alt_shift_toggle": "Alt+Shift",
+        "grp:ctrl_shift_toggle": "Ctrl+Shift",
+        "grp:win_space_toggle": "Super+Space",
+        "grp:caps_toggle": "Caps Lock",
+      } as Record<string, string>,
+      apply: "Apply layouts",
+      applying: "Applying… bismillah restarts in a moment.",
+      timeZone: "Time zone",
+      localClock: "This computer's clock keeps local time",
+      localClockHint:
+        "Turn this on if the clock is off by whole hours, as on computers that also run Windows. The computer's own clock is never changed.",
+      privacyText:
+        "This stick has no network, so nothing leaves it. Your texts and settings are encrypted, and only your passphrase opens them. The names of your keyboard layouts are the one thing kept unencrypted, so the unlock screen can use them.",
+    },
     sections: "Settings sections",
     colours: "Colours",
     highContrast: "High contrast",
@@ -443,6 +485,7 @@ export const copy = {
     notWeb: "Only web and email links open from bismillah.",
     noApp: "Couldn't open the link: no app on this computer opens it.",
     none: "There's no link at the caret.",
+    stick: "Links can't open on this stick: bismillah is the only app on it.",
   },
   folders: {
     show: "Show in file manager",

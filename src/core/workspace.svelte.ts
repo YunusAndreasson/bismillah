@@ -9,7 +9,8 @@ import { createEditor, type Editor } from "../editor/setup.ts";
 import { remeasure } from "../editor/typography.ts";
 import { toggleTransliteration, transliterationOn } from "../editor/typingAids.ts";
 import { WordCounter } from "../editor/wordCount.ts";
-import { runCommand, type CommandContext, type CommandId } from "./commands.ts";
+import { batteryLevel, clockText, correctedNow } from "../appliance/power.ts";
+import { runCommand, useStickCommands, type CommandContext, type CommandId } from "./commands.ts";
 import { copy, nameError, when } from "./copy.ts";
 import * as ipc from "./ipc.ts";
 import {
@@ -77,6 +78,9 @@ export type Picker = "quickOpen" | "palette";
 
 /** How long quitting waits for a save before leaving the text to recovery. */
 const QUIT_TIMEOUT_MS = 4000;
+/** How often the stick reads its battery and moves its clock. */
+const BATTERY_MS = 30_000;
+const CLOCK_MS = 5_000;
 const WORD_COUNT_DELAY_MS = 300;
 
 const THEMES: Theme[] = ["system", "light", "dark"];
@@ -102,6 +106,13 @@ export class Workspace {
   });
   /** The writer's "Another font", and whether it is installed (null: unknown). */
   customFont = $state<{ name: string; installed: boolean | null }>({ name: "", installed: null });
+  /** On the bismillah stick: what it was built from (About). Null on the desktop. */
+  stick = $state<ipc.StickInfo | null>(null);
+  /** The stick's lock view is up over everything (src/appliance/, os/PLAN.md OS-3). */
+  locked = $state(false);
+  /** The stick's battery, null without one; and its clock ("15:04"). */
+  battery = $state<ipc.Battery | null>(null);
+  clock = $state<string | null>(null);
   /** The keybindings.toml and colour-theme notices the writer has dismissed, by what
    * they said: a new problem shows again. */
   #dismissed = $state<string[]>([]);
@@ -293,8 +304,11 @@ export class Workspace {
   ): Promise<void> {
     this.#host = host;
     performance.mark("bismillah:start");
-    const [info] = await Promise.all([
-      ipc.appInfo(),
+    // First: on the stick the command registry changes before anything reads it.
+    const info = await ipc.appInfo();
+    if (info.stick) useStickCommands();
+    this.stick = info.stick;
+    await Promise.all([
       settings.load(),
       shortcuts.load().catch(() => false),
       colourThemes.load().catch(() => {}),
@@ -379,7 +393,7 @@ export class Workspace {
     // Shortcuts while focus is outside the editor (the first screen, the library). They
     // don't act behind an open dialog, and keys without Ctrl (F2) don't act in a field.
     window.addEventListener("keydown", (event) => {
-      if (event.defaultPrevented || this.editor?.view.hasFocus) return;
+      if (event.defaultPrevented || this.locked || this.editor?.view.hasFocus) return;
       const target = event.target instanceof Element ? event.target : null;
       const dialog = target?.closest('[role="dialog"], [role="alertdialog"]');
       // The overlay is the same library as the docked panel, so its file and
@@ -394,6 +408,116 @@ export class Workspace {
       if (bound && runCommand(bound.command.id, "keymap", this.context)) event.preventDefault();
     });
     window.addEventListener("mousemove", () => (this.typing = false));
+    if (this.stick) this.#watchStick();
+  }
+
+  /** The stick's lock handshake, clock and battery. */
+  #watchStick(): void {
+    void listen("appliance-lock", () => this.lock());
+    const tick = () => {
+      const now = correctedNow(
+        Date.now(),
+        settings.values.time_zone,
+        settings.values.clock_keeps_local_time,
+      );
+      this.clock = clockText(now, settings.values.time_zone);
+    };
+    tick();
+    setInterval(tick, CLOCK_MS);
+    const read = async () => {
+      this.battery = await ipc.applianceBattery().catch(() => null);
+      this.#reactToBattery();
+    };
+    void read();
+    setInterval(() => void read(), BATTERY_MS);
+  }
+
+  #poweringOff = false;
+  #batteryWarned = false;
+
+  /** A notice once the battery is low (again after it has charged); at critical, save
+   * and power off. */
+  #reactToBattery(): void {
+    const level = batteryLevel(this.battery);
+    if (level === "fine") {
+      this.#batteryWarned = false;
+      this.#dismiss("battery-low");
+    } else if (this.battery && !this.#batteryWarned) {
+      this.#batteryWarned = true;
+      this.#notice("battery-low", "error", copy.stick.batteryLow(this.battery.percent), []);
+      void ipc.applianceMark("battery-low");
+    }
+    if (level === "critical" && !this.#poweringOff) {
+      this.#poweringOff = true;
+      void ipc.applianceMark("battery-critical");
+      void this.power("off");
+    }
+  }
+
+  /** Shows the lock view over everything, then reports it painted to the helper. The
+   * document is saved behind it. */
+  lock(): void {
+    this.locked = true;
+    this.settingsOpen = false;
+    this.aboutOpen = false;
+    this.picker = null;
+    this.library.overlay = false;
+    // Two frames: the lock view has been drawn (docs/spikes/os-suspend-lock.md).
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        void ipc.appliancePainted();
+        void ipc.applianceMark("lock-painted");
+      }),
+    );
+    void this.session?.flush();
+  }
+
+  /** The passphrase was verified: back to the text. */
+  unlocked(): void {
+    this.locked = false;
+    void tick().then(() => this.focusEditor());
+  }
+
+  /** Saves (or leaves the text to recovery after a timeout), then asks the helper to
+   * power off, restart or suspend. Suspending locks first. */
+  async power(action: ipc.PowerAction): Promise<void> {
+    if (action === "suspend") this.lock();
+    await Promise.race([
+      this.session?.flush(),
+      new Promise((resolve) => setTimeout(resolve, QUIT_TIMEOUT_MS)),
+    ]);
+    try {
+      await ipc.appliancePower(action);
+    } catch {
+      this.#notice("power-failed", "error", copy.stick.powerFailed, []);
+    }
+  }
+
+  /** After a keyboard change restarted the session: the caret goes back where it was,
+   * in the same document. */
+  async restoreCaret(): Promise<void> {
+    const caret = await ipc.applianceTakeCaret().catch(() => null);
+    const view = this.context.view;
+    if (caret === null || !view) return;
+    const head = Math.min(caret, view.state.doc.length);
+    view.dispatch({ selection: { anchor: head }, scrollIntoView: true });
+  }
+
+  /** Settings › Stick › Keyboard: saves, then stores the layouts; the session
+   * restarts with them and comes back to this caret. Resolves with why it couldn't. */
+  async applyKeyboard(layouts: string, options: string): Promise<string | null> {
+    const saved = await this.session?.flush();
+    if (saved === false) return copy.stick.keyboardUnsaved;
+    const view = this.context.view;
+    const caret = view ? view.state.selection.main.head : null;
+    try {
+      const answer = await ipc.applianceSetKeyboard(layouts, options, caret);
+      return answer.answer === "invalid_keyboard"
+        ? copy.stick.keyboardInvalid
+        : copy.appliance.failed;
+    } catch {
+      return copy.appliance.helperDown;
+    }
   }
 
   /** When the window regains focus: settings edited elsewhere apply, and the file is
@@ -1031,8 +1155,14 @@ export class Workspace {
     try {
       await ipc.openLink(address);
     } catch (error) {
-      const notWeb = isError<ipc.LinkError>(error) && error.kind === "not_web";
-      this.checking.say(notWeb ? copy.links.notWeb : copy.links.noApp);
+      const kind = isError<ipc.LinkError>(error) ? error.kind : null;
+      this.checking.say(
+        kind === "not_web"
+          ? copy.links.notWeb
+          : kind === "stick"
+            ? copy.links.stick
+            : copy.links.noApp,
+      );
     }
   }
 
@@ -1090,6 +1220,9 @@ export class Workspace {
       openAbout: () => (this.aboutOpen = true),
       openGuide: () => void this.#openWith(ipc.openGuide),
       quit: () => void getCurrentWindow().close(),
+      lock: () => this.lock(),
+      power: (action) => void this.power(action),
+      locked: () => this.locked,
       hasLibrary: () => this.library.ready,
       hasTarget: () => this.#target() !== null,
       newFolder: () => this.newFolder(),

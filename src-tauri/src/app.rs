@@ -342,6 +342,8 @@ pub struct AppInfo {
     version: &'static str,
     /// Where bismillah keeps its files, for Settings › Files & privacy.
     folders: Folders,
+    /// On the bismillah stick: what it was built from, for About. Null on the desktop.
+    stick: Option<crate::appliance::Stick>,
 }
 
 #[tauri::command]
@@ -351,6 +353,7 @@ pub fn app_info(state: State<'_, AppState>) -> AppInfo {
         pid: std::process::id(),
         version: env!("CARGO_PKG_VERSION"),
         folders: state.folders.clone(),
+        stick: crate::appliance::stick(),
     }
 }
 
@@ -839,6 +842,9 @@ pub async fn link_open(
     address: String,
 ) -> Result<(), LinkError> {
     let uri = links::web_address(&address)?;
+    if crate::appliance::active() {
+        return Err(LinkError::Stick);
+    }
     state.hand_on(&window, uri)
 }
 
@@ -863,6 +869,9 @@ pub async fn folder_show(
     state: State<'_, AppState>,
     folder: Folder,
 ) -> Result<(), LinkError> {
+    if crate::appliance::active() {
+        return Err(LinkError::Stick);
+    }
     let path = match folder {
         Folder::Settings => {
             std::fs::create_dir_all(&state.config_dir).map_err(|_| LinkError::Unavailable)?;

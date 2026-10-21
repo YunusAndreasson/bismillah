@@ -47,6 +47,30 @@ pub enum Request {
     Power {
         action: PowerAction,
     },
+    /// Keeps the connection open for the lock handshake: the helper sends [`Event`]
+    /// lines, the app answers with [`Report`] lines. One such connection at a time; a
+    /// new one replaces the old.
+    Events,
+    /// After a keyboard change restarted the session: reopen the app on home without
+    /// asking for the passphrase again. Granted once, shortly after `set_keyboard`.
+    Resume,
+}
+
+/// What the helper tells the app on the events connection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "event", rename_all = "snake_case")]
+pub enum Event {
+    /// Show the lock view now (the lid closed, the system is about to sleep, or the
+    /// connection was lost while home was open), then report it painted.
+    Lock,
+}
+
+/// What the app tells the helper on the events connection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "report", rename_all = "snake_case")]
+pub enum Report {
+    /// The lock view is on screen: nothing of the document shows.
+    Painted,
 }
 
 /// A request line: the version, then the request itself.
@@ -79,6 +103,7 @@ impl Request {
 pub enum PowerAction {
     Off,
     Reboot,
+    Suspend,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -87,6 +112,9 @@ pub enum Answer {
     Status {
         home: Home,
         keyboard: Keyboard,
+        /// A keyboard change restarted the session: `resume` reopens home.
+        #[serde(default)]
+        resume: bool,
     },
     /// Done. For setup, finish and unlock: home is mounted at `/home/writer`.
     Ok,
@@ -104,6 +132,8 @@ pub enum Answer {
     },
     /// A layout or option outside what XKB knows.
     InvalidKeyboard,
+    /// The lock is up: only the passphrase (`verify`), status and power are answered.
+    Locked,
 }
 
 /// The home partition's state (os/PLAN.md, *The home partition's state*). Formatting
@@ -238,7 +268,9 @@ mod tests {
                     options: "grp:alt_shift_toggle".into(),
                     source: KeyboardSource::Token,
                 },
+                resume: true,
             },
+            Answer::Locked,
         ] {
             let json = serde_json::to_string(&answer).expect("serialises");
             assert_eq!(serde_json::from_str::<Answer>(&json).ok(), Some(answer));
@@ -249,6 +281,25 @@ mod tests {
                 .as_deref(),
             Some(r#"{"answer":"wrong_passphrase"}"#)
         );
+    }
+
+    #[test]
+    fn events_and_reports_are_tagged_lines() {
+        assert_eq!(
+            serde_json::to_string(&Event::Lock).ok().as_deref(),
+            Some(r#"{"event":"lock"}"#)
+        );
+        assert_eq!(
+            serde_json::from_str::<Report>(r#"{"report":"painted"}"#).ok(),
+            Some(Report::Painted)
+        );
+        assert!(serde_json::from_str::<Report>(r#"{"report":"unlocked"}"#).is_err());
+        // An older helper's status, without `resume`, still reads.
+        let old = r#"{"answer":"status","home":{"state":"ready"},"keyboard":{"layouts":"us","options":"","source":"default"}}"#;
+        assert!(matches!(
+            serde_json::from_str::<Answer>(old),
+            Ok(Answer::Status { resume: false, .. })
+        ));
     }
 
     #[test]

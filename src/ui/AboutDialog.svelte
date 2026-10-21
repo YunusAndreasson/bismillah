@@ -2,12 +2,17 @@
   import { Dialog } from "bits-ui";
   import { FONTS, LANGUAGE, SOFTWARE, type Credit } from "../core/about.ts";
   import { copy } from "../core/copy.ts";
+  import type { StickInfo } from "../core/ipc.ts";
 
   /**
    * About (DESIGN.md §4): what bismillah is, its inspiration in a few sentences, and
    * what it is made with under which licence. Nothing here is decoration.
    */
-  let { open = $bindable(), version }: { open: boolean; version: string } = $props();
+  let {
+    open = $bindable(),
+    version,
+    stick = null,
+  }: { open: boolean; version: string; stick?: StickInfo | null } = $props();
 
   const t = copy.about;
   let close = $state<HTMLButtonElement | null>(null);
@@ -33,6 +38,7 @@
       <Dialog.Title class="about-title">bismillah</Dialog.Title>
       <p class="tagline" id="about-tagline">{t.tagline}</p>
       {#if version}<p class="quiet">{t.version(version)}</p>{/if}
+      {#if stick}<p class="quiet">{t.stick(stick.snapshot, stick.commit)}</p>{/if}
 
       <h2 aria-label={t.inspiration}>{t.inspiration}</h2>
       {#each t.inspirationText as paragraph, i (i)}

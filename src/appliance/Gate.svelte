@@ -24,9 +24,21 @@
   const view = $derived(viewFor(gate));
   const names = $derived(new Map(layouts.map((l) => [l.id, l.name])));
 
+  // After a keyboard change the session restarted on purpose: the helper lets this
+  // app reopen home once without the passphrase, so the writer goes straight back.
+  let resuming = $state((() => initial.resume)());
+
   onMount(() => {
     void ipc.applianceMark("gate-shown");
     void ipc.applianceLayouts().then((l) => (layouts = l));
+    if (resuming)
+      void ipc
+        .applianceOpen("resume", "")
+        .then((answer) => {
+          if (answer.answer === "ok") opened(null);
+          else resuming = false;
+        })
+        .catch(() => (resuming = false));
   });
 
   async function power(action: "off" | "reboot") {
@@ -47,7 +59,11 @@
   }
 </script>
 
-{#if down}
+{#if resuming}
+  <Screen title={copy.appliance.wordmark}>
+    <p class="note" role="status">{copy.stick.resuming}</p>
+  </Screen>
+{:else if down}
   <Screen title={copy.appliance.wordmark}>
     <p class="problem" role="alert">{copy.appliance.helperDown}</p>
   </Screen>

@@ -39,6 +39,16 @@ docker run --rm --network=none \
     cargo build --release --locked -p bismillah-appliance --bin bismillah-helper
     install -D -m755 target/release/bismillah /out/usr/bin/bismillah
     install -D -m755 target/release/bismillah-helper /out/usr/libexec/bismillah-helper
+    # The licences the desktop package installs (About names their folder): the
+    # binary embeds the fonts and the Arabic dictionary.
+    lic=/out/usr/share/licenses/bismillah
+    install -D -m644 LICENSE "$lic/LICENSE"
+    install -D -m644 fonts/build/LICENSE.md "$lic/fonts/BismillahDuo-Mono.md"
+    install -D -m644 fonts/source/amiri/OFL.txt "$lic/fonts/Amiri.txt"
+    install -D -m644 fonts/source/source-serif-4/LICENSE.md "$lic/fonts/SourceSerif4.md"
+    install -D -m644 fonts/source/ibm-plex-sans-arabic/LICENSE.txt "$lic/fonts/IBMPlexSansArabic.txt"
+    install -D -m644 dictionaries/ar/COPYING.txt "$lic/dictionaries/Ayaspell-COPYING.txt"
+    install -D -m644 dictionaries/ar/AUTHORS.txt "$lic/dictionaries/Ayaspell-AUTHORS.txt"
     mkdir -p /out/usr/share/bismillah
     git rev-parse HEAD >/out/usr/share/bismillah/commit
     chown -R "$OWNER" /out'

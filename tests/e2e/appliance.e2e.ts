@@ -1,6 +1,14 @@
 import type { ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { createServer, type Server } from "node:net";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { browser, expect } from "@wdio/globals";
@@ -8,7 +16,7 @@ import { remote } from "webdriverio";
 import { capabilities, freePort, REPO, startDriver } from "../driver.ts";
 
 /**
- * The bismillah stick's first screens (os/PLAN.md, OS-2) in the real app, against a
+ * The bismillah stick's screens (os/PLAN.md, OS-2 and OS-3) in the real app, against a
  * stand-in for the helper. The app runs with `--appliance`, a scratch `HOME` (appliance
  * mode keeps its files there) and the stand-in's socket (`BISMILLAH_HELPER_SOCKET`,
  * debug builds only). The real helper, and the stick it formats, are tested in VMs
@@ -26,6 +34,10 @@ const home = join(scratch, "home");
 const socket = join(scratch, "helper.sock");
 const shots = join(REPO, "target/appliance-shots");
 const requests: Json[] = [];
+/** The app's events connections (the lock handshake), newest last, and its reports. */
+const events: Socket[] = [];
+const reports: Json[] = [];
+const power = join(scratch, "power");
 let respond: Respond = () => ({ answer: "failed", step: "unset" });
 let server: Server;
 let driver: ChildProcess;
@@ -40,6 +52,7 @@ const status = (state: Json, source = "pending", layouts = "se,ara") => ({
   answer: "status",
   home: state,
   keyboard: keyboard(source, layouts),
+  resume: false,
 });
 
 /** What the helper's setup leaves behind: home's folders. */
@@ -86,32 +99,58 @@ describe("the stick's first screens", () => {
     mkdirSync(home, { recursive: true });
     server = createServer((connection) => {
       let line = "";
+      let held = false;
+      connection.on("error", () => undefined);
       connection.on("data", (chunk) => {
         line += chunk.toString("utf8");
+        // The events connection stays open: the app's reports follow its request.
+        if (held) {
+          for (const report of line.split("\n").slice(0, -1))
+            reports.push(JSON.parse(report) as Json);
+          line = line.slice(line.lastIndexOf("\n") + 1);
+          return;
+        }
         if (!line.includes("\n")) return;
-        const request = JSON.parse(line) as Json;
+        const request = JSON.parse(line.slice(0, line.indexOf("\n"))) as Json;
+        if (request.verb === "events") {
+          held = true;
+          line = line.slice(line.indexOf("\n") + 1);
+          events.push(connection);
+          return;
+        }
         requests.push(request);
         connection.end(`${JSON.stringify(respond(request))}\n`);
       });
     });
     await new Promise<void>((done) => server.listen(socket, done));
     port = await freePort();
+    // A battery at 9%, discharging: the low-battery notice.
+    mkdirSync(join(power, "BAT0"), { recursive: true });
+    for (const [file, value] of [
+      ["type", "Battery"],
+      ["capacity", "9"],
+      ["status", "Discharging"],
+    ] as const)
+      writeFileSync(join(power, "BAT0", file), `${value}\n`);
     driver = await startDriver(port, {
       HOME: home,
       XDG_RUNTIME_DIR: join(scratch, "run"),
       BISMILLAH_HELPER_SOCKET: socket,
+      BISMILLAH_POWER_SUPPLY: power,
     });
     mkdirSync(join(scratch, "run"), { recursive: true, mode: 0o700 });
   });
 
   after(() => {
     driver.kill();
+    for (const connection of events) connection.destroy();
     server.close();
     rmSync(scratch, { recursive: true, force: true });
   });
 
   beforeEach(() => {
     requests.length = 0;
+    reports.length = 0;
   });
 
   it("sets up a blank stick: keyboard, passphrase, time zone", async () => {
@@ -323,6 +362,96 @@ describe("the stick's first screens", () => {
       } finally {
         await session.deleteSession();
       }
+    }
+  });
+
+  it("once open: the clock and battery, power instead of Quit, the lock, This stick", async () => {
+    respond = (r) => {
+      if (r.verb === "status") return status({ state: "ready" }, "token");
+      if (r.verb === "set_keyboard") return { answer: "invalid_keyboard" };
+      if (r.verb === "unlock" || r.verb === "verify")
+        return r.passphrase === "right words here"
+          ? { answer: "ok" }
+          : { answer: "wrong_passphrase" };
+      return { answer: "ok" };
+    };
+    makeHome();
+    writeFileSync(join(home, "Texts/note.md"), "A line only the writer may see.\n");
+    const session = await app();
+    try {
+      await type(session, "right words here");
+      await session.keys(["Enter"]);
+      await session.$("main.screen").waitForExist({ reverse: true, timeout: 20_000 });
+      // The status line ends with the battery and a 24-hour clock; 9% warns.
+      const clock = session.$("footer.status time.clock");
+      await clock.waitForExist({ timeout: 10_000 });
+      expect(await clock.getText()).toMatch(/^\d\d:\d\d$/);
+      expect(await session.$("footer.status .battery").getText()).toBe("9%");
+      await session
+        .$("p*=The battery is at 9%. Plug the computer in")
+        .waitForExist({ timeout: 10_000 });
+
+      // The palette offers Power off, Lock, Suspend and Restart, not Quit or Open….
+      await session.keys(["Control", "Shift", "p"]);
+      const palette = session.$('[role="dialog"]');
+      await palette.waitForDisplayed();
+      const names = await session.execute(() =>
+        [...document.querySelectorAll('[role="option"]')].map((o) => o.textContent),
+      );
+      const offered = names.join("\n");
+      for (const label of ["Power off", "Lock", "Suspend", "Restart"])
+        expect(offered).toContain(label);
+      for (const label of ["Quit", "Open…", "Open folder…", "Copy as rich text", "Fullscreen"])
+        expect(names.some((n) => n?.startsWith(label))).toBe(false);
+      await session.keys(["Escape"]);
+
+      // The helper asks for the lock: the lock view covers the text, and is reported.
+      await session.waitUntil(() => events.length > 0, { timeout: 10_000 });
+      events.at(-1)?.write('{"event":"lock"}\n');
+      await session.waitUntil(async () => (await heading(session).catch(() => "")) === "Locked");
+      await session.waitUntil(() => reports.some((r) => r.report === "painted"));
+      expect(await session.$("#passphrase").isFocused()).toBe(true);
+      await shot(session, "locked");
+      // Nothing behind it acts: Ctrl+Q would power off.
+      await session.keys(["Control", "q"]);
+      await session.pause(300);
+      expect(requests.some((r) => r.verb === "power")).toBe(false);
+      await type(session, "right words here");
+      await session.keys(["Enter"]);
+      await session.$("main.screen").waitForExist({ reverse: true, timeout: 10_000 });
+      expect(requests.filter((r) => r.verb === "verify")).toEqual([
+        { v: 1, verb: "verify", passphrase: "right words here" },
+      ]);
+
+      // Settings › This stick: the keyboard, applied in one step, and the clock.
+      await session.keys(["Control", ","]);
+      await session.$("#settings-stick").waitForExist();
+      await session.$("#settings-stick").scrollIntoView();
+      expect(await session.$("#set-local-clock").isExisting()).toBe(true);
+      expect(await session.$("button=Show in file manager").isExisting()).toBe(false);
+      await session.$("#set-layout-1").selectByAttribute("value", "ara");
+      await session.$("#set-switch").waitForExist();
+      await shot(session, "settings-stick");
+      await session.$("button=Apply layouts").click();
+      await session.waitUntil(() => requests.some((r) => r.verb === "set_keyboard"));
+      // The e2e session has no XKB layouts of its own, so it starts from English (US).
+      expect(requests.find((r) => r.verb === "set_keyboard")).toMatchObject({
+        layouts: "us,ara",
+        options: "grp:alt_shift_toggle",
+      });
+      await session.$("p=That keyboard layout isn't one this stick knows.").waitForExist();
+      await session.keys(["Escape"]);
+
+      // Ctrl+Q powers off, after saving.
+      await session.keys(["Control", "q"]);
+      await session.waitUntil(() => requests.some((r) => r.verb === "power"));
+      expect(requests.find((r) => r.verb === "power")).toEqual({
+        v: 1,
+        verb: "power",
+        action: "off",
+      });
+    } finally {
+      await session.deleteSession();
     }
   });
 

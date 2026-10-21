@@ -20,6 +20,7 @@
   import Suggestions from "./ui/Suggestions.svelte";
   import Welcome from "./ui/Welcome.svelte";
   import Gate from "./appliance/Gate.svelte";
+  import Lock from "./appliance/Lock.svelte";
 
   let host: HTMLElement;
   let failure = $state<string | null>(null);
@@ -41,6 +42,14 @@
     gate = null;
     return setup;
   }
+
+  // On the stick cage's pointer would sit over the text: it hides while the writer
+  // types and comes back when the mouse moves.
+  const onStick = $derived(gate !== null || workspace.stick !== null);
+  let pointerHidden = $state(false);
+  $effect(() => {
+    document.documentElement.classList.toggle("pointer-hidden", onStick && pointerHidden);
+  });
 
   const session = $derived(workspace.session);
   const library = workspace.library;
@@ -79,11 +88,18 @@
       if (workspace.editor) remeasure(workspace.editor.view);
       workspace.measureLayout();
     };
+    const hidePointer = (event: KeyboardEvent) => {
+      if (!event.repeat) pointerHidden = true;
+    };
+    const showPointer = () => (pointerHidden = false);
+    window.addEventListener("keydown", hidePointer, true);
+    window.addEventListener("mousemove", showPointer, true);
     void (async () => {
       try {
         const setup = await unlocked();
         await workspace.start(host, installMenu);
         if (setup) await settings.set({ time_zone: setup.timeZone });
+        if (workspace.stick) await workspace.restoreCaret();
         document.fonts.addEventListener("loadingdone", onFonts);
         started = true;
         // The launch budget's end: the document is in the editor, which has focus
@@ -97,6 +113,8 @@
       }
     })();
     return () => {
+      window.removeEventListener("keydown", hidePointer, true);
+      window.removeEventListener("mousemove", showPointer, true);
       document.fonts.removeEventListener("loadingdone", onFonts);
       workspace.editor?.view.destroy();
     };
@@ -106,7 +124,15 @@
 {#if gate}
   <div class="appliance-gate"><Gate initial={gate.initial} opened={gate.opened} /></div>
 {/if}
-<div class="window">
+{#if workspace.locked}
+  <div class="appliance-gate">
+    <Lock
+      unlocked={() => workspace.unlocked()}
+      power={(action: ipc.PowerAction) => void workspace.power(action)}
+    />
+  </div>
+{/if}
+<div class="window" inert={workspace.locked}>
   <div class="notices-row"><Notices notices={workspace.notices} /></div>
   <div class="middle">
     {#if docked}
@@ -120,7 +146,7 @@
       {/if}
     </main>
     {#if workspace.welcome}
-      <div class="first-screen"><Welcome {run} /></div>
+      <div class="first-screen"><Welcome {run} stick={workspace.stick !== null} /></div>
     {/if}
   </div>
   {#if session || library.view.kind !== "none"}
@@ -134,6 +160,8 @@
         faded={settings.values.fade_chrome && workspace.typing}
         libraryShown={library.visible}
         toggleLibrary={() => workspace.toggleLibrary()}
+        clock={workspace.clock}
+        battery={workspace.battery}
       />
     </div>
   {/if}
@@ -183,9 +211,16 @@
   showFolder={(folder: ipc.Folder) => workspace.showFolder(folder)}
   createKeybindings={() => workspace.createKeybindings()}
   openAbout={() => (workspace.aboutOpen = true)}
+  stick={workspace.stick
+    ? { apply: (layouts: string, options: string) => workspace.applyKeyboard(layouts, options) }
+    : null}
 />
 
-<AboutDialog bind:open={workspace.aboutOpen} version={workspace.info.version} />
+<AboutDialog
+  bind:open={workspace.aboutOpen}
+  version={workspace.info.version}
+  stick={workspace.stick}
+/>
 
 <Picker
   kind={workspace.picker}
@@ -201,6 +236,10 @@
 <Suggestions checking={workspace.checking} />
 
 <style>
+  :global(html.pointer-hidden),
+  :global(html.pointer-hidden *) {
+    cursor: none !important;
+  }
   .appliance-gate {
     position: fixed;
     inset: 0;

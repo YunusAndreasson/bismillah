@@ -22,6 +22,9 @@ pub enum LinkError {
     /// No app on this computer opens it.
     #[error("no app opens it")]
     NoApp,
+    /// On the bismillah stick, where bismillah is the only app.
+    #[error("nothing else runs on the stick")]
+    Stick,
 }
 
 /// The address as it is handed to the system: `https:`, `http:` or `mailto:`, parsed

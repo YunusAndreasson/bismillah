@@ -3,6 +3,7 @@
   import { tick } from "svelte";
   import { commandById } from "../core/commands.ts";
   import { copy } from "../core/copy.ts";
+  import * as ipc from "../core/ipc.ts";
   import type { ColourTheme, Folder, SaveError } from "../core/ipc.ts";
   import { shortcuts } from "../core/keybindings.svelte.ts";
   import type { LibraryStore } from "../core/library.svelte.ts";
@@ -23,7 +24,7 @@
    * applies at once and is saved by Rust; there is no Apply. Bits UI provides the modal
    * focus trap, Esc and focus return.
    */
-  type Section = "appearance" | "writing" | "checking" | "files";
+  type Section = "appearance" | "writing" | "checking" | "files" | "stick";
   interface Props {
     open: boolean;
     values: Settings;
@@ -42,6 +43,9 @@
     /** Shows a folder in the file manager: null, or why it couldn't. */
     showFolder: (folder: Folder) => Promise<string | null>;
     openAbout: () => void;
+    /** On the bismillah stick: its own section (keyboard, time). `apply` stores new
+     * layouts, which restarts the session; it resolves only with why it couldn't. */
+    stick?: { apply: (layouts: string, options: string) => Promise<string | null> } | null;
   }
   let {
     open = $bindable(),
@@ -57,6 +61,7 @@
     createKeybindings,
     showFolder,
     openAbout,
+    stick = null,
   }: Props = $props();
 
   const t = copy.settings;
@@ -65,12 +70,54 @@
   let headerHeight = $state(0);
   let footerHeight = $state(0);
 
-  const SECTIONS: { id: Section; label: string }[] = [
+  const SECTIONS = $derived<{ id: Section; label: string }[]>([
     { id: "appearance", label: t.appearance },
     { id: "writing", label: t.writing },
     { id: "checking", label: t.checking },
     { id: "files", label: t.files },
-  ];
+    ...(stick ? [{ id: "stick" as const, label: t.stick.title }] : []),
+  ]);
+
+  // The stick's keyboard: up to four layouts and the key that switches between them.
+  // They apply when the session restarts, so they are chosen first and then applied.
+  const SWITCHES = [
+    "grp:alt_shift_toggle",
+    "grp:ctrl_shift_toggle",
+    "grp:win_space_toggle",
+    "grp:caps_toggle",
+  ] as const;
+  let layoutList = $state<ipc.KeyboardLayout[]>([]);
+  let chosen = $state<string[]>(["us", "", "", ""]);
+  let switchKey = $state<string>(SWITCHES[0]);
+  let current = $state({ layouts: "", options: "" });
+  let applying = $state(false);
+  let keyboardProblem = $state<string | null>(null);
+  const zones = Intl.supportedValuesOf("timeZone");
+  const picked = $derived(chosen.filter((l, i) => l !== "" && chosen.indexOf(l) === i).slice(0, 4));
+  const nextLayouts = $derived(picked.join(","));
+  const nextOptions = $derived(picked.length > 1 ? switchKey : "");
+  const keyboardChanged = $derived(
+    nextLayouts !== current.layouts || nextOptions !== current.options,
+  );
+  $effect(() => {
+    if (!open || !stick) return;
+    void ipc.applianceLayouts().then((l) => (layoutList = l));
+    void ipc.applianceKeyboard().then((k) => {
+      const layouts = k.layouts.length > 0 ? k.layouts : ["us"];
+      chosen = [0, 1, 2, 3].map((i) => layouts[i] ?? "");
+      const key = k.options.split(",").find((o) => o.startsWith("grp:"));
+      switchKey = key ?? SWITCHES[0];
+      current = { layouts: layouts.join(","), options: k.options };
+    });
+  });
+  async function applyKeyboard() {
+    if (!stick || applying || !keyboardChanged) return;
+    applying = true;
+    keyboardProblem = null;
+    // On success the session restarts; this only returns with a problem.
+    keyboardProblem = await stick.apply(nextLayouts, nextOptions);
+    applying = false;
+  }
 
   function showSection(id: Section) {
     const heading = document.getElementById(`settings-${id}`);
@@ -240,8 +287,10 @@
   <div class="setting">
     <h3 class="label" {id}>{label}</h3>
     <p class="hint">{body}</p>
-    <div class="actions">{@render showButton(folder, id)}</div>
-    {@render folderError(folder)}
+    {#if !stick}
+      <div class="actions">{@render showButton(folder, id)}</div>
+      {@render folderError(folder)}
+    {/if}
   </div>
 {/snippet}
 
@@ -316,11 +365,11 @@
             "set-font",
             t.font,
             values.writing_profile,
-            ["duo", "serif", "amiri", "custom"],
+            stick ? ["duo", "serif", "amiri"] : ["duo", "serif", "amiri", "custom"],
             t.fonts,
             (writing_profile) => change({ writing_profile }),
           )}
-          {#if values.writing_profile === "custom"}
+          {#if values.writing_profile === "custom" && !stick}
             <div class="field">
               <label class="label" for="set-font-name">{t.customFont}</label>
               <input
@@ -484,15 +533,17 @@
               {library.view.name}
             {/if}
           </p>
-          <div class="actions">
-            <button type="button" class="action" onclick={openFolder}>
-              {commandById("library.openFolder")?.label}
-            </button>
-            {#if library.view.kind === "ready"}
-              {@render showButton("library", "settings-library")}
-            {/if}
-          </div>
-          {@render folderError("library")}
+          {#if !stick}
+            <div class="actions">
+              <button type="button" class="action" onclick={openFolder}>
+                {commandById("library.openFolder")?.label}
+              </button>
+              {#if library.view.kind === "ready"}
+                {@render showButton("library", "settings-library")}
+              {/if}
+            </div>
+            {@render folderError("library")}
+          {/if}
         </div>
         <div class="setting">
           <h3 class="label">{copy.shortcuts.title}</h3>
@@ -532,8 +583,78 @@
           t.recovery,
           t.recoveryText(folders.data),
         )}
-        {@render note(t.privacy, t.privacyText)}
+        {@render note(t.privacy, stick ? t.stick.privacyText : t.privacyText)}
       </section>
+
+      {#if stick}
+        <section aria-labelledby="settings-stick">
+          <h2 id="settings-stick" tabindex="-1" aria-label={t.stick.title}>{t.stick.title}</h2>
+          <div class="setting">
+            <h3 class="label" id="set-keyboard">{t.stick.keyboard}</h3>
+            <p class="hint" id="set-keyboard-hint">{t.stick.keyboardHint}</p>
+            {#each [0, 1, 2, 3] as i (i)}
+              <div class="field">
+                <label class="label" for="set-layout-{i}">{t.stick.layout(i + 1)}</label>
+                <select
+                  id="set-layout-{i}"
+                  bind:value={chosen[i]}
+                  disabled={applying || (i > 0 && !chosen[i - 1])}
+                >
+                  {#if i > 0}<option value="">{t.stick.noLayout}</option>{/if}
+                  {#each layoutList as layout (layout.id)}
+                    <option value={layout.id}>{layout.name}</option>
+                  {/each}
+                </select>
+              </div>
+            {/each}
+            {#if picked.length > 1}
+              <div class="field">
+                <label class="label" for="set-switch">{t.stick.switchKey}</label>
+                <select id="set-switch" bind:value={switchKey} disabled={applying}>
+                  {#each SWITCHES as key (key)}
+                    <option value={key}>{t.stick.switches[key]}</option>
+                  {/each}
+                </select>
+              </div>
+            {/if}
+            <div class="actions field">
+              <button
+                type="button"
+                class="action"
+                aria-describedby="set-keyboard-hint"
+                disabled={applying || !keyboardChanged}
+                onclick={() => void applyKeyboard()}>{t.stick.apply}</button
+              >
+            </div>
+            <p
+              class="hint"
+              class:error={keyboardProblem}
+              role={keyboardProblem ? "alert" : "status"}
+            >
+              {applying ? t.stick.applying : (keyboardProblem ?? "")}
+            </p>
+          </div>
+          <div class="setting">
+            <label class="label" for="set-zone">{t.stick.timeZone}</label>
+            <select
+              id="set-zone"
+              value={values.time_zone || Intl.DateTimeFormat().resolvedOptions().timeZone}
+              onchange={(e) => change({ time_zone: e.currentTarget.value })}
+            >
+              {#each zones as zone (zone)}
+                <option value={zone}>{zone.replaceAll("_", " ")}</option>
+              {/each}
+            </select>
+          </div>
+          {@render toggle(
+            "set-local-clock",
+            t.stick.localClock,
+            t.stick.localClockHint,
+            values.clock_keeps_local_time,
+            (clock_keeps_local_time) => change({ clock_keeps_local_time }),
+          )}
+        </section>
+      {/if}
 
       <footer bind:offsetHeight={footerHeight}>
         <button type="button" class="action" onclick={openAbout}>{t.about}</button>
@@ -679,7 +800,8 @@
   .hint.error {
     color: var(--status-error);
   }
-  input {
+  input,
+  select {
     font: inherit;
     color: var(--text-primary);
     background: var(--surface-editor);
@@ -687,6 +809,14 @@
     border-radius: 4px;
     padding: var(--space-1) var(--space-2);
     max-width: 20rem;
+  }
+  select:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
+  }
+  .action:disabled {
+    color: var(--text-secondary);
+    cursor: default;
   }
   input[aria-invalid="true"] {
     border-color: var(--status-error);

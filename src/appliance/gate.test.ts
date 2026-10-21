@@ -6,6 +6,7 @@ import { describe, viewFor } from "./gate.ts";
 const gate = (home: Home, source: GateState["keyboard"]["source"] = "default"): GateState => ({
   home,
   keyboard: { layouts: "us", options: "", source },
+  resume: false,
 });
 
 group("the stick's first screen", () => {

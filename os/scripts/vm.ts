@@ -52,6 +52,11 @@ export interface BootOptions {
   nics?: boolean;
   /** Show the VM in a window (the author only). */
   window?: boolean;
+  /**
+   * S3 sleep (`system_wakeup` wakes it). virtio-gpu doesn't come back from S3 in QEMU,
+   * so these VMs use the standard VGA (docs/spikes/os-suspend-lock.md).
+   */
+  s3?: boolean;
 }
 
 const code = "/usr/share/edk2/x64/OVMF_CODE.secboot.4m.fd";
@@ -201,7 +206,9 @@ export class Vm {
         ...["-drive", `if=none,id=other${i},format=raw,cache=none,aio=native,file=${disk}`],
         ...["-device", `usb-storage,bus=xhci.0,drive=other${i}`],
       ]),
-      ...["-device", "virtio-vga"],
+      ...(options.s3
+        ? ["-global", "ICH9-LPC.disable_s3=0", "-device", "VGA"]
+        : ["-device", "virtio-vga"]),
       ...(options.window ? [] : ["-display", "none"]),
       "-no-reboot",
       ...["-qmp", `unix:${this.qmpPath},server=on,wait=off`],
@@ -412,6 +419,17 @@ export class Vm {
       netdev: id,
       bus: kind === "e1000e" ? "rp1" : "xhci.0",
     });
+  }
+
+  /** Whether the guest is asleep (S3). */
+  async asleep(): Promise<boolean> {
+    const status = (await this.qmp("query-status")) as { status: string };
+    return status.status === "suspended";
+  }
+
+  /** Wakes the guest from S3. */
+  async wakeup(): Promise<void> {
+    await this.qmp("system_wakeup");
   }
 
   /** ACPI power button, then waits for QEMU to exit. */

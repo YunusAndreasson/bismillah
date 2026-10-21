@@ -20,6 +20,7 @@ import {
   stickFrom,
   Vm,
   type BootOptions,
+  type Screen,
   type Stick,
   type Vars,
 } from "./vm.ts";
@@ -771,6 +772,254 @@ async function releaseSetup(): Promise<void> {
   }
 }
 
+// ---- OS-3: lock, suspend and power --------------------------------------------
+
+/** Every process of the app: bismillah and its WebKit processes. */
+const APP = "bismillah WebKitWebProcess WebKitNetworkProcess";
+const signalApp = (vm: Vm, signal: string) =>
+  vm.run(`for p in ${APP}; do pkill -${signal} -x "$p"; done; true`);
+
+/** A frame that shows the document: (nearly) the document's own screenshot. */
+const showsDocument = (frame: Screen, doc: Screen) => changed(frame, doc) < 0.02;
+
+/**
+ * Takes frames until `stop` says so (or `seconds` pass), every 0.2 s. Returns how many
+ * showed the document; those are kept as `<label>-shown-<n>`.
+ */
+async function watchFrames(
+  vm: Vm,
+  label: string,
+  doc: Screen,
+  seconds: number,
+  stop: () => Promise<boolean> = () => Promise.resolve(false),
+): Promise<{ frames: number; shown: number }> {
+  let count = 0;
+  let shown = 0;
+  for (const end = Date.now() + seconds * 1000; Date.now() < end; await sleep(200)) {
+    if (await stop()) break;
+    const frame = await vm.screen("frame");
+    count++;
+    if (showsDocument(frame, doc)) {
+      shown++;
+      await vm.screen(`${label}-shown-${String(shown)}`);
+    }
+  }
+  return { frames: count, shown };
+}
+
+/** Types the passphrase at the lock (or a restarted session's Unlock) and waits for
+ * the document to come back. */
+async function unlockAt(vm: Vm, label: string, doc: Screen): Promise<boolean> {
+  await sleep(1000);
+  await vm.type(PLAIN);
+  await vm.key("ret");
+  await sleep(3000);
+  const back = await vm.settled(60);
+  await vm.screen(`${label}-back`);
+  return changed(back, doc) < 0.01;
+}
+
+interface SleepCase {
+  name: string;
+  /** Run as root just before `systemctl suspend`, in the same command. */
+  before?: string;
+  /** Run once the system has resumed (before the frames after wake are taken). */
+  afterWake?: string;
+  /** The helper's mark that shows which way it went. */
+  expect: string;
+}
+
+/**
+ * One suspend: frames from the request until the guest sleeps and for 8 s after
+ * `system_wakeup`, none of which may show the document; then the passphrase brings the
+ * document back.
+ */
+async function sleepCase(vm: Vm, scenario: string, c: SleepCase, doc: Screen): Promise<void> {
+  const from = here(vm);
+  await vm.run(`${c.before ? `${c.before}; ` : ""}systemctl --no-block suspend`);
+  const before = await watchFrames(vm, `${c.name}-before`, doc, 15, () => vm.asleep());
+  check(await vm.asleep(), `${scenario} ${c.name}: the system went to sleep`);
+  await sleep(1000);
+  await vm.wakeup();
+  await mark(vm, "helper-resumed", 30, from);
+  if (c.afterWake) await vm.run(c.afterWake);
+  const after = await watchFrames(vm, `${c.name}-after`, doc, 8);
+  const log = vm.serial().slice(from);
+  check(
+    new RegExp(`BISMILLAH_MARK helper-${c.expect} `).test(log),
+    `${scenario} ${c.name}: the helper went the expected way (${c.expect})`,
+  );
+  const prepared = /BISMILLAH_MARK helper-prepare-sleep ([\d.]+)/.exec(log);
+  const released = /BISMILLAH_MARK helper-inhibitor-released ([\d.]+)/.exec(log);
+  const decided = prepared && released ? Number(released[1]) - Number(prepared[1]) : NaN;
+  check(
+    decided < 2.5 && !/inhibitor timeout/i.test(log),
+    `${scenario} ${c.name}: decided within logind's delay (${decided.toFixed(2)} s of 5 s)`,
+  );
+  check(
+    before.shown === 0 && after.shown === 0,
+    `${scenario} ${c.name}: no frame showed the document (${String(before.frames)} before sleep, ${String(after.frames)} after wake)`,
+  );
+  check(
+    await unlockAt(vm, c.name, doc),
+    `${scenario} ${c.name}: the passphrase brings the document back`,
+  );
+}
+
+/**
+ * The lock (os/PLAN.md, OS-3): the Lock command, the app reconnecting to a restarted
+ * helper, and suspend with the app normal, frozen, continued late, crashed or
+ * disconnected. S3 in QEMU, with `system_wakeup`.
+ */
+async function suspendLock(): Promise<void> {
+  const name = "suspend-lock";
+  const vm = await boot(name, "run", { s3: true });
+  try {
+    await setUpQuickly(vm);
+    await mark(vm, "page-editable", 60);
+    await openNote(vm, "The text that must never show while the stick is locked.");
+    await vm.type(" More words.");
+    await sleep(3000);
+    const doc = await vm.settled(30);
+    await vm.screen("document");
+
+    // Lock, from the command palette.
+    let from = here(vm);
+    await vm.key("ctrl", "shift", "p");
+    await sleep(800);
+    await vm.type("lock");
+    await sleep(800);
+    await vm.key("ret");
+    await mark(vm, "page-lock-painted", 15, from);
+    const lock = await vm.settled(20);
+    await vm.screen("lock-view");
+    check(
+      changed(lock, doc) > 0.02,
+      `${name}: Lock covers the document (${(changed(lock, doc) * 100).toFixed(1)}% of the screen differs)`,
+    );
+    await vm.key("ctrl", "n");
+    await sleep(1000);
+    check(
+      changed(await vm.screen("lock-shortcut"), lock) < 0.01,
+      `${name}: shortcuts don't act behind the lock`,
+    );
+    check(await unlockAt(vm, "lock", doc), `${name}: the passphrase unlocks it`);
+
+    // The connection drops (the helper restarts): the lock goes up at once.
+    from = here(vm);
+    await vm.run("systemctl restart bismillah-helper.service");
+    await mark(vm, "page-lock-painted", 10, from);
+    check(true, `${name}: a dropped connection locks the app`);
+    check(await unlockAt(vm, "dropped", doc), `${name}: and the passphrase unlocks it`);
+
+    const cases: SleepCase[] = [
+      { name: "normal", expect: "locked-before-sleep" },
+      {
+        name: "frozen",
+        before: `for p in ${APP}; do pkill -STOP -x "$p"; done`,
+        expect: "restart-session",
+      },
+      {
+        name: "late",
+        before: `for p in ${APP}; do pkill -STOP -x "$p"; done`,
+        afterWake: `for p in ${APP}; do pkill -CONT -x "$p"; done`,
+        expect: "late-lock-painted",
+      },
+      { name: "crashed", before: "pkill -9 -x bismillah; sleep 0.3", expect: "inhibitor-released" },
+      // The connection drops (the helper is killed): the app locks itself, reconnects
+      // to the helper systemd starts again, and the next sleep still waits for it.
+      {
+        name: "disconnected",
+        before: "systemctl kill -s KILL bismillah-helper.service; sleep 3",
+        expect: "locked-before-sleep",
+      },
+    ];
+    for (const c of cases) {
+      try {
+        await sleepCase(vm, name, c, doc);
+      } catch (error) {
+        check(false, `${name} ${c.name}: ${String(error)}`);
+        await signalApp(vm, "CONT").catch(() => undefined);
+      }
+    }
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+}
+
+/**
+ * Power: low battery warns at 10% and at 3% saves and powers off (a fake battery,
+ * test_power); Power off (Ctrl+Q) saves and powers off cleanly. Each next boot finds
+ * the text and a clean file system.
+ */
+async function power(): Promise<void> {
+  const name = "power";
+  const disk = stickFrom(imageFor("debug"), join(out, name, "stick.raw"));
+  let vm = await boot(name, "1-battery", { disk });
+  const battery = "/sys/module/test_power/parameters";
+  try {
+    await setUpQuickly(vm);
+    await mark(vm, "page-editable", 60);
+    await openNote(vm, "First line.");
+    let from = here(vm);
+    await vm.run(`modprobe test_power && echo 9 > ${battery}/battery_capacity`);
+    await mark(vm, "page-battery-low", 60, from);
+    await sleep(1000);
+    await vm.screen("battery-low");
+    check(true, `${name}: a notice at 9%`);
+    await vm.type(" Unsaved when the battery ran down.");
+    from = here(vm);
+    await vm.run(`echo 3 > ${battery}/battery_capacity`);
+    await mark(vm, "page-battery-critical", 60, from);
+    await mark(vm, "helper-power-poweroff", 30, from);
+    for (let i = 0; vm.running && i < 600; i++) await sleep(100);
+    check(!vm.running, `${name}: at 3% it powers off`);
+  } finally {
+    vm.kill();
+    vm.pngs();
+  }
+
+  vm = await boot(name, "2-power-off", { disk });
+  try {
+    await mark(vm, "page-gate-shown", 240);
+    const from = here(vm);
+    await vm.type(PLAIN);
+    await vm.key("ret");
+    await mark(vm, "page-editable", 60, from);
+    check(
+      (await noteText(vm)).includes("Unsaved when the battery ran down."),
+      `${name}: it saved before powering off`,
+    );
+    check(/bismillah-home: clean/.test(vm.serial().slice(from)), `${name}: home was left clean`);
+    await openNote(vm, (await noteText(vm)).trim());
+    await vm.type(" Typed before Power off.");
+    await vm.key("ctrl", "q");
+    for (let i = 0; vm.running && i < 600; i++) await sleep(100);
+    check(!vm.running, `${name}: Ctrl+Q powers off`);
+  } finally {
+    vm.kill();
+    vm.pngs();
+  }
+
+  vm = await boot(name, "3-after", { disk });
+  try {
+    await mark(vm, "page-gate-shown", 240);
+    const from = here(vm);
+    await vm.type(PLAIN);
+    await vm.key("ret");
+    await mark(vm, "page-editable", 60, from);
+    check(
+      (await noteText(vm)).includes("Typed before Power off."),
+      `${name}: Power off saved first`,
+    );
+    check(/bismillah-home: clean/.test(vm.serial().slice(from)), `${name}: home was left clean`);
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+}
+
 const scenarios: Record<string, () => Promise<void>> = {
   "release-both": () => releaseBoots("release-both", "both"),
   "release-ca2011": () => releaseBoots("release-ca2011", "ca2011"),
@@ -786,6 +1035,8 @@ const scenarios: Record<string, () => Promise<void>> = {
   "home-damaged": damaged,
   "home-two-sticks": twoSticks,
   "home-saved": savedMeansSaved,
+  "suspend-lock": suspendLock,
+  power,
 };
 
 const chosen = process.argv.slice(2);

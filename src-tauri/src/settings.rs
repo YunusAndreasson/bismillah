@@ -140,11 +140,17 @@ const SPECS: &[Spec] = &[
         kind: Kind::Choice(&["british", "american", "canadian", "australian", "indian"]),
         default: || "british".into(),
     },
-    // Chosen in the stick's setup (os/PLAN.md, OS-2); Settings › Time comes in OS-3.
+    // The stick's clock (os/PLAN.md, OS-3): chosen in setup, changed in Settings › Stick.
     Spec {
         key: "time_zone",
         kind: Kind::TimeZone,
         default: || "".into(),
+    },
+    // For computers whose hardware clock keeps local time; the stick never writes it.
+    Spec {
+        key: "clock_keeps_local_time",
+        kind: Kind::Bool,
+        default: || false.into(),
     },
 ];
 

@@ -10,14 +10,15 @@
 //! keep theirs in RAM (the session's `XDG_*_HOME`).
 
 use bismillah_appliance::passphrase::{self, Secret, Strength};
-use bismillah_appliance::{Answer, Home, Keyboard, MAX_LINE, PowerAction, Request};
+use bismillah_appliance::{Answer, Event, Home, Keyboard, MAX_LINE, PowerAction, Report, Request};
 use serde::Serialize;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::fs::DirBuilderExt;
 use std::os::unix::net::UnixStream;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 
 /// The flag the stick's session passes.
@@ -30,6 +31,45 @@ const RESTART_SESSION: i32 = 76;
 /// Whether this launch is the stick's session.
 pub fn enabled(args: &[String]) -> bool {
     args.iter().skip(1).any(|a| a == FLAG)
+}
+
+static ACTIVE: OnceLock<bool> = OnceLock::new();
+
+/// Records, once at launch, whether this is the stick's session.
+pub fn set_active(appliance: bool) {
+    let _ = ACTIVE.set(appliance);
+}
+
+/// Whether this is the stick's session: links, the file manager and window sizes are
+/// not for it.
+pub fn active() -> bool {
+    ACTIVE.get().copied().unwrap_or(false)
+}
+
+/// What the stick was built from, for About.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Stick {
+    /// The commit the app and helper were built from.
+    commit: String,
+    /// The Debian snapshot the system was built from (`20261021T083704Z`).
+    snapshot: String,
+}
+
+/// Read from the files the image build writes (os/build/build-app.sh,
+/// os/scripts/build.sh); null on the desktop.
+pub fn stick() -> Option<Stick> {
+    if !active() {
+        return None;
+    }
+    let read = |name: &str| {
+        std::fs::read_to_string(Path::new("/usr/share/bismillah").join(name))
+            .map(|s| s.trim().to_owned())
+            .unwrap_or_default()
+    };
+    Some(Stick {
+        commit: read("commit"),
+        snapshot: read("snapshot"),
+    })
 }
 
 fn home() -> Option<PathBuf> {
@@ -160,6 +200,8 @@ impl Gate {
 pub struct GateState {
     home: Home,
     keyboard: Keyboard,
+    /// The session restarted for a keyboard change: reopen without the passphrase.
+    resume: bool,
 }
 
 /// Home's state while the app waits for it, or null when the app isn't gated (the
@@ -173,13 +215,22 @@ pub async fn appliance_gate(app: AppHandle) -> Result<Option<GateState>, String>
         .await
         .map_err(|e| e.to_string())??;
     match answer {
-        Answer::Status { home, keyboard } => Ok(Some(GateState { home, keyboard })),
+        Answer::Status {
+            home,
+            keyboard,
+            resume,
+        } => Ok(Some(GateState {
+            home,
+            keyboard,
+            resume,
+        })),
         _ => Err("answer: not a status".to_owned()),
     }
 }
 
 /// Sets up, finishes or unlocks home with the passphrase (or, on a session restarted
-/// with home open, checks it); on `ok` the app's startup runs.
+/// with home open, checks it, or resumes after a keyboard change); on `ok` the app's
+/// startup runs. Once the app has started, `verify` is the lock view's check.
 #[tauri::command]
 pub async fn appliance_open(
     app: AppHandle,
@@ -194,6 +245,7 @@ pub async fn appliance_open(
             "finish" => Request::Finish { passphrase },
             "unlock" => Request::Unlock { passphrase },
             "verify" => Request::Verify { passphrase },
+            "resume" => Request::Resume,
             _ => return Err("unknown verb".to_owned()),
         };
         mark("app-unlock-sent");
@@ -223,20 +275,43 @@ pub async fn appliance_start_over() -> Result<Answer, String> {
         .map_err(|e| e.to_string())?
 }
 
+/// Where a keyboard change leaves the caret for the restarted app: in RAM, an offset
+/// and nothing else.
+fn caret_file() -> Option<PathBuf> {
+    std::env::var_os("XDG_RUNTIME_DIR").map(|dir| PathBuf::from(dir).join("bismillah-caret"))
+}
+
 /// Stores the keyboard layouts and, once stored, restarts the session so cage uses
-/// them. The page reloads with it.
+/// them. The page reloads with it, and puts the caret back at `caret`. The page has
+/// saved the document first.
 #[tauri::command]
-pub async fn appliance_set_keyboard(layouts: String, options: String) -> Result<Answer, String> {
+pub async fn appliance_set_keyboard(
+    layouts: String,
+    options: String,
+    caret: Option<u32>,
+) -> Result<Answer, String> {
     let answer = tauri::async_runtime::spawn_blocking(move || {
         ask(Request::SetKeyboard { layouts, options })
     })
     .await
     .map_err(|e| e.to_string())??;
     if answer == Answer::Ok {
+        if let (Some(caret), Some(file)) = (caret, caret_file()) {
+            let _ = std::fs::write(file, caret.to_string());
+        }
         mark("app-exit-for-keyboard");
         std::process::exit(RESTART_SESSION);
     }
     Ok(answer)
+}
+
+/// The caret a keyboard change left, once.
+#[tauri::command]
+pub fn appliance_take_caret() -> Option<u32> {
+    let file = caret_file()?;
+    let caret = std::fs::read_to_string(&file).ok()?.trim().parse().ok();
+    let _ = std::fs::remove_file(file);
+    caret
 }
 
 #[tauri::command]
@@ -319,6 +394,8 @@ fn layouts(rules: &str) -> Vec<Layout> {
 pub struct KeyboardState {
     /// In group order.
     layouts: Vec<String>,
+    /// The XKB options, e.g. the switch key `grp:alt_shift_toggle`.
+    options: String,
     /// The active group, as of the last key press.
     group: u8,
     rtl: bool,
@@ -335,6 +412,7 @@ fn keyboard_state(keys: crate::platform::KeyState) -> KeyboardState {
             .filter(|l| !l.is_empty())
             .map(str::to_owned)
             .collect(),
+        options: std::env::var("XKB_DEFAULT_OPTIONS").unwrap_or_default(),
         group: keys.group,
         rtl: keys.rtl,
         caps: keys.caps,
@@ -365,6 +443,161 @@ pub fn appliance_keyboard(app: AppHandle) -> KeyboardState {
         .and_then(|l| l.0.lock().ok().map(|k| *k))
         .unwrap_or_default();
     keyboard_state(keys)
+}
+
+/// The events connection's writing side, for the page's `painted` report.
+#[derive(Default)]
+struct Events(Mutex<Option<UnixStream>>);
+
+/// Keeps the events connection to the helper open for as long as the app runs,
+/// reconnecting when it drops. On the helper's `lock`, and whenever the connection
+/// drops, the page shows the lock view (`appliance-lock`) and reports it painted. While the gate is still up the page
+/// already shows Setup or Unlock, so Rust reports it painted itself.
+pub fn watch_events(app: &AppHandle) {
+    app.manage(Events::default());
+    let app = app.clone();
+    std::thread::spawn(move || {
+        loop {
+            if let Ok(stream) = connect_events() {
+                if let (Some(events), Ok(writer)) = (app.try_state::<Events>(), stream.try_clone())
+                    && let Ok(mut slot) = events.0.lock()
+                {
+                    *slot = Some(writer);
+                }
+                mark("app-events-connected");
+                read_events(&app, stream);
+                mark("app-events-lost");
+                // The helper now holds the lock up until the passphrase is typed, and
+                // can't reach the app to say so: the app locks itself.
+                if !app.try_state::<Gate>().is_some_and(|g| g.waiting()) {
+                    let _ = app.emit("appliance-lock", ());
+                }
+            }
+            std::thread::sleep(Duration::from_secs(1));
+        }
+    });
+}
+
+fn connect_events() -> std::io::Result<UnixStream> {
+    let mut stream = UnixStream::connect(socket())?;
+    stream.write_all(&Request::Events.to_line())?;
+    Ok(stream)
+}
+
+fn read_events(app: &AppHandle, stream: UnixStream) {
+    for line in BufReader::new(stream).lines() {
+        let Ok(line) = line else { break };
+        if let Ok(Event::Lock) = serde_json::from_str(&line) {
+            mark("app-lock-asked");
+            if app.try_state::<Gate>().is_some_and(|g| g.waiting()) {
+                report_painted(app);
+            } else {
+                let _ = app.emit("appliance-lock", ());
+            }
+        }
+    }
+}
+
+fn report_painted(app: &AppHandle) {
+    let Some(events) = app.try_state::<Events>() else {
+        return;
+    };
+    let Ok(mut slot) = events.0.lock() else {
+        return;
+    };
+    let mut line = serde_json::to_vec(&Report::Painted).unwrap_or_default();
+    line.push(b'\n');
+    if slot.as_mut().is_some_and(|s| s.write_all(&line).is_ok()) {
+        mark("app-painted");
+    }
+}
+
+/// The page's lock view is on screen.
+#[tauri::command]
+pub fn appliance_painted(app: AppHandle) {
+    report_painted(&app);
+}
+
+/// The battery, for the status line: its charge and whether it is charging. Null on a
+/// machine without one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct Battery {
+    percent: u8,
+    charging: bool,
+}
+
+/// Debug builds may read another folder, for the e2e suite's fake battery.
+fn power_supplies() -> PathBuf {
+    #[cfg(debug_assertions)]
+    if let Some(path) = std::env::var_os("BISMILLAH_POWER_SUPPLY") {
+        return PathBuf::from(path);
+    }
+    PathBuf::from("/sys/class/power_supply")
+}
+
+#[tauri::command]
+pub fn appliance_battery() -> Option<Battery> {
+    battery(&power_supplies())
+}
+
+/// The batteries under `dir` (`/sys/class/power_supply`) as one: their energy summed
+/// when they report it, else their mean charge. Charging if any one is, or if mains
+/// power is connected and none is discharging.
+fn battery(dir: &Path) -> Option<Battery> {
+    let read = |path: PathBuf| {
+        std::fs::read_to_string(path)
+            .map(|s| s.trim().to_owned())
+            .ok()
+    };
+    let mut percents = Vec::new();
+    let (mut now, mut full) = (0u64, 0u64);
+    let mut energy = true;
+    let mut charging = false;
+    let mut discharging = false;
+    let mut mains = false;
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let path = entry.path();
+        match read(path.join("type")).as_deref() {
+            Some("Battery") => {}
+            Some("Mains") => {
+                mains |= read(path.join("online")).as_deref() == Some("1");
+                continue;
+            }
+            _ => continue,
+        }
+        if read(path.join("present")).as_deref() == Some("0") {
+            continue;
+        }
+        let Some(percent) = read(path.join("capacity")).and_then(|c| c.parse::<u8>().ok()) else {
+            continue;
+        };
+        percents.push(percent.min(100));
+        match read(path.join("status")).as_deref() {
+            Some("Charging") => charging = true,
+            Some("Discharging") => discharging = true,
+            _ => {}
+        }
+        let number = |name: &str| read(path.join(name)).and_then(|n| n.parse::<u64>().ok());
+        match (number("energy_now"), number("energy_full")) {
+            (Some(n), Some(f)) if f > 0 => {
+                now += n;
+                full += f;
+            }
+            _ => energy = false,
+        }
+    }
+    if percents.is_empty() {
+        return None;
+    }
+    let percent = if energy && full > 0 {
+        (now.saturating_mul(100) / full).min(100) as u8
+    } else {
+        (percents.iter().map(|&p| u32::from(p)).sum::<u32>() / percents.len() as u32) as u8
+    };
+    Some(Battery {
+        percent,
+        charging: charging || (mains && !discharging),
+    })
 }
 
 /// Lets the page put its own marks next to the helper's and Rust's.
@@ -477,6 +710,63 @@ mod tests {
 ";
         let ids: Vec<String> = layouts(rules).into_iter().map(|l| l.id).collect();
         assert_eq!(ids, ["ara", "ara(qwerty)", "us", "se"]);
+    }
+
+    fn supply(dir: &Path, name: &str, files: &[(&str, &str)]) {
+        let path = dir.join(name);
+        std::fs::create_dir_all(&path).unwrap();
+        for (file, value) in files {
+            std::fs::write(path.join(file), format!("{value}\n")).unwrap();
+        }
+    }
+
+    #[test]
+    fn reads_the_battery() {
+        let dir = std::env::temp_dir().join(format!("bismillah-power-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        // No battery at all: a desktop or a VM.
+        assert_eq!(battery(&dir), None);
+        supply(&dir, "AC", &[("type", "Mains"), ("online", "0")]);
+        supply(
+            &dir,
+            "BAT0",
+            &[
+                ("type", "Battery"),
+                ("capacity", "9"),
+                ("status", "Discharging"),
+            ],
+        );
+        assert_eq!(
+            battery(&dir),
+            Some(Battery {
+                percent: 9,
+                charging: false
+            })
+        );
+        // Two batteries reporting energy are summed by it, not averaged.
+        supply(
+            &dir,
+            "BAT0",
+            &[("energy_now", "10000000"), ("energy_full", "50000000")],
+        );
+        supply(
+            &dir,
+            "BAT1",
+            &[
+                ("type", "Battery"),
+                ("capacity", "100"),
+                ("status", "Full"),
+                ("energy_now", "30000000"),
+                ("energy_full", "30000000"),
+            ],
+        );
+        assert_eq!(battery(&dir).map(|b| b.percent), Some(50));
+        // Plugged in, and neither discharging: charging.
+        supply(&dir, "AC", &[("online", "1")]);
+        supply(&dir, "BAT0", &[("status", "Not charging")]);
+        assert_eq!(battery(&dir).map(|b| b.charging), Some(true));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

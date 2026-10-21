@@ -2,7 +2,8 @@
 //! trust*). It runs as root and owns the home partition.
 //!
 //! - `bismillah-helper` serves the app on the socket systemd passes it
-//!   (bismillah-helper.socket), one request at a time, to uid 1000 only.
+//!   (bismillah-helper.socket), one request at a time, to uid 1000 only. It also
+//!   watches for sleep and the lid, and has the app lock first (session.rs).
 //! - `bismillah-helper keyboard-env` writes cage's layouts before the session starts.
 //! - `bismillah-helper status` prints home's state (the debug image's console).
 //!
@@ -11,16 +12,22 @@
 mod disk;
 mod home;
 mod keyboard;
+mod lid;
+mod session;
+mod sleep;
 mod tools;
+mod vt;
 
 use bismillah_appliance::protocol::Envelope;
 use bismillah_appliance::{
     Answer, Home, Keyboard, KeyboardSource, MAX_LINE, PROTOCOL, PowerAction, Request,
 };
+use session::Session;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::fd::FromRawFd;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
+use std::sync::Arc;
 use zeroize::Zeroizing;
 
 /// The only user the helper answers: the session's `writer`.
@@ -39,10 +46,12 @@ fn main() {
         }
         Some("status") => {
             let (home, keyboard) = state();
-            println!(
-                "{}",
-                serde_json::to_string(&Answer::Status { home, keyboard }).unwrap_or_default()
-            );
+            let status = Answer::Status {
+                home,
+                keyboard,
+                resume: false,
+            };
+            println!("{}", serde_json::to_string(&status).unwrap_or_default());
         }
         Some(_) => {
             eprintln!("usage: bismillah-helper [status|keyboard-env]");
@@ -69,6 +78,18 @@ fn state() -> (Home, Keyboard) {
 /// Whether the debug image asked for marks (`BISMILLAH_MARKS`, set by its drop-in).
 fn marks() -> bool {
     std::env::var_os("BISMILLAH_MARKS").is_some()
+}
+
+/// Prints `BISMILLAH_MARK helper-<name> <uptime>` in the debug image.
+pub fn mark(name: &str) {
+    if !marks() {
+        return;
+    }
+    let uptime = std::fs::read_to_string("/proc/uptime").unwrap_or_default();
+    let seconds = uptime.split(' ').next().unwrap_or("?");
+    let mut out = std::io::stdout();
+    let _ = writeln!(out, "BISMILLAH_MARK helper-{name} {seconds}");
+    let _ = out.flush();
 }
 
 /// Marks the end of a setup or unlock step: `BISMILLAH_MARK helper-<name> <uptime>`.
@@ -107,12 +128,17 @@ fn serve() {
     // SAFETY: systemd passed exactly one socket (LISTEN_FDS=1, for this process), at
     // fd 3, and nothing else in this process owns or closes that descriptor.
     let listener = unsafe { UnixListener::from_raw_fd(LISTEN_FD) };
+    let session = Session::new();
+    for watch in [sleep::watch, lid::watch] {
+        let session = Arc::clone(&session);
+        std::thread::spawn(move || watch(session));
+    }
     for stream in listener.incoming() {
         let Ok(stream) = stream else { continue };
         if peer_uid(&stream) != Some(WRITER) {
             continue;
         }
-        handle(stream);
+        handle(stream, &session);
     }
 }
 
@@ -138,15 +164,25 @@ fn peer_uid(stream: &UnixStream) -> Option<u32> {
     (result == 0).then_some(credentials.uid)
 }
 
-fn handle(stream: UnixStream) {
+fn handle(stream: UnixStream, session: &Arc<Session>) {
     let Ok(reader) = stream.try_clone() else {
         return;
     };
     let mut line = Zeroizing::new(Vec::with_capacity(MAX_LINE));
-    let read = BufReader::new(reader.take(MAX_LINE as u64)).read_until(b'\n', &mut line);
+    // Byte by byte, so nothing after the request line is taken from the connection:
+    // the events connection carries the app's reports after it.
+    let read =
+        BufReader::with_capacity(1, reader.take(MAX_LINE as u64)).read_until(b'\n', &mut line);
     let (answer, power) = match read {
         Ok(_) => match serde_json::from_slice::<Envelope>(&line) {
-            Ok(envelope) if envelope.v == PROTOCOL => answer(envelope.request),
+            Ok(Envelope {
+                v: PROTOCOL,
+                request: Request::Events,
+            }) => {
+                session.connect(stream);
+                return;
+            }
+            Ok(envelope) if envelope.v == PROTOCOL => answer(envelope.request, session),
             _ => (
                 Answer::Failed {
                     step: "protocol".into(),
@@ -166,15 +202,25 @@ fn handle(stream: UnixStream) {
         let verb = match action {
             PowerAction::Off => "poweroff",
             PowerAction::Reboot => "reboot",
+            PowerAction::Suspend => "suspend",
         };
+        mark(&format!("power-{verb}"));
         let _ = tools::status("systemctl", &[verb]);
     }
 }
 
 /// The answer to a request, and a power action to take once it has been sent.
-fn answer(request: Request) -> (Answer, Option<PowerAction>) {
+fn answer(request: Request, session: &Session) -> (Answer, Option<PowerAction>) {
     if let Request::Power { action } = request {
         return (Answer::Ok, Some(action));
+    }
+    // While the lock is up only the passphrase, status and power are answered.
+    let allowed = matches!(
+        request,
+        Request::Status | Request::Verify { .. } | Request::Resume
+    );
+    if session.locked() && !allowed {
+        return (Answer::Locked, None);
     }
     let device: PathBuf = match disk::home() {
         Ok(device) => device,
@@ -183,27 +229,87 @@ fn answer(request: Request) -> (Answer, Option<PowerAction>) {
                 state: Home::NotFound { reason },
             };
             return match request {
-                Request::Status => (state_answer(), None),
+                Request::Status => (state_answer(session), None),
                 _ => (refused, None),
             };
         }
     };
+    // A passphrase that opens or verifies home brings the lock down.
+    let opens = matches!(
+        request,
+        Request::Setup { .. }
+            | Request::Finish { .. }
+            | Request::Unlock { .. }
+            | Request::Verify { .. }
+    );
     let answer = match request {
-        Request::Status => state_answer(),
+        Request::Status => state_answer(session),
         Request::Setup { passphrase } => home::setup(&device, &passphrase, keyboard::pending()),
         Request::Finish { passphrase } => home::finish(&device, &passphrase),
         Request::StartOver => home::start_over(&device),
         Request::Unlock { passphrase } => home::unlock(&device, &passphrase),
         Request::Verify { passphrase } => home::verify(&device, &passphrase),
+        Request::Resume => match home::status(&device).0 {
+            Home::Unlocked if session.resume() => Answer::Ok,
+            Home::Unlocked => Answer::Locked,
+            state => Answer::Refused { state },
+        },
         Request::SetKeyboard { layouts, options } => {
-            home::set_keyboard(&device, keyboard::Layouts { layouts, options })
+            let answer = home::set_keyboard(&device, keyboard::Layouts { layouts, options });
+            if answer == Answer::Ok && home::is_mounted() {
+                session.allow_resume();
+            }
+            answer
         }
-        Request::Power { .. } => Answer::Ok,
+        Request::Power { .. } | Request::Events => Answer::Ok,
     };
+    if answer == Answer::Ok && opens {
+        session.unlocked();
+    }
     (answer, None)
 }
 
-fn state_answer() -> Answer {
+fn state_answer(session: &Session) -> Answer {
     let (home, keyboard) = state();
-    Answer::Status { home, keyboard }
+    Answer::Status {
+        resume: home == Home::Unlocked && session.may_resume(),
+        home,
+        keyboard,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bismillah_appliance::Secret;
+
+    #[test]
+    fn behind_the_lock_only_the_passphrase_status_and_power_are_answered() {
+        let session = Session::default();
+        session.lock_for_test();
+        let keyboard = Request::SetKeyboard {
+            layouts: "se".into(),
+            options: String::new(),
+        };
+        assert_eq!(answer(keyboard, &session).0, Answer::Locked);
+        assert_eq!(answer(Request::StartOver, &session).0, Answer::Locked);
+        let setup = Request::Setup {
+            passphrase: Secret::new("x".into()),
+        };
+        assert_eq!(answer(setup, &session).0, Answer::Locked);
+        // Power is answered, and acted on once the answer is sent.
+        let power = answer(
+            Request::Power {
+                action: PowerAction::Suspend,
+            },
+            &session,
+        );
+        assert_eq!(power, (Answer::Ok, Some(PowerAction::Suspend)));
+        // Status and verify reach home (which this test machine doesn't have).
+        assert_ne!(answer(Request::Status, &session).0, Answer::Locked);
+        let verify = Request::Verify {
+            passphrase: Secret::new("x".into()),
+        };
+        assert_ne!(answer(verify, &session).0, Answer::Locked);
+    }
 }

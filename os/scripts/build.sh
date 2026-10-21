@@ -28,6 +28,8 @@ for key in Snapshot ToolsTreeSnapshot; do
   }
 done
 [ -x "$root/os/out/app/usr/bin/bismillah" ] || { echo "No app build: run pnpm os:app first." >&2; exit 1; }
+# About names the snapshot the system was built from.
+echo "$DEBIAN_SNAPSHOT" >"$root/os/out/app/usr/share/bismillah/snapshot"
 
 mkdir -p "$root/os/cache/mkosi" "$root/os/cache/mkosi-metadata" "$root/os/out/image" "$root/os/out/work"
 cd "$root/os/mkosi"

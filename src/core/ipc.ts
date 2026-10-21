@@ -135,6 +135,14 @@ export interface AppInfo {
   version: string;
   /** Where bismillah keeps its files, as the writer reads them ("~/.config/bismillah"). */
   folders: { config: string; data: string };
+  /** On the bismillah stick: what it was built from. Null on the desktop. */
+  stick: StickInfo | null;
+}
+
+export interface StickInfo {
+  commit: string;
+  /** The Debian snapshot the system was built from ("20261021T083704Z"). */
+  snapshot: string;
 }
 
 /** Narrows a rejected `invoke` to a typed error. */
@@ -330,7 +338,12 @@ export interface MenuState {
 }
 
 /** Why a link or folder wasn't handed to another app (src-tauri/src/links.rs). */
-export type LinkError = { kind: "not_web" } | { kind: "unavailable" } | { kind: "no_app" };
+export type LinkError =
+  | { kind: "not_web" }
+  | { kind: "unavailable" }
+  | { kind: "no_app" }
+  /** On the bismillah stick, where nothing else runs. */
+  | { kind: "stick" };
 
 /** The folders Settings › Files & privacy can show in the file manager. */
 export type Folder = "settings" | "recovery" | "library";
@@ -373,13 +386,23 @@ export interface HelperKeyboard {
 export interface GateState {
   home: Home;
   keyboard: HelperKeyboard;
+  /** The session restarted for a keyboard change: reopen without the passphrase. */
+  resume: boolean;
 }
 
 export type HelperAnswer =
-  | { answer: "ok" | "wrong_passphrase" | "too_weak" | "invalid_keyboard" }
+  | { answer: "ok" | "wrong_passphrase" | "too_weak" | "invalid_keyboard" | "locked" }
   | { answer: "refused"; state: Home }
   | { answer: "failed"; step: string }
-  | { answer: "status"; home: Home; keyboard: HelperKeyboard };
+  | { answer: "status"; home: Home; keyboard: HelperKeyboard; resume: boolean };
+
+export type PowerAction = "off" | "reboot" | "suspend";
+
+/** The battery as one: null on a machine without one. */
+export interface Battery {
+  percent: number;
+  charging: boolean;
+}
 
 export interface Strength {
   score: number;
@@ -395,6 +418,8 @@ export interface KeyboardLayout {
 export interface KeyboardState {
   /** The layouts cage was started with, in group order. */
   layouts: string[];
+  /** Their XKB options, such as the switch key ("grp:alt_shift_toggle"). */
+  options: string;
   /** The active group, as of the last key press. */
   group: number;
   rtl: boolean;
@@ -403,14 +428,25 @@ export interface KeyboardState {
 
 /** Home's state while the app waits for it; null on the desktop or once started. */
 export const applianceGate = () => invoke<GateState | null>("appliance_gate");
-export const applianceOpen = (verb: "setup" | "finish" | "unlock" | "verify", passphrase: string) =>
-  invoke<HelperAnswer>("appliance_open", { verb, passphrase });
+export const applianceOpen = (
+  verb: "setup" | "finish" | "unlock" | "verify" | "resume",
+  passphrase: string,
+) => invoke<HelperAnswer>("appliance_open", { verb, passphrase });
 export const applianceStartOver = () => invoke<HelperAnswer>("appliance_start_over");
-/** On success the session restarts, and this page with it. */
-export const applianceSetKeyboard = (layouts: string, options: string) =>
-  invoke<HelperAnswer>("appliance_set_keyboard", { layouts, options });
-export const appliancePower = (action: "off" | "reboot") =>
+/** On success the session restarts, and this page with it. `caret`: where to put the
+ * caret in the same document once it has. */
+export const applianceSetKeyboard = (
+  layouts: string,
+  options: string,
+  caret: number | null = null,
+) => invoke<HelperAnswer>("appliance_set_keyboard", { layouts, options, caret });
+/** The caret a keyboard change left, once (null if there is none). */
+export const applianceTakeCaret = () => invoke<number | null>("appliance_take_caret");
+export const appliancePower = (action: PowerAction) =>
   invoke<HelperAnswer>("appliance_power", { action });
+/** The lock view is on screen (the helper's lock handshake). */
+export const appliancePainted = () => invoke<null>("appliance_painted");
+export const applianceBattery = () => invoke<Battery | null>("appliance_battery");
 export const applianceStrength = (passphrase: string) =>
   invoke<Strength>("appliance_strength", { passphrase });
 export const applianceGenerate = () => invoke<string>("appliance_generate");

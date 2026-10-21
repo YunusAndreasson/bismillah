@@ -228,6 +228,7 @@ pub fn run() {
         .as_ref()
         .and_then(platform::InstanceListener::cleanup_path);
     let appliance = appliance::enabled(&launch.args);
+    appliance::set_active(appliance);
     let startup = app::cli_path(&launch.args, &launch.cwd);
 
     let navigation_guard = tauri::plugin::Builder::<tauri::Wry>::new("navigation-guard")
@@ -296,7 +297,10 @@ pub fn run() {
             appliance::appliance_generate,
             appliance::appliance_layouts,
             appliance::appliance_keyboard,
-            appliance::appliance_mark
+            appliance::appliance_mark,
+            appliance::appliance_painted,
+            appliance::appliance_take_caret,
+            appliance::appliance_battery
         ])
         .setup(move |app| {
             if appliance {
@@ -315,7 +319,10 @@ pub fn run() {
                 let state = AppState::new(app.clone(), &config_dir, &data_dir, startup);
                 if let Some(window) = app.get_webview_window("main") {
                     platform::configure_main_window(&window);
-                    restore_window(&window, &state);
+                    // cage keeps the stick's window fullscreen: no size to restore.
+                    if !appliance {
+                        restore_window(&window, &state);
+                    }
                 }
                 app.manage(state);
                 AppState::restore_library(app);
@@ -344,6 +351,7 @@ pub fn run() {
                 }
                 app.manage(appliance::Gate::new(Box::new(begin)));
                 appliance::watch_keyboard(app.handle());
+                appliance::watch_events(app.handle());
                 return Ok(());
             }
             begin(app.handle()).map_err(Into::into)
@@ -361,7 +369,9 @@ pub fn run() {
                         state.request_open(window.app_handle(), path.clone());
                     }
                 }
-                WindowEvent::CloseRequested { .. } => remember_window(window, &state),
+                WindowEvent::CloseRequested { .. } if !appliance::active() => {
+                    remember_window(window, &state)
+                }
                 _ => {}
             }
         })

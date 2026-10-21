@@ -22,6 +22,10 @@ export type CommandId =
   | "app.guide"
   | "app.about"
   | "app.quit"
+  | "stick.lock"
+  | "stick.suspend"
+  | "stick.restart"
+  | "stick.powerOff"
   | "edit.undo"
   | "edit.redo"
   | "edit.selectAll"
@@ -90,6 +94,9 @@ export interface Command {
   available?: (context: CommandContext) => boolean;
   /** Starts a new group in its menu. */
   separatorBefore?: boolean;
+  /** Only on the desktop, or only on the bismillah stick (os/PLAN.md, OS-3); both
+   * when absent. The other place's commands are left out of the registry at start. */
+  place?: "desktop" | "stick";
   run(context: CommandContext, source: CommandSource): void;
 }
 
@@ -107,6 +114,11 @@ export interface CommandContext {
   /** Opens the guide as a sample document (Help › Guide). */
   openGuide(): void;
   quit(): void;
+  /** The stick's lock view, and its power actions (they save first). */
+  lock(): void;
+  power(action: "off" | "reboot" | "suspend"): void;
+  /** The lock view is up: no command runs behind it. */
+  locked(): boolean;
   isOn(id: ToggleId): boolean;
   /** A library folder is open (and available). */
   hasLibrary(): boolean;
@@ -146,7 +158,7 @@ const withView = (c: CommandContext, f: (view: EditorView) => unknown) => {
   if (c.view) f(c.view);
 };
 
-export const COMMANDS: readonly Command[] = [
+const ALL: readonly Command[] = [
   {
     id: "file.new",
     label: "New file…",
@@ -170,6 +182,7 @@ export const COMMANDS: readonly Command[] = [
     section: "File",
     key: "Mod-o",
     separatorBefore: true,
+    place: "desktop",
     run: (c) => c.openFile(),
   },
   {
@@ -178,6 +191,7 @@ export const COMMANDS: readonly Command[] = [
     section: "File",
     key: "Mod-Shift-o",
     aliases: ["library", "directory", "choose"],
+    place: "desktop",
     run: (c) => c.openFolder(),
   },
   {
@@ -249,7 +263,47 @@ export const COMMANDS: readonly Command[] = [
     section: "File",
     key: "Mod-q",
     separatorBefore: true,
+    place: "desktop",
     run: (c) => c.quit(),
+  },
+  // On the stick, quitting is powering off (os/PLAN.md, OS-3).
+  {
+    id: "stick.lock",
+    label: "Lock",
+    section: "File",
+    separatorBefore: true,
+    place: "stick",
+    aliases: ["passphrase", "screen", "away"],
+    description: "Hides your texts until the passphrase is typed.",
+    run: (c) => c.lock(),
+  },
+  {
+    id: "stick.suspend",
+    label: "Suspend",
+    section: "File",
+    place: "stick",
+    aliases: ["sleep", "standby", "lid"],
+    description: "Saves, locks, and puts the computer to sleep.",
+    run: (c) => c.power("suspend"),
+  },
+  {
+    id: "stick.restart",
+    label: "Restart",
+    section: "File",
+    place: "stick",
+    aliases: ["reboot"],
+    description: "Saves, then restarts the computer.",
+    run: (c) => c.power("reboot"),
+  },
+  {
+    id: "stick.powerOff",
+    label: "Power off",
+    section: "File",
+    key: "Mod-q",
+    place: "stick",
+    aliases: ["quit", "shut down", "turn off", "exit"],
+    description: "Saves, then turns the computer off.",
+    run: (c) => c.power("off"),
   },
   {
     id: "edit.undo",
@@ -286,6 +340,7 @@ export const COMMANDS: readonly Command[] = [
     aliases: ["html", "export", "formatted", "email"],
     description: "Copies the selection, or the whole document, formatted for pasting elsewhere.",
     available: (c) => c.view !== null,
+    place: "desktop",
     run: (c) => c.copyRich(),
   },
   {
@@ -295,6 +350,7 @@ export const COMMANDS: readonly Command[] = [
     aliases: ["browser", "url", "web", "follow", "email"],
     description: "Opens the link at the caret in your browser or mail app, as Ctrl+click does.",
     available: (c) => c.view !== null,
+    place: "desktop",
     run: (c) => c.openLink(),
   },
   {
@@ -489,13 +545,27 @@ export const COMMANDS: readonly Command[] = [
     key: "F11",
     aliases: ["full screen"],
     toggle: (c) => c.isOn("view.fullscreen"),
+    place: "desktop",
     run: (c) => c.toggleFullscreen(),
   },
 ];
 
+/** The commands of this place: the desktop's until `useStickCommands()`. */
+export const COMMANDS: readonly Command[] = ALL.filter((c) => c.place !== "stick");
+
+/** On the bismillah stick: its power and lock commands instead of the desktop's
+ * Quit, Open…, Open folder…, Copy as rich text, Open link and Fullscreen. Called once,
+ * before anything reads the registry. */
+export function useStickCommands(): void {
+  (COMMANDS as Command[]).splice(0, COMMANDS.length, ...ALL.filter((c) => c.place !== "desktop"));
+}
+
+/** Every command, in both places (for the registry's own tests). */
+export const ALL_COMMANDS = ALL;
+
 /** Commands whose shortcut works everywhere: the editor keymap, the menu and the
  * window's own shortcut handler. */
-export const GLOBAL_COMMANDS: readonly Command[] = COMMANDS.filter((c) => !c.keyScope);
+export const GLOBAL_COMMANDS: readonly Command[] = ALL.filter((c) => !c.keyScope);
 
 /** Punctuation keys by their accelerator names. */
 const KEY_NAMES: Record<string, string> = {
@@ -546,7 +616,8 @@ export const commandLog: { id: CommandId; source: CommandSource }[] = [];
 
 export function runCommand(id: CommandId, source: CommandSource, context: CommandContext): boolean {
   const command = commandById(id);
-  if (!command || (command.available && !command.available(context))) return false;
+  if (!command || context.locked() || (command.available && !command.available(context)))
+    return false;
   commandLog.push({ id, source });
   command.run(context, source);
   return true;

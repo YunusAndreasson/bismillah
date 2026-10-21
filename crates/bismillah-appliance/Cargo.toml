@@ -1,7 +1,7 @@
 [package]
 name = "bismillah-appliance"
 version.workspace = true
-description = "The bismillah stick's helper (os/PLAN.md): its home partition, unlock and keyboard"
+description = "The bismillah stick's helper (os/PLAN.md): its home partition, unlock, keyboard, lock and power"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -28,3 +28,6 @@ zeroize = "1.9"
 zxcvbn = { version = "3.1", default-features = false }
 # Already in the tree: the socket peer's uid (SO_PEERCRED) and the systemd socket.
 libc = "0.2"
+# Already in the tree (tao): logind's sleep signal and delay inhibitor, for the lock
+# before sleep. D-Bus over the system bus's Unix socket; libdbus is in the image.
+dbus = { version = "0.9", default-features = false }

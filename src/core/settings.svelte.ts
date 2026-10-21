@@ -57,6 +57,9 @@ export interface Settings {
   english_dialect: EnglishDialect;
   /** An IANA time zone, chosen in the stick's setup; "" for the system's. */
   time_zone: string;
+  /** The stick: this computer's hardware clock keeps local time (as Windows sets it),
+   * so the clock is corrected by the time zone's offset. */
+  clock_keeps_local_time: boolean;
 }
 
 export const DEFAULTS: Settings = {
@@ -80,6 +83,7 @@ export const DEFAULTS: Settings = {
   check_grammar: true,
   english_dialect: "british",
   time_zone: "",
+  clock_keeps_local_time: false,
 };
 
 export const TEXT_SCALE = { min: 0.5, max: 3, step: 0.1 } as const;
