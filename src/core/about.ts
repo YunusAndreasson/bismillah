@@ -82,6 +82,7 @@ export const SOFTWARE: readonly Credit[] = [
       "@codemirror/commands",
       "@codemirror/lang-markdown",
       "@codemirror/language",
+      "@codemirror/search",
       "@codemirror/state",
       "@codemirror/view",
       "@lezer/common",
