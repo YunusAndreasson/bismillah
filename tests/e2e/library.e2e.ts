@@ -377,6 +377,28 @@ describe("library", () => {
     await press("Escape");
   });
 
+  it("puts the caret in a file opened from quick open beside the docked library", async () => {
+    // The tree's focus effect also followed the open document, so once the library
+    // had been focused every file opened beside it took the focus into the tree.
+    const inText = () =>
+      browser.execute(() => document.activeElement?.classList.contains("cm-content") ?? false);
+    await press("Control", "p");
+    await type("chapter 2");
+    await press("Enter");
+    await until(async () => (await docText()).startsWith("# Chapter 2"), "never opened");
+    await press("Control", "\\");
+    await focusedRowIs("Chapter 2.md");
+    await press("Escape");
+    await until(inText, "Escape never returned to the text");
+    await press("Control", "p");
+    await type("chapter 10");
+    await press("Enter");
+    await until(async () => (await docText()).startsWith("# Chapter 10"), "never opened");
+    await browser.pause(300);
+    expect(await inText()).toBe(true);
+    expect((await library()).visible).toBe(true);
+  });
+
   it("refuses every attempt to leave the library", async () => {
     const outside = folder.file("outside.md", "not in the library\n");
     symlinkSync(outside, join(root, "leak.md"));

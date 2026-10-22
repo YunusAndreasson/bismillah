@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ContextMenu } from "bits-ui";
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import { commandById, type CommandId } from "../core/commands.ts";
   import { shortcuts } from "../core/keybindings.svelte.ts";
   import { keyOf, normalise } from "../core/keys.ts";
@@ -67,9 +67,11 @@
     element?.scrollIntoView({ block: "nearest" });
   }
 
-  // The workspace asks for focus when the library opens or after an action.
+  // The workspace asks for focus when the library opens or after an action. Only a
+  // request moves focus: the tab stop also follows the open document, and tracking
+  // it took focus from the text whenever a file opened beside the docked library.
   $effect(() => {
-    if (library.focusRequests > 0) void focusRow(tabStop);
+    if (library.focusRequests > 0) void focusRow(untrack(() => tabStop));
   });
 
   function activate(row: Row) {
