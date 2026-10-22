@@ -865,22 +865,22 @@ export class Workspace {
   }
 
   /** The library row that has keyboard focus, read from the page itself (focus events
-   * don't fire while the window is in the background), and remembered as the tree's
-   * tab stop. */
+   * don't fire while the window is in the background). */
   #focusedEntry(): string | null {
     const active = document.activeElement;
     const row =
       active instanceof HTMLElement ? active.closest<HTMLElement>('[role="treeitem"]') : null;
-    const path = row?.dataset.path ?? null;
-    if (path !== null) this.library.focused = path;
-    return path;
+    return row?.dataset.path ?? null;
   }
 
   /** What Rename and Move to trash act on: the entry focused in the library, else the
-   * open document (when it is in the library). */
-  #target(): { path: string; name: string; folder: boolean } | null {
+   * open document (when it is in the library). Acting on a row remembers it as the
+   * tree's tab stop; asking (the palette, the menu) changes nothing, since Svelte
+   * refuses state changes while it derives. */
+  #target(acting = false): { path: string; name: string; folder: boolean } | null {
     const lib = this.library;
     const focused = this.#focusedEntry();
+    if (acting && focused !== null) lib.focused = focused;
     if (focused !== null) {
       const node = findNode(lib.nodes, focused);
       if (node) return { path: node.path, name: node.name, folder: node.kind === "folder" };
@@ -916,7 +916,7 @@ export class Workspace {
   }
 
   async rename(): Promise<void> {
-    const target = this.#target();
+    const target = this.#target(true);
     if (!target) return;
     const inTree = this.#treeHasFocus();
     if (!(await this.#readyToMove(target.path))) return;
@@ -949,7 +949,7 @@ export class Workspace {
   }
 
   async trash(): Promise<void> {
-    const target = this.#target();
+    const target = this.#target(true);
     if (!target) return;
     const inTree = this.#treeHasFocus();
     const reopen = this.#holdsOpen(target.path) ? this.library.active : null;

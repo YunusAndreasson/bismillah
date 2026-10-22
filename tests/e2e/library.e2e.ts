@@ -354,6 +354,22 @@ describe("library", () => {
     );
   });
 
+  it("opens the palette and quick open while a library row has focus", async () => {
+    // Listing the palette's commands once changed state while Svelte derived it,
+    // which threw and left both pickers dead for the rest of the session.
+    await press("Control", "\\");
+    await focusedRowIs("Essays");
+    await press("Control", "Shift", "p");
+    await until(async () => (await picker())?.kind === "palette", "the palette never opened");
+    await type("zuhd");
+    await until(async () => (await picker())?.selected?.startsWith("Zuhd") ?? false, "no Zuhd");
+    await press("Escape");
+    await until(async () => (await picker()) === null, "the palette never closed");
+    await press("Control", "p");
+    await until(async () => (await picker())?.kind === "quickOpen", "quick open never opened");
+    await press("Escape");
+  });
+
   it("refuses every attempt to leave the library", async () => {
     const outside = folder.file("outside.md", "not in the library\n");
     symlinkSync(outside, join(root, "leak.md"));
