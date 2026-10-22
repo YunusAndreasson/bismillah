@@ -4,12 +4,14 @@
 //! - `bismillah-helper` serves the app on the socket systemd passes it
 //!   (bismillah-helper.socket), one request at a time, to uid 1000 only. It also
 //!   watches for sleep and the lid, and has the app lock first (session.rs).
-//! - `bismillah-helper keyboard-env` writes cage's layouts before the session starts.
+//! - `bismillah-helper keyboard-env` writes cage's layouts before the session starts,
+//!   and `display-env` how it draws (display.rs).
 //! - `bismillah-helper status` prints home's state (the debug image's console).
 //!
 //! Nothing it prints names a passphrase or a text.
 
 mod disk;
+mod display;
 mod home;
 mod keyboard;
 mod lid;
@@ -44,6 +46,11 @@ fn main() {
                 std::process::exit(1);
             }
         }
+        Some("display-env") => {
+            if display::write_env().is_err() {
+                std::process::exit(1);
+            }
+        }
         Some("status") => {
             let (home, keyboard) = state();
             let status = Answer::Status {
@@ -54,7 +61,7 @@ fn main() {
             println!("{}", serde_json::to_string(&status).unwrap_or_default());
         }
         Some(_) => {
-            eprintln!("usage: bismillah-helper [status|keyboard-env]");
+            eprintln!("usage: bismillah-helper [status|keyboard-env|display-env]");
             std::process::exit(2);
         }
     }

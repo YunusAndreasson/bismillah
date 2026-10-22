@@ -141,7 +141,7 @@ pub fn write_env(keyboard: &Keyboard) -> std::io::Result<()> {
 }
 
 /// Writes `text` to `path` through a temporary file, root-only.
-fn write_private(path: &Path, text: &str) -> std::io::Result<()> {
+pub fn write_private(path: &Path, text: &str) -> std::io::Result<()> {
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
     if let Some(dir) = path.parent() {

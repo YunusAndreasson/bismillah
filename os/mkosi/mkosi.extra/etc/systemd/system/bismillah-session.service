@@ -38,6 +38,10 @@ Environment=GSETTINGS_BACKEND=memory
 # header (or setup's choice) before each start (docs/spikes/os-keyboard.md).
 ExecStartPre=+/usr/libexec/bismillah-helper keyboard-env
 EnvironmentFile=-/run/bismillah/keyboard.env
+# Where Mesa draws the boot display in software, WebKit's DMA-BUF renderer showed a
+# frame only on the next input; the helper turns it off there (helper/display.rs).
+ExecStartPre=+/usr/libexec/bismillah-helper display-env
+EnvironmentFile=-/run/bismillah/display.env
 ExecStart=/usr/bin/cage -d -- /usr/bin/bismillah --appliance
 # If the app or cage ends, the session starts again (exit 76: new keyboard layouts).
 Restart=always
