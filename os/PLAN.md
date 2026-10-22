@@ -21,7 +21,7 @@ This file is the plan for that work, written to be carried out over several sess
 - Copy as rich text removed in appliance mode.
 - Our own WebKitGTK scheduled after the stick's 1.0.
 
-**Status:** Phase OS-4 accepted (2026-10-22): the sizes are within budget, the boot is 2.4 s faster in the VM, and the author accepted the two VM boot stages still over budget (*Phase OS-4 result* below; ADR-0014). Its Dell steps are still listed there. Phase OS-3 built (2026-10-21) and waiting for the author's check on the Dell: lock before sleep and on the lid, power in the menu, the clock and battery, Settings › This stick (*Phase OS-3 result* below). The author moved on from OS-2 before its Dell check; that check is still listed under *Phase OS-2 result*. Phase OS-2 built (2026-10-21): a blank stick asks for a keyboard, a passphrase and a time zone once, formats its home (LUKS2, Argon2id) and from then on boots to the bismillah unlock screen. Every VM scenario passes; the result is in *Phase OS-2 result* below. OS-1 was accepted when the author moved on. Working rule from the author: make it work first, then optimise.
+**Status:** Phase OS-5 built (2026-10-22) and waiting for the author's acceptance of the stick 1.0: reflashing that keeps the texts, the ways out closed (one let a reload skip the lock view), the laptop shown untouched, the README and the security audit (*Phase OS-5 result* below). Phase OS-4 accepted (2026-10-22): the sizes are within budget, the boot is 2.4 s faster in the VM, and the author accepted the two VM boot stages still over budget (*Phase OS-4 result* below; ADR-0014). Its Dell steps are still listed there. Phase OS-3 built (2026-10-21) and waiting for the author's check on the Dell: lock before sleep and on the lid, power in the menu, the clock and battery, Settings › This stick (*Phase OS-3 result* below). The author moved on from OS-2 before its Dell check; that check is still listed under *Phase OS-2 result*. Phase OS-2 built (2026-10-21): a blank stick asks for a keyboard, a passphrase and a time zone once, formats its home (LUKS2, Argon2id) and from then on boots to the bismillah unlock screen. Every VM scenario passes; the result is in *Phase OS-2 result* below. OS-1 was accepted when the author moved on. Working rule from the author: make it work first, then optimise.
 
 ---
 
@@ -683,7 +683,54 @@ Built 2026-10-21/22 (commits c42964b to the OS-4 result). The full VM suite (133
 - The author reflashes the Dell's stick without losing a text and accepts the stick 1.0.
 
 ### Phase OS-5 result
-*(to be written)*
+
+Built 2026-10-22 (commits 3cc9386 to the OS-5 result). `os/scripts/verify.sh` passes in full: the reflash tool's 6 tests, both images' contents, 163 VM checks (the four new scenarios included) and the measurements with no regression. `pnpm verify` passes too (426 frontend and 191 Rust tests, 27 real-app suites). The audit is [docs/audits/2026-10-22-stick-1.0.md](../docs/audits/2026-10-22-stick-1.0.md), and the stick's own documentation is [os/README.md](README.md).
+
+**What exists:**
+- **Reflash** (`os/scripts/stick.ts`, `flash.sh --update`):
+  - The first flash writes a prepared copy of the image with the stick's own disk, ESP and home GUIDs. It records them in `os/sticks.toml` (gitignored) and in the ESP's `bismillah/stick-id`, a 512-byte placeholder the build ships and the tool fills in place.
+  - `--update` checks the GPT GUIDs against both, refuses any other partition layout or a system bigger than the stick's slots, then writes root and verity, then the ESP. It gives root and verity the new build's GUIDs, and reads all three back. A registry flag lets an update cut off while writing the ESP run again.
+  - root and verity now have fixed slots (640 and 8 MiB) instead of minimised ones, so a later, larger build fits. The image grew from 1.45 to 1.75 GB; flashing it writes the slots' zeros too.
+  - `os/tests/stick.test.ts` (6 tests on made-up sticks) runs in `verify.sh`, and the `reflash` scenario does debug → release → debug on one stick with a text in it.
+- **Ways out, closed:**
+  - systemd-boot's menu can't be opened by a held key any more (`timeout menu-disabled`).
+  - SysRq is off from the kernel command line onwards, not only once sysctl.d applies.
+  - Ctrl+Alt+Del powers off (on an empty VT; in the session the app gets the keys), and repeating it does nothing more drastic.
+  - `mount` and `umount` lose their setuid bit (`harden.finalize`).
+  - In the app, on the stick: dialog paths, drops and *Open folder* outside `~/Texts` are refused; WebKit's page menu (with *Reload*) is suppressed; and a page loaded after the app started opens behind the lock view.
+- **The helper:** a client has 5 s to send its request line. A parser fuzz test (200 000 damaged lines), and a debug-only `bismillah-probe` that the `helper-socket` scenario runs against the real helper.
+- **Scenarios:** `host-untouched` (release and debug, with a laptop NVMe disk behind a qcow2 overlay and the variable store diffed), `ways-out`, `helper-socket` and `reflash`. The contents check adds the loader's settings, the command line, the stick-id, Ctrl+Alt+Del, launchers, LVM, RAID and swap tools, a shell-free initrd, and setuid and world-writable files.
+- **`os/README.md`:** making and updating a stick, why Secure Boot stays on, the honest claims with the firmware variables listed, what to do when a laptop won't boot it, the recommended stick, and the tested laptops.
+- **`perf.ts`** measures the erofs file system and the verity tree by their superblocks, since their slots are now larger than they are.
+
+**Found by the audit** (each is fixed, and has a test that fails without the fix):
+
+| Finding | Severity |
+|---|---|
+| WebKit's page menu offered *Reload*. A reloaded page showed the text without the passphrase, even when the stick was locked. | High: it bypassed the lock view |
+| A path typed into a native dialog, such as `/tmp/note.md`, was saved into RAM, shown as saved, and lost at power-off | High for the writer's trust (the "Saved" promise) |
+| A client that connected to the helper and sent nothing held it up indefinitely, the lock before sleep included | Medium: only the writer's uid can connect |
+| Every stick flashed from one image had the same GUIDs, so two such sticks were twins, and an ESP GUID once collided with a firmware boot entry on the Dell | Medium |
+| SysRq worked until the system had started; a held key opened the loader's menu; Ctrl+Alt+Del restarted; `mount` was setuid | Low: none of them reached a shell |
+
+**Measured** (VM, debug image, median of 3; `os/out/perf/report.md`): sizes unchanged (ESP 23.6 MiB, initrd 9.9 MiB, erofs root 356.7 MiB in its 640 MiB slot). On the good stick, kernel → switch-root 2.87 s, switch-root → unlock painted 4.16 s, *Unlock* → caret 1.63 s; on the cheap stick, kernel → unlock painted 9.99 s. RAM 826 MiB. All within the regression bounds of OS-4's baseline, which stays.
+
+**Deviations and findings:**
+- **Plan's partition table:** the ESP is 512 MiB (OS-0), root and verity are 640 and 8 MiB rather than 2 GiB and 128 MiB, and home stays 512 MiB, because flash.sh doesn't grow it yet. Texts need little room, but growing home to the rest of the stick is still open.
+- **"The kernel-config check"** in the honest claims wasn't added. The claim rests on the module and firmware audit and on the tested zero frames; the README's wording says so.
+- **QEMU's block-write trace events** weren't used. QEMU's own per-disk write counters, read after the guest powers off, and the qcow2 overlay's allocation, together prove the same thing.
+- **cage's pointer** still shows at start. A transparent cursor theme for cage didn't take, and was removed again. It disappears as soon as the writer types (the app hides it).
+- **The first screen often paints white in the VM** until a key is pressed. This was already the case in OS-4's runs (three of four first frames). It is the software renderer (llvmpipe), like OS-1's unpainted welcome screen, and every scenario that types passes. The Dell's i915 decides whether it matters.
+- **Version:** the stick 1.0 is the tag `stick-1.0` (app 1.0.0, Debian snapshot 20261021T083704Z), made when the author accepts it.
+
+**Offline rebuild:** OFFLINE_RESULT
+
+**The author's acceptance check:**
+1. Flash the Dell's stick afresh once: `bash os/scripts/flash.sh release` (**this erases the stick's texts**, the last time). The new layout has fixed slots and records the stick in `os/sticks.toml`. Set it up and write something.
+2. Rebuild (`pnpm os:build`) and reflash it: `bash os/scripts/flash.sh --update release`. It asks for sudo and the stick's model name. Boot it, unlock it, and check that the text is there.
+3. On the Dell, with Secure Boot on: hold a key while it starts (no menu should appear), and try Ctrl+Alt+F2, Alt+SysRq+B and a right-click outside the text (none should do anything). Lock it from the palette, right-click, and check that nothing offers *Reload*.
+4. If you like, add the Dell's row in `os/README.md`'s *Tested laptops* from what you see, including whether the first screen paints at once.
+5. Read the audit, and accept the stick 1.0. I then tag it `stick-1.0`.
 
 ---
 
