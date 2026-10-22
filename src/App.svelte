@@ -35,7 +35,13 @@
   /** Waits until the stick's home is open; returns setup's choices, if it ran. */
   async function unlocked(): Promise<{ timeZone: string } | null> {
     const initial = await ipc.applianceGate();
-    if (initial === null) return null;
+    if (initial === null) {
+      // On the stick the first page load always meets the gate. A page loaded again
+      // after the app started (a reload, a restarted web process) can't know whether
+      // the stick was locked, so it opens behind the lock view (os/PLAN.md, OS-5).
+      if ((await ipc.appInfo()).stick) workspace.locked = true;
+      return null;
+    }
     const setup = await new Promise<{ timeZone: string } | null>(
       (opened) => (gate = { initial, opened }),
     );
@@ -92,8 +98,18 @@
       if (!event.repeat) pointerHidden = true;
     };
     const showPointer = () => (pointerHidden = false);
+    // On the stick WebKit's own context menu (Back, Reload, …) has nothing to offer and
+    // would reload the page. Fields and the editor keep theirs (Cut, Copy, Paste), and
+    // the editor its own spelling menu.
+    const noPageMenu = (event: MouseEvent) => {
+      const field =
+        event.target instanceof Element &&
+        event.target.closest("input, textarea, [contenteditable]");
+      if (onStick && !field) event.preventDefault();
+    };
     window.addEventListener("keydown", hidePointer, true);
     window.addEventListener("mousemove", showPointer, true);
+    window.addEventListener("contextmenu", noPageMenu);
     void (async () => {
       try {
         const setup = await unlocked();
@@ -115,6 +131,7 @@
     return () => {
       window.removeEventListener("keydown", hidePointer, true);
       window.removeEventListener("mousemove", showPointer, true);
+      window.removeEventListener("contextmenu", noPageMenu);
       document.fonts.removeEventListener("loadingdone", onFonts);
       workspace.editor?.view.destroy();
     };

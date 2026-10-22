@@ -423,6 +423,39 @@ describe("the stick's first screens", () => {
         { v: 1, verb: "verify", passphrase: "right words here" },
       ]);
 
+      // A page loaded again once the app has started (WebKit's Reload, a restarted web
+      // process) opens behind the lock view: it can't know whether the stick was locked.
+      await session.refresh();
+      await session.waitUntil(async () => (await heading(session).catch(() => "")) === "Locked", {
+        timeout: 20_000,
+      });
+      await type(session, "right words here");
+      await session.keys(["Enter"]);
+      await session.$("main.screen").waitForExist({ reverse: true, timeout: 20_000 });
+      // And WebKit's own page menu (Back, Reload) never opens; fields keep theirs.
+      const menus = await session.execute(() => {
+        const ask = (target: Element) =>
+          target.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+        const field = document.createElement("input");
+        document.body.append(field);
+        const answer = { page: ask(document.body), field: ask(field) };
+        field.remove();
+        return answer;
+      });
+      expect(menus).toEqual({ page: false, field: true });
+
+      // A path typed into a native dialog stays in the library: elsewhere is RAM, or
+      // someone else's disk, and a text saved there would vanish at power-off.
+      const outside = join(scratch, "elsewhere.md");
+      await session.execute((p) => window.__bismillah?.nextDialog(p), outside);
+      await session.keys(["Control", "n"]);
+      await session.$("p*=only the library is kept on the stick").waitForExist({ timeout: 10_000 });
+      expect(existsSync(outside)).toBe(false);
+      const inside = join(home, "Texts/inside.md");
+      await session.execute((p) => window.__bismillah?.nextDialog(p), inside);
+      await session.keys(["Control", "n"]);
+      await session.waitUntil(() => existsSync(inside), { timeout: 10_000 });
+
       // Settings › This stick: the keyboard, applied in one step, and the clock.
       await session.keys(["Control", ","]);
       await session.$("#settings-stick").waitForExist();
