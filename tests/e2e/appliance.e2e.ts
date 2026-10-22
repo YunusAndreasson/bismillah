@@ -462,6 +462,13 @@ describe("the stick's first screens", () => {
       await session.$("#settings-stick").scrollIntoView();
       expect(await session.$("#set-local-clock").isExisting()).toBe(true);
       expect(await session.$("button=Show in file manager").isExisting()).toBe(false);
+      // No other program on the stick can edit a theme, keybindings or settings file.
+      expect(await session.$("button=Create keybindings.toml").isExisting()).toBe(false);
+      const hints = await session.execute(
+        () => document.querySelector(".settings-dialog")?.textContent,
+      );
+      expect(hints).not.toContain("Your own themes");
+      expect(hints).not.toContain("plain text files");
       await session.$("#set-layout-1").selectByAttribute("value", "ara");
       await session.$("#set-switch").waitForExist();
       await shot(session, "settings-stick");

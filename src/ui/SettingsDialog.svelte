@@ -338,7 +338,8 @@
             themeNames,
             (colour_theme) => change({ colour_theme }),
           )}
-          <p class="hint">{copy.themes.hint(folders.config)}</p>
+          <!-- On the stick no other program can write a theme file. -->
+          {#if !stick}<p class="hint">{copy.themes.hint(folders.config)}</p>{/if}
           {#if colourThemes.truncated}<p class="hint">{copy.themes.truncated}</p>{/if}
           {#if troubled.length > 0}
             <ul class="problems">
@@ -545,38 +546,41 @@
             {@render folderError("library")}
           {/if}
         </div>
-        <div class="setting">
-          <h3 class="label">{copy.shortcuts.title}</h3>
-          {#if shortcuts.file.unreadable}
-            <p class="hint error">{copy.shortcuts.unreadable(shortcuts.file.unreadable)}</p>
-          {:else if shortcuts.file.exists}
-            <p class="hint">
-              {copy.shortcuts.changed(shortcuts.changed)}
-              {copy.shortcuts.editHint(folders.config)}
-            </p>
-          {:else}
-            <p class="hint">{copy.shortcuts.none}</p>
-            <div>
-              <button type="button" class="action" onclick={create}>
-                {copy.shortcuts.create}
-              </button>
-            </div>
-          {/if}
-          {#if createError}<p class="hint error" role="alert">{createError}</p>{/if}
-          {#if shortcuts.problems.length > 0}
-            <ul class="problems">
-              {#each shortcuts.problems as problem, i (i)}
-                <li>{copy.shortcuts.problem(problem)}</li>
-              {/each}
-            </ul>
-          {/if}
-        </div>
-        {@render folderNote(
-          "settings-your-files",
-          "settings",
-          t.yourFiles,
-          t.yourFilesText(folders.config),
-        )}
+        <!-- On the stick there is no other editor for keybindings.toml or settings.toml. -->
+        {#if !stick}
+          <div class="setting">
+            <h3 class="label">{copy.shortcuts.title}</h3>
+            {#if shortcuts.file.unreadable}
+              <p class="hint error">{copy.shortcuts.unreadable(shortcuts.file.unreadable)}</p>
+            {:else if shortcuts.file.exists}
+              <p class="hint">
+                {copy.shortcuts.changed(shortcuts.changed)}
+                {copy.shortcuts.editHint(folders.config)}
+              </p>
+            {:else}
+              <p class="hint">{copy.shortcuts.none}</p>
+              <div>
+                <button type="button" class="action" onclick={create}>
+                  {copy.shortcuts.create}
+                </button>
+              </div>
+            {/if}
+            {#if createError}<p class="hint error" role="alert">{createError}</p>{/if}
+            {#if shortcuts.problems.length > 0}
+              <ul class="problems">
+                {#each shortcuts.problems as problem, i (i)}
+                  <li>{copy.shortcuts.problem(problem)}</li>
+                {/each}
+              </ul>
+            {/if}
+          </div>
+          {@render folderNote(
+            "settings-your-files",
+            "settings",
+            t.yourFiles,
+            t.yourFilesText(folders.config),
+          )}
+        {/if}
         {@render folderNote(
           "settings-recovery",
           "recovery",
