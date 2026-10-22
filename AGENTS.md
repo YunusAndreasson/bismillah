@@ -110,7 +110,11 @@ The Norman-inspired UX follow-up explains immediate Settings changes, limits and
 font defaults, keeps invalid navigation correctable, exposes settings-save retry
 inside the modal, and acknowledges explicit document saves honestly. Evidence:
 [the experience audit](docs/audits/2026-10-20-experience.md).
-The current gate covers 426 frontend and 191 Rust tests, all 27
+The [stick QA pass](docs/audits/2026-10-22-stick-qa.md) drove the editor in the
+stick's VM by keyboard: pickers that died after the library had focus, focus left in
+the tree after quick open, dialogs that scrolled long texts to the top, and frames
+shown late on software rendering.
+The current gate covers 427 frontend and 192 Rust tests, all 27
 real-app suites and 16 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.

@@ -720,7 +720,7 @@ Built 2026-10-22 (commits 3cc9386 to the OS-5 result). `os/scripts/verify.sh` pa
 - **"The kernel-config check"** in the honest claims wasn't added. The claim rests on the module and firmware audit and on the tested zero frames; the README's wording says so.
 - **QEMU's block-write trace events** weren't used. QEMU's own per-disk write counters, read after the guest powers off, and the qcow2 overlay's allocation, together prove the same thing.
 - **cage's pointer** still shows at start. A transparent cursor theme for cage didn't take, and was removed again. It disappears as soon as the writer types (the app hides it).
-- **The first screen often paints white in the VM** until a key is pressed. This was already the case in OS-4's runs (three of four first frames). It is the software renderer (llvmpipe), like OS-1's unpainted welcome screen, and every scenario that types passes. The Dell's i915 decides whether it matters.
+- **The first screen often paints white in the VM** until a key is pressed. This was already the case in OS-4's runs (three of four first frames). *Found in the stick QA pass afterwards* (docs/audits/2026-10-22-stick-qa.md): on llvmpipe WebKit's DMA-BUF renderer shows a frame only when the next input arrives. The helper now turns that renderer off where the boot display has no GPU driver Mesa renders on; the Dell's i915 keeps it, and decides whether it matters there.
 - **Version:** the stick 1.0 is the tag `stick-1.0` (app 1.0.0, Debian snapshot 20261021T083704Z), made when the author accepts it.
 
 **Offline rebuild:** A clean checkout of a404084, given only `os/cache/`, built the app from nothing and both images in a network namespace with only `lo` (`os/scripts/rebuild-offline.sh`).
