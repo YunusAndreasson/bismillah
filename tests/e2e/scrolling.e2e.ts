@@ -72,4 +72,34 @@ describe("scrolling through mixed typography", () => {
       expect(result.unchanged).toBe(true);
     });
   }
+
+  it("keeps its place when a dialog closes and focus comes back to the text", async () => {
+    // Bits UI returns focus with a plain focus(), and WebKit scrolled the whole text
+    // to its top: Settings or the palette at the end of a chapter lost the place.
+    await browser.execute(async (text: string) => {
+      await window.__bismillah?.setDoc(text);
+      await window.__bismillah?.settle();
+    }, book);
+    const press = async (...keys: string[]) => {
+      await browser.keys(keys);
+      await browser.keys(keys.filter((k) => k === "Control" || k === "Shift"));
+    };
+    await press("Control", "End");
+    await browser.pause(300);
+    const top = () =>
+      browser.execute(() => Math.round(document.querySelector(".cm-scroller")?.scrollTop ?? 0));
+    const end = await top();
+    expect(end).toBeGreaterThan(5000);
+    for (const keys of [
+      ["Control", ","],
+      ["Control", "Shift", "p"],
+    ]) {
+      await press(...keys);
+      await browser.$('[role="dialog"]').waitForDisplayed();
+      await browser.keys("Escape");
+      await browser.$('[role="dialog"]').waitForExist({ reverse: true });
+      await browser.pause(200);
+      expect(await top()).toBe(end);
+    }
+  });
 });

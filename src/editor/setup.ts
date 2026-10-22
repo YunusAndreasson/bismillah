@@ -5,6 +5,7 @@ import { basmallah } from "./basmallah.ts";
 import { caretBlink } from "./caretBlink.ts";
 import { bidi } from "./bidi.ts";
 import { forgetWord, setDisplay, setIgnored } from "./diagnostics.ts";
+import { focusKeepsScroll } from "./focusScroll.ts";
 import { linter, recheck, type LintSource } from "./linter.ts";
 import { paragraphs } from "./paragraphs.ts";
 import { rest } from "./rest.ts";
@@ -159,6 +160,7 @@ export function createEditor(options: EditorOptions): Editor {
     options.keys ?? [],
     keymap.of([...defaultKeymap, ...historyKeymap]),
     EditorView.lineWrapping,
+    focusKeepsScroll(),
     EditorView.contentAttributes.of({ spellcheck: "false", autocorrect: "off" }),
     EditorView.updateListener.of((update) => {
       if (update.docChanged) options.onChange?.();
