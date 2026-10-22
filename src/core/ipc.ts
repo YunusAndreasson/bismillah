@@ -52,6 +52,7 @@ export type SaveError =
   | { kind: "not_a_file" }
   | { kind: "closed" }
   | { kind: "exists" }
+  | { kind: "outside" }
   | { kind: "other"; detail: string };
 
 export type OpenError =

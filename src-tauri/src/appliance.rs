@@ -95,6 +95,30 @@ pub fn library() -> Option<PathBuf> {
     }
 }
 
+/// Whether a path the writer chose in a native dialog, or dropped, may be used. On the
+/// stick only the library qualifies: a path typed by hand could lead into a RAM folder
+/// such as `/tmp`, where a text would show as saved and then vanish at power-off
+/// (os/PLAN.md, OS-5). Always true on the desktop, where the writer may choose anywhere.
+pub fn allows(path: &Path) -> bool {
+    if !active() {
+        return true;
+    }
+    library().is_some_and(|library| within(&library, path))
+}
+
+/// Whether `path`, with every symlink resolved, is `library` or inside it. A file that
+/// doesn't exist yet (New file…, Save as…) is judged by its folder.
+fn within(library: &Path, path: &Path) -> bool {
+    let Ok(library) = library.canonicalize() else {
+        return false;
+    };
+    let real = path.canonicalize().ok().or_else(|| {
+        let folder = path.parent()?.canonicalize().ok()?;
+        Some(folder.join(path.file_name()?))
+    });
+    real.is_some_and(|real| real.starts_with(&library))
+}
+
 /// The app's own settings and data folders on the stick: fixed under home, rather than
 /// wherever `XDG_CONFIG_HOME` and `XDG_DATA_HOME` point (RAM, in the session).
 pub fn dirs() -> Option<(PathBuf, PathBuf)> {
@@ -685,6 +709,27 @@ mod tests {
         assert!(!enabled(&args(&["bismillah", "appliance.md"])));
         // The program name itself is never read as the flag.
         assert!(!enabled(&args(&["--appliance"])));
+    }
+
+    #[test]
+    fn only_paths_inside_the_library_are_allowed() {
+        let scratch = crate::testing::Scratch::new();
+        let dir = scratch.path();
+        let library = dir.join("Texts");
+        std::fs::create_dir_all(library.join("Essays")).unwrap();
+        std::fs::write(library.join("note.md"), "").unwrap();
+        std::fs::write(dir.join("outside.md"), "").unwrap();
+        std::os::unix::fs::symlink(dir, library.join("out")).unwrap();
+        std::os::unix::fs::symlink(dir.join("outside.md"), library.join("leak.md")).unwrap();
+        assert!(within(&library, &library));
+        assert!(within(&library, &library.join("note.md")));
+        assert!(within(&library, &library.join("Essays/new.md")));
+        assert!(!within(&library, &dir.join("outside.md")));
+        assert!(!within(&library, Path::new("/tmp/new.md")));
+        assert!(!within(&library, &library.join("../outside.md")));
+        assert!(!within(&library, &library.join("out/new.md")));
+        assert!(!within(&library, &library.join("leak.md")));
+        assert!(!within(&library, &library.join("missing/new.md")));
     }
 
     #[test]

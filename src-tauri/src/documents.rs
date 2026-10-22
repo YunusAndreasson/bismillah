@@ -145,6 +145,9 @@ pub enum SaveError {
     Closed,
     #[error("a file with that name already exists")]
     Exists,
+    /// On the stick: a place outside the library (appliance.rs, `allows`).
+    #[error("it is outside the library")]
+    Outside,
     #[error("input/output error ({detail})")]
     Other { detail: String },
 }

@@ -413,6 +413,9 @@ pub async fn library_open_dialog(
     let Some(folder) = chosen else {
         return Ok(None);
     };
+    if !crate::appliance::allows(&folder) {
+        return Err(LibraryError::Outside);
+    }
     state.set_library(&folder);
     state.remember(|m| m.library_open = true);
     Ok(Some(state.view()))

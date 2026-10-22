@@ -30,6 +30,7 @@ const SAVE_REASONS: Record<SaveError["kind"], string> = {
   not_a_file: "it isn't saved to a file",
   closed: "the document was closed",
   exists: "a file with that name already exists",
+  outside: "only the library is kept on the stick",
   other: "of an input/output error",
 };
 

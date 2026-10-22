@@ -446,6 +446,7 @@ pub async fn doc_open_dialog(
         }
     };
     match chosen {
+        Some(path) if !crate::appliance::allows(&path) => Err(OpenError::Outside),
         Some(path) => state.open_path(&path).map(Some),
         None => Ok(None),
     }
@@ -485,6 +486,9 @@ pub async fn doc_new_dialog(
     if path.extension().is_none() {
         path.set_extension("md");
     }
+    if !crate::appliance::allows(&path) {
+        return Err(SaveError::Outside);
+    }
     let (doc, decoded) = documents::create(&path)?;
     Ok(Some(state.install(Source::File(doc), decoded)))
 }
@@ -495,6 +499,7 @@ pub async fn doc_new_dialog(
 pub async fn doc_open_requested(state: State<'_, AppState>) -> Result<Option<Opened>, OpenError> {
     let requested = lock(&state.requested).take();
     match requested {
+        Some(path) if !crate::appliance::allows(&path) => Err(OpenError::Outside),
         Some(folder) if folder.is_dir() => {
             state.set_library(&folder);
             state.remember(|m| m.library_open = true);
@@ -615,6 +620,9 @@ pub async fn doc_save_as(
     let Some(path) = chosen else {
         return Ok(None);
     };
+    if !crate::appliance::allows(&path) {
+        return Err(SaveError::Outside);
+    }
     // The dialog has asked before replacing an existing file.
     let bytes = documents::encode(&text, line_ending, bom);
     let permissions = std::fs::metadata(&path).ok().map(|m| m.permissions());
