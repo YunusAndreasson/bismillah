@@ -170,6 +170,8 @@ export const copy = {
       weak: "Too easy to guess. Try more words, or a suggested passphrase.",
       enough: "Strong enough.",
       mismatch: "The two passphrases are different.",
+      empty: "Type a passphrase first.",
+      againEmpty: "Type the passphrase again to confirm it.",
       changeKeyboard: "Change keyboard",
       timeTitle: "Choose your time zone",
       timeHint: "For the clock and the times shown next to your files.",

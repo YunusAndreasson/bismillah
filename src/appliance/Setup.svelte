@@ -44,6 +44,11 @@
   let strength = $state<ipc.Strength | null>(null);
   let busy = $state(false);
   let problem = $state<string | null>(null);
+  // Continue was pressed before the passphrase was ready: the note says what's missing
+  // until the writer changes a field.
+  let tried = $state(false);
+  let passphraseField = $state<HTMLInputElement>();
+  let againField = $state<HTMLInputElement>();
 
   const zones = Intl.supportedValuesOf("timeZone");
   let timeZone = $state(Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -94,14 +99,24 @@
       again = words;
       shown = true;
       suggested = true;
+      tried = false;
     } catch {
       problem = text.failed;
     }
   }
 
+  // Continue stays enabled, so the keyboard reaches it; pressed too early, it says why
+  // and puts the caret where the passphrase needs changing.
   function choosePassphrase(event: SubmitEvent) {
     event.preventDefault();
-    if (ready) step = 3;
+    if (ready) {
+      tried = false;
+      step = 3;
+      return;
+    }
+    tried = true;
+    if (passphrase === "" || strength?.enough !== true) passphraseField?.focus();
+    else againField?.focus();
   }
 
   async function create(event: SubmitEvent) {
@@ -173,8 +188,12 @@
           spellcheck="false"
           aria-describedby="strength"
           use:focus
+          bind:this={passphraseField}
           bind:value={passphrase}
-          oninput={() => (suggested = false)}
+          oninput={() => {
+            suggested = false;
+            tried = false;
+          }}
         />
       </div>
       <div class="field">
@@ -185,7 +204,9 @@
           autocomplete="off"
           spellcheck="false"
           aria-describedby="strength"
+          bind:this={againField}
           bind:value={again}
+          oninput={() => (tried = false)}
         />
       </div>
       <div class="row">
@@ -196,10 +217,14 @@
       </div>
       <KeyboardIndicator {names} />
       <p id="strength" class="note" role="status">
-        {#if passphrase !== "" && strength && !strength.enough}
+        {#if tried && passphrase === ""}
+          {text.setup.empty}
+        {:else if passphrase !== "" && strength && !strength.enough}
           {text.setup.weak}
         {:else if again !== "" && !matches}
           {text.setup.mismatch}
+        {:else if tried && again === ""}
+          {text.setup.againEmpty}
         {:else if strength?.enough}
           {text.setup.enough}
         {/if}
@@ -210,7 +235,7 @@
         <button class="start" type="button" onclick={() => (step = 1)}
           >{text.setup.changeKeyboard}</button
         >
-        <button class="primary" type="submit" disabled={!ready}>{text.setup.continue}</button>
+        <button class="primary" type="submit">{text.setup.continue}</button>
       </div>
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
     </form>

@@ -192,11 +192,30 @@ describe("the stick's first screens", () => {
     try {
       expect(await heading(session)).toBe("Choose a passphrase");
       const next = session.$("button.primary");
+      const focused = () => session.execute(() => document.activeElement?.id ?? "");
+      const continueFocused = () =>
+        session.execute(() => document.activeElement?.textContent?.trim() === "Continue");
+      // Continue too early says what's missing and puts the caret there.
+      await session.keys(["Enter"]);
+      await session.$("p#strength=Type a passphrase first.").waitForExist();
+      expect(await heading(session)).toBe("Choose a passphrase");
       await type(session, "password");
       await session
         .$("p#strength=Too easy to guess. Try more words, or a suggested passphrase.")
         .waitForExist();
-      expect(await next.isEnabled()).toBe(false);
+      // The keyboard reaches Continue while the passphrase isn't ready yet (the Dell,
+      // 2026-10-22: Tab skipped a disabled Continue, and Enter did nothing).
+      await session.execute(() => {
+        const back = [...document.querySelectorAll("button")].find(
+          (b) => b.textContent?.trim() === "Change keyboard",
+        );
+        back?.focus();
+      });
+      await session.keys(["Tab"]);
+      expect(await continueFocused()).toBe(true);
+      await session.keys(["Enter"]);
+      expect(await heading(session)).toBe("Choose a passphrase");
+      expect(await focused()).toBe("passphrase");
       // A suggestion fills both fields, shows them, and is strong enough.
       await session.$("button=Suggest a passphrase").click();
       await session.$("p#strength=Strong enough.").waitForExist();
@@ -204,18 +223,27 @@ describe("the stick's first screens", () => {
       expect(words.split(" ")).toHaveLength(6);
       expect(await session.$("#again").getValue()).toBe(words);
       expect(await session.$("#passphrase").getAttribute("type")).toBe("text");
-      expect(await next.isEnabled()).toBe(true);
       await shot(session, "setup-passphrase");
 
       // The writer's own, typed twice: a mismatch is said, and blocks Continue.
-      await session.$("#passphrase").clearValue();
-      await session.$("#again").clearValue();
-      await session.$("#passphrase").click();
+      // Cleared by keyboard: clearValue sends no input event, so the app wouldn't see it.
+      for (const field of ["#again", "#passphrase"]) {
+        await session.$(field).click();
+        await session.keys(["Control", "a"]);
+        await session.keys(["Backspace"]);
+      }
       await type(session, typed);
-      await session.$("#again").click();
+      await session.$("p#strength=Strong enough.").waitForExist();
+      await session.keys(["Enter"]);
+      await session.$("p#strength=Type the passphrase again to confirm it.").waitForExist();
+      expect(await focused()).toBe("again");
       await type(session, `${typed}x`);
       await session.$("p#strength=The two passphrases are different.").waitForExist();
-      expect(await next.isEnabled()).toBe(false);
+      await next.click();
+      expect(await heading(session)).toBe("Choose a passphrase");
+      expect(await focused()).toBe("again");
+      await session.$("#again").click();
+      await session.keys(["End"]);
       await session.keys(["Backspace"]);
       await session.$("p#strength=Strong enough.").waitForExist();
       expect(await session.$("p.statement").getText()).toBe(
