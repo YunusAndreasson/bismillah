@@ -921,6 +921,30 @@ async function suspendLock(): Promise<void> {
     check(true, `${name}: a dropped connection locks the app`);
     check(await unlockAt(vm, "dropped", doc), `${name}: and the passphrase unlocks it`);
 
+    // A file dialog left open: under cage it is a window of its own, above the lock
+    // view, listing the texts and taking input. The lock closes it, and nothing it
+    // answers counts.
+    await vm.key("ctrl", "n");
+    await sleep(2500);
+    await vm.screen("dialog-open");
+    from = here(vm);
+    await vm.run("systemctl restart bismillah-helper.service");
+    await mark(vm, "page-lock-painted", 10, from);
+    await sleep(1500);
+    const dialogGone = changed(await vm.settled(20), lock);
+    check(
+      dialogGone < 0.01,
+      `${name}: a file dialog closes when the stick locks (${(dialogGone * 100).toFixed(2)}% differs from the lock view)`,
+    );
+    await vm.type("Stranger");
+    await vm.key("ret");
+    await sleep(2500);
+    check(
+      !(await vm.run("ls /home/writer/Texts")).includes("Stranger"),
+      `${name}: nothing typed at the lock reaches a dialog`,
+    );
+    check(await unlockAt(vm, "dialog", doc), `${name}: and the passphrase unlocks it`);
+
     const cases: SleepCase[] = [
       { name: "normal", expect: "locked-before-sleep" },
       {

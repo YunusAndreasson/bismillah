@@ -432,6 +432,7 @@ pub async fn doc_open_dialog(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Option<Opened>, OpenError> {
+    let locks = crate::appliance::locks();
     let chosen = match state.dialog_answer() {
         Some(answer) => answer,
         None => {
@@ -445,6 +446,10 @@ pub async fn doc_open_dialog(
             }
         }
     };
+    if crate::appliance::locks() != locks {
+        // The stick locked while the dialog was open: whatever it answered isn't the writer's.
+        return Ok(None);
+    }
     match chosen {
         Some(path) if !crate::appliance::allows(&path) => Err(OpenError::Outside),
         Some(path) => state.open_path(&path).map(Some),
@@ -461,6 +466,7 @@ pub async fn doc_new_dialog(
     state: State<'_, AppState>,
     folder: Option<String>,
 ) -> Result<Option<Opened>, SaveError> {
+    let locks = crate::appliance::locks();
     let chosen = match state.dialog_answer() {
         Some(answer) => answer,
         None => {
@@ -480,7 +486,7 @@ pub async fn doc_new_dialog(
             }
         }
     };
-    let Some(mut path) = chosen else {
+    let Some(mut path) = chosen.filter(|_| crate::appliance::locks() == locks) else {
         return Ok(None);
     };
     if path.extension().is_none() {
@@ -602,6 +608,7 @@ pub async fn doc_save_as(
         Source::File(doc) => (doc.name(), doc.line_ending, doc.bom, Some(doc.path.clone())),
         Source::Sample(name) => (name.to_string(), LineEnding::Lf, false, None),
     };
+    let locks = crate::appliance::locks();
     let chosen = match state.dialog_answer() {
         Some(answer) => answer,
         None => {
@@ -617,7 +624,7 @@ pub async fn doc_save_as(
             }
         }
     };
-    let Some(path) = chosen else {
+    let Some(path) = chosen.filter(|_| crate::appliance::locks() == locks) else {
         return Ok(None);
     };
     if !crate::appliance::allows(&path) {

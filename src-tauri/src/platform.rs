@@ -406,6 +406,15 @@ pub struct KeyState {
     pub caps: bool,
 }
 
+/// Cancels every native dialog the app has open (a file chooser and any question it
+/// asked). The stick's lock calls it: under cage a dialog is a window of its own and
+/// would stay above the lock, listing the writer's files and still taking input. Runs on
+/// the main thread.
+pub fn cancel_dialogs() {
+    #[cfg(target_os = "linux")]
+    linux::cancel_dialogs();
+}
+
 /// Calls `changed` on every key press in `window` and every change of layout group or
 /// modifiers. GTK 3 reports the active group only with each key event; direction and
 /// Caps Lock are live (docs/spikes/os-keyboard.md).
@@ -461,6 +470,14 @@ mod linux {
         });
         if let Some(map) = gdk::Display::default().and_then(|d| gdk::Keymap::for_display(&d)) {
             map.connect_state_changed(move |_| changed(state(group.get())));
+        }
+    }
+
+    pub fn cancel_dialogs() {
+        for window in gtk::Window::list_toplevels() {
+            if let Ok(dialog) = window.downcast::<gtk::Dialog>() {
+                dialog.response(gtk::ResponseType::Cancel);
+            }
         }
     }
 

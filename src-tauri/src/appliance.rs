@@ -17,6 +17,7 @@ use std::os::unix::fs::DirBuilderExt;
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
@@ -44,6 +45,22 @@ pub fn set_active(appliance: bool) {
 /// not for it.
 pub fn active() -> bool {
     ACTIVE.get().copied().unwrap_or(false)
+}
+
+static LOCKS: AtomicU64 = AtomicU64::new(0);
+
+/// How many times the helper has locked the app. A native dialog's answer counts only
+/// if no lock came while it was open: someone at a locked stick must not be able to
+/// create, save or open a file through a dialog left from before.
+pub fn locks() -> u64 {
+    LOCKS.load(Ordering::SeqCst)
+}
+
+/// Locks the app: the dialogs close first, so nothing stays above the lock view.
+fn lock_app(app: &AppHandle) {
+    LOCKS.fetch_add(1, Ordering::SeqCst);
+    let _ = app.run_on_main_thread(crate::platform::cancel_dialogs);
+    let _ = app.emit("appliance-lock", ());
 }
 
 /// What the stick was built from, for About.
@@ -494,7 +511,7 @@ pub fn watch_events(app: &AppHandle) {
                 // The helper now holds the lock up until the passphrase is typed, and
                 // can't reach the app to say so: the app locks itself.
                 if !app.try_state::<Gate>().is_some_and(|g| g.waiting()) {
-                    let _ = app.emit("appliance-lock", ());
+                    lock_app(&app);
                 }
             }
             std::thread::sleep(Duration::from_secs(1));
@@ -516,7 +533,7 @@ fn read_events(app: &AppHandle, stream: UnixStream) {
             if app.try_state::<Gate>().is_some_and(|g| g.waiting()) {
                 report_painted(app);
             } else {
-                let _ = app.emit("appliance-lock", ());
+                lock_app(app);
             }
         }
     }
