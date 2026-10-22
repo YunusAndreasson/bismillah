@@ -76,10 +76,13 @@ export function documentSearch(): Extension {
   ];
 }
 
+/** Opens search with replacement. The replacement field takes focus once there is
+ * something to find; until then the writer starts with what to find. */
 export function openReplace(view: EditorView): boolean {
   if (view.state.readOnly) return false;
   openSearchPanel(view);
-  const field = view.dom.querySelector<HTMLInputElement>('.cm-search [name="replace"]');
+  const name = getSearchQuery(view.state).search ? "replace" : "search";
+  const field = view.dom.querySelector<HTMLInputElement>(`.cm-search [name="${name}"]`);
   field?.focus();
   field?.select();
   return true;

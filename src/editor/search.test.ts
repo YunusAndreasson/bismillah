@@ -59,8 +59,15 @@ describe("document search", () => {
     expect(v.state.doc.toString()).toBe("ﬀ XX");
   });
 
+  it("focuses what to find until there is something to find", () => {
+    const v = editor("Text");
+    expect(openReplace(v)).toBe(true);
+    expect(document.activeElement?.getAttribute("name")).toBe("search");
+  });
+
   it("focuses replacement and closes search before Escape puts the pen down", () => {
     const v = editor("Text");
+    v.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: "Text" })) });
     expect(openReplace(v)).toBe(true);
     expect(document.activeElement?.getAttribute("name")).toBe("replace");
     expect(
