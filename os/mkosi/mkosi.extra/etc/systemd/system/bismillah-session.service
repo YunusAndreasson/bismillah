@@ -31,6 +31,9 @@ Environment=XDG_CACHE_HOME=/run/user/1000/cache
 Environment=XDG_CONFIG_HOME=/run/user/1000/config
 Environment=XDG_DATA_HOME=/run/user/1000/data
 Environment=XDG_STATE_HOME=/run/user/1000/state
+# GTK's file chooser stores its view in GSettings. dconf would need a session bus the
+# stick doesn't run and logged a failure for every change; memory keeps them in RAM.
+Environment=GSETTINGS_BACKEND=memory
 # cage reads its layouts only at start: the helper writes them from home's LUKS2
 # header (or setup's choice) before each start (docs/spikes/os-keyboard.md).
 ExecStartPre=+/usr/libexec/bismillah-helper keyboard-env
