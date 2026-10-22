@@ -723,7 +723,7 @@ Built 2026-10-22 (commits 3cc9386 to the OS-5 result). `os/scripts/verify.sh` pa
 - **The first screen often paints white in the VM** until a key is pressed. This was already the case in OS-4's runs (three of four first frames). It is the software renderer (llvmpipe), like OS-1's unpainted welcome screen, and every scenario that types passes. The Dell's i915 decides whether it matters.
 - **Version:** the stick 1.0 is the tag `stick-1.0` (app 1.0.0, Debian snapshot 20261021T083704Z), made when the author accepts it.
 
-**Offline rebuild:** OFFLINE_RESULT
+**Offline rebuild:** A clean checkout of a404084, given only `os/cache/`, built the app from nothing and both images in a network namespace with only `lo` (`os/scripts/rebuild-offline.sh`).
 
 **The author's acceptance check:**
 1. Flash the Dell's stick afresh once: `bash os/scripts/flash.sh release` (**this erases the stick's texts**, the last time). The new layout has fixed slots and records the stick in `os/sticks.toml`. Set it up and write something.
