@@ -31,6 +31,10 @@ Environment=XDG_CACHE_HOME=/run/user/1000/cache
 Environment=XDG_CONFIG_HOME=/run/user/1000/config
 Environment=XDG_DATA_HOME=/run/user/1000/data
 Environment=XDG_STATE_HOME=/run/user/1000/state
+# cage draws its own pointer until the pointer first enters the page, in the middle of
+# the unlock screen. Its theme has one transparent cursor, so nothing shows until the
+# writer moves the pointer; the app's GTK draws Adwaita's (gtk-3.0/settings.ini).
+Environment=XCURSOR_THEME=bismillah-hidden
 # cage reads its layouts only at start: the helper writes them from home's LUKS2
 # header (or setup's choice) before each start (docs/spikes/os-keyboard.md).
 ExecStartPre=+/usr/libexec/bismillah-helper keyboard-env

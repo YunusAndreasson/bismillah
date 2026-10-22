@@ -164,7 +164,15 @@ fn peer_uid(stream: &UnixStream) -> Option<u32> {
     (result == 0).then_some(credentials.uid)
 }
 
+/// How long a client may take to send its request line. The helper answers one
+/// connection at a time, so a client that connects and sends nothing would otherwise
+/// hold up every other request, the lock before sleep among them.
+const REQUEST_TIME: std::time::Duration = std::time::Duration::from_secs(5);
+
 fn handle(stream: UnixStream, session: &Arc<Session>) {
+    if stream.set_read_timeout(Some(REQUEST_TIME)).is_err() {
+        return;
+    }
     let Ok(reader) = stream.try_clone() else {
         return;
     };
@@ -179,7 +187,10 @@ fn handle(stream: UnixStream, session: &Arc<Session>) {
                 v: PROTOCOL,
                 request: Request::Events,
             }) => {
-                session.connect(stream);
+                // The events connection stays open, and its reports may be minutes apart.
+                if stream.set_read_timeout(None).is_ok() {
+                    session.connect(stream);
+                }
                 return;
             }
             Ok(envelope) if envelope.v == PROTOCOL => answer(envelope.request, session),

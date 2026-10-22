@@ -41,8 +41,9 @@ docker run --rm --network=none \
     cargo build --release --locked -p bismillah-appliance --bin bismillah-helper
     install -D -m755 target/release/bismillah /out/usr/bin/bismillah
     install -D -m755 target/release/bismillah-helper /out/usr/libexec/bismillah-helper
-    cargo build --release --locked -p bismillah-appliance --features trace --bin bismillah-trace
+    cargo build --release --locked -p bismillah-appliance --features trace --bin bismillah-trace --bin bismillah-probe
     install -D -m755 target/release/bismillah-trace /out-debug/usr/libexec/bismillah-trace
+    install -D -m755 target/release/bismillah-probe /out-debug/usr/libexec/bismillah-probe
     # The licences the desktop package installs (About names their folder): the
     # binary embeds the fonts and the Arabic dictionary.
     lic=/out/usr/share/licenses/bismillah

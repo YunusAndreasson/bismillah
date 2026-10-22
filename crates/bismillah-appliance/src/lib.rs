@@ -6,6 +6,9 @@
 //! Unix socket, one JSON line per request and one per answer. This library holds what
 //! both sides share: the protocol and the passphrase rules.
 
+/// Damaged request lines, for the parser's tests and the debug image's probe.
+#[cfg(any(test, feature = "trace"))]
+pub mod fuzz;
 pub mod passphrase;
 pub mod protocol;
 

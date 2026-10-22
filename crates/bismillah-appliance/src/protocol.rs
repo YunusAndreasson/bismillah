@@ -310,6 +310,28 @@ mod tests {
     }
 
     #[test]
+    fn damaged_lines_are_refused_or_only_ask() {
+        // 200 000 damaged lines: none panics the parser, and none reads as a request
+        // that changes anything (os/PLAN.md, OS-5).
+        let mut lines = crate::fuzz::Lines::new(1);
+        let mut parsed = 0;
+        for _ in 0..200_000 {
+            let line = lines.line();
+            if let Ok(envelope) = serde_json::from_slice::<Envelope>(&line) {
+                parsed += 1;
+                assert!(
+                    matches!(envelope.request, Request::Status),
+                    "{:?} from {:?}",
+                    envelope.request,
+                    String::from_utf8_lossy(&line)
+                );
+            }
+        }
+        // Some survive as status requests, so the mutations aren't all noise.
+        assert!(parsed > 100, "{parsed}");
+    }
+
+    #[test]
     fn keyboard_names() {
         assert!(keyboard_names_valid("se", ""));
         assert!(keyboard_names_valid("se,ara", "grp:alt_shift_toggle"));

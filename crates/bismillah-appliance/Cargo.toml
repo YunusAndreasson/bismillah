@@ -25,7 +25,15 @@ name = "bismillah-trace"
 path = "src/trace/main.rs"
 required-features = ["trace"]
 
+# The debug image's socket probe: the uid check and the parser, against the running
+# helper (os/PLAN.md, OS-5); never in release.
+[[bin]]
+name = "bismillah-probe"
+path = "src/probe/main.rs"
+required-features = ["trace"]
+
 [features]
+# The debug image's tools: the file recorder and the socket probe.
 trace = []
 
 [dependencies]
