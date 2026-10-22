@@ -239,6 +239,12 @@ function checkImage(profile: Profile): void {
   );
   check(/efivarfs .* ro,/.test(text("/etc/fstab")), `${profile}: efivarfs read-only`);
   check(/kernel\.sysrq = 0/.test(text("/etc/sysctl.d/50-bismillah.conf")), `${profile}: no SysRq`);
+  check(
+    /^w \/sys\/devices\/system\/cpu\/cpufreq\/policy\*\/energy_performance_preference .* balance_power$/m.test(
+      text("/usr/lib/tmpfiles.d/bismillah.conf"),
+    ),
+    `${profile}: the CPU prefers saving power (a cooler, quieter laptop)`,
+  );
   const session = text("/etc/systemd/system/bismillah-session.service");
   check(
     /ExecStart=\/usr\/bin\/cage -d -- \/usr\/bin\/bismillah --appliance/.test(session),
@@ -328,6 +334,7 @@ function checkImage(profile: Profile): void {
     /roothash=/.test(options) && /noresume/.test(options),
     `${profile}: the entry has roothash= and noresume`,
   );
+  check(/\bnowatchdog\b/.test(options), `${profile}: no lockup detectors waking the CPUs`);
   check(
     /sysctl\.kernel\.sysrq=0/.test(options) &&
       !/(systemd\.debug[_-]shell|rd\.shell|init=|systemd\.unit=|rd\.break)/.test(options),
