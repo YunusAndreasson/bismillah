@@ -25,6 +25,8 @@ if [ -n "$build" ]; then
   step "debug image (offline)"
   "$root/os/scripts/build.sh" debug
 fi
+step "the reflash tool (made-up sticks)"
+node --test "$root/os/tests/stick.test.ts"
 step "image contents"
 node "$root/os/tests/image-contents.ts" release debug
 step "VM scenarios"

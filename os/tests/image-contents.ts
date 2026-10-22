@@ -66,6 +66,12 @@ function walk(dir: string, base = dir, paths: string[] = []): string[] {
   return paths;
 }
 
+/**
+ * The programs allowed to run with more rights than their caller. PAM's unix_chkpwd
+ * (setgid shadow) checks the account when the writer's session starts.
+ */
+const SETUID_EXPECTED = new Set(["/usr/sbin/unix_chkpwd"]);
+
 function checkImage(profile: Profile): void {
   const image = join(images, `bismillah-${profile}.raw`);
   const parts = partitions(image);
@@ -85,6 +91,27 @@ function checkImage(profile: Profile): void {
   // The root, extracted without owners (we aren't root), into os/out/contents/.
   const tree = join(root, "os/out/contents", profile);
   extractRoot(image, rootAt, tree);
+  // Permissions, from a second extraction that keeps them (os/PLAN.md, OS-5): which
+  // programs run with more rights than their caller, and what anyone may write.
+  const modes = extractRoot(image, rootAt, join(root, "os/out/contents", `${profile}-modes`), true);
+  const special = [...modes].filter(([, m]) => (m & 0o170000) === 0o100000 && m & 0o6000);
+  check(
+    special.every(([p]) => SETUID_EXPECTED.has(p)),
+    `${profile}: setuid and setgid programs: ${special.map(([p, m]) => `${p} ${(m & 0o7777).toString(8)}`).join(", ") || "none"}`,
+  );
+  const writable = [...modes].filter(
+    ([, m]) =>
+      (m & 0o170000) !== 0o120000 && m & 0o002 && !((m & 0o170000) === 0o040000 && m & 0o1000),
+  );
+  check(
+    writable.length === 0,
+    `${profile}: nothing anyone may write (${
+      writable
+        .map(([p]) => p)
+        .slice(0, 4)
+        .join(" ") || "none"
+    }); /tmp-like folders are sticky`,
+  );
   const paths = walk(tree);
   const has = (p: string) => existsSync(join(tree, p)) || isLink(join(tree, p));
   const matching = (re: RegExp) => paths.filter((p) => re.test(p));
@@ -116,8 +143,23 @@ function checkImage(profile: Profile): void {
     check(!has(`/usr/bin/${bin}`) && !has(`/usr/sbin/${bin}`), `${profile}: no ${bin}`);
   check(!has("/var/lib/dpkg") && !has("/var/lib/apt"), `${profile}: no package database`);
   if (profile === "release")
-    for (const shell of ["sh", "bash", "dash", "rbash", "perl"])
+    for (const shell of ["sh", "bash", "dash", "rbash", "perl", "python3", "busybox"])
       check(!has(`/usr/bin/${shell}`), `${profile}: no ${shell}`);
+  // Nothing that opens other programs or another person's disks (os/PLAN.md, OS-5):
+  // no xdg-open or gio launcher, no terminal, and no LVM, RAID or swap tools that
+  // could activate the laptop's own volumes.
+  for (const bin of ["xdg-open", "gio", "foot", "xterm", "lvm", "mdadm", "dmraid"])
+    check(!has(`/usr/bin/${bin}`) && !has(`/usr/sbin/${bin}`), `${profile}: no ${bin}`);
+  if (profile === "release")
+    check(!has("/usr/sbin/swapon") && !has("/usr/bin/swapon"), `${profile}: no swapon`);
+  check(
+    isLink(join(tree, "etc/systemd/system/ctrl-alt-del.target")) &&
+      readlinkSync(join(tree, "etc/systemd/system/ctrl-alt-del.target")).endsWith(
+        "/poweroff.target",
+      ) &&
+      /CtrlAltDelBurstAction=none/.test(text("/etc/systemd/system.conf.d/50-bismillah.conf")),
+    `${profile}: Ctrl+Alt+Del powers off, and repeating it does nothing more`,
+  );
 
   // No network drivers, network stacks for radios, or network firmware.
   const modules = matching(/\.ko(\.[a-z]+)?$/);
@@ -243,6 +285,7 @@ function checkImage(profile: Profile): void {
     check(!/BISMILLAH_POWER_SUPPLY/.test(units), `${profile}: the real battery, not a fake`);
     check(!has("/usr/libexec/bismillah-debug-console"), `${profile}: no debug command line`);
     check(!has("/usr/libexec/bismillah-trace"), `${profile}: no file recorder`);
+    check(!has("/usr/libexec/bismillah-probe"), `${profile}: no socket probe`);
     for (const unit of [
       "systemd-journald.service",
       "systemd-journald.socket",
@@ -266,8 +309,15 @@ function checkImage(profile: Profile): void {
   );
   const loader = esp(image, espAt, ["mtype", "-i", "@IMG", "::/loader/loader.conf"]);
   check(
-    /^timeout 0$/m.test(loader) && /^editor no$/m.test(loader),
-    `${profile}: loader.conf timeout 0, editor no`,
+    /^timeout menu-disabled$/m.test(loader) &&
+      /^editor no$/m.test(loader) &&
+      /^auto-firmware no$/m.test(loader),
+    `${profile}: loader.conf: no menu even on a key, no editor, no firmware entry`,
+  );
+  const id = esp(image, espAt, ["mtype", "-i", "@IMG", "::/bismillah/stick-id"]);
+  check(
+    id.startsWith("bismillah stick id 1\nunflashed\n") && id.length === 512,
+    `${profile}: the ESP's stick-id is the 512-byte placeholder stick.ts fills`,
   );
   const entries = listing.split("\n").filter((l) => /\/loader\/entries\/.*\.conf$/i.test(l.trim()));
   const options = entries
@@ -277,6 +327,11 @@ function checkImage(profile: Profile): void {
   check(
     /roothash=/.test(options) && /noresume/.test(options),
     `${profile}: the entry has roothash= and noresume`,
+  );
+  check(
+    /sysctl\.kernel\.sysrq=0/.test(options) &&
+      !/(systemd\.debug[_-]shell|rd\.shell|init=|systemd\.unit=|rd\.break)/.test(options),
+    `${profile}: SysRq off from the start; no shell, init or unit on the command line`,
   );
   if (profile === "release")
     check(
@@ -373,6 +428,10 @@ function checkInitrd(): void {
   for (const gone of [
     "/usr/bin/perl",
     "/usr/bin/bash",
+    "/usr/bin/sh",
+    "/usr/bin/dash",
+    "/usr/sbin/sulogin",
+    "/usr/bin/login",
     "/usr/lib/udev/hwdb.bin",
     "/usr/bin/btrfs",
     "/usr/lib/systemd/systemd-networkd",

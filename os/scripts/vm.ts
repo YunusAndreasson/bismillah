@@ -50,6 +50,12 @@ export interface BootOptions {
   debug?: boolean;
   /** A virtio NIC, its frames captured outside the guest; plus a slot to hot-plug a PCIe NIC. */
   nics?: boolean;
+  /**
+   * A laptop's own disk, attached as NVMe: a qcow2 overlay (made by `hostDisk`), so any
+   * write allocates a cluster. QEMU then stays after the guest powers off
+   * (`offAndStay`), so its write counters can be read.
+   */
+  host?: string;
   /** Show the VM in a window (the author only). */
   window?: boolean;
   /**
@@ -216,6 +222,13 @@ export class Vm {
         ? ["-global", "ICH9-LPC.disable_s3=0", "-device", "VGA"]
         : ["-device", "virtio-vga"]),
       ...(options.window ? [] : ["-display", "none"]),
+      ...(options.host
+        ? [
+            ...["-drive", `if=none,id=host,format=qcow2,file=${options.host}`],
+            ...["-device", "nvme,serial=HOST-NVME,drive=host"],
+            "-no-shutdown",
+          ]
+        : []),
       "-no-reboot",
       ...["-qmp", `unix:${this.qmpPath},server=on,wait=off`],
       ...["-serial", `file:${this.serialLog}`],
@@ -453,6 +466,36 @@ export class Vm {
     this.kill();
   }
 
+  /**
+   * ACPI power button, then waits until the guest has powered off. With a host disk
+   * QEMU stays (-no-shutdown), so `writes` can still be asked; `kill` ends it.
+   */
+  async offAndStay(seconds = 60): Promise<boolean> {
+    await this.qmp("system_powerdown").catch(() => undefined);
+    for (const end = Date.now() + seconds * 1000; Date.now() < end; await sleep(200)) {
+      if (this.exited) return true;
+      const status = (await this.qmp("query-status").catch(() => null)) as {
+        status: string;
+      } | null;
+      if (status?.status === "shutdown") return true;
+    }
+    return false;
+  }
+
+  /** Write and read requests per drive, from QEMU's own counters. */
+  async ioCounts(): Promise<Record<string, { writes: number; written: number; reads: number }>> {
+    const stats = (await this.qmp("query-blockstats")) as {
+      device: string;
+      stats: { wr_operations: number; wr_bytes: number; rd_operations: number };
+    }[];
+    return Object.fromEntries(
+      stats.map((s) => [
+        s.device,
+        { writes: s.stats.wr_operations, written: s.stats.wr_bytes, reads: s.stats.rd_operations },
+      ]),
+    );
+  }
+
   /** Cuts the power: QEMU stops at once, and nothing the guest hadn't written is kept. */
   async powercut(): Promise<void> {
     if (!this.exited) this.qemu.kill("SIGKILL");
@@ -490,6 +533,65 @@ export function stickFrom(image: string, path: string): string {
   execFileSync("cp", ["--sparse=always", image, path]);
   execFileSync("sync");
   return path;
+}
+
+/**
+ * A laptop's disk, made once (os/out/host/laptop.raw, 2 GiB, sparse): an ESP, an ext4
+ * root, a swap partition and a decoy ext4 partition of the home type labelled
+ * `bismillah-home`. Returns a fresh qcow2 overlay on it at `overlay`.
+ */
+export function hostDisk(overlay: string): string {
+  const base = join(root, "os/out/host/laptop.raw");
+  if (!existsSync(base)) {
+    mkdirSync(dirname(base), { recursive: true });
+    const parts: [string, number, string][] = [
+      ["c12a7328-f81f-11d2-ba4b-00a0c93ec93b", 256, "mkfs.vfat -F 32 -n LAPTOPESP"],
+      ["4f68bce3-e8cd-4db1-96e7-fbcaf984b709", 1024, "mkfs.ext4 -q -L laptop-root"],
+      ["0657fd6d-a4ab-43c4-84e5-0933c84b4f4f", 256, "mkswap -L laptop-swap"],
+      ["933ac7e1-2eb4-4f13-b844-0e14e2aef915", 256, "mkfs.ext4 -q -L bismillah-home"],
+    ];
+    execFileSync("truncate", ["-s", "2G", base]);
+    execFileSync("sfdisk", ["--quiet", base], {
+      input:
+        "label: gpt\n" +
+        parts
+          .map(([type, mib], i) => `size=${mib}MiB, type=${type}, name=part${i + 1}`)
+          .join("\n") +
+        "\n",
+    });
+    // Each file system is made in its own file, then copied into its place.
+    const table = execFileSync("sfdisk", ["--json", base], { encoding: "utf8" });
+    const found = (JSON.parse(table) as { partitiontable: { partitions: { start: number }[] } })
+      .partitiontable.partitions;
+    parts.forEach(([, mib, mkfs], i) => {
+      const piece = `${base}.part`;
+      rmSync(piece, { force: true });
+      execFileSync("truncate", ["-s", `${mib}M`, piece]);
+      const [tool, ...args] = mkfs.split(" ");
+      execFileSync(tool ?? "", [...args, piece], { stdio: "ignore" });
+      execFileSync("dd", [
+        `if=${piece}`,
+        `of=${base}`,
+        "bs=1M",
+        `seek=${(found[i]?.start ?? 0) * 512}`,
+        "oflag=seek_bytes",
+        "conv=notrunc,sparse",
+        "status=none",
+      ]);
+      rmSync(piece, { force: true });
+    });
+  }
+  rmSync(overlay, { force: true });
+  execFileSync("qemu-img", ["create", "-q", "-f", "qcow2", "-F", "raw", "-b", base, overlay]);
+  return overlay;
+}
+
+/** The qcow2 overlay's allocated bytes: anything the guest wrote to the laptop's disk. */
+export function overlayWritten(overlay: string): number {
+  const map = JSON.parse(
+    execFileSync("qemu-img", ["map", "--output=json", overlay], { encoding: "utf8" }),
+  ) as { length: number; depth: number; data: boolean }[];
+  return map.filter((m) => m.depth === 0 && m.data).reduce((a, m) => a + m.length, 0);
 }
 
 /** The image a profile builds (os/scripts/build.sh). */

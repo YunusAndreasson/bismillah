@@ -1,0 +1,9 @@
+#!/bin/sh
+# Hardening that has to follow mkosi's presets and the packages (os/PLAN.md, OS-5).
+set -e
+# Ctrl+Alt+Del powers off cleanly rather than restarting. The presets make
+# reboot.target's alias ctrl-alt-del.target, so it is set after them.
+ln -sfn /usr/lib/systemd/system/poweroff.target "$BUILDROOT/etc/systemd/system/ctrl-alt-del.target"
+# mount and umount are setuid root, for users mounting what fstab allows them. The
+# writer never mounts anything: the helper mounts home as root.
+chmod u-s "$BUILDROOT/usr/bin/mount" "$BUILDROOT/usr/bin/umount"

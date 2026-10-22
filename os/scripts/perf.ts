@@ -14,11 +14,14 @@
  */
 import { execFileSync } from "node:child_process";
 import {
+  closeSync,
   existsSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
+  readSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -103,6 +106,38 @@ function fileBytes(dir: string): Numbers {
   return sizes;
 }
 
+/** Read `length` bytes of `file` at `offset`. */
+function bytesAt(file: string, offset: number, length: number): Buffer {
+  const fd = openSync(file, "r");
+  try {
+    const b = Buffer.alloc(length);
+    readSync(fd, b, 0, length, offset);
+    return b;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** The erofs file system's size, from its superblock (1 KiB in: block size bits, blocks). */
+function erofsBytes(image: string, offset: number): number {
+  const sb = bytesAt(image, offset + 1024, 64);
+  if (sb.readUInt32LE(0) !== 0xe0f5e1e2) throw new Error(`${image}: no erofs root`);
+  return sb.readUInt32LE(36) * 2 ** (sb[12] ?? 12);
+}
+
+/** The verity superblock and hash tree the root's data blocks need (sha256, 4 KiB blocks). */
+function verityBytes(image: string, offset: number): number {
+  const sb = bytesAt(image, offset, 128);
+  if (sb.toString("latin1", 0, 6) !== "verity") throw new Error(`${image}: no verity superblock`);
+  const block = sb.readUInt32LE(68);
+  let blocks = 1;
+  for (let n = Number(sb.readBigUInt64LE(72)); n > 1;) {
+    n = Math.ceil(n / (block / 32));
+    blocks += n;
+  }
+  return blocks * block;
+}
+
 function measureSizes(): Pick<Result, "sizes" | "components"> {
   const image = imageFor("release");
   const parts = partitions(image);
@@ -126,8 +161,9 @@ function measureSizes(): Pick<Result, "sizes" | "components"> {
       // The base initrd and the kernel modules' one, which the kernel reads together.
       initrd: sum(/initrd$/),
       kernel: sum(/\/linux$|vmlinuz/),
-      "erofs root": rootPart.bytes,
-      "root verity": parts.get(ROOT_VERITY)?.bytes ?? 0,
+      // The file systems themselves: their slots are fixed and larger (stick.ts).
+      "erofs root": erofsBytes(image, rootPart.offset),
+      "root verity": verityBytes(image, parts.get(ROOT_VERITY)?.offset ?? 0),
     },
     components: components(tree),
   };

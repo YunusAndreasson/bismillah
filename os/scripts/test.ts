@@ -9,15 +9,30 @@
  * Results go to os/out/test/<scenario>/ and the summary to os/out/test/report.txt.
  */
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import {
+  appendFileSync,
+  closeSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
+import { gpt, HOME } from "./image.ts";
+import { identify, prepare, record, update } from "./stick.ts";
 import {
   changed,
   frames,
+  hostDisk,
   imageFor,
+  lit,
+  overlayWritten,
   root,
   stickFrom,
+  varsFile,
   Vm,
   type BootOptions,
   type Screen,
@@ -1160,6 +1175,372 @@ async function tour(): Promise<void> {
   }
 }
 
+// ---- OS-5: the host untouched, ways out, the helper's socket, reflash --------
+
+/**
+ * Firmware variables a boot may change (docs/spikes/os-host-untouched.md): what OVMF
+ * writes by itself with no system at all, its boot entry for the USB disk it found,
+ * and shim's SBAT revocation level, the one change the boot chain makes.
+ */
+const FIRMWARE_OWN =
+  /^(Boot[0-9A-F]{4}|BootOrder|ConIn|ConOut|ErrOut|Key[0-9A-F]{4}|Lang|PlatformLang|MTC|Timeout|VarErrorFlag|VendorKeysNv|certdb|MemoryTypeInformation)$/;
+const BOOT_CHAIN = /^SbatLevel$/;
+
+/** A variable store's variables as name → GUID and data, by virt-fw-vars. */
+function variables(store: string): Map<string, string> {
+  const dump = `${store}.json`;
+  execFileSync("virt-fw-vars", ["-i", store, "--output-json", dump], { stdio: "ignore" });
+  const json = JSON.parse(readFileSync(dump, "utf8")) as {
+    variables: { name: string; guid: string; data: string }[];
+  };
+  rmSync(dump, { force: true });
+  return new Map(json.variables.map((v) => [v.name, `${v.guid} ${v.data}`]));
+}
+
+function changedVariables(before: Map<string, string>, after: Map<string, string>): string[] {
+  const names = new Set([...before.keys(), ...after.keys()]);
+  return [...names].filter((n) => before.get(n) !== after.get(n)).sort();
+}
+
+/** Powers the VM off, reads its I/O counters while QEMU stays, then lets QEMU end. */
+async function offWithCounts(vm: Vm, name: string) {
+  check(await vm.offAndStay(120), `${name}: powers off`);
+  const io = await vm.ioCounts();
+  await vm.qmp("quit").catch(() => undefined);
+  for (let i = 0; vm.running && i < 100; i++) await sleep(100);
+  return io;
+}
+
+/**
+ * The laptop's own disk and firmware, on the release image and seen from outside:
+ * setup, writing and power-off leave the disk without a single write (QEMU's counters
+ * and the qcow2 overlay), and change only the expected firmware variables. The debug
+ * image then shows from inside that nothing on it was mounted, swapped to or
+ * activated, and that home is the stick's.
+ */
+async function hostUntouched(): Promise<void> {
+  const name = "host-untouched";
+  const overlay = hostDisk(join(root, "os/out/host", `${name}-release.qcow2`));
+  const before = variables(varsFile("both"));
+  let vm = await Vm.boot({
+    image: imageFor("release"),
+    out: join(out, name, "release"),
+    host: overlay,
+  });
+  let io;
+  try {
+    await vm.settled(240);
+    await vm.key("tab");
+    await vm.key("tab");
+    await vm.key("ret");
+    await sleep(3000);
+    await vm.settled(60);
+    await passphraseAndCreate(vm, (v) => v.type(PLAIN));
+    await sleep(8000);
+    await vm.settled(60);
+    await vm.key("f1");
+    await vm.type("Nothing is written to the laptop.");
+    await sleep(3000);
+    await vm.screen("typed");
+    io = await offWithCounts(vm, name);
+  } finally {
+    vm.kill();
+    vm.pngs();
+  }
+  const host = io["host"];
+  check(
+    host !== undefined && host.writes === 0,
+    `${name}: release: ${host?.writes ?? "?"} writes to the laptop's disk (${host?.reads ?? "?"} reads, for partition probing)`,
+  );
+  check(
+    overlayWritten(overlay) === 0,
+    `${name}: release: no cluster of the laptop's disk allocated`,
+  );
+  const changedNames = changedVariables(before, variables(join(vm.out, "vars.fd")));
+  const unexplained = changedNames.filter((n) => !FIRMWARE_OWN.test(n) && !BOOT_CHAIN.test(n));
+  writeFileSync(join(vm.out, "variables.txt"), changedNames.join("\n") + "\n");
+  check(
+    unexplained.length === 0,
+    `${name}: firmware variables changed: ${changedNames.join(" ")} (by the boot chain: ${changedNames.filter((n) => BOOT_CHAIN.test(n)).join(" ") || "none"}; unexplained: ${unexplained.join(" ") || "none"})`,
+  );
+
+  const overlay2 = hostDisk(join(root, "os/out/host", `${name}-debug.qcow2`));
+  vm = await Vm.boot({
+    image: imageFor("debug"),
+    out: join(out, name, "debug"),
+    debug: true,
+    host: overlay2,
+  });
+  try {
+    await setUpQuickly(vm);
+    await mark(vm, "page-editable", 60);
+    const seen = await vm.run("lsblk -dno NAME,TRAN | tr '\\n' ' '");
+    check(
+      /nvme0n1 nvme/.test(seen),
+      `${name}: debug: the laptop's disk is attached (${seen.trim()})`,
+    );
+    const swaps = await vm.run("tail -n +2 /proc/swaps | wc -l");
+    check(swaps.trim() === "0", `${name}: debug: no swap in use (${swaps.trim()})`);
+    const mounted = await vm.run("findmnt -rno SOURCE | grep -c nvme; true");
+    check(mounted.trim() === "0", `${name}: debug: nothing of the laptop's disk mounted`);
+    const mapped = await vm.run("ls /dev/mapper | tr '\\n' ' '");
+    check(
+      mapped
+        .trim()
+        .split(/\s+/)
+        .every((d) => ["control", "root", "bismillah-home"].includes(d)),
+      `${name}: debug: only the stick's root and home are mapped (${mapped.trim()})`,
+    );
+    const raid = await vm.run("ls /dev/md* /proc/mdstat 2>/dev/null | wc -l");
+    check(raid.trim() === "0", `${name}: debug: no RAID assembled`);
+    const homeDisk = await vm.run(
+      "lsblk -sno NAME,TRAN $(findmnt -no SOURCE /home/writer) | tail -1",
+    );
+    check(
+      / usb$/.test(homeDisk.trim()),
+      `${name}: debug: home is on the stick (${homeDisk.trim()}), not the decoy`,
+    );
+    io = await offWithCounts(vm, name);
+  } finally {
+    vm.kill();
+    vm.pngs();
+  }
+  check(
+    io["host"]?.writes === 0 && overlayWritten(overlay2) === 0,
+    `${name}: debug: ${io["host"]?.writes ?? "?"} writes to the laptop's disk`,
+  );
+  rmSync(overlay, { force: true });
+  rmSync(overlay2, { force: true });
+}
+
+/**
+ * Ways out of the editor, tried on the release image: keys held while the loader
+ * starts (no menu, no editor), VT switching, SysRq, Ctrl+Alt+Del and Backspace, and
+ * the inspector's and a browser's keys. Each leaves the editor on screen, the system
+ * running and typing still answered. Reloading and the page menu are in the app's
+ * appliance e2e; the dialogs' paths in its Rust tests.
+ */
+async function waysOut(): Promise<void> {
+  const name = "ways-out";
+  const vm = await Vm.boot({ image: imageFor("release"), out: join(out, name) });
+  try {
+    for (const end = Date.now() + 4000; Date.now() < end;) {
+      await vm.key("spc");
+      await vm.key("e");
+      await vm.key("esc");
+    }
+    await vm.settled(240);
+    await vm.screen("booted");
+    await vm.key("tab");
+    await vm.key("tab");
+    await vm.key("ret");
+    await sleep(3000);
+    await vm.settled(60);
+    await passphraseAndCreate(vm, (v) => v.type(PLAIN));
+    await sleep(8000);
+    await vm.settled(60);
+    await vm.key("f1");
+    await vm.type("Ways out.");
+    await sleep(1500);
+    const tries: [string, string[][]][] = [
+      [
+        "VT switching",
+        [
+          ["ctrl", "alt", "f2"],
+          ["ctrl", "alt", "f3"],
+          ["ctrl", "alt", "f6"],
+        ],
+      ],
+      [
+        "SysRq (reboot, power off, crash)",
+        [
+          ["alt", "sysrq", "b"],
+          ["alt", "sysrq", "o"],
+          ["alt", "sysrq", "c"],
+        ],
+      ],
+      ["Ctrl+Alt+Del", [["ctrl", "alt", "delete"]]],
+      ["Ctrl+Alt+Backspace", [["ctrl", "alt", "backspace"]]],
+      [
+        "the inspector's keys",
+        [["f12"], ["ctrl", "shift", "i"], ["ctrl", "shift", "j"], ["ctrl", "shift", "c"]],
+      ],
+      ["a browser's reload and location keys", [["f5"], ["ctrl", "l"], ["f6"]]],
+    ];
+    for (const [i, [what, combos]] of tries.entries()) {
+      await vm.key("esc");
+      await sleep(500);
+      const before = await vm.screen();
+      for (const combo of combos) {
+        await vm.key(...combo);
+        await sleep(400);
+      }
+      await sleep(3000);
+      // A restart or crash ends QEMU (-no-reboot), and an empty VT would be black. The
+      // app may react in its own way (Alt shows its menu bar), so Escape closes that.
+      const after = await vm.screen(`${i + 1}-after`);
+      const shown = lit(after) > 0.5;
+      await vm.key("esc");
+      await sleep(500);
+      const ready = await vm.screen();
+      await vm.type(" Still here.");
+      await sleep(1500);
+      const typed = changed(ready, await vm.screen());
+      check(
+        vm.running && shown && typed > 0.0005,
+        `${name}: ${what} → the system runs, the app is on screen (${(changed(before, after) * 100).toFixed(1)}% changed) and typing answers`,
+      );
+    }
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+}
+
+/**
+ * The helper's socket, from the debug image's probe: root and other users get nothing,
+ * a client that sends nothing holds the helper up for 5 s at most, and 3 000 damaged
+ * lines get only refusals or status answers. The app keeps working throughout.
+ */
+async function helperSocket(): Promise<void> {
+  const name = "helper-socket";
+  const vm = await boot(name, "probe", {});
+  const probe = "/usr/libexec/bismillah-probe";
+  const STATUS = `'{"v":1,"verb":"status"}'`;
+  try {
+    await setUpQuickly(vm);
+    await mark(vm, "page-editable", 60);
+    const asRoot = await vm.run(`${probe} send ${STATUS}`);
+    check(asRoot.trim() === "no-answer", `${name}: root (uid 0) gets no answer (${asRoot.trim()})`);
+    const nobody = await vm.run(`${probe} --uid 65534 send ${STATUS}`);
+    check(
+      /^connect-refused/.test(nobody.trim()),
+      `${name}: another user can't connect (${nobody.trim()})`,
+    );
+    const writer = await vm.run(`${probe} --uid 1000 send ${STATUS}`);
+    check(/"answer":"status".*"state":"unlocked"/.test(writer), `${name}: the writer is answered`);
+    const stalled = await vm.run(`${probe} --uid 1000 stall`, 60);
+    const waited = Number(/after ([\d.]+) s/.exec(stalled)?.[1] ?? "99");
+    check(
+      /"answer":"status"/.test(stalled) && waited < 8,
+      `${name}: a silent client holds the helper up ${waited.toFixed(1)} s, then it answers`,
+    );
+    const fuzzed = await vm.run(`${probe} --uid 1000 fuzz 3000`, 600);
+    const [summary, last] = fuzzed.trim().split("\n").slice(-2);
+    const kinds = JSON.parse(summary ?? "{}") as Record<string, number>;
+    const unexpected = Object.keys(kinds).filter(
+      (k) => !["status", "failed", "no-answer"].includes(k),
+    );
+    note(`     ${name}: 3000 damaged lines → ${summary ?? ""}`);
+    check(
+      unexpected.length === 0 && /"answer":"status".*"state":"unlocked"/.test(last ?? ""),
+      `${name}: damaged lines get only refusals or status (${unexpected.join(" ") || "nothing else"}), and the helper still serves`,
+    );
+    const running = await vm.run(
+      "pidof bismillah >/dev/null && systemctl is-active bismillah-helper.socket bismillah-session.service | tr '\\n' ' '",
+    );
+    check(
+      running.trim() === "active active",
+      `${name}: the app and helper still run (${running.trim()})`,
+    );
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+}
+
+/** sha256 of the first `bytes` of the stick file's home partition. */
+function homeHead(stick: string, bytes = 16 * 1024 * 1024): string {
+  const home = gpt(stick).entries.find((e) => e.type === HOME);
+  if (!home) return "no home";
+  const fd = openSync(stick, "r");
+  try {
+    const b = Buffer.alloc(bytes);
+    readSync(fd, b, 0, bytes, home.offset);
+    return createHash("sha256").update(b).digest("hex");
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/**
+ * Reflashing with the texts kept (os/scripts/stick.ts, flash.sh --update): a stick
+ * flashed with the debug image is set up and given a text; its system is replaced by
+ * the release image, which unlocks it; then by the debug image again, which finds the
+ * text intact. Home's bytes and the stick's own GUIDs never change.
+ */
+async function reflash(): Promise<void> {
+  const name = "reflash";
+  const dir = join(out, name);
+  mkdirSync(dir, { recursive: true });
+  const disk = join(dir, "stick.raw");
+  const registry = join(dir, "sticks.toml");
+  rmSync(registry, { force: true });
+  const id = prepare(imageFor("debug"), disk);
+  record(disk, registry, "debug (VM)");
+  let vm = await boot(name, "1-debug", { disk });
+  try {
+    await setUpQuickly(vm);
+    await mark(vm, "page-editable", 60);
+    await openNote(vm, "Written before the reflash.");
+    await vm.type(" Kept through it.");
+    await vm.key("ctrl", "s");
+    check(await saved(vm, "Kept through it."), `${name}: a text saved on the first system`);
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+  const homeBefore = homeHead(disk);
+  const log = (line: string) => note(`     ${name}: ${line}`);
+  update(imageFor("release"), disk, registry, log, "release (VM)");
+  check(homeHead(disk) === homeBefore, `${name}: home's bytes unchanged by the update to release`);
+  const seen = identify(disk);
+  check(
+    JSON.stringify(seen.gpt) === JSON.stringify(id) &&
+      JSON.stringify(seen.file) === JSON.stringify(id),
+    `${name}: the stick keeps its own GUIDs and stick-id`,
+  );
+
+  vm = await Vm.boot({ image: imageFor("release"), out: join(dir, "2-release"), disk });
+  try {
+    const locked = await vm.settled(240);
+    await vm.screen("unlock");
+    await vm.type(PLAIN);
+    await vm.key("ret");
+    await sleep(6000);
+    const after = await vm.settled(60);
+    await vm.screen("unlocked");
+    check(
+      changed(locked, after) > 0.005,
+      `${name}: the release system unlocks the home the debug system set up`,
+    );
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+
+  update(imageFor("debug"), disk, registry, log, "debug (VM)");
+  vm = await boot(name, "3-debug", { disk });
+  try {
+    await mark(vm, "page-gate-shown", 240);
+    await sleep(1500);
+    const from = here(vm);
+    await vm.type(PLAIN);
+    await vm.key("ret");
+    await mark(vm, "helper-unlocked", 60, from);
+    const text = await noteText(vm);
+    check(
+      text.includes("Written before the reflash.") && text.includes("Kept through it."),
+      `${name}: the text is intact after two reflashes`,
+    );
+    const verity = await vm.run("veritysetup status root | grep -E '^ +status:' | tr -s ' '");
+    check(/verified/.test(verity), `${name}: the new root is verified (${verity.trim()})`);
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+}
+
 const scenarios: Record<string, () => Promise<void>> = {
   "release-both": () => releaseBoots("release-both", "both"),
   "release-ca2011": () => releaseBoots("release-ca2011", "ca2011"),
@@ -1178,6 +1559,10 @@ const scenarios: Record<string, () => Promise<void>> = {
   "suspend-lock": suspendLock,
   power,
   tour,
+  "host-untouched": hostUntouched,
+  "ways-out": waysOut,
+  "helper-socket": helperSocket,
+  reflash,
 };
 
 const chosen = process.argv.slice(2);

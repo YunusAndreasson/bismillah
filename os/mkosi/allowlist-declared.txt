@@ -60,8 +60,6 @@
 /usr/libexec/bismillah-helper
 /usr/share/bismillah/**
 /usr/share/licenses/bismillah/**
-# cage's transparent pointer, read before the recorder sees the session settle.
-/usr/share/icons/bismillah-hidden/**
 # The tools the helper runs for setup, unlock, a damaged home and power.
 /usr/sbin/cryptsetup
 /usr/sbin/mkfs.ext4

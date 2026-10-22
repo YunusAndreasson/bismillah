@@ -37,33 +37,48 @@ export interface Part {
   flags: bigint;
 }
 
-/** Each partition type on the image (GPT, 512-byte sectors). */
-export function partitions(image: string): Map<string, Part> {
-  const fd = openSync(image, "r");
+/** A GPT entry: its partition number (from 1), type and own GUID, and its place. */
+export interface Entry extends Part {
+  number: number;
+  type: string;
+  uuid: string;
+}
+
+/** The disk's GUID and its used GPT entries (512-byte sectors). Reads images and disks. */
+export function gpt(path: string): { disk: string; entries: Entry[] } {
+  const fd = openSync(path, "r");
   try {
     const header = Buffer.alloc(92);
     readSync(fd, header, 0, 92, 512);
-    if (header.toString("latin1", 0, 8) !== "EFI PART") throw new Error(`${image}: no GPT`);
+    if (header.toString("latin1", 0, 8) !== "EFI PART") throw new Error(`${path}: no GPT`);
     const start = Number(header.readBigUInt64LE(72)) * 512;
     const count = header.readUInt32LE(80);
     const size = header.readUInt32LE(84);
     const table = Buffer.alloc(count * size);
     readSync(fd, table, 0, table.length, start);
-    const found = new Map<string, Part>();
+    const entries: Entry[] = [];
     for (let i = 0; i < count; i++) {
       const entry = table.subarray(i * size, (i + 1) * size);
       const type = guid(entry.subarray(0, 16));
       if (type !== "00000000-0000-0000-0000-000000000000")
-        found.set(type, {
+        entries.push({
+          number: i + 1,
+          type,
+          uuid: guid(entry.subarray(16, 32)),
           offset: Number(entry.readBigUInt64LE(32)) * 512,
           bytes: Number(entry.readBigUInt64LE(40) - entry.readBigUInt64LE(32) + 1n) * 512,
           flags: entry.readBigUInt64LE(48),
         });
     }
-    return found;
+    return { disk: guid(header.subarray(56, 72)), entries };
   } finally {
     closeSync(fd);
   }
+}
+
+/** Each partition type on the image. */
+export function partitions(image: string): Map<string, Part> {
+  return new Map(gpt(image).entries.map((e) => [e.type, e]));
 }
 
 export function esp(image: string, offset: number, args: string[]): string {
@@ -80,17 +95,46 @@ export function esp(image: string, offset: number, args: string[]): string {
   );
 }
 
-/** Extracts the root partition, without owners, into `tree` (emptied first). */
-export function extractRoot(image: string, offset: number, tree: string): void {
+/**
+ * Extracts the root partition, without owners, into `tree` (emptied first). With
+ * `modes`, the files keep their permission bits (setuid included) and the caller gets
+ * each path's mode; the tree is then made writable again so it can be removed.
+ */
+export function extractRoot(image: string, offset: number, tree: string): void;
+export function extractRoot(
+  image: string,
+  offset: number,
+  tree: string,
+  modes: true,
+): Map<string, number>;
+export function extractRoot(
+  image: string,
+  offset: number,
+  tree: string,
+  modes = false,
+): Map<string, number> | void {
   rmSync(tree, { recursive: true, force: true });
   mkdirSync(dirname(tree), { recursive: true });
   execFileSync("fsck.erofs", [
     `--offset=${offset}`,
     `--extract=${tree}`,
-    "--no-preserve",
+    ...(modes ? ["--preserve-perms", "--no-preserve-owner"] : ["--no-preserve"]),
     "-d0",
     image,
   ]);
+  if (!modes) return;
+  const found = new Map<string, number>();
+  const walk = (rel: string) => {
+    for (const name of readdirSync(join(tree, rel))) {
+      const p = `${rel}/${name}`;
+      const st = lstatSync(join(tree, p));
+      found.set(p, st.mode);
+      if (st.isDirectory()) walk(p);
+    }
+  };
+  walk("");
+  execFileSync("chmod", ["-R", "u+rwX,go-w,ug-s", tree]);
+  return found;
 }
 
 /** A path inside an extracted tree, following its links (absolute ones from the tree's root). */
