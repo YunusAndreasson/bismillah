@@ -22,10 +22,7 @@ export async function mark(vm: Vm, name: string, seconds: number, from = 0): Pro
  * Setup's steps 2 and 3 by keyboard: the passphrase twice, then the time zone and
  * *Set up the stick*. `typed` types the passphrase into the focused field.
  */
-export async function passphraseAndCreate(
-  vm: Vm,
-  typed: (vm: Vm) => Promise<void>,
-): Promise<void> {
+export async function passphraseAndCreate(vm: Vm, typed: (vm: Vm) => Promise<void>): Promise<void> {
   await typed(vm);
   await vm.key("tab");
   await typed(vm);

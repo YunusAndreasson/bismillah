@@ -119,6 +119,8 @@ Evidence: `os/spikes/boot/results/size-boot-baseline.txt`.
 | erofs system partition | ≤ 600 MiB | 500 MiB | same image | ≤ 450 MiB, then tightened |
 | RAM after unlock | ≤ 1.2 GiB | 847 MiB | 1.8 GiB used, incl. GPU buffers; 978 MiB RSS in the writer's processes | ≤ 1.0 GiB of RSS; system-wide recorded |
 
+**After OS-4** (2026-10-22, VM): ESP 23.6 MiB, initrd 9.9 MiB, root 357 MiB; kernel → switch-root 2.69 s and switch-root → unlock painted 4.68 s on the good stick, 10.0 s kernel → unlock on the cheap one; 829 MiB in the writer's processes. `pnpm os:perf` measures these against `os/perf-baseline.json` (os/PLAN.md, *Phase OS-4 result*; ADR-0014).
+
 ## The stick to recommend
 
 Buy for random reads, not for the sequential speed on the box. Our "good" profile, **≥ 150 MB/s sequential and ≥ 2500 random 4 KiB reads/s on USB 3**, boots as fast as the unthrottled disk in the VM. The cheap profile (25 MB/s, 400/s) adds 7.5 s.

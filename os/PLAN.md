@@ -21,7 +21,7 @@ This file is the plan for that work, written to be carried out over several sess
 - Copy as rich text removed in appliance mode.
 - Our own WebKitGTK scheduled after the stick's 1.0.
 
-**Status:** Phase OS-3 built (2026-10-21) and waiting for the author's check on the Dell: lock before sleep and on the lid, power in the menu, the clock and battery, Settings › This stick (*Phase OS-3 result* below). The author moved on from OS-2 before its Dell check; that check is still listed under *Phase OS-2 result*. Phase OS-2 built (2026-10-21): a blank stick asks for a keyboard, a passphrase and a time zone once, formats its home (LUKS2, Argon2id) and from then on boots to the bismillah unlock screen. Every VM scenario passes; the result is in *Phase OS-2 result* below. OS-1 was accepted when the author moved on. Working rule from the author: make it work first, then optimise.
+**Status:** Phase OS-4 built (2026-10-22) and waiting for the author: the sizes are within budget, the boot is 2.4 s faster in the VM, and two VM boot stages are still over budget, which the Dell check decides (*Phase OS-4 result* below; ADR-0014, Proposed). Phase OS-3 built (2026-10-21) and waiting for the author's check on the Dell: lock before sleep and on the lid, power in the menu, the clock and battery, Settings › This stick (*Phase OS-3 result* below). The author moved on from OS-2 before its Dell check; that check is still listed under *Phase OS-2 result*. Phase OS-2 built (2026-10-21): a blank stick asks for a keyboard, a passphrase and a time zone once, formats its home (LUKS2, Argon2id) and from then on boots to the bismillah unlock screen. Every VM scenario passes; the result is in *Phase OS-2 result* below. OS-1 was accepted when the author moved on. Working rule from the author: make it work first, then optimise.
 
 ---
 
@@ -589,7 +589,66 @@ Goal: every stage at or under budget, on the "cheap stick" profile as well as th
 - `os/scripts/verify.sh` fails on a regression.
 
 ### Phase OS-4 result
-*(to be written)*
+
+Built 2026-10-21/22 (commits c42964b to the OS-4 result). The full VM suite (133 checks, including a new tour of the app) passes on the pruned images, and `os/perf-baseline.json` is committed.
+
+**What exists:**
+- **`pnpm os:perf`** (`os/scripts/perf.ts`):
+  - Sizes from the release image, and unpacked bytes per component.
+  - Boot stages from the debug image's marks and `systemd-analyze`: a stick set up once, booted cold three times on the good and the cheap stick (median), unlocked each time.
+  - RAM with a 1 MB English and Arabic document open.
+  - It compares all of these with the baseline, fails on a regression (times +15% + 0.3 s, sizes +2%, RAM +10%) and reports the budgets beside it. `os/scripts/verify.sh` runs it (`--sizes` in `--fast`).
+- **The allowlist:**
+  - `bismillah-trace` is a fanotify recorder (`FAN_OPEN`/`FAN_OPEN_EXEC` on the root's whole file system, so the WebKit sandbox counts). It is built only with the helper crate's `trace` feature and installed only in the debug image. It starts at boot when the VM harness passes an SMBIOS credential (`BISMILLAH_TRACE=1`) and writes to a third serial port.
+  - `os/scripts/trace.sh` builds the debug image unpruned, runs every debug scenario with the recorder, merges the result into `os/mkosi/allowlist.txt` (682 files) and rebuilds both images.
+  - `os/mkosi/allowlist-declared.txt` lists, with reasons, what a VM can't open: every XKB layout, every time zone (none installed: the app's zones come from ICU), the fonts, the GPU families' Mesa drivers, udev's rules and database, systemd's early files.
+  - `prune.py` (a finalize script) keeps the traced and declared files, the libraries they need (DT_NEEDED and the loader) and the links to them.
+  - The contents check fails on any release file that is neither traced, declared nor needed, and on any program missing a library.
+  - The new `tour` scenario walks every part of the app by keyboard: vocalised Arabic, English spelling and grammar, Settings, both themes, the guide, About, the native New file dialog, find, the views, Lock and Restart. Setup, unlock, Unreadable, suspend and low battery were already covered by other scenarios.
+- **Kernel modules by hardware class** (`mkosi.conf`):
+  - storage, USB, HID and input, I2C, ACPI, power, thermal, backlight
+  - the Intel, AMD, nouveau, virtio and QEMU VGA GPU drivers
+  - no sound drivers. Sound's core stays as a dependency of `thinkpad_acpi`.
+- **The initrd keeps only what its boot runs** (`initrd-keep.txt`, `prune.py initrd`). It is packed with zstd -19, loads the USB storage drivers from `modules-load.d` at once, and mounts the system's RAM folders from its own fstab.
+- **Boot waits removed** (found with the journal's monotonic timeline):
+  - usb-storage's 1 s delay is now 100 ms.
+  - The RAM folders' mounts waited 0.8 s for systemd's rate-limited mount monitor; the initrd mounts them now.
+  - `user@.service` is masked; PAM waited 0.45 s for it.
+  - An empty `machine-id` stops every boot counting as a first boot.
+  - Only two generators remain (fstab, debug).
+  - The unused API mounts and e2fsprogs' shell-script scrubber are masked.
+  - erofs uses 64 KiB clusters.
+
+**Measured** (VM, debug image, median of 3; `os/out/perf/report.md`):
+
+| Measure | Budget | Start of OS-4 | Now |
+|---|---|---|---|
+| ESP payload | ≤ 40 MiB | 46.5 MiB | 23.6 MiB |
+| initrd (base + modules) | ≤ 15 MiB | 34.5 MB | 9.9 MiB |
+| erofs root | ≤ 450 MiB | 494 MiB | 357 MiB |
+| kernel → switch-root, good | ≤ 2.5 s | 4.40 s | 2.69 s |
+| switch-root → unlock painted, good | ≤ 3.0 s | 5.46 s | 4.68 s |
+| *Unlock* → caret, good | ≤ 2.0 s | 1.72 s | 1.81 s |
+| kernel → unlock painted, cheap | recorded | 16.1 s | 10.0 s |
+| switch-root → unlock painted, cheap | recorded | 10.95 s | 7.23 s |
+| RAM, writer's processes (PSS), 1 MB document | ≤ 1.0 GiB | — | 829 MiB (877 MiB system-wide) |
+
+**Deviations and findings:**
+- **Two boot stages are over their VM budget**: 2.69 s against 2.5, and 4.68 s against 3.0. The rest after switch-root is cage, Mesa and WebKit starting. In the VM about 1.2 s of that is the software renderer (virtio-gpu without virgl falls back to llvmpipe). The Dell's i915 doesn't need it, so the Dell's numbers decide whether to re-set these budgets. ADR-0014 records why Buildroot wouldn't change this.
+- **The "start of OS-4" times flatter the result a little.** The debug image's serial console was slowing them: QEMU keeps the console to 115200 baud and PID1 waits on it. The console now carries only warnings, failures and the marks, logged at notice. The tests that read the helper's messages allow for the journal's colour codes.
+- **The release image can't be timed from inside**, since it prints nothing. Seen from outside, OVMF's own time varies from 3.7 to 9 s between boots, which swamps the difference. So the stages come from the debug image, which now boots the same way apart from its console, journal and recorder.
+- **The allowlist files live in `os/mkosi/`**, not `os/`: mkosi's scripts see only their own folder.
+- **The debug image is pruned too**, plus its tools (`debug:` lines). That way the whole suite runs on the pruned system, and the trace is recorded on an unpruned build.
+- **No CPU microcode** is installed; the firmware's own is used.
+- **File ordering by boot access and reading ahead** weren't done: mkfs.erofs can't order files, and 64 KiB clusters already cut the cheap stick's reads. **Trimming ICU and Mesa** needs our own builds (the later WebKitGTK work).
+- **`/usr/bin/stty`** is in the trace because the debug command line runs it at start, and it exited before the recorder could check its cgroup. It is harmless and 50 KB.
+- **cage's pointer** is still shown at start (left for OS-5).
+
+**The author's acceptance check:**
+1. Look at the budgets and ADR-0014, and accept them, or re-set the two VM boot stages.
+2. Flash the release image on the Dell (`bash os/scripts/flash.sh release`; this erases the stick's texts) and set it up. It still boots with Secure Boot on, the keyboard, touchpad and brightness keys work, and the lid locks: this is the first run of the trimmed modules and files on real hardware.
+3. Use it for a while: Settings, New file…, Arabic text, spelling. Anything missing (a blank icon, a failing feature) is a gap in the trace. Tell me, and it gets a scenario step and a new trace.
+4. Time a cold boot to the unlock screen (power button → unlock screen) and *Unlock* → caret, and compare with OS-0's 33 s and 1.5 s.
 
 ---
 

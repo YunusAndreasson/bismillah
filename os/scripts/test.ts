@@ -989,7 +989,7 @@ async function power(): Promise<void> {
       `${name}: it saved before powering off`,
     );
     check(
-      /helper\[\d+\]: texts: clean,/.test(vm.serial().slice(from)),
+      /helper\[\d+\]: \S*texts: clean,/.test(vm.serial().slice(from)),
       `${name}: home was left clean`,
     );
     await vm.key("ctrl", "p");
@@ -1020,7 +1020,7 @@ async function power(): Promise<void> {
       `${name}: Power off saved first`,
     );
     check(
-      /helper\[\d+\]: texts: clean,/.test(vm.serial().slice(from)),
+      /helper\[\d+\]: \S*texts: clean,/.test(vm.serial().slice(from)),
       `${name}: home was left clean`,
     );
   } finally {

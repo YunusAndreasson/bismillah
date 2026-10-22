@@ -1,0 +1,56 @@
+{
+  "measured": "2026-10-22",
+  "commit": "52db77a",
+  "sizes": {
+    "ESP payload": 24697864,
+    "initrd": 10380580,
+    "kernel": 12154816,
+    "erofs root": 374050816,
+    "root verity": 2957312
+  },
+  "components": {
+    "the rest": 1028642,
+    "kernel modules": 38123793,
+    "firmware": 163112388,
+    "bismillah": 47759699,
+    "WebKitGTK": 134139792,
+    "ICU": 37869456,
+    "Mesa and LLVM": 174507019,
+    "GStreamer": 4870368,
+    "GTK and GLib": 30591069,
+    "fonts": 3391784,
+    "XKB": 3252192,
+    "time zones": 0,
+    "systemd and udev": 34855175,
+    "other libraries": 124691258,
+    "programs": 2462208
+  },
+  "boots": {
+    "cheap": {
+      "QEMU start → kernel (firmware, loader)": 4.161999999999999,
+      "kernel → switch-root": 2.751,
+      "switch-root → app process": 4.939,
+      "switch-root → unlock painted": 7.233999999999999,
+      "kernel → unlock painted": 10.04,
+      "Unlock → KDF done": 1.2300000000000004,
+      "KDF": 1.1399999999999988,
+      "Unlock → home mounted": 1.7799999999999994,
+      "Unlock → caret": 2.290000000000001
+    },
+    "good": {
+      "QEMU start → kernel (firmware, loader)": 3.649,
+      "kernel → switch-root": 2.6900000000000004,
+      "switch-root → app process": 2.976,
+      "switch-root → unlock painted": 4.676,
+      "kernel → unlock painted": 7.45,
+      "Unlock → KDF done": 1.209999999999999,
+      "KDF": 1.129999999999999,
+      "Unlock → home mounted": 1.4100000000000001,
+      "Unlock → caret": 1.8099999999999987
+    }
+  },
+  "ram": {
+    "RAM: writer's processes (PSS)": 869363712,
+    "RAM: system in use": 919597056
+  }
+}

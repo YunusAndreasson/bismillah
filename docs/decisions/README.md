@@ -22,6 +22,7 @@ Short records of decisions with lasting consequences. Each one says what was dec
 | [0011](0011-arabic-mark-rendering.md) | Arabic mark rendering in WebKitGTK | Accepted |
 | [0012](0012-live-preview.md) | Live preview: Markdown shows in the caret's paragraph | Accepted |
 | [0013](0013-appliance-os.md) | Appliance OS: bismillah on a bootable stick | Accepted |
+| [0014](0014-stick-stays-on-debian.md) | The stick stays on Debian | Proposed |
 
 ## Template
 
