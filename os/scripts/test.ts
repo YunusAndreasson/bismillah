@@ -1294,7 +1294,7 @@ async function hostUntouched(): Promise<void> {
     const raid = await vm.run("ls /dev/md* /proc/mdstat 2>/dev/null | wc -l");
     check(raid.trim() === "0", `${name}: debug: no RAID assembled`);
     const homeDisk = await vm.run(
-      "lsblk -sno NAME,TRAN $(findmnt -no SOURCE /home/writer) | tail -1",
+      "lsblk -isno NAME,TRAN $(findmnt -no SOURCE /home/writer) | tail -1",
     );
     check(
       / usb$/.test(homeDisk.trim()),
