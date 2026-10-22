@@ -1,6 +1,6 @@
 # 0014 — The stick stays on Debian
 
-- **Status:** Proposed (2026-10-22), for the author's acceptance of OS-4
+- **Status:** Accepted (2026-10-22, with OS-4)
 - **Date:** 2026-10-22
 - **Builds on:** [0013](0013-appliance-os.md)
 
