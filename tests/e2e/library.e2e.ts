@@ -363,6 +363,13 @@ describe("library", () => {
     await until(async () => (await picker())?.kind === "palette", "the palette never opened");
     await type("zuhd");
     await until(async () => (await picker())?.selected?.startsWith("Zuhd") ?? false, "no Zuhd");
+    await press("Enter");
+    await until(async () => (await picker()) === null, "the palette never closed");
+    // The command runs where focus was: in the tree.
+    await focusedRowIs("Essays");
+    await press("Control", "Shift", "p");
+    await type("zuhd");
+    await until(async () => (await picker())?.selected?.includes("· On") ?? false, "not shown On");
     await press("Escape");
     await until(async () => (await picker()) === null, "the palette never closed");
     await press("Control", "p");
