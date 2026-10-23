@@ -290,10 +290,6 @@ const STATES: State[] = [
       const radios = find(doc, (n) => n.role === "radio button");
       if (radios.length < 10) out.push(`only ${radios.length} radio buttons`);
       if (!radios.some((n) => n.states.includes("checked"))) out.push("no radio button is checked");
-      const shown = find(doc, (n) => /button$/.test(n.role) && n.name === "Show in file manager");
-      if (shown.length !== 2) out.push(`${shown.length} Show in file manager buttons, not 2`);
-      if (shown.some((n) => !n.description))
-        out.push("a Show in file manager button doesn't say which folder");
       return out;
     },
     leave: escape,

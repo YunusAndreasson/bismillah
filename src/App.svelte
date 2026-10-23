@@ -225,7 +225,6 @@
   section={workspace.settingsSection}
   shown={() => (workspace.settingsSection = null)}
   openFolder={() => void workspace.openFolder()}
-  showFolder={(folder: ipc.Folder) => workspace.showFolder(folder)}
   createKeybindings={() => workspace.createKeybindings()}
   openAbout={() => (workspace.aboutOpen = true)}
   stick={workspace.stick

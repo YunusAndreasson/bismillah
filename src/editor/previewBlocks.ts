@@ -9,14 +9,13 @@ import {
 } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { copy } from "../core/copy.ts";
-import { linkAddress, opensOutside } from "./links.ts";
-import { inlineEdit, revealed } from "./livePreview.ts";
+import { inlineEdit, normaliseLabel, references, revealed } from "./livePreview.ts";
 
 /**
  * Live preview's blocks (ADR-0012): the frontmatter folded to one quiet line outside the
  * caret, local images below their line, a placeholder with the address for images from
- * the web (never fetched), and a link's or image's address in a tooltip on hover (with
- * how to open a web or email link, links.ts). The tooltip moves nothing, and the same address is in the source once the caret is in
+ * the web (never fetched), and a link's or image's address in a tooltip on hover. The
+ * tooltip moves nothing, and the same address is in the source once the caret is in
  * the block, so nothing is reachable by hover alone (DESIGN.md §7).
  */
 
@@ -227,6 +226,22 @@ const images = StateField.define<DecorationSet>({
 // ---------------------------------------------------------------------------------------
 // Addresses on hover.
 
+/** Where a link or image leads: its URL, or its reference's; null for none. */
+export function linkAddress(state: EditorState, node: SyntaxNode): string | null {
+  const url = node.getChild("URL");
+  if (url) return state.sliceDoc(url.from, url.to);
+  const marks = node.getChildren("LinkMark");
+  const start = marks[0];
+  const close = marks.find((m) => state.sliceDoc(m.from, m.to) === "]");
+  if (!start || !close) return null;
+  const label = node.getChild("LinkLabel");
+  const name =
+    label && label.to - label.from > 2
+      ? state.sliceDoc(label.from + 1, label.to - 1)
+      : state.sliceDoc(start.to, close.from);
+  return references(state).links.get(normaliseLabel(name)) ?? null;
+}
+
 const addressTooltip = hoverTooltip(
   (view, pos, side) => {
     const open = view.state.field(revealed).lines;
@@ -251,12 +266,6 @@ const addressTooltip = hoverTooltip(
           text.dir = "ltr";
           text.textContent = address;
           dom.append(text);
-          if (node.name === "Link" && opensOutside(address)) {
-            const hint = document.createElement("div");
-            hint.className = "cm-address-hint";
-            hint.textContent = copy.links.hint;
-            dom.append(hint);
-          }
           return { dom };
         },
       };

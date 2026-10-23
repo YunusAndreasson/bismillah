@@ -68,15 +68,7 @@ describe("exploratory regressions", () => {
     });
   });
 
-  it("offers no document commands after trashing the file and preserves the clipboard", async () => {
-    await open(folder.file("sentinel.md", "Clipboard sentinel.\n"));
-    await browser.execute(() => window.__bismillah?.run("edit.copyRich"));
-    const clipboard = () =>
-      browser.execute(async () => window.__bismillah?.clipboard("UTF8_STRING"));
-    await browser.waitUntil(
-      async () => (await clipboard())?.includes("Clipboard sentinel") ?? false,
-    );
-    const before = await clipboard();
+  it("offers no document commands after trashing the file", async () => {
     await browser.execute(
       async (path: string) => window.__bismillah?.setLibrary(path),
       folder.path,
@@ -88,24 +80,22 @@ describe("exploratory regressions", () => {
     await browser.keys(["Control", "Shift", "P"]);
     const input = await browser.$(".picker-input");
     await input.waitForDisplayed();
-    for (const label of [
-      "Copy as rich text",
-      "Save now",
-      "Undo",
-      "Redo",
-      "Select all",
-      "Open link",
-      "Show suggestions",
-    ]) {
+    for (const label of ["Save now", "Undo", "Redo", "Select all", "Show suggestions"]) {
       await input.setValue(label);
       await browser.waitUntil(() =>
         browser.execute(() => window.__bismillah?.picker()?.items.length === 0),
       );
     }
     await browser.keys("Escape");
-    await browser.execute(() => window.__bismillah?.run("edit.copyRich"));
-    await settle(browser);
-    expect(await clipboard()).toBe(before);
+    // Run directly, as the menu and shortcuts do, they still do nothing.
+    const ran = await browser.execute(() => {
+      const app = window.__bismillah;
+      if (!app) return null;
+      const before = app.commandLog.length;
+      for (const id of ["file.save", "edit.selectAll", "edit.undo"] as const) app.run(id);
+      return app.commandLog.length - before;
+    });
+    expect(ran).toBe(0);
     await act("Undo");
     await browser.waitUntil(async () => (await docText()) === text);
     expect(folder.read("closed.md").toString()).toBe(text);

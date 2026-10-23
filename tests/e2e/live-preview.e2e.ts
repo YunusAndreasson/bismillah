@@ -9,8 +9,7 @@ import { head, lineOf, loadDoc, press } from "./spikes/helpers.ts";
 /**
  * Live preview in the real app (ADR-0012, PLAN.md Phase 4): the folded frontmatter,
  * images below their line (local ones from the library only), addresses on hover,
- * Always show Markdown on Mod-R, the XSS fixture inert in the editor, and Copy as rich
- * text on the clipboard. The caret, selection and click checks on RTL and mixed lines
+ * Always show Markdown on Mod-R and the XSS fixture inert in the editor. The caret, selection and click checks on RTL and mixed lines
  * are in spikes/live-preview.e2e.ts (rendered) and spikes/bidi.e2e.ts (all shown).
  */
 
@@ -208,6 +207,49 @@ describe("live preview", () => {
       .perform();
   });
 
+  it("puts the caret in a link on Ctrl+click, and follows nothing (ADR-0015)", async () => {
+    const text = "A [link with text](https://example.com/page) here.\n\nThe caret is here.";
+    await loadDoc(text);
+    await caretTo("The caret");
+    const target = await browser.execute(() => {
+      const view = window.__bismillah?.view;
+      if (!view) return null;
+      const rect = view.coordsAtPos(view.state.doc.toString().indexOf("with") + 2);
+      return rect
+        ? { x: Math.round(rect.left), y: Math.round((rect.top + rect.bottom) / 2) }
+        : null;
+    });
+    if (!target) throw new Error("no link on screen");
+    await browser.actions([
+      browser.action("key").down("\uE009").pause(50).pause(50).pause(50).up("\uE009"),
+      browser
+        .action("pointer", { parameters: { pointerType: "mouse" } })
+        .pause(50)
+        .move(target)
+        .down()
+        .up(),
+    ]);
+    await settle(browser);
+    const after = await browser.execute(() => {
+      const view = window.__bismillah?.view;
+      if (!view) return null;
+      const { ranges, main } = view.state.selection;
+      return {
+        ranges: ranges.length,
+        empty: main.empty,
+        head: main.head,
+        doc: view.state.doc.toString(),
+      };
+    });
+    expect(after?.ranges).toBe(1);
+    expect(after?.empty).toBe(true);
+    expect(after?.doc).toBe(text);
+    const link = text.indexOf("[link");
+    expect(after?.head).toBeGreaterThan(link);
+    expect(after?.head).toBeLessThan(text.indexOf(" here."));
+    expect(await browser.getWindowHandles()).toHaveLength(1);
+  });
+
   it("shows every mark on Mod-R, exactly as Phase 1 draws them, and hides them again", async () => {
     const doc = fixture("live-preview.md");
     await loadDoc(`---\ntitle: T\n---\n\n${doc}\n![An arch](figures/arch.png)\n`);
@@ -298,82 +340,5 @@ describe("live preview", () => {
       await browser.execute(() => (window as unknown as { __xss?: string }).__xss ?? null),
     ).toBeNull();
     expect(await browser.execute(() => window.__cspViolations ?? [])).toEqual([]);
-  });
-
-  it("copies the selection, or the whole document, as rich text and plain text", async () => {
-    await loadDoc(
-      "---\ntitle: T\n---\n\nSome **strong** and a [link](https://e.com).\n\n- one\n- two\n",
-    );
-    const start = await browser.execute(
-      () => window.__bismillah?.view.state.doc.toString().indexOf("**strong**") ?? 0,
-    );
-    await browser.execute(
-      (a: number, b: number) => {
-        const view = window.__bismillah?.view;
-        view?.focus();
-        view?.dispatch({ selection: { anchor: a, head: b } });
-      },
-      start,
-      start + "**strong** and a [link](https://e.com)".length,
-    );
-    await browser.keys(["Control", "Shift", "c"]);
-    await browser.keys(["Control", "Shift"]);
-    await browser.waitUntil(
-      () =>
-        browser.execute(() => window.__bismillah?.note() === "Copied the selection as rich text."),
-      { timeout: 5000, timeoutMsg: "no confirmation" },
-    );
-    const clip = () =>
-      browser.execute(async () => ({
-        html: await window.__bismillah?.clipboard("text/html"),
-        text: await window.__bismillah?.clipboard("UTF8_STRING"),
-      }));
-    expect(await clip()).toEqual({
-      html: '<meta charset="utf-8"><p><strong>strong</strong> and a <a href="https://e.com">link</a></p>\n',
-      text: "strong and a link",
-    });
-    await caretTo("- one");
-    await browser.execute(() => window.__bismillah?.run("edit.copyRich"));
-    await browser.waitUntil(
-      () => browser.execute(() => window.__bismillah?.note() === "Copied as rich text."),
-      { timeout: 5000 },
-    );
-    const whole = await clip();
-    expect(whole.text).toBe("Some strong and a link.\n\n• one\n• two");
-    expect(whole.html).not.toContain("title");
-  });
-
-  it("copies the XSS fixture as inert rich text", async () => {
-    await loadDoc(fixture("xss.md"));
-    await caretTo("A footnote");
-    await browser.execute(() => window.__bismillah?.run("edit.copyRich"));
-    await browser.waitUntil(
-      () => browser.execute(() => window.__bismillah?.note() === "Copied as rich text."),
-      {
-        timeout: 5000,
-      },
-    );
-    const found = await browser.execute(async () => {
-      const html = (await window.__bismillah?.clipboard("text/html")) ?? "";
-      const doc = new DOMParser().parseFromString(html, "text/html");
-      const banned = doc.querySelectorAll(
-        "script, iframe, object, embed, form, base, style, svg, math, details, button",
-      ).length;
-      const risky = [...doc.querySelectorAll("*")].flatMap((el) =>
-        [...el.attributes]
-          .filter(
-            (a) =>
-              /^on/i.test(a.name) ||
-              (/^(href|src)$/.test(a.name) && /^\s*(javascript|vbscript|data:text)/i.test(a.value)),
-          )
-          .map((a) => `${el.tagName} ${a.name}`),
-      );
-      return { length: html.length, banned, risky };
-    });
-    expect(found.length).toBeGreaterThan(1000);
-    expect(found).toEqual({ length: found.length, banned: 0, risky: [] });
-    expect(
-      await browser.execute(() => (window as unknown as { __xss?: string }).__xss ?? null),
-    ).toBeNull();
   });
 });

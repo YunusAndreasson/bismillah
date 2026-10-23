@@ -327,9 +327,6 @@ export const testDialog = (path: string | null) => invoke<null>("test_dialog", {
 /** Test mode only: makes `path` the library, in place of the folder dialog. */
 export const testLibrary = (path: string) => invoke<LibraryView>("test_library", { path });
 /** Test mode only: makes every save fail at one step until cleared with null. */
-/** Test mode only: the clipboard's contents under an X target ("text/html"). */
-export const testClipboard = (target: string) =>
-  invoke<string | null>("test_clipboard", { target });
 export const testFault = (fault: "disk_full" | "rename_fails" | null) =>
   invoke<null>("test_fault", { fault });
 
@@ -338,27 +335,7 @@ export interface MenuState {
   active: boolean;
 }
 
-/** Why a link or folder wasn't handed to another app (src-tauri/src/links.rs). */
-export type LinkError =
-  | { kind: "not_web" }
-  | { kind: "unavailable" }
-  | { kind: "no_app" }
-  /** On the bismillah stick, where nothing else runs. */
-  | { kind: "stick" };
-
-/** The folders Settings › Files & privacy can show in the file manager. */
-export type Folder = "settings" | "recovery" | "library";
-
-/** Opens a web or email link in the writer's browser or mail app; Rust checks it. */
-export const openLink = (address: string) => invoke<null>("link_open", { address });
-export const showFolder = (folder: Folder) => invoke<null>("folder_show", { folder });
-/** Test mode only: links and folders handed on (recorded, not opened) since last asked. */
-export const testHanded = () => invoke<string[]>("test_handed");
-
 export const menuReveal = () => invoke<null>("menu_reveal");
-/** Copy as rich text: sanitised HTML and its plain text on the system clipboard. */
-export const clipboardWrite = (html: string, text: string) =>
-  invoke<null>("clipboard_write", { html, text });
 export const menuHide = () => invoke<null>("menu_hide");
 export const menuState = () => invoke<MenuState>("menu_state");
 

@@ -4,7 +4,6 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { keymap } from "@codemirror/view";
 import { Compartment, Prec } from "@codemirror/state";
-import { linkAt } from "../editor/links.ts";
 import { createEditor, type Editor } from "../editor/setup.ts";
 import { remeasure } from "../editor/typography.ts";
 import { toggleTransliteration, transliterationOn } from "../editor/typingAids.ts";
@@ -720,7 +719,6 @@ export class Workspace {
         const id = this.#documentId;
         return id === null ? null : convertFileSrc(`${id}/${src}`, "bismillah-image");
       },
-      onOpenLink: (address) => void this.openLink(address),
     });
     this.#dialect = settings.values.english_dialect;
     return this.editor;
@@ -1127,57 +1125,6 @@ export class Workspace {
     if (await session.save()) await ipc.settleRecovery(session.id);
   }
 
-  /**
-   * Copy as rich text (DESIGN.md §11): the selection, or the whole document without its
-   * frontmatter, as sanitised HTML and plain text. The renderer loads on first use.
-   */
-  async copyRich(): Promise<void> {
-    const view = this.editor?.view;
-    if (!view) return;
-    const { from, to } = view.state.selection.main;
-    const whole = from === to;
-    const source = whole ? view.state.doc.toString() : view.state.sliceDoc(from, to);
-    const { richText } = await import("../richText/render.ts");
-    const { html, text } = richText(source, whole || from === 0);
-    try {
-      await ipc.clipboardWrite(html, text);
-      this.checking.say(whole ? copy.copyRich.done : copy.copyRich.doneSelection);
-    } catch {
-      this.checking.say(copy.copyRich.failed);
-    }
-  }
-
-  /**
-   * A link from the document, to the writer's browser or mail app (ADR-0003). Rust
-   * checks the address and hands it on; the status line says why when it doesn't.
-   */
-  async openLink(address: string): Promise<void> {
-    try {
-      await ipc.openLink(address);
-    } catch (error) {
-      const kind = isError<ipc.LinkError>(error) ? error.kind : null;
-      this.checking.say(
-        kind === "not_web"
-          ? copy.links.notWeb
-          : kind === "stick"
-            ? copy.links.stick
-            : copy.links.noApp,
-      );
-    }
-  }
-
-  /** Shows one of bismillah's folders, or the library, in the file manager: null, or
-   * why it couldn't (Settings shows it beside the button). */
-  async showFolder(folder: ipc.Folder): Promise<string | null> {
-    try {
-      await ipc.showFolder(folder);
-      return null;
-    } catch (error) {
-      const gone = isError<ipc.LinkError>(error) && error.kind === "unavailable";
-      return gone ? copy.folders.unavailable : copy.folders.noApp;
-    }
-  }
-
   async discardRecovered(): Promise<void> {
     const session = this.session;
     this.recovery = null;
@@ -1263,14 +1210,6 @@ export class Workspace {
         void settings.set({ typewriter_scrolling: !settings.values.typewriter_scrolling }),
       toggleMarkdown: () =>
         void settings.set({ always_show_markdown: !settings.values.always_show_markdown }),
-      copyRich: () => void this.copyRich(),
-      openLink: () => {
-        const view = this.editor?.view;
-        if (!view) return;
-        const link = linkAt(view.state, view.state.selection.main.head);
-        if (link) void this.openLink(link.address);
-        else this.checking.say(copy.links.none);
-      },
       toggleTransliteration: () => {
         const view = this.editor?.view;
         if (!view) return;

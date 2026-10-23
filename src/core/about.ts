@@ -70,7 +70,7 @@ export const SOFTWARE: readonly Credit[] = [
   },
   {
     name: "gtk-rs",
-    role: "the menu bar and the clipboard",
+    role: "the menu bar and the keyboard layout",
     licence: "MIT",
     packages: ["gtk"],
   },
@@ -92,18 +92,6 @@ export const SOFTWARE: readonly Credit[] = [
   },
   { name: "Svelte", role: "the interface", licence: "MIT", packages: ["svelte"] },
   { name: "Bits UI", role: "dialogs and menus", licence: "MIT", packages: ["bits-ui"] },
-  {
-    name: "markdown-it",
-    role: "Copy as rich text",
-    licence: "MIT",
-    packages: ["markdown-it", "markdown-it-footnote"],
-  },
-  {
-    name: "DOMPurify",
-    role: "keeping copied text safe",
-    licence: "MPL 2.0 or Apache 2.0",
-    packages: ["dompurify"],
-  },
   { name: "notify", role: "noticing changed files", licence: "CC0 1.0", packages: ["notify"] },
   { name: "trash", role: "Move to trash", licence: "MIT", packages: ["trash"] },
   {
@@ -111,12 +99,6 @@ export const SOFTWARE: readonly Credit[] = [
     role: "the library's sort order",
     licence: "Unicode 3.0",
     packages: ["icu_normalizer"],
-  },
-  {
-    name: "rust-url",
-    role: "checking a link before it opens",
-    licence: "MIT or Apache 2.0",
-    packages: ["url"],
   },
   {
     name: "Serde, toml_edit, thiserror, libc",

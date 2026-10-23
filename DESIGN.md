@@ -107,7 +107,7 @@ Hierarchy is built with spacing, placement, alignment and weight before colour. 
 - **Problems are shown where they belong:** a theme file's below Colours, `keybindings.toml`'s under Keyboard shortcuts, each line by line in plain words. A notice in the notices row says only that something couldn't be used and offers **Show in Settings**, which opens Settings at that section.
 - **About bismillah** (Help menu, the palette, and a button at the foot of Settings): the name, one line on what it is, the version, the inspiration in two short paragraphs (§4), and what it is made with under which licence (fonts, the dictionary and checkers, the software), grouped and listed in `text-secondary`. It opens at its start, with focus on *Close*, which stays visible while the credits scroll.
 - **Guide** (Help menu, `F1`, the palette; Phase 6): the guide (`docs/guide.md`) opens in the writing surface as a sample, like any document but never saved (*Guide — changes aren't saved*), so the writer can try what it describes. `F1` opens it afresh. Its own vocabulary (the app's names) is ignored by the checker in the guide alone.
-- **Settings › Files & privacy** offers *Show in file manager* for the library, the settings folder and the recovery folder (Phase 6), each button described by its setting's heading.
+- **Settings › Files & privacy** names the library, the settings folder and the recovery folder as text; nothing opens them in another app (ADR-0015).
 
 ### The library, quick open and the palette (Phase 2)
 
@@ -323,8 +323,8 @@ There are two separate systems with separate purposes:
   - **Brackets mean what CommonMark says.** `[text](url)` is a link; `[text][label]` and `[label]` are links only when the label is defined in the document, and `[^1]` is a footnote only when its note exists, so a scholarly `[sic]` or `[emphasis added]` keeps its brackets.
   - **The frontmatter** folds to one quiet line of its keys (`title: Specimen · lang: en`); a newly opened document puts the caret on its first line of text, below it.
   - **Images** appear below their line, within the measure: a file inside the library (Rust checks every image path as it does every other, ARCHITECTURE.md §6), or one embedded as `data:`. An image from the web is never loaded: a quiet note says so and shows its address. So does a note for a file that is missing, outside the library or not an image.
-  - **Reveal follows the caret, never the mouse,** so text never moves under the pointer. A press of the mouse button reveals nothing until its release; then the clicked block reveals and the caret's row keeps its height on screen. A double-click selects the word that was clicked, although the first click moved it. Hovering a link or image shows its address in a tooltip (`surface-editor`, `border-control`), which moves nothing, with *Ctrl+click to open* in `text-secondary` under a web or email link; the same address is in the source once the caret is in the block.
-  - **Links open on Ctrl+click** (Cmd on macOS), and *Open link* opens the one at the caret, from the keyboard (Phase 6, ADR-0003). They go to the writer's browser, or mail app for an email address, and only web and email addresses go (Rust checks each): a link to a file, a script or another program's scheme says *Only web and email links open from bismillah.* in the status line. A plain click always puts the caret in the text. While Ctrl is held over a link the pointer is a hand. Rendered and shown links alike, in tables and Arabic text too.
+  - **Reveal follows the caret, never the mouse,** so text never moves under the pointer. A press of the mouse button reveals nothing until its release; then the clicked block reveals and the caret's row keeps its height on screen. A double-click selects the word that was clicked, although the first click moved it. Hovering a link or image shows its address in a tooltip (`surface-editor`, `border-control`), which moves nothing; the same address is in the source once the caret is in the block.
+  - **Links never open** (ADR-0015): a click on a link, with or without Ctrl, puts the caret in the text. The address is in the tooltip and in the source.
   - **Always show Markdown** (Settings › Writing, View menu, `Mod-R`) keeps every mark visible, iA-style, exactly as Phase 1 draws it.
 - **Caret:** 2px wide, in `accent`. **Selection:** `selection-background` with `text-primary` text.
 - **Enter starts a paragraph** (2026-10-19). In a paragraph or heading at the top level, `Enter` inserts the blank line Markdown needs between paragraphs, so one press does what took two; at the end of a line whose paragraph runs on below, that rest becomes its own paragraph too. `Backspace` straight after takes the whole break back. `Shift+Enter` inserts a single line break. Lists and quotes keep their own `Enter` (the next item, the next quoted line); code, tables, frontmatter, blank lines and a caret at the start of a line keep the plain newline. It is a command at the caret, never a rewrite of what was typed (AGENTS.md rule 3). `src/editor/paragraphs.ts`.
@@ -339,7 +339,7 @@ There are two separate systems with separate purposes:
   - *Replace* is one undoable edit, the caret after the new text. A correction that would delete a Markdown mark is never offered. *Ignore* lasts for this document and session and writes nothing; *Add to dictionary* writes the word to the writer's own `dictionary.txt`, which they may also edit by hand.
   - Asked where there is nothing to find, the status line says so for a moment (*No spelling or grammar issues.*, *Nothing to suggest here.*, *Spelling and grammar checking are off.*), announced politely to screen readers.
 - **Frontmatter:** shown in `text-secondary`; folded to one quiet line outside the caret, never rewritten.
-- **No separate preview mode.** *Copy as rich text* (`Mod-Shift-C`) puts the selection, or the whole document without its frontmatter, on the clipboard as HTML and as plain text (paragraphs apart, list markers kept), and says so for a moment in the status line. Local images paste as their description, since the paste target can't reach them; nothing typographic is changed.
+- **No separate preview mode** and no *Copy as rich text* (ADR-0015): copying copies the Markdown source.
 
 ### 11.1 Zuhd mode (زهد) — focus mode
 
@@ -461,8 +461,6 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 | `edit.find` / `edit.replace` | Find… / Replace… | `Mod-F` / `Mod-H` |
 | `edit.findNext` / `edit.findPrevious` | Find next / Find previous | `F3` / `Shift-F3` |
 | `edit.goToLine` | Go to line… | `Mod-Alt-G` (line, relative offset, percentage of lines, or line:column) |
-| `edit.copyRich` | Copy as rich text | `Mod-Shift-C` |
-| `edit.openLink` | Open link | none (the link at the caret; `Mod`-click opens the one clicked) |
 | `app.guide` | Guide | `F1` (Help menu: the guide as a sample document) |
 | `app.showMenu` | Show menu bar (Linux and Windows) | `Alt` / `F10` |
 | `app.quit` | Quit (flushes pending saves first) | `Mod-Q` |

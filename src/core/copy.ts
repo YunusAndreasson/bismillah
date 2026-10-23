@@ -483,23 +483,6 @@ export const copy = {
     imageWeb: "Images from the web are never loaded.",
     imageMissing: "Image not shown: there's no image file at this address inside the library.",
   },
-  links: {
-    hint: "Ctrl+click to open",
-    notWeb: "Only web and email links open from bismillah.",
-    noApp: "Couldn't open the link: no app on this computer opens it.",
-    none: "There's no link at the caret.",
-    stick: "Links can't open on this stick: bismillah is the only app on it.",
-  },
-  folders: {
-    show: "Show in file manager",
-    unavailable: "That folder isn't available.",
-    noApp: "Couldn't show the folder: no file manager opens it.",
-  },
-  copyRich: {
-    done: "Copied as rich text.",
-    doneSelection: "Copied the selection as rich text.",
-    failed: "Couldn't copy as rich text: the clipboard didn't take it.",
-  },
   lineEndings: {
     lf: "LF (Unix) line endings",
     crlf: "CRLF (Windows) line endings",

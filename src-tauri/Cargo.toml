@@ -27,8 +27,7 @@ notify = "8.2"
 # Already in Tauri's tree (URL handling); NFD for the library's sort order, on a copy.
 icu_normalizer = "2"
 trash = "5.2"
-# Already in Tauri's tree; checks a link's address before it goes to the browser (links.rs).
-url = "2"
+
 # Spelling and grammar (ADR-0004); the workspace crate, free of Tauri.
 bismillah-lint = { path = "../crates/bismillah-lint", version = "1.0.0" }
 # The stick's helper protocol and passphrase rules (os/PLAN.md, OS-2); the workspace crate.

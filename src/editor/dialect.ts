@@ -42,7 +42,7 @@ export const frontmatter: MarkdownConfig = {
 /**
  * Where the frontmatter ends (after its closing fence, before the line break), or null
  * when the text has none: the same rule as the parser above, for code that works on
- * plain text (the caret's starting place, Copy as rich text). Without a closing fence
+ * plain text (the caret's starting place). Without a closing fence
  * the frontmatter runs to the end, as it does in the editor.
  */
 export function frontmatterEnd(text: string): number | null {

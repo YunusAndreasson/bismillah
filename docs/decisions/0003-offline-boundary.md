@@ -1,6 +1,6 @@
 # 0003 — Offline boundary and privacy claims
 
-- **Status:** Accepted
+- **Status:** Accepted; links superseded by [0015](0015-nothing-handed-on.md) (2026-10-23): they never open
 - **Date:** 2026-10-18
 
 ## Context

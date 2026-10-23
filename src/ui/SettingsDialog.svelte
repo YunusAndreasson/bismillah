@@ -4,7 +4,7 @@
   import { commandById } from "../core/commands.ts";
   import { copy } from "../core/copy.ts";
   import * as ipc from "../core/ipc.ts";
-  import type { ColourTheme, Folder, SaveError } from "../core/ipc.ts";
+  import type { ColourTheme, SaveError } from "../core/ipc.ts";
   import { shortcuts } from "../core/keybindings.svelte.ts";
   import type { LibraryStore } from "../core/library.svelte.ts";
   import {
@@ -40,8 +40,6 @@
     shown: () => void;
     openFolder: () => void;
     createKeybindings: () => Promise<SaveError | null>;
-    /** Shows a folder in the file manager: null, or why it couldn't. */
-    showFolder: (folder: Folder) => Promise<string | null>;
     openAbout: () => void;
     /** On the bismillah stick: its own section (keyboard, time). `apply` stores new
      * layouts, which restarts the session; it resolves only with why it couldn't. */
@@ -59,7 +57,6 @@
     shown,
     openFolder,
     createKeybindings,
-    showFolder,
     openAbout,
     stick = null,
   }: Props = $props();
@@ -173,13 +170,6 @@
     if (!fontInvalid && name !== values.custom_font) change({ custom_font: name });
   }
 
-  // Why a folder couldn't be shown, beside its button.
-  let folderErrors = $state<Partial<Record<Folder, string>>>({});
-  async function show(folder: Folder) {
-    const error = await showFolder(folder);
-    folderErrors = { ...folderErrors, [folder]: error ?? undefined };
-  }
-
   let createError = $state<string | null>(null);
   async function create() {
     const error = await createKeybindings();
@@ -268,29 +258,6 @@
   <div class="setting">
     <h3 class="label">{label}</h3>
     <p class="hint">{body}</p>
-  </div>
-{/snippet}
-{#snippet showButton(folder: Folder, describedBy: string)}
-  <button
-    type="button"
-    class="action"
-    aria-describedby={describedBy}
-    onclick={() => void show(folder)}
-  >
-    {copy.folders.show}
-  </button>
-{/snippet}
-{#snippet folderError(folder: Folder)}
-  {#if folderErrors[folder]}<p class="hint error" role="alert">{folderErrors[folder]}</p>{/if}
-{/snippet}
-{#snippet folderNote(id: string, folder: Folder, label: string, body: string)}
-  <div class="setting">
-    <h3 class="label" {id}>{label}</h3>
-    <p class="hint">{body}</p>
-    {#if !stick}
-      <div class="actions">{@render showButton(folder, id)}</div>
-      {@render folderError(folder)}
-    {/if}
   </div>
 {/snippet}
 
@@ -539,11 +506,7 @@
               <button type="button" class="action" onclick={openFolder}>
                 {commandById("library.openFolder")?.label}
               </button>
-              {#if library.view.kind === "ready"}
-                {@render showButton("library", "settings-library")}
-              {/if}
             </div>
-            {@render folderError("library")}
           {/if}
         </div>
         <!-- On the stick there is no other editor for keybindings.toml or settings.toml. -->
@@ -574,19 +537,9 @@
               </ul>
             {/if}
           </div>
-          {@render folderNote(
-            "settings-your-files",
-            "settings",
-            t.yourFiles,
-            t.yourFilesText(folders.config),
-          )}
+          {@render note(t.yourFiles, t.yourFilesText(folders.config))}
         {/if}
-        {@render folderNote(
-          "settings-recovery",
-          "recovery",
-          t.recovery,
-          t.recoveryText(folders.data),
-        )}
+        {@render note(t.recovery, t.recoveryText(folders.data))}
         {@render note(t.privacy, stick ? t.stick.privacyText : t.privacyText)}
       </section>
 

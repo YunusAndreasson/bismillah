@@ -13,8 +13,6 @@ import { commandLog, runCommand, type CommandId } from "./commands.ts";
 import {
   appInfo,
   menuState,
-  testClipboard,
-  testHanded,
   testDialog,
   testFault,
   testLibrary,
@@ -99,10 +97,6 @@ export interface TestHooks {
    * item. */
   /** Whether the suggestions menu is open in the app's state (drawn or not). */
   menuOpen(): boolean;
-  /** The system clipboard under an X target ("text/html", "UTF8_STRING"). */
-  clipboard(target: string): Promise<string | null>;
-  /** Links and folders handed to other apps since last asked (recorded, not opened). */
-  handed(): Promise<string[]>;
   /** The status line's passing message. */
   note(): string;
   suggestions(): {
@@ -347,8 +341,6 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
       view.focus();
     },
     menuOpen: () => workspace.checking.menu !== null,
-    clipboard: (target) => testClipboard(target),
-    handed: () => testHanded(),
     note: () => document.querySelector(".status .note")?.textContent?.trim() ?? "",
     suggestions() {
       const menu = document.querySelector(".suggestions");

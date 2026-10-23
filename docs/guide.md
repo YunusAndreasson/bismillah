@@ -16,7 +16,6 @@ Your writing lives in **Markdown files** (ending in `.md` or `.markdown`) in a f
 - *Open folder…* (`Ctrl+Shift+O`) makes a folder the library.
 - *Open…* (`Ctrl+O`) opens one file. A file from outside the library makes its folder the library.
 - *New file…* (`Ctrl+N`) asks where to save a new file, starting in the folder you have selected in the library. It never replaces a file that is already there.
-- You can also drop a file or a folder on the window, or open one from your file manager with *Open with › bismillah*.
 
 When nothing is open, bismillah offers those three: open a folder, open a file, or start a new one. A quiet *Guide* button opens this guide.
 
@@ -52,13 +51,9 @@ Your document reads as **rendered text**: emphasis without its asterisks, links 
 
 ### Links and images
 
-Hover over a link or an image to see its address. **`Ctrl`+click** on a link opens it in your browser, or in your mail app for an email address; *Open link* does the same for the link at the caret. Only web and email links open: never files, scripts or other programs.
+Hover over a link or an image to see its address. Links never open: bismillah works without a network.
 
 An image shows below its line when it is a file inside your library. Images from the web are never loaded: a quiet note shows their address instead.
-
-### Copy as rich text
-
-*Copy as rich text* (`Ctrl+Shift+C`) puts the selection, or the whole document without its frontmatter, on the clipboard formatted, ready to paste into an email or a word processor. Nothing typographic is changed on the way.
 
 ### Headings, lists and the gutter
 
@@ -213,8 +208,6 @@ Changes apply everywhere as soon as you save the file, and an empty shortcut lea
 | Undo | `Ctrl+Z` |
 | Redo | `Ctrl+Shift+Z` |
 | Select all | `Ctrl+A` |
-| Copy as rich text | `Ctrl+Shift+C` |
-| Open link | `Ctrl`+click |
 | Find… | `Ctrl+F` |
 | Replace… | `Ctrl+H` |
 | Find next | `F3` |
@@ -248,11 +241,11 @@ The bismillah stick starts a computer straight into bismillah, with your texts e
 - **Power off** (`Ctrl`+`Q`), **Restart** and **Suspend** are in the File menu and the command palette. Each saves first.
 - The **battery** and the **clock** are at the end of the status line. At 10% bismillah tells you; at 3% it saves and powers off. That narrows the chance of losing what you just typed, but a battery can still die suddenly, so save as you would anywhere.
 - **Settings › This stick** has your keyboard layouts (up to four, and the key that switches between them), the time zone, and a correction for computers whose clock keeps local time, as Windows sets it. Applying layouts restarts bismillah, which saves first and comes back to where you were.
-- The library is always the `Texts` folder on the stick. Links can't open, because there is no browser on the stick, and *Copy as rich text* isn't there, because there is no other app to paste into.
+- The library is always the `Texts` folder on the stick.
 
 ## Your privacy
 
-bismillah has no accounts, no sync, no telemetry, no advertising and no generative AI: nothing writes your text for you. It has no networking features, and it works without a network. The only things that leave it are the links you open yourself, which go to your browser.
+bismillah has no accounts, no sync, no telemetry, no advertising and no generative AI: nothing writes your text for you. It has no networking features, and it works without a network. It never opens links or other apps.
 
 It keeps a few files of its own, all on your computer:
 
@@ -260,25 +253,11 @@ It keeps a few files of its own, all on your computer:
 - unsaved text, while a save is under way or after one fails, in `~/.local/share/bismillah/recovery/`, readable only by you and removed once it is saved, discarded or 30 days old;
 - the window’s size, the library and your recent files in `~/.local/share/bismillah/state.json`.
 
-*Show in file manager* in Settings › Files & privacy opens each of these folders.
-
-## From a terminal
-
-```sh
-bismillah notes.md        # opens a file
-bismillah ~/Writing       # opens a folder as the library
-bismillah --help          # says how, and exits
-```
-
-If bismillah is already running, the file or folder opens in its window.
-
 ## If something looks wrong
 
-- **A blank or flickering window** on some graphics drivers: start bismillah with `WEBKIT_DISABLE_DMABUF_RENDERER=1` set.
-- **Another font isn’t used**: the name must match an installed font exactly, as `fc-list` shows it. Until it does, Settings says so and iA Writer Duo is used.
 - **A shortcut doesn’t work**: Settings › Files & privacy lists the lines of `keybindings.toml` that couldn’t be used.
 - **A colour theme isn’t listed**: Settings › Appearance says what is wrong with the file.
 
 ## About bismillah
 
-bismillah is inspired by Islamic ethics: your words are a trust (amanah), your privacy is kept, and the tool practises restraint. *About bismillah* in the Help menu has its version, its inspiration and the licences of everything it is made with. It is free software under the [GNU General Public License](https://www.gnu.org/licenses/gpl-3.0.html), version 3 or later: hover over that link to see where it leads, and `Ctrl`+click to open it.
+bismillah is inspired by Islamic ethics: your words are a trust (amanah), your privacy is kept, and the tool practises restraint. *About bismillah* in the Help menu has its version, its inspiration and the licences of everything it is made with. It is free software under the [GNU General Public License](https://www.gnu.org/licenses/gpl-3.0.html), version 3 or later: hover over that link to see where it leads.

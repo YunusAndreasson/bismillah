@@ -41,8 +41,8 @@ pub fn set_active(appliance: bool) {
     let _ = ACTIVE.set(appliance);
 }
 
-/// Whether this is the stick's session: links, the file manager and window sizes are
-/// not for it.
+/// Whether this is the stick's session: opening files outside the library and window
+/// sizes are not for it.
 pub fn active() -> bool {
     ACTIVE.get().copied().unwrap_or(false)
 }

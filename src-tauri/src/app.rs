@@ -21,7 +21,6 @@ use crate::config;
 use crate::documents::{self, Document, LineEnding, NO_FAULTS, OpenError, SaveError};
 use crate::keybindings::{self, Keybindings};
 use crate::library::Trash;
-use crate::links::{self, LinkError};
 use crate::lint::{AddWordError, Checking, LintError};
 use crate::platform;
 use crate::recovery::{self, Recovery};
@@ -70,8 +69,6 @@ pub struct AppState {
     fault: Arc<Mutex<Option<TestFault>>>,
     /// Test mode only: what the next native file dialog answers, without showing it.
     dialog_answer: Mutex<Option<Option<PathBuf>>>,
-    /// Test mode: links and folders handed to other apps, recorded instead of opened.
-    handed: Mutex<Vec<String>>,
     /// The library folder, its listing and its watcher (library_commands.rs).
     shelf: Mutex<Shelf>,
     /// The thread opening the remembered library at launch, until something waits for
@@ -145,7 +142,6 @@ impl AppState {
             memory: Mutex::new(state::Store::load(memory_path)),
             fault: Arc::new(Mutex::new(None)),
             dialog_answer: Mutex::new(None),
-            handed: Mutex::new(Vec::new()),
             shelf: Mutex::new(Shelf::None),
             restoring: Mutex::new(None),
             generation: AtomicU64::new(0),
@@ -155,26 +151,6 @@ impl AppState {
             config_dir: config_dir.to_path_buf(),
             folders,
         }
-    }
-
-    /// Hands a checked URI to the app the desktop opens it with: the default browser,
-    /// mail app or file manager (links.rs). Under the test harness nothing is opened:
-    /// the URI is recorded for the tests instead.
-    fn hand_on(&self, window: &tauri::WebviewWindow, uri: String) -> Result<(), LinkError> {
-        if self.test_mode {
-            lock(&self.handed).push(uri);
-            return Ok(());
-        }
-        let (tx, rx) = std::sync::mpsc::channel();
-        window
-            .run_on_main_thread(move || {
-                let _ = tx.send(platform::open_uri(&uri));
-            })
-            .map_err(|_| LinkError::NoApp)?;
-        // The address is the document's: never logged (AGENTS.md, rule 2).
-        rx.recv()
-            .map_err(|_| LinkError::NoApp)?
-            .map_err(|()| LinkError::NoApp)
     }
 
     /// Test mode only: the answer queued for the next native file dialog, if any.
@@ -847,69 +823,6 @@ pub fn lint_refresh(state: State<'_, AppState>) -> bool {
     state.checking.refresh()
 }
 
-/// Opens a link from the document in the writer's default browser or mail app, on an
-/// explicit Ctrl+click or *Open link* (ADR-0003). Only web and email addresses leave
-/// (links.rs); bismillah itself requests nothing.
-#[tauri::command]
-pub async fn link_open(
-    window: tauri::WebviewWindow,
-    state: State<'_, AppState>,
-    address: String,
-) -> Result<(), LinkError> {
-    let uri = links::web_address(&address)?;
-    if crate::appliance::active() {
-        return Err(LinkError::Stick);
-    }
-    state.hand_on(&window, uri)
-}
-
-/// The folders Settings › Files & privacy names.
-#[derive(Clone, Copy, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Folder {
-    /// Settings, shortcuts, themes and the dictionary.
-    Settings,
-    /// The recovery journal.
-    Recovery,
-    /// The library's root.
-    Library,
-}
-
-/// Shows one of bismillah's folders, or the library, in the writer's file manager. The
-/// frontend names which; Rust knows where it is. bismillah's own folders are created
-/// if they aren't there yet.
-#[tauri::command]
-pub async fn folder_show(
-    window: tauri::WebviewWindow,
-    state: State<'_, AppState>,
-    folder: Folder,
-) -> Result<(), LinkError> {
-    if crate::appliance::active() {
-        return Err(LinkError::Stick);
-    }
-    let path = match folder {
-        Folder::Settings => {
-            std::fs::create_dir_all(&state.config_dir).map_err(|_| LinkError::Unavailable)?;
-            state.config_dir.clone()
-        }
-        Folder::Recovery => {
-            let dir = state.recovery.dir().to_path_buf();
-            platform::create_private_dir(&dir).map_err(|_| LinkError::Unavailable)?;
-            dir
-        }
-        Folder::Library => state
-            .library()
-            .map_err(|_| LinkError::Unavailable)?
-            .root()
-            .to_path_buf(),
-    };
-    if !path.is_dir() {
-        return Err(LinkError::Unavailable);
-    }
-    let uri = links::folder_uri(&path).ok_or(LinkError::Unavailable)?;
-    state.hand_on(&window, uri)
-}
-
 /// Test-only commands exist in debug builds under the test harness only, never in the
 /// release build the writer installs.
 fn test_hooks_allowed(state: &AppState) -> bool {
@@ -945,36 +858,6 @@ pub fn test_fault(state: State<'_, AppState>, fault: Option<TestFault>) -> Resul
     }
     *lock(&state.fault) = fault;
     Ok(())
-}
-
-/// Test mode only: the links and folders handed to other apps since the last call, in
-/// order (recorded, never opened, under the harness).
-#[tauri::command]
-pub fn test_handed(state: State<'_, AppState>) -> Result<Vec<String>, OpenError> {
-    if !test_hooks_allowed(&state) {
-        return Err(OpenError::PermissionDenied);
-    }
-    Ok(std::mem::take(&mut *lock(&state.handed)))
-}
-
-/// Test mode only: what the clipboard holds under `target` (`text/html`,
-/// `UTF8_STRING`), read back through GTK, for the Copy as rich text tests.
-#[tauri::command]
-pub async fn test_clipboard(
-    window: tauri::WebviewWindow,
-    state: State<'_, AppState>,
-    target: String,
-) -> Result<Option<String>, OpenError> {
-    if !test_hooks_allowed(&state) {
-        return Err(OpenError::PermissionDenied);
-    }
-    let (tx, rx) = std::sync::mpsc::channel();
-    window
-        .run_on_main_thread(move || {
-            let _ = tx.send(platform::read_clipboard(&target));
-        })
-        .map_err(|_| OpenError::PermissionDenied)?;
-    Ok(rx.recv().ok().flatten())
 }
 
 /// What `bismillah --help` and `--version` print, or `None` to start the app. Either

@@ -12,7 +12,6 @@ import { rest } from "./rest.ts";
 import { documentSearch } from "./search.ts";
 import { frontmatterEnd, markdownDialect } from "./dialect.ts";
 import { hangingMarks } from "./hangingMarks.ts";
-import { links } from "./links.ts";
 import { livePreview } from "./livePreview.ts";
 import { imageAddress, previewBlocks, type ImageAddress } from "./previewBlocks.ts";
 import { previewTables } from "./previewTables.ts";
@@ -65,8 +64,6 @@ export interface EditorOptions {
   onContextMenu?: (pos: number) => boolean;
   /** Where live preview loads a local image from (Rust checks it against the library). */
   imageAddress?: ImageAddress;
-  /** A Ctrl+click on a link, with its address as written (Rust decides if it opens). */
-  onOpenLink?: (address: string) => void;
   /** The writing surface's accessible name: the document's file name. */
   label?: string;
 }
@@ -184,7 +181,6 @@ export function createEditor(options: EditorOptions): Editor {
     documentSearch(),
     options.lint ? linter(options.lint) : [],
     options.imageAddress ? imageAddress.of(options.imageAddress) : [],
-    options.onOpenLink ? links(options.onOpenLink) : [],
     slots.smartPunctuation.of(configured.smartPunctuation()),
     slots.livePreview.of(configured.livePreview()),
     slots.basmallah.of(configured.basmallah()),

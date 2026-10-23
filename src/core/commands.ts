@@ -29,8 +29,6 @@ export type CommandId =
   | "edit.undo"
   | "edit.redo"
   | "edit.selectAll"
-  | "edit.copyRich"
-  | "edit.openLink"
   | "edit.find"
   | "edit.replace"
   | "edit.findNext"
@@ -138,10 +136,6 @@ export interface CommandContext {
   toggleTypewriter(): void;
   /** Always show Markdown, or live preview (ADR-0012). */
   toggleMarkdown(): void;
-  /** Puts the selection, or the whole document, on the clipboard as HTML and text. */
-  copyRich(): void;
-  /** Opens the link at the caret in the browser or mail app (as Ctrl+click does). */
-  openLink(): void;
   toggleTransliteration(): void;
   /** Opens the suggestions for the issue at the caret (Mod-.). */
   showSuggestions(): void;
@@ -331,27 +325,6 @@ const ALL: readonly Command[] = [
     key: "Mod-a",
     available: (c) => c.view !== null,
     run: (c) => withView(c, selectAll),
-  },
-  {
-    id: "edit.copyRich",
-    label: "Copy as rich text",
-    section: "Edit",
-    key: "Mod-Shift-c",
-    aliases: ["html", "export", "formatted", "email"],
-    description: "Copies the selection, or the whole document, formatted for pasting elsewhere.",
-    available: (c) => c.view !== null,
-    place: "desktop",
-    run: (c) => c.copyRich(),
-  },
-  {
-    id: "edit.openLink",
-    label: "Open link",
-    section: "Edit",
-    aliases: ["browser", "url", "web", "follow", "email"],
-    description: "Opens the link at the caret in your browser or mail app, as Ctrl+click does.",
-    available: (c) => c.view !== null,
-    place: "desktop",
-    run: (c) => c.openLink(),
   },
   {
     id: "edit.find",
@@ -554,7 +527,7 @@ const ALL: readonly Command[] = [
 export const COMMANDS: readonly Command[] = ALL.filter((c) => c.place !== "stick");
 
 /** On the bismillah stick: its power and lock commands instead of the desktop's
- * Quit, Open…, Open folder…, Copy as rich text, Open link and Fullscreen. Called once,
+ * Quit, Open…, Open folder… and Fullscreen. Called once,
  * before anything reads the registry. */
 export function useStickCommands(): void {
   (COMMANDS as Command[]).splice(0, COMMANDS.length, ...ALL.filter((c) => c.place !== "desktop"));

@@ -429,7 +429,7 @@ describe("the stick's first screens", () => {
       const offered = names.join("\n");
       for (const label of ["Power off", "Lock", "Suspend", "Restart"])
         expect(offered).toContain(label);
-      for (const label of ["Quit", "Open…", "Open folder…", "Copy as rich text", "Fullscreen"])
+      for (const label of ["Quit", "Open…", "Open folder…", "Fullscreen"])
         expect(names.some((n) => n?.startsWith(label))).toBe(false);
       await session.keys(["Escape"]);
 
@@ -489,7 +489,6 @@ describe("the stick's first screens", () => {
       await session.$("#settings-stick").waitForExist();
       await session.$("#settings-stick").scrollIntoView();
       expect(await session.$("#set-local-clock").isExisting()).toBe(true);
-      expect(await session.$("button=Show in file manager").isExisting()).toBe(false);
       // No other program on the stick can edit a theme, keybindings or settings file.
       expect(await session.$("button=Create keybindings.toml").isExisting()).toBe(false);
       const hints = await session.execute(

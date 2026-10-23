@@ -25,8 +25,7 @@ describe("the guide", () => {
     for (const command of COMMANDS) {
       const cell = rows.get(command.label);
       expect(cell, command.label).toBeDefined();
-      if (command.id === "edit.openLink") expect(cell).toBe("`Ctrl`+click");
-      else if (!command.key) expect(cell, command.label).toBe("—");
+      if (!command.key) expect(cell, command.label).toBe("—");
       else expect(cell, command.label).toContain(`\`${shortcutLabel(command.key)}\``);
       if (command.keyScope === "library") expect(cell).toContain("(in the library)");
     }

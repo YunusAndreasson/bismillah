@@ -1,6 +1,6 @@
 # 0012 — Live preview: Markdown shows in the caret's paragraph
 
-- **Status:** Accepted
+- **Status:** Accepted; *Copy as rich text* superseded by [0015](0015-nothing-handed-on.md) (2026-10-23): removed
 - **Date:** 2026-10-18 (the author's decision after the Phase 1 build)
 - **Supersedes:** [0002](0002-visible-markup-editing.md)
 

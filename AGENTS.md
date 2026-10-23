@@ -2,7 +2,7 @@
 
 **bismillah** is a free, offline, minimal Markdown editor in the spirit of the original iA Writer, built with Tauri 2, Svelte 5, CodeMirror 6 and a Rust core. It has two features beyond typing (spelling in English and Arabic, grammar suggestions in English), so the quality of its typography, interaction and reliability *is* the product.
 
-**Status:** Phase 6 (personal 1.0) was built on 2026-10-19 and waits for the author's acceptance check ([PLAN.md](PLAN.md)): version 1.0.0, the polished local package (`packaging/check.sh`), links opened on Ctrl+click and *Open link* (web and email only, through the desktop), *Show in file manager*, the guide inside the app (Help › Guide, `F1`), the bāʾ icon, the accessibility audit (`pnpm a11y`), the measured performance budgets (`pnpm perf`), and the 1.0 audit (docs/audits/2026-10-19-personal-1.0.md). Phases 4 and 5 were built the same day and the author moved on; Phases 2 and 3 were accepted on 2026-10-18; Phase 1 was built that day and the author moved on; the earlier phases' manual checks are still listed in PLAN.md. Phase 0's spikes were accepted on 2026-10-18 ([docs/spikes/](docs/spikes/README.md)). Keep this file accurate as commands and layout change. bismillah is private and runs only on the author's Linux machine for now: local git, no remote, no CI. `pnpm verify` is the gate.
+**Status:** Phase 6 (personal 1.0) was built on 2026-10-19 and waits for the author's acceptance check ([PLAN.md](PLAN.md)): version 1.0.0, the polished local package (`packaging/check.sh`), the guide inside the app (Help › Guide, `F1`), the bāʾ icon, the accessibility audit (`pnpm a11y`), the measured performance budgets (`pnpm perf`), and the 1.0 audit (docs/audits/2026-10-19-personal-1.0.md). Phases 4 and 5 were built the same day and the author moved on; Phases 2 and 3 were accepted on 2026-10-18; Phase 1 was built that day and the author moved on; the earlier phases' manual checks are still listed in PLAN.md. Phase 0's spikes were accepted on 2026-10-18 ([docs/spikes/](docs/spikes/README.md)). Keep this file accurate as commands and layout change. bismillah is private and runs only on the author's Linux machine for now: local git, no remote, no CI. `pnpm verify` is the gate.
 
 **Working mode:** build each phase end to end (code, tests, specimen screenshots, docs) and stop at the phase's acceptance check for the author's review. Within a phase, proceed without asking about decisions already recorded in DESIGN.md, ARCHITECTURE.md or an ADR.
 
@@ -31,7 +31,8 @@ These five rules protect the people who write in bismillah. Each one is a promis
 - **Desktop only, never web or mobile** (ADR-0009). Write for the Tauri webviews and use Tauri APIs directly: persistence through Rust, no browser fallbacks or `isTauri()` guards, no responsive mobile layouts or touch handling. Follow desktop conventions (native menu, native dialogs, file opening, window state). Mobile, simulator and browser-automation tooling doesn't apply here; run the real app with `pnpm tauri dev` and test it with `tauri-driver`.
 - **No generative AI** (ADR-0004, author's decision 2026-10-18): nothing may write, rewrite or summarise the writer's text or do their thinking. Grammar checking smarter than a spell checker, including small local models, is fine when it only flags and suggests and the writer accepts each change.
 - **Extensibility is declarative themes only.** Loading user JavaScript would give it the app's full authority, so executable plugins wait for an ADR on isolation (ADR-0005).
-- **Live preview never renders raw HTML** (it shows as text), and Copy as rich text renders with raw HTML disabled and sanitises with DOMPurify after all rendering, so a document can never run script (ADR-0012).
+- **Live preview never renders raw HTML** (it shows as text), so a document can never run script (ADR-0012).
+- **No links, file manager or rich copy** (ADR-0015): links never open, and there is no *Show in file manager* or *Copy as rich text*, because the stick has no browser, file manager or other app. Plain copy and paste stay.
 - **The Basmallah opening is a presentation element**, outside the file, the CodeMirror document, counts and linting (ADR-0008).
 - **Arabic and mixed-script text are first-class.** Check every editor or typography change against RTL, vocalised Arabic and mixed lines in `docs/specimen.md`.
 - **Add a dependency only for a hard problem**: correctness, accessibility or security work we would otherwise hand-write. Record its job in ARCHITECTURE.md §2.
@@ -114,7 +115,7 @@ The [stick QA pass](docs/audits/2026-10-22-stick-qa.md) drove the editor in the
 stick's VM by keyboard: pickers that died after the library had focus, focus left in
 the tree after quick open, dialogs that scrolled long texts to the top, and frames
 shown late on software rendering.
-The current gate covers 427 frontend and 192 Rust tests, all 27
+The current gate covers 410 frontend and 188 Rust tests, all 26
 real-app suites and 16 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.

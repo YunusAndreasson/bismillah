@@ -342,7 +342,7 @@ describe("UI review: small windows and command feedback", () => {
     await browser.execute(() => window.__bismillah?.welcome());
     await menu(async () => {
       expect(await enabled("file.save")).toBe(false);
-      expect(await enabled("edit.copyRich")).toBe(false);
+      expect(await enabled("edit.selectAll")).toBe(false);
       expect(await enabled("file.open")).toBe(true);
     });
     await open(folder.file("history.md", TEXT));

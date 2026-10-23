@@ -190,13 +190,13 @@ The spike came first and its verdict is **go** ([docs/spikes/live-preview.md](do
 | Caret, selection and mouse placement on RTL and mixed lines, in both states | Rendered: `tests/e2e/spikes/live-preview.e2e.ts` (clicks on eight mixed, RTL, list, quote and heading lines, every letter beside a hidden mark included; selections into rendered lines; ↓ through the document; → and ← across hidden edge marks; typewriter scrolling at 42 %). Shown: the Phase 0 bidi and hanging-mark spikes, now run with *Always show Markdown* on |
 | Clicking into a rendered paragraph keeps the caret on the clicked character | The same spike: a click on the left or right quarter of a letter leaves the caret on that side of it after the reveal, its row at the same height; a double-click selects the clicked word although the first click moved it. In tables, `tests/e2e/live-preview-blocks.e2e.ts` does the same on an English and an Arabic grid (letters beside hidden marks included), with the caret drawn in the clicked row during the press |
 | "Always show Markdown" matches Phase 1 exactly | With it on, the specimen screenshots matched the Phase 1 baselines unchanged. Those baselines also held a stray panel: the library visual spec's folder, remembered within a run and missing by then ("Writing" isn't available). The specimen spec now closes the library first, and the two baselines were re-recorded without the panel. `tests/e2e/live-preview.e2e.ts`: after `Mod-R` no rendered decoration is left and every line is drawn as its source, and `Mod-R` brings live preview back |
-| An XSS fixture suite stays inert in the editor and on the clipboard | `tests/fixtures/xss.md` (script, event handlers, scripted and data URLs in links, images, autolinks and references, SVG, iframes, forms, styles, HTML in footnotes, tables and tasks): `src/richText/render.test.ts` and `live-preview.e2e.ts` (the caret through every block and the links hovered and clicked: no script ran, no element that can run or load anything, no CSP violation; the copied HTML checked the same way) |
+| An XSS fixture suite stays inert in the editor and on the clipboard | `tests/fixtures/xss.md` (script, event handlers, scripted and data URLs in links, images, autolinks and references, SVG, iframes, forms, styles, HTML in footnotes, tables and tasks): `src/richText/render.test.ts` (removed with Copy as rich text, ADR-0015) and `live-preview.e2e.ts` (the caret through every block and the links hovered and clicked: no script ran, no element that can run or load anything, no CSP violation; the copied HTML checked the same way) |
 
 What else came with it:
 - **The rendered look** (DESIGN.md §11): bullets, numbers, task boxes, quote bars through every row, a short centred rule, inline code on a quiet ground, underlined link text, raised footnote references, all drawn where the marks stand so revealing them moves nothing. A scholarly `[sic]` keeps its brackets: reference links and footnotes render only when defined.
 - **The frontmatter** folds to one line of its keys, and a newly opened document starts on its first line of text below it.
 - **Local images** below their line, through bismillah's own image scheme with the library's path checks (`images.rs`: `..`, absolute paths, `file:` URLs and links out of the library refused alike). Images from the web are never loaded; a quiet note shows the address. Addresses of links and images in a tooltip on hover.
-- **Copy as rich text** (`Mod-Shift-C`, Edit menu): the selection or the whole document without its frontmatter, as sanitised HTML and plain text through GTK's clipboard; another X client reads both (`spikes/webview/rich-text-clipboard.ts`).
+- **Copy as rich text** (`Mod-Shift-C`, Edit menu; removed on 2026-10-23 by ADR-0015): the selection or the whole document without its frontmatter, as sanitised HTML and plain text through GTK's clipboard; another X client read both.
 - **The mouse:** the reveal waits for the button's release, so nothing moves under a press or a drag.
 
 **After the author's first look (2026-10-19):** tables and code blocks weren't rendered, and now are (DESIGN.md §11, ADR-0012).
@@ -219,7 +219,7 @@ What else came with it:
 **For the author**
 1. **Install and try it:** `cd packaging/arch && makepkg -si`, then write in a document with emphasis, links and quotes: click into paragraphs, move through them with the arrows, and press `Ctrl+R` for *Always show Markdown*.
 2. **Design questions (none blocks acceptance):** the rule for `---` is short and centred (6em) rather than the full measure; a done task is a box with a filled centre rather than a check mark; a code block's fences leave a full line of ground above and below the code.
-3. **Manual checks (live session, a few minutes):** composing with fcitx5 at the start and end of a block; the address tooltip on hover; Orca reads rendered text without its marks; pasting *Copy as rich text* into a mail client or LibreOffice on Wayland.
+3. **Manual checks (live session, a few minutes):** composing with fcitx5 at the start and end of a block; the address tooltip on hover; Orca reads rendered text without its marks.
 4. **Still open from earlier phases:** the hanging-mark gutter question (Phase 1, item 3) and the manual checks of Phases 1–3.
 
 ## Phase 5 — Themes and settings complete
@@ -355,7 +355,7 @@ remains pending.
 | Performance budgets measured (ARCHITECTURE.md §14) | New `pnpm perf` on the release build, headless: launch to an editable caret 524 ms (budget 400 ms: not met; 274 ms of it is GTK and WebKit starting); typing in a 1 MB book 19 ms a key in prose, 24 ms on a line with code (10 ms in a short document; 4 % of frames long at 1 MB: not quite met); lint within 500 ms (Phase 3's measurement); idle 30 ms of CPU a minute with a library of 1,000 files open (met, once the watcher bug below was fixed); 755 MiB resident |
 | Package size recorded | The 1.0 package (`1.0.0.r20.g0a9eb1c`): 10.8 MiB, 28.9 MiB installed, of which the stripped binary is 28.8 MiB (fonts 5.6 MiB and the Arabic dictionary 7 MiB inside); printed by `packaging/check.sh` |
 
-What else came with it:
+What else came with it (links and *Show in file manager* were removed on 2026-10-23, with *Copy as rich text*, by ADR-0015):
 - **Links open on Ctrl+click** (Cmd on macOS), in the text, in tables drawn as grids and in Arabic, and *Open link* opens the one at the caret. Only web and email addresses go to the browser or mail app, through the desktop (GIO); Rust checks each (`links.rs`), and under the test harness records them instead. The address tooltip says *Ctrl+click to open*; the pointer is a hand while Ctrl is held over a link. ADR-0003 already decided this; it was planned with `tauri-plugin-opener`, whose D-Bus stack cargo-deny flags, so GIO (already in the tree) does it.
 - ***Show in file manager*** for the library, the settings folder and the recovery folder (Settings › Files & privacy).
 - **Typing in a 1 MB document** went from about a second a key to 19 ms: drawn tables, images and link definitions are kept across edits that can't change them. **Launch** is 190 ms faster (716 → 524 ms): fewer fonts before the first screen, the menu after it, and no HTML/CSS/JavaScript grammars (ARCHITECTURE.md §2).
@@ -367,15 +367,14 @@ What else came with it:
 
 **Not done in Phase 6**
 - What Orca says aloud is still a manual check: `pnpm a11y` checks the tree it reads, not its speech.
-- Links to other Markdown files (`[next](chapter-2.md)`) don't open in bismillah; Ctrl+click says only web and email links open.
 - The original caret blinked indefinitely while focused. The idle-CPU follow-up bounds it to eight 1.2-second cycles, then leaves it visible until interaction; the native animation-removal workaround is confirmed, and the rebuilt behaviour awaits acceptance.
 - The budgets for launch (524 ms against 400 ms) and for typing in a 1 MB document (19 ms a key against one frame) are not met on this machine under the harness: what limits each is in the audit.
 
 **For the author**
-1. **Install and try it:** `cd packaging/arch && makepkg -si`. Then `F1` for the guide, Ctrl+click a link, *Show in file manager* in Settings, and look at the new icon in your launcher.
+1. **Install and try it:** `cd packaging/arch && makepkg -si`. Then `F1` for the guide, and look at the new icon in your launcher.
 2. **Rebuild and reinstall** (`makepkg -si` again): the `1.0.0.r21` you installed has the watcher bug above, and with this repository as its library it keeps about 60 % of a core busy. Your running `target/debug/bismillah`, earlier, had the same library and the same bug, **and I stopped it by mistake:** the first version of `packaging/check.sh` ended its test app with `pkill -x bismillah`, which sent SIGTERM to yours too (around 13:22). It had been idle and bismillah saves as you type, so nothing should be lost, but if you had typed in it just before, open that file and check for a *Restore* offer. The script now stops only the app it launched (proved with a decoy process). In the installed app, choose your writing folder as the library.
-3. **Design questions (none blocks acceptance):** pasting a web address over selected text makes it a link (CodeMirror's default, on since Phase 1, never recorded in DESIGN.md): keep it, or paste the address as text? Should Ctrl+click on a link to another Markdown file open it in bismillah? And DESIGN.md's opening paragraph has a typo, "desi2zgn".
-4. **Manual checks (live session, a few minutes):** Orca reads the editor by its file name and Settings' headings as written; Ctrl+click opens Zen with the page in front (Wayland activation); *Open with › bismillah* from your file manager; the icon at your launcher's size; `F1`.
+3. **Design questions (none blocks acceptance):** pasting a web address over selected text makes it a link (CodeMirror's default, on since Phase 1, never recorded in DESIGN.md): keep it, or paste the address as text? And DESIGN.md's opening paragraph has a typo, "desi2zgn".
+4. **Manual checks (live session, a few minutes):** Orca reads the editor by its file name and Settings' headings as written; *Open with › bismillah* from your file manager; the icon at your launcher's size; `F1`.
 5. **When you accept it,** tag the commit `v1.0.0`.
 6. **Still open from earlier phases:** Phase 5's design questions and manual checks, Phase 4's, the hanging-mark gutter question (Phase 1, item 3) and the manual checks of Phases 1–3.
 

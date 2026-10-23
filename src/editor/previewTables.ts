@@ -459,11 +459,7 @@ function caretAt(x: number, y: number): Caret | null {
 }
 
 /** The source position under a point in a drawn table, or null outside every table. */
-export function tablePosAt(
-  view: EditorView,
-  x: number,
-  y: number,
-): { pos: number; assoc: -1 | 1 } | null {
+function tablePosAt(view: EditorView, x: number, y: number): { pos: number; assoc: -1 | 1 } | null {
   const target = document.elementFromPoint(x, y);
   const wrap = target?.closest(".cm-table");
   if (!wrap || !view.contentDOM.contains(wrap)) return null;

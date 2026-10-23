@@ -12,7 +12,6 @@ Bismillah is a free, open-source writing app in the spirit of the original iA Wr
 - **Arabic and right-to-left writing** treated as equals to Latin.
 - **Zuhd mode (زهد):** focus on the current sentence or paragraph.
 - **Keyboard first.** Every action has a shortcut and a place in the command palette.
-- **Links** open in your browser only when you `Ctrl`+click them.
 
 And just as deliberately, it has **no** accounts, subscriptions, ads, telemetry, cloud sync, generative AI, or networking features. Nothing writes for you. See [PRIVACY.md](PRIVACY.md).
 

@@ -14,8 +14,6 @@ describe("the stick's commands (os/PLAN.md, OS-3)", () => {
     "app.quit",
     "file.open",
     "library.openFolder",
-    "edit.copyRich",
-    "edit.openLink",
     "view.fullscreen",
   ];
   const stickOnly: CommandId[] = ["stick.lock", "stick.suspend", "stick.restart", "stick.powerOff"];

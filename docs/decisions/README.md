@@ -11,7 +11,7 @@ Short records of decisions with lasting consequences. Each one says what was dec
 |---|---|---|
 | [0001](0001-stack.md) | Tauri 2 + Svelte 5 + CodeMirror 6 + Bits UI | Accepted |
 | [0002](0002-visible-markup-editing.md) | iA-style visible-markup editing with a separate preview | Superseded by 0012 |
-| [0003](0003-offline-boundary.md) | Offline boundary and privacy claims | Accepted |
+| [0003](0003-offline-boundary.md) | Offline boundary and privacy claims | Accepted; links superseded by 0015 |
 | [0004](0004-spelling-and-grammar.md) | Spelling and grammar engines | Accepted |
 | [0005](0005-extensibility.md) | Declarative themes first; executable plugins deferred | Accepted |
 | [0006](0006-file-safety.md) | File-safety contract (amanah) | Accepted |
@@ -20,9 +20,10 @@ Short records of decisions with lasting consequences. Each one says what was dec
 | [0009](0009-desktop-only.md) | Desktop only | Accepted |
 | [0010](0010-typing-aids.md) | Typing aids: smart punctuation and transliteration mode | Accepted |
 | [0011](0011-arabic-mark-rendering.md) | Arabic mark rendering in WebKitGTK | Accepted |
-| [0012](0012-live-preview.md) | Live preview: Markdown shows in the caret's paragraph | Accepted |
+| [0012](0012-live-preview.md) | Live preview: Markdown shows in the caret's paragraph | Accepted; Copy as rich text superseded by 0015 |
 | [0013](0013-appliance-os.md) | Appliance OS: bismillah on a bootable stick | Accepted |
 | [0014](0014-stick-stays-on-debian.md) | The stick stays on Debian | Accepted |
+| [0015](0015-nothing-handed-on.md) | Nothing is handed to other apps | Accepted |
 
 ## Template
 

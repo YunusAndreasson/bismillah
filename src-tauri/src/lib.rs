@@ -21,7 +21,6 @@ mod documents;
 mod images;
 mod keybindings;
 mod library;
-mod links;
 mod lint;
 mod platform;
 mod recovery;
@@ -77,22 +76,6 @@ async fn menu_state(window: tauri::WebviewWindow) -> Result<MenuState, String> {
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())?;
     Ok(MenuState { visible, active })
-}
-
-/// Copy as rich text: the HTML (already sanitised by the frontend) and its plain text.
-#[tauri::command]
-async fn clipboard_write(
-    window: tauri::WebviewWindow,
-    html: String,
-    text: String,
-) -> Result<(), String> {
-    let (tx, rx) = std::sync::mpsc::channel();
-    window
-        .run_on_main_thread(move || {
-            let _ = tx.send(platform::write_clipboard(html, text));
-        })
-        .map_err(|e| e.to_string())?;
-    rx.recv().map_err(|e| e.to_string())?
 }
 
 /// The scheme live preview loads local images from (images.rs). Its URLs are
@@ -276,18 +259,13 @@ pub fn run() {
             app::lint_suggest,
             app::lint_add_word,
             app::lint_refresh,
-            app::link_open,
-            app::folder_show,
             app::test_open,
             app::test_fault,
             app::test_dialog,
             app::test_library,
-            app::test_clipboard,
-            app::test_handed,
             menu_reveal,
             menu_hide,
             menu_state,
-            clipboard_write,
             appliance::appliance_gate,
             appliance::appliance_open,
             appliance::appliance_start_over,

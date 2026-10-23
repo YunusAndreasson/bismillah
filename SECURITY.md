@@ -13,8 +13,8 @@ Include what you found, how to reproduce it, and its impact. We aim to acknowled
 Because bismillah promises local-only, private writing, we treat these as security issues:
 
 - any way the app makes a network request, or loads remote content
-- a link handed to another app without an explicit Ctrl+click or *Open link*, or anything but a web or email address handed on
+- a link followed, or anything handed to another program
 - reading or writing files outside the library the user chose (path traversal, symlink escape)
-- script execution from document content (e.g. through live preview or Copy as rich text)
+- script execution from document content (e.g. through live preview)
 - document contents appearing in logs
 - data loss or silent modification of saved text.

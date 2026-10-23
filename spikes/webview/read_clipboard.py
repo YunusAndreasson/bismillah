@@ -1,6 +1,5 @@
 """Print the X CLIPBOARD's contents as JSON, as another app would receive them.
-Args: the target to ask for (default UTF8_STRING; e.g. text/html). Used by clipboard.ts
-and rich-text-clipboard.ts."""
+Args: the target to ask for (default UTF8_STRING; e.g. text/html). Used by clipboard.ts."""
 import json
 import sys, time
 from Xlib import X, display
