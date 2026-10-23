@@ -70,14 +70,13 @@ Each reference informs a specific decision and is judged in a specific way. Citi
 
 ## 6. Information architecture
 
-The interface has six areas. Each has one responsibility.
+The interface has five areas. Each has one responsibility.
 
 | Area | Responsibility |
 |---|---|
 | **Writing surface** | Edit the current document; show local diagnostics. |
 | **Library** | Browse directories and files; show the active file and its context. |
-| **Quick open** | Find a file by name or path; show parent paths so duplicate names can be told apart. |
-| **Command palette** | Find any action by its canonical name, with its shortcut visible. |
+| **Find anything** | Reach a file, a command or a setting from one panel: the library tree, recent files, the main commands and settings, and one search across them. Quick open and the command palette are this panel showing only files or only commands. |
 | **Settings** | One screen, a few labelled sections: Appearance · Writing · Language & checking · Files & privacy (below). Add an Extensions section only once extensions exist. |
 | **File status** | Saving, failure, conflict and recovery, shown without hiding the affected document. |
 
@@ -109,13 +108,20 @@ Hierarchy is built with spacing, placement, alignment and weight before colour. 
 - **Guide** (Help menu, `F1`, the palette; Phase 6): the guide (`docs/guide.md`) opens in the writing surface as a sample, like any document but never saved (*Guide — changes aren't saved*), so the writer can try what it describes. `F1` opens it afresh. Its own vocabulary (the app's names) is ignored by the checker in the guide alone.
 - **Settings › Files & privacy** names the library, the settings folder and the recovery folder as text; nothing opens them in another app (ADR-0015).
 
-### The library, quick open and the palette (Phase 2)
+### The library and Find anything (Phase 2; one panel since 2026-10-23)
 
 - **The library is one folder** the writer opens (*Open folder…*, a folder on the command line or dropped on the window). Opening a file from elsewhere makes that file's folder the library.
 - **Rows:** folders first, then files, in natural order. Numbers sort by value ("Chapter 2" before "Chapter 10", Arabic-Indic digits too). Letters sort by their base letter, with diacritics, vocalisation and the IJMES ʿ ʾ set aside, as a catalogue would ("ʿIlm" under I, "Ḥadīth" under H). Only `.md` and `.markdown` files are listed, with their ending in `text-secondary`; hidden names (a leading dot) are not.
 - **The open file** is the selected row: a 3px `accent` edge bar, weight 600 and `aria-selected`. Keyboard focus is a separate ring, so the open file and the focused row can differ.
 - **A link that leads outside the library** is listed in `text-secondary` with "· outside the library" and can't be opened.
 - **Its own states, in its own area:** no folder open (*Open a folder…*), an empty folder (*New file…*), a folder that isn't available (*Try again* · *Choose another folder…*), and a listing cut short because the folder holds too many entries.
+- **Find anything** (`Shift Shift`, §13) is one large panel (up to 60rem by 44rem) for the actions a writer reaches for most. A search field on top; in windows at least 760px wide the library tree on the left, with its own keys (one `Tab` from the field); and on the right one list in three labelled groups:
+  - **Recent files** (up to 6), or with a query **Files**, ranked as quick open ranks them.
+  - **Commands**: with nothing typed, the main ones (New file…, Save now, Library, Zuhd mode, Typewriter scrolling, Always show Markdown, Find…, Go to line…, Theme, Settings, Guide), each with its shortcut and switches with *On* or *Off*.
+  - **Settings** that aren't already a command (`src/core/settingEntries.ts`). A switch, such as *Smart punctuation*, shows *On* or *Off* and `Enter` changes it in place, keeping the panel open so several can be changed in a row. Any other setting shows its value and *in Settings*; `Enter` opens Settings with focus on its control.
+  - With a query each group shows its best 8. The footer holds the scope buttons, *Everything · Files · Commands · Settings* (`aria-pressed`), and the keyboard hint. In a narrow window the tree is left out (the library is a key away) and the hint drops *Tab to the library*.
+  - Opening a file closes the panel and puts the caret in it. Rename… and Move to trash act on the tree's row in place; anything else that leaves the panel closes it first.
+- **Quick open** (`Mod-P`) is Find anything showing only files, and **the palette** (`Mod-Shift-P`) Find anything showing only commands. While the panel is open, their shortcuts and `Shift Shift` switch its scope.
 - **Quick open** finds files by name or folder and shows each file's folders beside its name, so files with the same name are told apart. Matching ignores case, Latin diacritics, Arabic vocalisation and ʿ ʾ ("hadith" finds "ḥadīth.md"). With nothing typed, recently opened files come first.
 - **The palette** lists every command that can run now, with its shortcut, finds commands by their aliases too, says which switches are *On*, and shows a one-sentence description where the label alone isn't enough.
 - Quick open and the palette have visible titles, **Close** buttons and a short keyboard hint. Switches explicitly say **On** or **Off**. Truncated file names, paths and descriptions expose their complete text on hover. An empty library offers **New file…** rather than claiming no file matches; an unavailable library offers **Choose another folder…** if it becomes unavailable while quick open is open. The overlay library has a visible **Close** button that returns focus to writing.
@@ -444,7 +450,8 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 | `file.quickOpen` | Quick open… | `Mod-P` (find a file in the library) |
 | `file.rename` | Rename… | `F2` (the focused library entry, else the open document) |
 | `file.trash` | Move to trash | `Delete` in the library (undoable; also from the menu and palette for the open document) |
-| `app.commandPalette` | Command palette | `Mod-Shift-P` |
+| `app.commandPalette` | Command palette | `Mod-Shift-P` (Find anything showing only commands) |
+| `app.findAnything` | Find anything | `Shift Shift` (two taps of Shift, fixed; a shortcut can be added in `keybindings.toml`) |
 | `view.toggleLibrary` | Library | `Mod-\` (shows the library and moves focus to it; pressed in the library, hides it) |
 | `view.toggleMarkdown` | Always show Markdown | `Mod-R` (a switch; the same name as the setting, §6) |
 | `editor.toggleFocus` | Zuhd mode | `Mod-D` |
@@ -465,6 +472,7 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 | `app.showMenu` | Show menu bar (Linux and Windows) | `Alt` / `F10` |
 | `app.quit` | Quit (flushes pending saves first) | `Mod-Q` |
 
+- **`Shift Shift`** opens Find anything: two taps of Shift within 400ms, each pressed and released on its own, with no other key between them (`src/core/doubleShift.ts`). Typing a capital puts a letter between the taps, so it never counts; neither does a held or repeating Shift, both Shifts together (a layout switch on some keyboards, the stick's included) or a key inside an input method's composition. It works in the text, the library and the first screen, not behind another dialog or the lock view; tapped again it closes the panel. Like `Alt` for the menu it can't be rebound, because `keybindings.toml` takes only `Ctrl`/`Alt` chords and function keys.
 - `Esc` closes the topmost overlay and returns focus to where it came from. In the docked library it returns focus to the text.
 - The overlay library supports the same file and navigation shortcuts as the docked library. Choosing or creating a document closes the overlay and puts focus in the writing surface, including when the panel was opened with its button.
 - Native menu items are disabled when their commands cannot run. Undo and Redo follow the current document's editable history, in the menu and palette alike.

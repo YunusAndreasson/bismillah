@@ -17,8 +17,19 @@
     escape: () => void;
     retry: () => void;
     dismiss?: () => void;
+    /** See LibraryTree. */
+    followFocusRequests?: boolean;
   }
-  let { library, open, run, newHere, escape, retry, dismiss }: Props = $props();
+  let {
+    library,
+    open,
+    run,
+    newHere,
+    escape,
+    retry,
+    dismiss,
+    followFocusRequests = true,
+  }: Props = $props();
   const t = copy.library;
   const view = $derived(library.view);
 </script>
@@ -57,7 +68,7 @@
         </button>
       {:else}
         <div class="scroll">
-          <LibraryTree {library} {open} {run} {newHere} {escape} />
+          <LibraryTree {library} {open} {run} {newHere} {escape} {followFocusRequests} />
           {#if view.truncated}<p class="state">{t.truncated}</p>{/if}
         </div>
       {/if}

@@ -127,11 +127,15 @@ bismillah checks English and Arabic spelling and suggests English grammar correc
 - Files are listed in natural order, as a catalogue would list them: “Chapter 2” before “Chapter 10”, and “ʿIlm” under I.
 - In a narrow window the library opens over the writing. Its *Close* button returns to the text.
 
-### Quick open and the command palette
+### Find anything
 
-- **Quick open** (`Ctrl+P`) finds a file by its name or its folder. Matching ignores case, diacritics and vocalisation, so “hadith” finds “ḥadīth.md”, and files with the same name show their folders.
-- **The command palette** (`Ctrl+Shift+P`) finds every command by its name or by other words for it, with its shortcut. Switches say *On* or *Off*.
-- Both show keyboard hints and a *Close* button. Quick open offers *New file…* when the library is empty. Hover over a shortened file name or path to read it in full.
+Tap `Shift` twice (*Find anything*) to reach almost everything from one place: your files, the library, the commands and the settings. Typing a capital never opens it, and tapping `Shift` twice again closes it.
+
+- With nothing typed it shows the library on the left (in a wide window) and, beside it, your recent files, the main commands and the settings you change most. `Tab` moves into the library, where the arrows, `Enter`, `F2` and `Delete` work as they do in the library itself.
+- Type to find a file by its name or folder, a command by its name or by other words for it, or a setting. Matching ignores case, diacritics and vocalisation, so “hadith” finds “ḥadīth.md”, and files with the same name show their folders.
+- A switch, such as *Smart punctuation*, says *On* or *Off*, and `Enter` changes it without closing the panel. Any other setting shows its value, and `Enter` opens Settings at it.
+- **Quick open** (`Ctrl+P`) is the same panel showing only files, and **the command palette** (`Ctrl+Shift+P`) the same panel showing only commands, each with its shortcut. The row under the search field switches between *Everything*, *Files*, *Commands* and *Settings*.
+- It shows keyboard hints and a *Close* button. With an empty library it offers *New file…*. Hover over a shortened file name or path to read it in full.
 - **The menu bar** appears when you press `Alt` or `F10`.
 
 ## Finding text and moving around
@@ -221,6 +225,7 @@ Changes apply everywhere as soon as you save the file, and an empty shortcut lea
 | Grammar suggestions | — |
 | Library | `Ctrl+\` |
 | Command palette | `Ctrl+Shift+P` |
+| Find anything | `Shift Shift` |
 | Zuhd mode | `Ctrl+D` |
 | Typewriter scrolling | `Ctrl+T` |
 | Always show Markdown | `Ctrl+R` |

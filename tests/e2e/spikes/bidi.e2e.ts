@@ -115,7 +115,8 @@ describe("bidi", () => {
         from,
         to,
       );
-      await press("Shift"); // let the selection layer draw
+      // A lone key lets the selection layer draw. Not Shift: two in a row open Find anything.
+      await press("Control");
       const boxes = await browser.execute(() => window.__bismillah?.geometry.selectionBoxes() ?? []);
       const inside = (x: number, y: number) =>
         boxes.some((b) => x > b.left && x < b.right && y > b.top && y < b.bottom);

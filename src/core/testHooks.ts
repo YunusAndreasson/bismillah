@@ -19,6 +19,7 @@ import {
   testOpen,
   type MenuState,
 } from "./ipc.ts";
+import type { SettingsSection, SettingsTarget } from "./settingEntries.ts";
 import type { SaveState } from "./session.svelte.ts";
 import { copy } from "./copy.ts";
 import { shortcuts } from "./keybindings.svelte.ts";
@@ -106,7 +107,7 @@ export interface TestHooks {
     focused: string | null;
   } | null;
   /** Opens Settings, at a section if given. */
-  openSettings(section?: "files" | "appearance" | null): void;
+  openSettings(section?: SettingsSection | SettingsTarget | null): void;
   /** Visual fixtures only: labels never change Rust's actual storage locations. */
   setFolderLabels(folders: { config: string; data: string }): void;
   /** Each command's shortcut now, and why lines of keybindings.toml weren't used. */

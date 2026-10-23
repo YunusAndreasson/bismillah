@@ -8,7 +8,12 @@
   import { installMenu } from "./core/menu.ts";
   import { settings, type Settings } from "./core/settings.svelte.ts";
   import { installTestHooks } from "./core/testHooks.ts";
-  import { workspace, type NamePrompt as Prompt } from "./core/workspace.svelte.ts";
+  import type { SettingsTarget } from "./core/settingEntries.ts";
+  import {
+    workspace,
+    type NamePrompt as Prompt,
+    type Picker as PickerKind,
+  } from "./core/workspace.svelte.ts";
   import { remeasure } from "./editor/typography.ts";
   import AboutDialog from "./ui/AboutDialog.svelte";
   import LibraryPanel from "./ui/LibraryPanel.svelte";
@@ -242,9 +247,16 @@
   kind={workspace.picker}
   {library}
   context={workspace.context}
+  values={settings.values}
+  stick={workspace.stick !== null}
   close={() => (workspace.picker = null)}
+  setScope={(kind: PickerKind) => (workspace.picker = kind)}
   openFile={(path: string) => void workspace.openFromLibrary(path)}
   runCommand={run}
+  change={(patch: Partial<Settings>) => void settings.set(patch)}
+  openSettingsAt={(target: SettingsTarget) => workspace.openSettings(target)}
+  newHere={panel.newHere}
+  retry={panel.retry}
 />
 
 <NamePrompt prompt={workspace.prompt} closed={(p: Prompt) => workspace.promptClosed(p)} />

@@ -16,6 +16,7 @@
     TEXT_SCALE,
     type Settings,
   } from "../core/settings.svelte.ts";
+  import type { SettingsSection, SettingsTarget } from "../core/settingEntries.ts";
   import { colourThemes, DEFAULT_THEME } from "../core/themes.svelte.ts";
 
   /**
@@ -24,7 +25,7 @@
    * applies at once and is saved by Rust; there is no Apply. Bits UI provides the modal
    * focus trap, Esc and focus return.
    */
-  type Section = "appearance" | "writing" | "checking" | "files" | "stick";
+  type Section = SettingsSection;
   interface Props {
     open: boolean;
     values: Settings;
@@ -35,8 +36,9 @@
     folders: { config: string; data: string };
     /** The custom font as checked: installed, not, or not known yet (null). */
     customFont: { name: string; installed: boolean | null };
-    /** A section to show on opening; `shown` is called once it has been. */
-    section: "files" | "appearance" | null;
+    /** A section, or a control in it, to show on opening (Find anything); `shown` is
+     * called once it has been. */
+    section: SettingsTarget | null;
     shown: () => void;
     openFolder: () => void;
     createKeybindings: () => Promise<SaveError | null>;
@@ -133,11 +135,25 @@
     heading?.focus({ preventScroll: true });
   }
 
+  /** Focus on one setting's control: the chosen option of a choice, a switch, a
+   * stepper's first button, or the setting's action. */
+  function showControl(id: string) {
+    const setting = document.getElementById(id)?.closest<HTMLElement>(".setting");
+    const control =
+      setting?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ??
+      setting?.querySelector<HTMLElement>(
+        "button:not(:disabled), input:not(:disabled), select:not(:disabled)",
+      );
+    setting?.scrollIntoView({ block: "center" });
+    control?.focus({ preventScroll: true });
+  }
+
   $effect(() => {
     if (!open || !section) return;
-    const id = section;
+    const { section: id, control } = section;
     void tick().then(() => {
       showSection(id);
+      if (control) showControl(control);
       shown();
     });
   });
@@ -512,7 +528,7 @@
         <!-- On the stick there is no other editor for keybindings.toml or settings.toml. -->
         {#if !stick}
           <div class="setting">
-            <h3 class="label">{copy.shortcuts.title}</h3>
+            <h3 class="label" id="settings-shortcuts">{copy.shortcuts.title}</h3>
             {#if shortcuts.file.unreadable}
               <p class="hint error">{copy.shortcuts.unreadable(shortcuts.file.unreadable)}</p>
             {:else if shortcuts.file.exists}

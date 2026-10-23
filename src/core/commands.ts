@@ -49,7 +49,8 @@ export type CommandId =
   | "view.cycleTheme"
   | "view.fullscreen"
   | "view.toggleLibrary"
-  | "app.commandPalette";
+  | "app.commandPalette"
+  | "app.findAnything";
 
 /** The switches whose state the menu and palette show. */
 export type ToggleId =
@@ -73,6 +74,9 @@ export interface Command {
    * writer may change it in keybindings.toml: use `shortcuts.keyFor(id)` for the one it
    * has now (keybindings.svelte.ts). */
   key?: string;
+  /** A fixed gesture that isn't a shortcut, shown where its shortcut would be ("Shift
+   * Shift" for Find anything). It can't be changed; a shortcut can be added. */
+  gesture?: string;
   /** Keeps the desktop's standard key whatever keybindings.toml says (Undo, Redo,
    * Select all: the text field's own keys everywhere). */
   fixedKey?: boolean;
@@ -132,6 +136,9 @@ export interface CommandContext {
    * doesn't have focus gets focus instead. */
   toggleLibrary(fromKeyboard: boolean): void;
   commandPalette(): void;
+  /** Find anything: files, the library, commands and settings in one panel (Shift
+   * Shift). */
+  findAnything(): void;
   toggleFocus(): void;
   toggleTypewriter(): void;
   /** Always show Markdown, or live preview (ADR-0012). */
@@ -445,6 +452,15 @@ const ALL: readonly Command[] = [
     key: "Mod-Shift-p",
     aliases: ["commands", "actions"],
     run: (c) => c.commandPalette(),
+  },
+  {
+    id: "app.findAnything",
+    label: "Find anything",
+    section: "View",
+    gesture: "Shift Shift",
+    aliases: ["search", "everything", "go to", "settings", "files", "shift shift"],
+    description: "Files, commands and settings in one place. Tap Shift twice to open it.",
+    run: (c) => c.findAnything(),
   },
   {
     id: "editor.toggleFocus",

@@ -21,6 +21,7 @@ import {
   type SaveError,
 } from "./ipc.ts";
 import { shortcuts } from "./keybindings.svelte.ts";
+import { DoubleShift } from "./doubleShift.ts";
 import { keyOf, normalise } from "./keys.ts";
 import { applyColours, colourThemes, DEFAULT_THEME, onSystemScheme } from "./themes.svelte.ts";
 import { Checking } from "./checking.svelte.ts";
@@ -28,6 +29,7 @@ import { GUIDE_NAME, GUIDE_WORDS } from "./guide.ts";
 import { LibraryStore } from "./library.svelte.ts";
 import type { NativeMenu } from "./menu.ts";
 import { quietReload } from "./reload.ts";
+import type { SettingsSection, SettingsTarget } from "./settingEntries.ts";
 import { DocumentSession } from "./session.svelte.ts";
 import { findNode } from "./tree.ts";
 import {
@@ -73,7 +75,9 @@ export interface NamePrompt {
   submit(name: string): Promise<string | null>;
 }
 
-export type Picker = "quickOpen" | "palette";
+/** Find anything's scopes (DESIGN.md §6): everything, or only files (quick open),
+ * commands (the palette) or settings. */
+export type Picker = "everything" | "quickOpen" | "palette" | "settings";
 
 /** How long quitting waits for a save before leaving the text to recovery. */
 const QUIT_TIMEOUT_MS = 4000;
@@ -95,8 +99,8 @@ export class Workspace {
   transliteration = $state(false);
   fullscreen = $state(false);
   settingsOpen = $state(false);
-  /** A Settings section to show when it opens ("files": Files & privacy). */
-  settingsSection = $state<"files" | "appearance" | null>(null);
+  /** A Settings section, or a control in it, to show when it opens. */
+  settingsSection = $state<SettingsTarget | null>(null);
   aboutOpen = $state(false);
   /** Where bismillah keeps its files and its version (app_info), for Settings and About. */
   info = $state<{ version: string; folders: { config: string; data: string } }>({
@@ -272,8 +276,8 @@ export class Workspace {
     return out;
   }
 
-  openSettings(section: "files" | "appearance" | null = null): void {
-    this.settingsSection = section;
+  openSettings(at: SettingsSection | SettingsTarget | null = null): void {
+    this.settingsSection = typeof at === "string" ? { section: at } : at;
     this.settingsOpen = true;
   }
 
@@ -396,8 +400,10 @@ export class Workspace {
       const target = event.target instanceof Element ? event.target : null;
       const dialog = target?.closest('[role="dialog"], [role="alertdialog"]');
       // The overlay is the same library as the docked panel, so its file and
-      // navigation shortcuts still work. Other dialogs keep commands behind them inert.
-      if (dialog && !dialog.classList.contains("library-overlay")) return;
+      // navigation shortcuts still work, as they do in Find anything's tree. Other
+      // dialogs keep commands behind them inert.
+      const tree = dialog?.classList.contains("picker") && target?.closest('[role="tree"]');
+      if (dialog && !dialog.classList.contains("library-overlay") && !tree) return;
       const key = keyOf(event);
       const field = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
       if (field && !key.startsWith("Mod-")) return;
@@ -406,6 +412,26 @@ export class Workspace {
         .find((b) => normalise(b.key) === key && b.command.section !== "Edit");
       if (bound && runCommand(bound.command.id, "keymap", this.context)) event.preventDefault();
     });
+    // Shift Shift opens Find anything from anywhere, the editor too, and closes it again.
+    // Not behind another dialog or the lock view (DESIGN.md §13).
+    const doubleShift = new DoubleShift();
+    const onShift = (event: KeyboardEvent) => {
+      const moment = {
+        type: event.type === "keyup" ? ("keyup" as const) : ("keydown" as const),
+        code: event.code,
+        repeat: event.repeat,
+        isComposing: event.isComposing,
+        time: event.timeStamp,
+      };
+      if (!doubleShift.feed(moment) || this.locked) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const dialog = target?.closest('[role="dialog"], [role="alertdialog"]');
+      if (this.picker !== null) this.picker = null;
+      else if (!dialog || dialog.classList.contains("library-overlay"))
+        runCommand("app.findAnything", "keymap", this.context);
+    };
+    window.addEventListener("keydown", onShift, true);
+    window.addEventListener("keyup", onShift, true);
     window.addEventListener("mousemove", () => (this.typing = false));
     if (this.stick) this.#watchStick();
   }
@@ -1176,6 +1202,10 @@ export class Workspace {
       openFolder: () => void this.openFolder(),
       quickOpen: () => {
         if (this.library.ready) this.picker = "quickOpen";
+      },
+      findAnything: () => {
+        this.library.overlay = false;
+        this.picker = "everything";
       },
       rename: () => void this.rename(),
       trash: () => void this.trash(),

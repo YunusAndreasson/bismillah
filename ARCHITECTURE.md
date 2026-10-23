@@ -124,7 +124,7 @@ bismillah/
 │  │                          (tables as grids, clicks and arrows into them);
 │  │                          wordCount
 │  ├─ ui/                     Svelte components: status line, notices, first screen, Settings,
-│  │                          About, library panel and tree, quick open / palette, name prompt,
+│  │                          About, library panel and tree, Find anything (quick open / palette), name prompt,
 │  │                          suggestions
 │  └─ styles/                 tokens.css, fonts.css, profiles.css, editor.css
 ├─ fonts/  source/ (upstream) · build/ (Bismillah Duo/Mono) · tools/ (build + verify scripts,
@@ -364,6 +364,7 @@ opens. The application grids constrain their single columns with `minmax(0, 1fr)
 so enlarged document text cannot increase the page width beyond the desktop window.
 
 ### 12.2 Desktop integration
+- **Find anything** (`src/ui/Picker.svelte`, DESIGN.md §6): one panel in four scopes over the command registry, the library's files and tree, and the settings that aren't commands (`src/core/settingEntries.ts`). Switches change through the settings store as Settings' own do; other settings open Settings with a `{ section, control }` target. `Shift Shift` is recognised by a pure state machine (`src/core/doubleShift.ts`) fed from capture-phase key listeners on the window, so it works over the editor without a CodeMirror binding.
 - **Native application menu**, generated from the command registry (`src/core/commands.ts` → `src/core/menu.ts`, Tauri's JS menu API) with the same labels, IDs and accelerators as the palette and the editor keymap.
   - On macOS it lives in the global menu bar and must include the standard App and Edit menus, because without them `Cmd-C`/`Cmd-V`/`Cmd-Q` do not work in the webview.
   - On Linux and Windows the menu bar is hidden by default to keep the window calm, and is revealed with `Alt` (pressed and released alone) or `F10`, which also focus its first menu (`menu_reveal` → `platform.rs`); it hides again when it closes. While hidden, GTK fires no menu accelerators, so the editor keymap handles shortcuts exactly once.

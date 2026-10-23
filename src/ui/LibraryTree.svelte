@@ -24,8 +24,11 @@
     newHere: (kind: "file" | "folder", folder: string) => void;
     /** Esc: back to the text. */
     escape: () => void;
+    /** Takes focus when the workspace asks (the docked and overlay library). Find
+     * anything's tree doesn't: its search field keeps focus until Tab. */
+    followFocusRequests?: boolean;
   }
-  let { library, open, run, newHere, escape }: Props = $props();
+  let { library, open, run, newHere, escape, followFocusRequests = true }: Props = $props();
 
   // Row elements by path, only for moving focus: not state anything renders from.
   // eslint-disable-next-line svelte/prefer-svelte-reactivity
@@ -71,7 +74,7 @@
   // request moves focus: the tab stop also follows the open document, and tracking
   // it took focus from the text whenever a file opened beside the docked library.
   $effect(() => {
-    if (library.focusRequests > 0) void focusRow(untrack(() => tabStop));
+    if (library.focusRequests > 0 && followFocusRequests) void focusRow(untrack(() => tabStop));
   });
 
   function activate(row: Row) {

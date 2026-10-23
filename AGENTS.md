@@ -115,7 +115,11 @@ The [stick QA pass](docs/audits/2026-10-22-stick-qa.md) drove the editor in the
 stick's VM by keyboard: pickers that died after the library had focus, focus left in
 the tree after quick open, dialogs that scrolled long texts to the top, and frames
 shown late on software rendering.
-The current gate covers 410 frontend and 188 Rust tests, all 26
+Find anything (`Shift Shift`) joins quick open, the palette, the library tree and
+settings in one panel; its gesture is unit-tested in `src/core/doubleShift.test.ts`
+and the panel in `tests/e2e/find-anything.e2e.ts`. Tests must not tap Shift on its
+own twice: that opens the panel.
+The current gate covers 422 frontend and 188 Rust tests, all 27
 real-app suites and 16 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.

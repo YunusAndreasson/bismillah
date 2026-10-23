@@ -404,6 +404,28 @@ const STATES: State[] = [
     leave: escape,
   },
   {
+    name: "Find anything",
+    enter: async () => {
+      await run("app.findAnything");
+      await settle();
+    },
+    expect: (doc) => {
+      const out: string[] = [];
+      const dialog = find(doc, (n) => n.role === "dialog" && showing(n));
+      if (dialog[0]?.name !== "Find anything") out.push("Find anything isn't a named dialog");
+      const trees = find(doc, (n) => n.role === "tree" && showing(n));
+      if (trees.length !== 1 || !trees[0]?.name) out.push("its library isn't one named tree");
+      const options = find(doc, (n) => n.role === "list item" && showing(n));
+      if (!options.some((n) => n.name.includes("Zuhd mode")))
+        out.push("it doesn't list Zuhd mode as an option");
+      const pressed = find(doc, (n) => n.role === "toggle button" && showing(n));
+      if (!pressed.some((n) => n.name === "Everything" && n.states.includes("pressed")))
+        out.push("its scope isn't a pressed toggle button");
+      return out;
+    },
+    leave: escape,
+  },
+  {
     name: "Rename…",
     enter: async () => {
       await run("file.rename");
