@@ -37,10 +37,10 @@ describe("Find anything's settings", () => {
   it("shows each choice's value and finds settings by other words", () => {
     const value = (id: string) =>
       ALL_SETTING_ENTRIES.find((e) => e.id === id)?.value?.(DEFAULTS, (c) => c);
-    expect(value("theme")).toBe("System");
-    expect(value("size")).toBe("100%");
+    expect(value("measure")).toBe("Standard");
+    expect(value("colours")).toBe("bismillah");
     expect(value("line")).toMatch(/font default/);
     expect(rankCommands("quotes", ALL_SETTING_ENTRIES)[0]?.id).toBe("smart");
-    expect(rankCommands("dark", ALL_SETTING_ENTRIES)[0]?.id).toBe("theme");
+    expect(rankCommands("leading", ALL_SETTING_ENTRIES)[0]?.id).toBe("line");
   });
 });

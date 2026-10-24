@@ -22,6 +22,7 @@ import {
 } from "./ipc.ts";
 import { shortcuts } from "./keybindings.svelte.ts";
 import { DoubleShift } from "./doubleShift.ts";
+import type { Scope } from "./findAnything.ts";
 import { keyOf, normalise } from "./keys.ts";
 import { applyColours, colourThemes, DEFAULT_THEME, onSystemScheme } from "./themes.svelte.ts";
 import { Checking } from "./checking.svelte.ts";
@@ -75,9 +76,8 @@ export interface NamePrompt {
   submit(name: string): Promise<string | null>;
 }
 
-/** Find anything's scopes (DESIGN.md §6): everything, or only files (quick open),
- * commands (the palette) or settings. */
-export type Picker = "everything" | "quickOpen" | "palette" | "settings";
+/** Find anything's scope (DESIGN.md §6), while it is open. */
+export type Picker = Scope;
 
 /** How long quitting waits for a save before leaving the text to recovery. */
 const QUIT_TIMEOUT_MS = 4000;
@@ -400,10 +400,9 @@ export class Workspace {
       const target = event.target instanceof Element ? event.target : null;
       const dialog = target?.closest('[role="dialog"], [role="alertdialog"]');
       // The overlay is the same library as the docked panel, so its file and
-      // navigation shortcuts still work, as they do in Find anything's tree. Other
-      // dialogs keep commands behind them inert.
-      const tree = dialog?.classList.contains("picker") && target?.closest('[role="tree"]');
-      if (dialog && !dialog.classList.contains("library-overlay") && !tree) return;
+      // navigation shortcuts still work. Other dialogs keep commands behind them inert
+      // (Find anything's tree handles its own keys).
+      if (dialog && !dialog.classList.contains("library-overlay")) return;
       const key = keyOf(event);
       const field = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
       if (field && !key.startsWith("Mod-")) return;
@@ -412,8 +411,8 @@ export class Workspace {
         .find((b) => normalise(b.key) === key && b.command.section !== "Edit");
       if (bound && runCommand(bound.command.id, "keymap", this.context)) event.preventDefault();
     });
-    // Shift Shift opens Find anything from anywhere, the editor too, and closes it again.
-    // Not behind another dialog or the lock view (DESIGN.md §13).
+    // Shift Shift opens Find anything from anywhere, the editor too (DESIGN.md §13).
+    // Not behind another dialog or the lock view.
     const doubleShift = new DoubleShift();
     const onShift = (event: KeyboardEvent) => {
       const moment = {
@@ -421,17 +420,23 @@ export class Workspace {
         code: event.code,
         repeat: event.repeat,
         isComposing: event.isComposing,
+        modified: event.ctrlKey || event.altKey || event.metaKey,
         time: event.timeStamp,
       };
       if (!doubleShift.feed(moment) || this.locked) return;
       const target = event.target instanceof Element ? event.target : null;
       const dialog = target?.closest('[role="dialog"], [role="alertdialog"]');
-      if (this.picker !== null) this.picker = null;
-      else if (!dialog || dialog.classList.contains("library-overlay"))
+      if (this.picker !== null) {
+        // In the panel: to Everything, or from it closed. Not while Rename… or another
+        // dialog is over it.
+        if (dialog && !dialog.classList.contains("picker")) return;
+        this.picker = this.picker === "everything" ? null : "everything";
+      } else if (!dialog || dialog.classList.contains("library-overlay"))
         runCommand("app.findAnything", "keymap", this.context);
     };
     window.addEventListener("keydown", onShift, true);
     window.addEventListener("keyup", onShift, true);
+    window.addEventListener("mousedown", () => doubleShift.interrupt(), true);
     window.addEventListener("mousemove", () => (this.typing = false));
     if (this.stick) this.#watchStick();
   }
@@ -1057,7 +1062,8 @@ export class Workspace {
     // when returning to a row inside the still-open library overlay.
     setTimeout(() => {
       if (this.prompt) return;
-      if (prompt.returnTo === "tree" && this.library.visible) this.library.requestFocus();
+      const lib = this.library;
+      if (prompt.returnTo === "tree" && (lib.visible || lib.embedded)) lib.requestFocus();
       else this.focusEditor();
     }, 0);
   }

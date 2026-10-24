@@ -4,16 +4,22 @@ import { DoubleShift, WINDOW_MS, type KeyMoment } from "./doubleShift.ts";
 type Step = [type: "down" | "up", code: string, time: number, extra?: Partial<KeyMoment>];
 
 /** Feeds the steps in order and returns the indexes at which the gesture completed. */
-function fired(steps: Step[]): number[] {
+function fired(steps: (Step | "click")[]): number[] {
   const detector = new DoubleShift();
   const out: number[] = [];
-  steps.forEach(([type, code, time, extra], i) => {
+  steps.forEach((step, i) => {
+    if (step === "click") {
+      detector.interrupt();
+      return;
+    }
+    const [type, code, time, extra] = step;
     const moment: KeyMoment = {
       type: type === "down" ? "keydown" : "keyup",
       code,
       time,
       repeat: false,
       isComposing: false,
+      modified: false,
       ...extra,
     };
     if (detector.feed(moment)) out.push(i);
@@ -93,6 +99,74 @@ describe("Shift Shift", () => {
         ["up", "ShiftLeft", 230],
       ]),
     ).toEqual([]);
+  });
+
+  it("doesn't fire with Ctrl, Alt or Super held (Alt+Shift switches layouts)", () => {
+    const alt = { modified: true };
+    expect(
+      fired([
+        ["down", "AltLeft", 0],
+        ["down", "ShiftLeft", 20, alt],
+        ["up", "ShiftLeft", 60, alt],
+        ["down", "ShiftLeft", 150, alt],
+        ["up", "ShiftLeft", 200, alt],
+        ["up", "AltLeft", 260],
+      ]),
+    ).toEqual([]);
+    // A layout switch, then one lone tap, isn't the gesture either.
+    expect(
+      fired([
+        ["down", "AltLeft", 0],
+        ["down", "ShiftLeft", 20, alt],
+        ["up", "ShiftLeft", 60, alt],
+        ["up", "AltLeft", 80],
+        ...tap("ShiftLeft", 150),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("doesn't fire on two Shift+clicks", () => {
+    expect(
+      fired([
+        ["down", "ShiftLeft", 0],
+        "click",
+        ["up", "ShiftLeft", 150],
+        ["down", "ShiftLeft", 250],
+        "click",
+        ["up", "ShiftLeft", 380],
+      ]),
+    ).toEqual([]);
+  });
+
+  it("starts clean after both Shifts, released in either order", () => {
+    for (const [first, second] of [
+      ["ShiftRight", "ShiftLeft"],
+      ["ShiftLeft", "ShiftRight"],
+    ] as const) {
+      expect(
+        fired([
+          ["down", "ShiftLeft", 0],
+          ["down", "ShiftRight", 20],
+          ["up", first, 60],
+          ["up", second, 80],
+          ...tap("ShiftLeft", 1000),
+          ...tap("ShiftLeft", 1150),
+        ]),
+      ).toEqual([7]);
+    }
+  });
+
+  it("starts clean after a Shift released with Alt held", () => {
+    expect(
+      fired([
+        ["down", "ShiftLeft", 0],
+        ["down", "AltLeft", 20],
+        ["up", "ShiftLeft", 60, { modified: true }],
+        ["up", "AltLeft", 80],
+        ...tap("ShiftLeft", 1000),
+        ...tap("ShiftLeft", 1150),
+      ]),
+    ).toEqual([7]);
   });
 
   it("ignores keys inside an input method's composition", () => {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Command, Dialog } from "bits-ui";
+  import { tick, untrack } from "svelte";
   import {
     COMMANDS,
     type Command as AppCommand,
@@ -7,7 +8,15 @@
     type CommandId,
   } from "../core/commands.ts";
   import { copy } from "../core/copy.ts";
-  import { rankCommands, rankFiles } from "../core/fuzzy.ts";
+  import {
+    colourThemeName,
+    firstValue,
+    lists,
+    SCOPES,
+    TREE_MIN_WIDTH,
+    WORDS,
+    type Scope,
+  } from "../core/findAnything.ts";
   import { shortcuts } from "../core/keybindings.svelte.ts";
   import { keyOf, normalise } from "../core/keys.ts";
   import type { LibraryStore } from "../core/library.svelte.ts";
@@ -17,7 +26,7 @@
     type SettingsTarget,
   } from "../core/settingEntries.ts";
   import type { Settings } from "../core/settings.svelte.ts";
-  import { colourThemes, DEFAULT_THEME } from "../core/themes.svelte.ts";
+  import { colourThemes } from "../core/themes.svelte.ts";
   import { parentOf } from "../core/tree.ts";
   import type { Picker } from "../core/workspace.svelte.ts";
   import LibraryPanel from "./LibraryPanel.svelte";
@@ -64,105 +73,55 @@
   }: Props = $props();
 
   const t = copy.picker;
-  const SCOPES: readonly Picker[] = ["everything", "quickOpen", "palette", "settings"];
-  /** What Find anything offers before anything is typed: the main commands. */
-  const MAIN: readonly CommandId[] = [
-    "file.new",
-    "file.save",
-    "view.toggleLibrary",
-    "editor.toggleFocus",
-    "editor.toggleTypewriter",
-    "view.toggleMarkdown",
-    "edit.find",
-    "edit.goToLine",
-    "view.cycleTheme",
-    "app.settings",
-    "app.guide",
-  ];
-  /** Settings offered before anything is typed: the switches, then the most used. */
-  const MAIN_SETTINGS = new Set(["contrast", "fade", "basmallah", "smart", "font", "size"]);
-  /** How many of each kind Find anything shows for a query. */
-  const EACH = 8;
-  const RECENT = 6;
+  /** The separator before a switch's state or a setting's value, outside its isolate. */
+  const SEP = " · ";
 
   let query = $state("");
-  let wasOpen = false;
+  /** The highlighted item's value, which Enter runs. */
+  let selected = $state("");
+  let width = $state(window.innerWidth);
   /** What to do once the dialog has closed and focus is back where it was. */
   let pending: { run: () => void; ownFocus: boolean } | null = null;
 
-  $effect(() => {
-    const open = kind !== null;
-    if (open && !wasOpen) query = "";
-    wasOpen = open;
-  });
-
-  const all = $derived(kind === "everything");
+  const scope = $derived<Scope>(kind ?? "everything");
+  const all = $derived(scope === "everything");
   const searching = $derived(query.trim() !== "");
-  const showFiles = $derived(kind === "everything" || kind === "quickOpen");
-  const showCommands = $derived(kind === "everything" || kind === "palette");
-  const showSettings = $derived(kind === "everything" || kind === "settings");
+  const words = $derived(WORDS[scope]);
+  const listed = $derived(
+    kind === null
+      ? { files: [], commands: [], settings: [] }
+      : lists(scope, query, {
+          files: library.files,
+          recent: library.recent,
+          commands: COMMANDS,
+          context,
+          settings: settingEntries(stick),
+        }),
+  );
+  // The tree beside the list while files are in scope, in windows wide enough for both.
+  const withTree = $derived(
+    (scope === "everything" || scope === "quickOpen") && width >= TREE_MIN_WIDTH,
+  );
+  const keys = $derived(all && !withTree ? t.everythingNarrowKeys : words.keys);
 
-  const files = $derived.by(() => {
-    if (!showFiles) return [];
-    if (!all) return rankFiles(query, library.files, library.recent);
-    if (searching) return rankFiles(query, library.files, library.recent, EACH);
-    const recent = new Set(library.recent);
-    return rankFiles("", library.files, library.recent, RECENT)
-      .filter((f) => recent.has(f.path))
-      .slice(0, RECENT);
+  // A new scope (or a new opening) starts with a clear field and its first item.
+  let shownScope: Picker | null = null;
+  $effect(() => {
+    const now = kind;
+    if (now === shownScope) return;
+    if (shownScope === null) query = "";
+    shownScope = now;
+    if (now !== null) selected = untrack(() => firstValue(listed));
   });
 
-  const commands = $derived.by(() => {
-    if (!showCommands) return [];
-    const usable = COMMANDS.filter(
-      (c) =>
-        c.id !== "app.commandPalette" &&
-        c.id !== "app.findAnything" &&
-        (!c.available || c.available(context)),
-    );
-    if (!all) return rankCommands(query, usable);
-    if (searching) return rankCommands(query, usable).slice(0, EACH);
-    return MAIN.flatMap((id) => usable.find((c) => c.id === id) ?? []);
-  });
+  function focusField() {
+    void tick().then(() => document.querySelector<HTMLInputElement>(".picker-input")?.focus());
+  }
 
-  const entries = $derived.by(() => {
-    if (!showSettings) return [];
-    const list = settingEntries(stick);
-    if (!all) return rankCommands(query, list);
-    if (searching) return rankCommands(query, list).slice(0, EACH);
-    return list.filter((e) => MAIN_SETTINGS.has(e.id));
-  });
-
-  // The library tree beside the list, while files are in scope.
-  const withTree = $derived(showFiles);
-
-  const title = $derived(
-    kind === "palette"
-      ? t.palette
-      : kind === "quickOpen"
-        ? t.quickOpen
-        : kind === "settings"
-          ? t.settings
-          : t.everything,
-  );
-  const placeholder = $derived(
-    kind === "palette"
-      ? t.palettePlaceholder
-      : kind === "quickOpen"
-        ? t.quickOpenPlaceholder
-        : kind === "settings"
-          ? t.settingsPlaceholder
-          : t.everythingPlaceholder,
-  );
-  const keys = $derived(
-    kind === "palette"
-      ? t.commandKeys
-      : kind === "settings"
-        ? t.settingKeys
-        : kind === "quickOpen"
-          ? t.fileKeys
-          : t.everythingKeys,
-  );
+  function switchTo(next: Picker) {
+    setScope(next);
+    focusField();
+  }
 
   function choose(run: () => void, ownFocus: boolean) {
     pending = { run, ownFocus };
@@ -184,10 +143,7 @@
     return c.keyScope === "library" && key ? `${key} ${t.libraryOnly}` : key;
   }
 
-  function colourName(id: string): string {
-    if (id === DEFAULT_THEME) return copy.themes.builtin;
-    return colourThemes.find(id)?.name ?? id;
-  }
+  const colourName = (id: string) => colourThemeName(id, colourThemes.list);
 
   function chooseSetting(entry: SettingEntry) {
     const key = entry.key;
@@ -195,38 +151,61 @@
     else choose(() => openSettingsAt({ section: entry.section, control: entry.control }), false);
   }
 
-  // Mod-P and Mod-Shift-P (or the writer's own keys) change the scope while it's open.
-  function onkeydown(event: KeyboardEvent) {
-    const key = keyOf(event);
-    const scopeFor: [CommandId, Picker][] = [
-      ["file.quickOpen", "quickOpen"],
-      ["app.commandPalette", "palette"],
-      ["app.findAnything", "everything"],
-    ];
-    for (const [id, scope] of scopeFor) {
-      const bound = shortcuts.keyFor(id);
-      if (bound && normalise(bound) === key) {
-        event.preventDefault();
-        event.stopPropagation();
-        if (scope !== "quickOpen" || library.ready) setScope(scope);
-        return;
-      }
-    }
+  const bound = (id: CommandId, event: KeyboardEvent) => {
+    const key = shortcuts.keyFor(id);
+    return key !== undefined && key !== "" && normalise(key) === keyOf(event);
+  };
+
+  /** Mod-P, Mod-Shift-P (or the writer's own keys) change the scope while it's open;
+   * Find anything's own key goes to Everything, or from it closes the panel, as Shift
+   * Shift does. True when the key was one of them. */
+  function scopeKey(event: KeyboardEvent): boolean {
+    let next: Picker | null | undefined;
+    if (bound("file.quickOpen", event)) next = library.ready ? "quickOpen" : undefined;
+    else if (bound("app.commandPalette", event)) next = "palette";
+    else if (bound("app.findAnything", event)) next = all ? null : "everything";
+    else return false;
+    event.preventDefault();
+    event.stopPropagation();
+    if (next === null) close();
+    else if (next !== undefined) switchTo(next);
+    return true;
   }
 
-  // The tree's own actions. Rename and Move to trash act on its focused row, so they
-  // run here; anything that leaves the panel closes it first.
+  // The tree's own actions. Rename… acts on its focused row with the panel open; Move
+  // to trash closes it once the row is taken, so its Undo can be reached. Anything else
+  // that leaves the panel closes it first.
   const tree = {
     open: (path: string) => choose(() => openFile(path), true),
     run: (id: CommandId) => {
-      if (id === "file.rename" || id === "file.trash") runCommand(id);
-      else choose(() => runCommand(id), false);
+      if (id === "file.rename") runCommand(id);
+      else if (id === "file.trash") {
+        runCommand(id);
+        close();
+      } else choose(() => runCommand(id), false);
     },
     newHere: (k: "file" | "folder", folder: string) => choose(() => newHere(k, folder), false),
     escape: () => close(),
     retry: () => retry(),
   };
+
+  /** Keys in the tree stay there: the list's own keys (Enter, the arrows) must not act
+   * on its highlighted item too. The tree's commands are run here, since the window's
+   * shortcuts don't act inside a dialog. */
+  function treeKeydown(event: KeyboardEvent) {
+    event.stopPropagation();
+    if (scopeKey(event)) return;
+    for (const id of ["file.rename", "file.new", "library.newFolder"] as const) {
+      if (bound(id, event)) {
+        event.preventDefault();
+        tree.run(id);
+        return;
+      }
+    }
+  }
 </script>
+
+<svelte:window bind:innerWidth={width} />
 
 <Dialog.Root
   open={kind !== null}
@@ -239,7 +218,7 @@
     <Dialog.Content
       class="picker"
       aria-describedby={undefined}
-      {onkeydown}
+      onkeydown={scopeKey}
       onOpenAutoFocus={(event) => {
         event.preventDefault();
         document.querySelector<HTMLInputElement>(".picker-input")?.focus();
@@ -254,33 +233,38 @@
       }}
     >
       <header class="picker-header">
-        <Dialog.Title class="picker-title">{title}</Dialog.Title>
+        <Dialog.Title class="picker-title">{words.title}</Dialog.Title>
         <Dialog.Close class="picker-close">{t.close}</Dialog.Close>
       </header>
-      <Command.Root class="picker-command" shouldFilter={false} loop label={title}>
+      <Command.Root
+        class="picker-command"
+        shouldFilter={false}
+        vimBindings={false}
+        loop
+        label={words.title}
+        bind:value={selected}
+      >
         <Command.Input
           class="picker-input"
           bind:value={query}
-          {placeholder}
+          placeholder={words.placeholder}
           dir="auto"
           spellcheck="false"
           autocomplete="off"
         />
         <div class="picker-body" class:with-tree={withTree}>
           {#if withTree}
-            <nav class="picker-library" aria-label={copy.library.region}>
-              <LibraryPanel {library} {...tree} followFocusRequests={false} />
+            <!-- Keys are kept in the tree (treeKeydown); the tree itself handles them. -->
+            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+            <nav class="picker-library" aria-label={copy.library.region} onkeydown={treeKeydown}>
+              <LibraryPanel {library} {...tree} embedded />
             </nav>
           {/if}
           <Command.List class="picker-list">
             <Command.Viewport>
               <Command.Empty class="picker-empty">
-                {#if kind === "palette"}
-                  {t.noCommand}
-                {:else if kind === "settings"}
-                  {t.noSetting}
-                {:else if kind === "everything"}
-                  {t.noMatch}
+                {#if scope !== "quickOpen"}
+                  {words.empty}
                 {:else if !library.ready}
                   <p>{t.unavailableLibrary}</p>
                   <button
@@ -298,10 +282,10 @@
                     >{copy.library.newFile}</button
                   >
                 {:else}
-                  {t.noFile}
+                  {words.empty}
                 {/if}
               </Command.Empty>
-              {#if files.length > 0}
+              {#if listed.files.length > 0}
                 <Command.Group value="files">
                   {#if all}
                     <Command.GroupHeading class="picker-group"
@@ -309,7 +293,7 @@
                     >
                   {/if}
                   <Command.GroupItems>
-                    {#each files as file (file.path)}
+                    {#each listed.files as file (file.path)}
                       {@const [stem, ext] = split(file.name)}
                       <Command.Item
                         class="picker-item"
@@ -329,7 +313,7 @@
                   </Command.GroupItems>
                 </Command.Group>
               {/if}
-              {#if commands.length > 0}
+              {#if listed.commands.length > 0}
                 <Command.Group value="commands">
                   {#if all}
                     <Command.GroupHeading class="picker-group"
@@ -337,7 +321,7 @@
                     >
                   {/if}
                   <Command.GroupItems>
-                    {#each commands as command (command.id)}
+                    {#each listed.commands as command (command.id)}
                       {@const on = command.toggle?.(context)}
                       <Command.Item
                         class="picker-item"
@@ -346,7 +330,7 @@
                       >
                         <span class="primary" title={command.label}>
                           {command.label}{#if on !== undefined}<span class="on"
-                              >{` · ${on ? t.on : t.off}`}</span
+                              >{SEP}{on ? t.on : t.off}</span
                             >{/if}
                         </span>
                         {#if command.description && !all}<span
@@ -359,7 +343,7 @@
                   </Command.GroupItems>
                 </Command.Group>
               {/if}
-              {#if entries.length > 0}
+              {#if listed.settings.length > 0}
                 <Command.Group value="settings">
                   {#if all}
                     <Command.GroupHeading class="picker-group"
@@ -367,7 +351,7 @@
                     >
                   {/if}
                   <Command.GroupItems>
-                    {#each entries as entry (entry.id)}
+                    {#each listed.settings as entry (entry.id)}
                       {@const shown = entry.key
                         ? values[entry.key]
                           ? t.on
@@ -379,7 +363,7 @@
                         onSelect={() => chooseSetting(entry)}
                       >
                         <span class="primary" title={entry.label}>
-                          {entry.label}{#if shown}<span class="on"><bdi>{` · ${shown}`}</bdi></span
+                          {entry.label}{#if shown}<span class="on">{SEP}<bdi>{shown}</bdi></span
                             >{/if}
                         </span>
                         {#if !entry.key}<span class="where">{t.inSettings}</span>{/if}
@@ -394,24 +378,17 @@
       </Command.Root>
       <footer class="picker-footer">
         <div class="picker-scopes" role="group" aria-label={t.scopes}>
-          {#each SCOPES as scope (scope)}
+          {#each SCOPES as each (each)}
             <button
               type="button"
               class="picker-scope"
-              aria-pressed={kind === scope}
-              disabled={scope === "quickOpen" && !library.ready}
-              onclick={() => {
-                setScope(scope);
-                document.querySelector<HTMLInputElement>(".picker-input")?.focus();
-              }}>{t.scope[scope]}</button
+              aria-pressed={kind === each}
+              disabled={each === "quickOpen" && !library.ready}
+              onclick={() => switchTo(each)}>{t.scope[each]}</button
             >
           {/each}
         </div>
-        <p class="picker-keys">
-          {#if keys === t.everythingKeys}<span class="keys-wide">{keys}</span><span
-              class="keys-narrow">{t.everythingNarrowKeys}</span
-            >{:else}{keys}{/if}
-        </p>
+        <p class="picker-keys">{keys}</p>
       </footer>
     </Dialog.Content>
   </Dialog.Portal>
@@ -434,7 +411,6 @@
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    container: picker / inline-size;
     background: var(--surface-editor);
     color: var(--text-primary);
     border: 1px solid var(--border-control);
@@ -529,22 +505,6 @@
     overflow: auto;
     border-inline-end: 1px solid var(--border-control);
     background: var(--surface-panel);
-  }
-  .keys-narrow {
-    display: none;
-  }
-  /* Narrow windows: the list alone; the library is a key away (Mod-\). */
-  @container picker (width < 760px) {
-    .picker-library,
-    .keys-wide {
-      display: none;
-    }
-    .keys-narrow {
-      display: inline;
-    }
-    .picker-body.with-tree {
-      grid-template-columns: minmax(0, 1fr);
-    }
   }
   .picker-keys {
     margin: 0;

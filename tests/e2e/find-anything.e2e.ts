@@ -1,9 +1,9 @@
-import { cpSync, mkdirSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { browser, expect } from "@wdio/globals";
 import { settle, setViewport, waitForApp } from "../app.ts";
 import { REPO } from "../driver.ts";
-import { Folder, open } from "./files.ts";
+import { act, Folder, notices, open } from "./files.ts";
 
 /**
  * Find anything (DESIGN.md §6, §13): Shift Shift opens one panel with the library tree,
@@ -121,15 +121,72 @@ describe("Find anything", () => {
     await browser.waitUntil(() => activeIs(".picker-library [role='treeitem']"), {
       timeoutMsg: "Tab never reached the library tree",
     });
+    // The tree's keys stay in the tree: the list's highlight doesn't move with them, and
+    // Enter opens the row, not the highlighted item too.
+    const before = (await picker())?.selected;
+    await browser.keys("ArrowDown");
     await browser.keys("Home");
     await browser.keys("End");
     await frames();
+    expect((await picker())?.selected).toBe(before);
     const path = await browser.execute(() => window.__bismillah?.library().focusedRow ?? null);
-    expect(path).not.toBe(null);
+    expect(path).toBe("Qurʾān citations.markdown");
     await browser.keys("Enter");
     await browser.waitUntil(async () => (await picker()) === null);
     await browser.waitUntil(inText, { timeoutMsg: "the caret never reached the opened file" });
     expect(await browser.execute(() => window.__bismillah?.library().active ?? null)).toBe(path);
+    // Nothing else ran: Smart punctuation is still on.
+    await shiftShift();
+    await browser.$(".picker-input").setValue("smart punctuation");
+    await browser.waitUntil(async () =>
+      ((await picker())?.selected ?? "").startsWith("Smart punctuation · On"),
+    );
+  });
+
+  it("keeps the window's shortcuts from acting behind the panel's tree", async () => {
+    await shiftShift();
+    await browser.keys("Tab");
+    await browser.waitUntil(() => activeIs(".picker-library [role='treeitem']"));
+    await browser.keys("F1");
+    await browser.keys(["Control", "\\"]);
+    await browser.keys(["Control"]);
+    await frames();
+    expect((await picker())?.kind).toBe("everything");
+    expect(await browser.getTitle()).toMatch(/^Chapter 2/);
+    expect(await activeIs(".picker-library [role='treeitem']")).toBe(true);
+  });
+
+  it("returns focus to the panel's tree after Rename…, and isn't closed by Shift Shift in it", async () => {
+    await shiftShift();
+    await browser.keys("Tab");
+    await browser.waitUntil(() => activeIs(".picker-library [role='treeitem']"));
+    await browser.keys("End");
+    await browser.keys("F2");
+    await browser.waitUntil(async () =>
+      Boolean(await browser.execute(() => window.__bismillah?.prompt()?.ready)),
+    );
+    await shiftShift();
+    expect((await picker())?.kind).toBe("everything");
+    expect(await browser.execute(() => window.__bismillah?.prompt() !== null)).toBe(true);
+    await browser.keys("Escape");
+    await browser.waitUntil(() => activeIs(".picker-library [role='treeitem']"), {
+      timeoutMsg: "focus never came back to the panel's tree",
+    });
+    expect((await picker())?.kind).toBe("everything");
+  });
+
+  it("moves a row to the trash from the panel's tree, then closes it so Undo can be reached", async () => {
+    await shiftShift();
+    await browser.keys("Tab");
+    await browser.waitUntil(() => activeIs(".picker-library [role='treeitem']"));
+    await browser.keys("End");
+    const file = join(root, "Qurʾān citations.markdown");
+    await browser.keys("Delete");
+    await browser.waitUntil(async () => (await picker()) === null);
+    await browser.waitUntil(() => !existsSync(file), { timeoutMsg: "never trashed" });
+    await browser.waitUntil(async () => (await notices()).some((n) => n.actions.includes("Undo")));
+    await act("Undo");
+    await browser.waitUntil(() => existsSync(file), { timeoutMsg: "Undo never put it back" });
   });
 
   it("changes a switch in place and keeps the panel open", async () => {
@@ -174,6 +231,48 @@ describe("Find anything", () => {
     await browser.$(".settings-dialog").waitForDisplayed({ reverse: true });
   });
 
+  it("keeps the first item highlighted when the scope changes", async () => {
+    await shiftShift();
+    await browser.$(".picker-input").setValue("chapter");
+    await browser.waitUntil(async () =>
+      ((await picker())?.selected ?? "").startsWith("Chapter 2.md"),
+    );
+    await browser.keys(["Control", "p"]);
+    await browser.keys(["Control"]);
+    await browser.waitUntil(async () => (await picker())?.kind === "quickOpen");
+    expect((await picker())?.selected ?? "").toMatch(/^Chapter 2\.md/);
+    await browser.$(".picker-input").setValue("sa");
+    await browser.keys(["Control", "Shift", "P"]);
+    await browser.keys(["Control", "Shift"]);
+    await browser.waitUntil(async () => (await picker())?.kind === "palette");
+    await browser.waitUntil(async () => (await picker())?.selected != null, {
+      timeoutMsg: "nothing was highlighted after switching to commands",
+    });
+    expect((await picker())?.selected).toBe((await picker())?.items[0]);
+  });
+
+  it("brings focus back to the field when the scope changes from the tree", async () => {
+    await shiftShift();
+    await browser.keys("Tab");
+    await browser.waitUntil(() => activeIs(".picker-library [role='treeitem']"));
+    await browser.keys(["Control", "Shift", "P"]);
+    await browser.keys(["Control", "Shift"]);
+    await browser.waitUntil(async () => (await picker())?.kind === "palette");
+    await browser.waitUntil(() => activeIs(".picker-input"), {
+      timeoutMsg: "focus didn't return to the search field",
+    });
+    // Shift Shift goes back to Everything before it closes the panel.
+    await shiftShift();
+    await browser.waitUntil(async () => (await picker())?.kind === "everything");
+  });
+
+  it("keeps the tree in a window just over 760px wide", async () => {
+    await setViewport(browser, 780, 700);
+    await shiftShift();
+    await browser.$(".picker").waitForDisplayed();
+    expect(await browser.$(".picker-library").isDisplayed()).toBe(true);
+  });
+
   it("narrows to files on Ctrl+P and to commands on Ctrl+Shift+P", async () => {
     await shiftShift();
     await browser.$(".picker-input").waitForDisplayed();
@@ -193,7 +292,7 @@ describe("Find anything", () => {
     await shiftShift();
     await browser.$(".picker").waitForDisplayed();
     await settle(browser);
-    expect(await browser.$(".picker-library").isDisplayed()).toBe(false);
+    expect(await browser.$(".picker-library").isExisting()).toBe(false);
     const fits = await browser.execute(() => {
       const box = document.querySelector(".picker")?.getBoundingClientRect();
       const page = document.scrollingElement;

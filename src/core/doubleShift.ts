@@ -3,7 +3,9 @@
  * released on its own, with no other key between them and the second within
  * `WINDOW_MS` of the first. Typing a capital puts a letter between the taps, so it never
  * counts; neither do a held or repeating Shift, both Shifts together (some layouts
- * switch with that) or keys inside an input method's composition.
+ * switch with that), Shift with Ctrl, Alt or Super held (the stick switches layouts
+ * with Alt+Shift), a mouse press during it (Shift+click extends a selection) or keys
+ * inside an input method's composition.
  */
 
 export const WINDOW_MS = 400;
@@ -14,6 +16,8 @@ export interface KeyMoment {
   code: string;
   repeat: boolean;
   isComposing: boolean;
+  /** Ctrl, Alt or Super is held. */
+  modified: boolean;
   /** Milliseconds, from the event's `timeStamp`. */
   time: number;
 }
@@ -30,8 +34,12 @@ export class DoubleShift {
 
   /** Feeds one key event; true when it completes the gesture. */
   feed(e: KeyMoment): boolean {
-    if (e.isComposing || !isShift(e.code)) {
-      if (e.type === "keydown" || e.isComposing) this.#spoil();
+    if (e.isComposing || e.modified || !isShift(e.code)) {
+      if (e.type === "keydown" || e.isComposing || e.modified) this.#spoil();
+      if (e.modified && isShift(e.code) && e.type === "keyup") {
+        this.#press = null;
+        this.#spoiled = false;
+      }
       return false;
     }
     if (e.type === "keydown") {
@@ -41,9 +49,11 @@ export class DoubleShift {
     }
     const press = this.#press;
     if (press?.code !== e.code) {
-      // The other Shift of a pair, or a release we never saw pressed.
-      this.#spoil();
+      // The other Shift of a pair, or a release we never saw pressed. The next press
+      // starts clean.
+      this.#tapAt = null;
       this.#press = null;
+      this.#spoiled = false;
       return false;
     }
     this.#press = null;
@@ -59,6 +69,11 @@ export class DoubleShift {
     }
     this.#tapAt = e.time;
     return false;
+  }
+
+  /** Something other than a key, such as a mouse press, came between the taps. */
+  interrupt(): void {
+    this.#spoil();
   }
 
   #spoil(): void {

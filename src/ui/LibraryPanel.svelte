@@ -17,19 +17,10 @@
     escape: () => void;
     retry: () => void;
     dismiss?: () => void;
-    /** See LibraryTree. */
-    followFocusRequests?: boolean;
+    /** Find anything's tree (see LibraryTree). */
+    embedded?: boolean;
   }
-  let {
-    library,
-    open,
-    run,
-    newHere,
-    escape,
-    retry,
-    dismiss,
-    followFocusRequests = true,
-  }: Props = $props();
+  let { library, open, run, newHere, escape, retry, dismiss, embedded = false }: Props = $props();
   const t = copy.library;
   const view = $derived(library.view);
 </script>
@@ -68,7 +59,7 @@
         </button>
       {:else}
         <div class="scroll">
-          <LibraryTree {library} {open} {run} {newHere} {escape} {followFocusRequests} />
+          <LibraryTree {library} {open} {run} {newHere} {escape} {embedded} />
           {#if view.truncated}<p class="state">{t.truncated}</p>{/if}
         </div>
       {/if}

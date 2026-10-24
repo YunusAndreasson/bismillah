@@ -119,7 +119,7 @@ Find anything (`Shift Shift`) joins quick open, the palette, the library tree an
 settings in one panel; its gesture is unit-tested in `src/core/doubleShift.test.ts`
 and the panel in `tests/e2e/find-anything.e2e.ts`. Tests must not tap Shift on its
 own twice: that opens the panel.
-The current gate covers 422 frontend and 188 Rust tests, all 27
+The current gate covers 432 frontend and 188 Rust tests, all 27
 real-app suites and 16 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.

@@ -24,6 +24,10 @@ export class LibraryStore {
   active = $state<string | null>(null);
   /** Bumped to ask the tree to put keyboard focus on the focused row. */
   focusRequests = $state(0);
+  /** Find anything's own tree is mounted: requests go to it, not to the library behind
+   * the panel (`embeddedRequests`). */
+  embedded = false;
+  embeddedRequests = $state(0);
 
   #editorFocusAfterClose = false;
 
@@ -93,7 +97,8 @@ export class LibraryStore {
   requestFocus(): void {
     if (this.focused === null || !findNode(this.nodes, this.focused))
       this.focused = this.active ?? this.rows[0]?.node.path ?? null;
-    this.focusRequests++;
+    if (this.embedded) this.embeddedRequests++;
+    else this.focusRequests++;
   }
 
   toggleFolder(path: string): void {

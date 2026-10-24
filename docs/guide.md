@@ -129,12 +129,12 @@ bismillah checks English and Arabic spelling and suggests English grammar correc
 
 ### Find anything
 
-Tap `Shift` twice (*Find anything*) to reach almost everything from one place: your files, the library, the commands and the settings. Typing a capital never opens it, and tapping `Shift` twice again closes it.
+Tap `Shift` twice (*Find anything*) to reach almost everything from one place: your files, the library, the commands and the settings. Typing a capital never opens it, nor does `Shift` with `Ctrl` or `Alt` held, so switching keyboard layouts is safe. Tapping `Shift` twice again closes it.
 
-- With nothing typed it shows the library on the left (in a wide window) and, beside it, your recent files, the main commands and the settings you change most. `Tab` moves into the library, where the arrows, `Enter`, `F2` and `Delete` work as they do in the library itself.
+- With nothing typed it shows the library on the left (in a window at least 760 pixels wide) and, beside it, your recent files, the main commands and the settings you change most. `Tab` moves into the library, where the arrows, `Enter`, `F2` and `Delete` work as they do in the library itself. *Move to trash* closes the panel, so its *Undo* is in reach.
 - Type to find a file by its name or folder, a command by its name or by other words for it, or a setting. Matching ignores case, diacritics and vocalisation, so “hadith” finds “ḥadīth.md”, and files with the same name show their folders.
-- A switch, such as *Smart punctuation*, says *On* or *Off*, and `Enter` changes it without closing the panel. Any other setting shows its value, and `Enter` opens Settings at it.
-- **Quick open** (`Ctrl+P`) is the same panel showing only files, and **the command palette** (`Ctrl+Shift+P`) the same panel showing only commands, each with its shortcut. The row under the search field switches between *Everything*, *Files*, *Commands* and *Settings*.
+- Commands that are switches, such as *Zuhd mode*, say *On* or *Off*; running one closes the panel. The switches among the settings, such as *Smart punctuation*, change without closing it, so you can change several in a row. Any other setting shows its value, and `Enter` opens Settings at it.
+- **Quick open** (`Ctrl+P`) is the same panel showing only files, and **the command palette** (`Ctrl+Shift+P`) the same panel showing only commands, each with its shortcut. The buttons at the foot of the panel switch between *Everything*, *Files*, *Commands* and *Settings*; tapping `Shift` twice there goes back to *Everything*.
 - It shows keyboard hints and a *Close* button. With an empty library it offers *New file…*. Hover over a shortened file name or path to read it in full.
 - **The menu bar** appears when you press `Alt` or `F10`.
 

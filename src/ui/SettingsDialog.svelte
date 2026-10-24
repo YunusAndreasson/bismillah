@@ -3,6 +3,7 @@
   import { tick } from "svelte";
   import { commandById } from "../core/commands.ts";
   import { copy } from "../core/copy.ts";
+  import { colourThemeName } from "../core/findAnything.ts";
   import * as ipc from "../core/ipc.ts";
   import type { ColourTheme, SaveError } from "../core/ipc.ts";
   import { shortcuts } from "../core/keybindings.svelte.ts";
@@ -163,8 +164,7 @@
     const names: Record<string, string> = { [DEFAULT_THEME]: copy.themes.builtin };
     for (const theme of colourThemes.list) {
       if (!theme.usable || theme.id in names) continue;
-      const only = !theme.dark ? copy.themes.lightOnly : !theme.light ? copy.themes.darkOnly : null;
-      names[theme.id] = only ? `${theme.name} (${only})` : theme.name;
+      names[theme.id] = colourThemeName(theme.id, colourThemes.list);
     }
     return names;
   });

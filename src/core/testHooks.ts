@@ -282,7 +282,13 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
         focused: lib.focused,
         active: lib.active,
         focusedRow: row?.dataset.path ?? null,
-        rows: [...document.querySelectorAll<HTMLElement>('[role="treeitem"]')].map((el) => ({
+        // One tree's rows: Find anything's while it is open, else the library's.
+        rows: [
+          ...((
+            document.querySelector(".picker [role='tree']") ??
+            document.querySelector("[role='tree']")
+          )?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? []),
+        ].map((el) => ({
           path: el.dataset.path ?? "",
           level: Number(el.getAttribute("aria-level")),
           expanded: el.hasAttribute("aria-expanded")

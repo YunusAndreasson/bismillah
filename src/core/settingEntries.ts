@@ -4,7 +4,8 @@ import { PROFILE_LINE_HEIGHT, type Settings } from "./settings.svelte.ts";
 /**
  * The settings Find anything lists (DESIGN.md §6), beside the commands. Settings that
  * already have a command (Zuhd mode, Typewriter scrolling, Always show Markdown, the
- * checkers) are found as that command, so nothing is listed twice. A switch changes in
+ * checkers, Theme, the text size) are found as that command, so nothing is listed
+ * twice. A switch changes in
  * place; a choice opens Settings with focus on its control.
  */
 
@@ -37,17 +38,9 @@ const t = copy.settings;
 
 const ENTRIES: readonly SettingEntry[] = [
   {
-    id: "theme",
-    label: t.theme,
-    aliases: ["dark", "light", "system", "appearance"],
-    section: "appearance",
-    control: "set-theme",
-    value: (s) => t.themes[s.theme],
-  },
-  {
     id: "colours",
     label: t.colours,
-    aliases: ["colour theme", "color", "palette"],
+    aliases: ["colour theme", "color"],
     section: "appearance",
     control: "set-colours",
     value: (s, name) => name(s.colour_theme),
@@ -71,14 +64,7 @@ const ENTRIES: readonly SettingEntry[] = [
         ? s.custom_font
         : t.fonts[s.writing_profile],
   },
-  {
-    id: "size",
-    label: t.textSize,
-    aliases: ["font size", "zoom", "bigger", "smaller"],
-    section: "appearance",
-    control: "set-size",
-    value: (s) => `${String(Math.round(s.text_scale * 100))}%`,
-  },
+
   {
     id: "measure",
     label: t.measure,
