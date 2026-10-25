@@ -57,7 +57,7 @@
   // On the stick cage's pointer would sit over the text: it hides while the writer
   // types and comes back when the mouse moves.
   const onStick = $derived(gate !== null || workspace.stick !== null);
-  let pointerHidden = $state(false);
+  let pointerHidden = $state(true);
   $effect(() => {
     document.documentElement.classList.toggle("pointer-hidden", onStick && pointerHidden);
   });

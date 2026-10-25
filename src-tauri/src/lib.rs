@@ -282,7 +282,7 @@ pub fn run() {
         ])
         .setup(move |app| {
             if appliance {
-                std::thread::spawn(appliance::scale_outputs);
+                appliance::scale_outputs();
             }
             // Everything that reads the writer's home. On the stick it runs only once
             // the helper has opened home (appliance.rs).
@@ -325,7 +325,13 @@ pub fn run() {
             if appliance {
                 if let Some(window) = app.get_webview_window("main") {
                     platform::configure_main_window(&window);
+                    // Map the dark window first, so the page has its final viewport
+                    // before revealing the gate contents.
+                    let _ = window.set_fullscreen(true);
+                    let _ =
+                        window.set_background_color(Some(tauri::window::Color(21, 21, 21, 255)));
                     let _ = window.show();
+                    let _ = window.set_focus();
                 }
                 app.manage(appliance::Gate::new(Box::new(begin)));
                 appliance::watch_keyboard(app.handle());

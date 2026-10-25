@@ -82,7 +82,11 @@
     <div class="quiet info" class:faded={faded && !failed}>
       <span class="name" title={name}><bdi>{stem}</bdi>{ending}</span>
       <span class="sep" aria-hidden="true">·</span>
-      <span class="save" class:error={failed}>{saveText}</span>
+      <span
+        class="save"
+        class:routine={state.kind === "saved" || state.kind === "saving"}
+        class:error={failed}>{saveText}</span
+      >
       {#if minutes > 0}
         <span class="sep" aria-hidden="true">·</span>
         <span class="count">{copy.status.minutes(minutes)}</span>
@@ -133,6 +137,17 @@
   }
   .info {
     order: 2;
+    align-items: baseline;
+  }
+  .save.routine {
+    /* Durable save acknowledgement must not move the filename on every edit. */
+    inline-size: 9ch;
+    flex-shrink: 0;
+  }
+  .count {
+    min-inline-size: 11ch;
+    flex-shrink: 0;
+    text-align: end;
   }
   /* A quiet text button. Its hover boundary is drawn inside it, so the status line
      keeps the height of one line of text. */
@@ -159,6 +174,8 @@
     outline-offset: 1px;
   }
   .name {
+    min-inline-size: 0;
+    font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
   }

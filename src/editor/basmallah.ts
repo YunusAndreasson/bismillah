@@ -61,9 +61,9 @@ class BasmallahWidget extends WidgetType {
     return el;
   }
 
-  /** About 17px × 1.8 plus its margins; measured for real once drawn. */
+  /** About 17px × 1.8 plus 1.5 body lines; measured for real once drawn. */
   override get estimatedHeight(): number {
-    return 110;
+    return 79;
   }
 
   /** Let the browser handle events inside it, so the text can be selected natively. */

@@ -1,0 +1,45 @@
+--- a/seat.c
++++ b/seat.c
+@@ -37,6 +37,7 @@
+ 
+ #include "output.h"
+ #include "seat.h"
++#include "touchpad.h"
+ #include "server.h"
+ #include "view.h"
+ #if CAGE_HAS_XWAYLAND
+@@ -427,6 +428,9 @@
+ {
+ 	struct cg_seat *seat = wl_container_of(listener, seat, new_input);
+ 	struct wlr_input_device *device = data;
++	if (!cg_configure_touchpad(device)) {
++		wlr_log(WLR_ERROR, "Cannot configure touchpad tapping");
++	}
+ 
+ 	switch (device->type) {
+ 	case WLR_INPUT_DEVICE_KEYBOARD:
+--- a/meson.build
++++ b/meson.build
+@@ -1,5 +1,5 @@
+ project('cage', 'c',
+-  version: '0.2.0',
++  version: '0.2.0+bismillah.2',
+   license: 'MIT',
+   meson_version: '>=0.58.1',
+   default_options: [
+@@ -40,6 +40,7 @@
+ wayland_server = dependency('wayland-server')
+ xkbcommon      = dependency('xkbcommon')
+ math           = cc.find_library('m')
++libinput       = dependency('libinput')
+ 
+ wl_protocol_dir = wayland_protos.get_variable('pkgdatadir')
+ wayland_scanner = find_program('wayland-scanner')
+@@ -144,6 +145,7 @@
+     wayland_server,
+     wlroots,
+     xkbcommon,
++    libinput,
+     math,
+   ],
+   install: true,

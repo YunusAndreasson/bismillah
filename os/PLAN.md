@@ -719,7 +719,7 @@ Built 2026-10-22 (commits 3cc9386 to the OS-5 result). `os/scripts/verify.sh` pa
 - **Plan's partition table:** the ESP is 512 MiB (OS-0), root and verity are 640 and 8 MiB rather than 2 GiB and 128 MiB, and home stays 512 MiB, because flash.sh doesn't grow it yet. Texts need little room, but growing home to the rest of the stick is still open.
 - **"The kernel-config check"** in the honest claims wasn't added. The claim rests on the module and firmware audit and on the tested zero frames; the README's wording says so.
 - **QEMU's block-write trace events** weren't used. QEMU's own per-disk write counters, read after the guest powers off, and the qcow2 overlay's allocation, together prove the same thing.
-- **cage's pointer** still shows at start. A transparent cursor theme for cage didn't take, and was removed again. It disappears as soon as the writer types (the app hides it).
+- **cage's pointer** still showed at start in OS-5. A transparent cursor theme did not work. The startup follow-up below replaces that attempt with compositor policy.
 - **The first screen often paints white in the VM** until a key is pressed. This was already the case in OS-4's runs (three of four first frames). *Found in the stick QA pass afterwards* (docs/audits/2026-10-22-stick-qa.md): on llvmpipe WebKit's DMA-BUF renderer shows a frame only when the next input arrives. The helper now turns that renderer off where the boot display has no GPU driver Mesa renders on; the Dell's i915 keeps it, and decides whether it matters there.
 - **Found setting up the Dell (2026-10-22):** setup's *Continue* was disabled until the passphrase was strong enough and typed twice, so Tab skipped it and Enter did nothing. It now stays enabled; pressed too early, it says what's missing and puts the caret in that field (`appliance.e2e.ts`). The touchpad's pointer moved but taps didn't click: libinput leaves tapping off on touchpads, and Debian's cage 0.2.0 has no option to turn it on. Pressing the pad down clicks.
 - **Version:** the stick 1.0 is the tag `stick-1.0` (app 1.0.0, Debian snapshot 20261021T083704Z), made when the author accepts it.
@@ -734,6 +734,147 @@ Built 2026-10-22 (commits 3cc9386 to the OS-5 result). `os/scripts/verify.sh` pa
 5. Read the audit, and accept the stick 1.0. I then tag it `stick-1.0`.
 
 ---
+
+## Typewriter-only review (2026-10-25)
+
+The author's follow-up asks what else can be removed when writing is the stick's
+only job. [TRIMMING.md](TRIMMING.md) inventories the existing cuts, disabled
+services and remaining dependencies. The input-driver selection now excludes
+joysticks, game ports and the legacy PC speaker. Release also drops the debug-only
+`stty` and `journalctl` tools retained by the shared trace. The image audit checks those
+exclusions and the absence of camera/capture-card, radio and TV-tuner drivers.
+The larger media/speech/network library reduction still needs the custom WebKitGTK
+build below; deleting its required shared libraries would break the editor.
+Build and VM verification results are recorded in TRIMMING.md.
+
+## Touchpad tap-to-click (2026-10-25)
+
+**Status:** implemented in rebuilt release/debug images and verified in the VM;
+waiting for the author's physical laptop check below. The separate performance
+gate remains red under host load.
+
+The author reports that light taps click in Omarchy but not on the stick; the pad
+must be physically pressed at the bottom. This matches the OS-5 Dell finding:
+libinput defaults tapping off, and the shipped Cage 0.2.0 never enables it.
+
+The image now builds Cage 0.2.0 with a small, reviewed input-policy patch
+([source, build and tests](mkosi/cage/README.md)). Tap-capable libinput pointers get
+tapping enabled, including devices plugged in after boot. Disable-while-typing is
+explicitly enabled where supported. Physical click methods, scrolling, pointer
+acceleration and all other input devices keep their existing configuration.
+Build tools live only in mkosi's temporary overlay; the compositor uses the same
+Debian wlroots/libinput libraries and stays a release build without debug shortcuts.
+
+**Validation:** policy tests pass during the hardened release and offline debug
+image builds. The new `touchpad` VM scenario passes all five uinput → libinput →
+Cage → Wayland checks: light taps, physical clicks, two-finger scrolling, suppression
+while typing and recovery afterward. Both image audits pass, including the custom
+Cage version, its MIT licence, absence of build tools, and no probe in release.
+The rebuilt binary retains PIE, stack protection and immediate symbol binding.
+All suspend-lock cases, the app tour (including Restart), and all release escape-key
+checks pass. A final offline release rebuild and both image audits pass; a fresh
+external network capture records zero frames on virtio, PCIe and USB Ethernet.
+Size-only checks pass with the root still 356.4 MiB. The release keyboard fixture now explicitly focuses the webview and
+opens an editable sample before testing shortcuts; its screen comparison works in
+both themes. The tour waits for successful passphrase verification before Restart,
+instead of sending it behind the lock screen after a fixed four-second delay.
+Logs are in `os/out/tap-*.log`.
+
+**Performance limitation:** the full three-boot-per-profile run completed, but
+reported 12 timing regressions on a busy host (load averages around 12–18). Even
+kernel → switch-root, before Cage starts, measured 4.37 s on the good profile
+against the 2.69 s baseline. This run does not isolate the patch's timing impact.
+Image sizes remain within budget and writer-process PSS measured 695.8 MiB against
+its 1 GiB budget. The baseline was not changed; the full OS performance gate remains
+red until checked on a quiet host. Evidence is preserved in
+`os/out/tap-performance-report.md` and `os/out/tap-performance-result.json`.
+
+**The author's laptop check after updating the stick:**
+
+1. A light one-finger tap activates buttons in setup/unlock and focuses the editor.
+2. Physical clicks and two-finger scrolling work normally.
+3. Normal typing with incidental touchpad contact causes no accidental clicks.
+4. Taps work again after typing, and after locking, unlocking and waking from sleep.
+
+## Startup polish follow-up (2026-10-25)
+
+**Status:** implemented in both rebuilt images; the author's physical cold-boot
+acceptance remains pending.
+
+The author reported a noisy cold boot: a pointer over intermediate frames, flashes
+and small layout changes before the first screen was ready. A release capture
+reproduced gray → white → dark frames and the central pointer, ending blank without
+input (`os/out/startup-before/`). Exact-frame capture also exposed stale GTK/WebKit
+resize damage when drawing controls before the hidden window had its final size.
+
+Changes:
+
+- Cage starts with no cursor image. Device discovery and initial client requests
+  cannot reveal it; movement over a mapped app restores it. Movement over the
+  empty startup background stays hidden. The app also starts with its pointer
+  hidden and continues to hide it when typing.
+- Scaling finishes before mapping and focusing the fullscreen window onto a dark
+  native background. The gate contents stay transparent while labels and fonts
+  load and two layout frames pass at the mapped viewport; they appear together.
+  Mapping the window first avoids stale resize damage. This also removes the late
+  1x → 2x scaling handoff and the native white frame. Errors remain visible.
+- Release suppresses the kernel logo as well as its existing console caret and
+  boot messages. No splash process, animation or arbitrary startup delay is added.
+- The `startup` VM scenario checks the screen without input, the initial pointer,
+  movement/typing visibility, and that first input cannot finish or reposition an
+  incomplete form.
+
+**Validation:** both revised images build offline. Exact debug and release captures
+show one complete, stable form (`os/out/startup-revised-debug/` and
+`startup-polished-release/`). The release capture booted after two OVMF USB
+discovery misses, before the app starts. All startup checks pass, including **zero lower-form
+pixels changing after first input**, and all five touchpad checks pass
+(`os/out/startup-revised-vm.log`). Release boot, typing and all six shortcut/escape checks pass
+(`startup-polished-release-tests.log`). Both image audits and size budgets pass; root is
+356.4 MiB (`startup-polished-contents.log`, `startup-polished-sizes.log`). The
+revised real-app suite passes all eight checks, including visible startup failures;
+its Light/Dark setup and error screenshots were inspected
+(`startup-revised-native-e2e.log`). TypeScript/Svelte, lint, 432 frontend tests,
+Rust tests, Clippy and format checks pass. Earlier during this follow-up all
+lock/suspend variants and the keyboard tour passed too (`startup-regressions.log`);
+that earlier log includes a pointer assertion confused by GTK hover/focus changes,
+which the final startup test isolates correctly.
+
+The images use app HEAD `66a16cb` plus `os/out/startup-app.patch` (SHA-256 starts
+`d7f05ce71c04`), recorded in their provenance. The normal app builder requires a
+committed ref; no commit was made. The complete timing gate still needs the
+quiet-host rerun described above; the baseline is unchanged.
+
+Firmware logos and panel resets during firmware/GPU handoff remain outside the
+compositor's control. The laptop check is a cold boot without touching the pad or
+keyboard: watch for one stable transition to Setup or Unlock, then verify that
+movement reveals the pointer and typing hides it. Check on the high-density panel
+as well as after lock and wake.
+
+## Code review follow-up (2026-10-25)
+
+Reviewed the complete uncommitted diff, including the Cage source patches, build,
+probes, trimming audits and startup path, using the `review-agent` skill. One
+confirmed finding was fixed:
+
+- **[P2] Block input on the transparent preparing screen** (`Gate.svelte`). Opacity
+  and `pointer-events: none` did not remove its focused controls from keyboard
+  navigation or the accessibility tree. The gate is now inert until ready. Its
+  existing focus action observes that state and focuses the intended field when
+  it clears; destroying the field cancels the pending focus.
+
+Three new unit tests cover immediate focus, deferred focus and cancellation. All
+435 frontend tests and the check/lint gate pass. All eight real-app appliance
+checks pass, including an assertion that startup restores the first keyboard
+field after clearing inert (`os/out/review-native-e2e.log`). No further confirmed
+findings remain after reviewing the fix.
+
+Both offline images are rebuilt from HEAD plus the reviewed startup patch
+`e087bdb2c97d` (recorded in `os/out/startup-app.patch` and image provenance).
+The VM startup regression passes, including zero lower-form pixels changing on
+first input (`review-startup-vm.log`). Both image audits and size checks pass
+(`review-contents.log`, `review-sizes.log`). Physical acceptance and the separate
+quiet-host timing rerun remain pending; no performance baseline was changed.
 
 ## Later (not scheduled; each needs its own short interview first)
 
@@ -770,3 +911,25 @@ Built 2026-10-22 (commits 3cc9386 to the OS-5 result). `os/scripts/verify.sh` pa
 - The phone side of the QR export (platform, app choice, integrity check).
 - Laptop install: dedicated or dual boot.
 - Whether other writers get pre-made sticks, or a published image plus `flash.sh`.
+## Daily writing polish (2026-10-25)
+
+The author authorized six refinements: opening proportions, Arabic/Latin balance,
+quieter diagnostic marks, stable transitions, status hierarchy and coherent first
+screens. The app's [daily-polish audit](../docs/audits/2026-10-25-daily-polish.md)
+records each change and the design review. Its new real-app suite reproduces and
+fixes a 109.78px reading-row jump on opening Find and a 13.27px filename shift while
+saving. Setup and unlock share the page surface, a 195px wordmark and calmer controls;
+short-window keyboard reachability and stable wrong-passphrase feedback are checked.
+
+Both offline images include HEAD plus runtime patch `b994e8c92ada`, recorded in
+`out/startup-app.patch` and the image provenance. All 258 real-app checks across 28
+suites, 16 visual checks, 435 frontend tests, 188 Rust tests and the accessibility
+audit pass. Both image/initrd audits and size budgets pass (`out/polish-contents.log`,
+`out/polish-sizes.log`). The VM startup regression passes all four checks, including
+zero changed pixels in the lower form after first input (`out/polish-startup-vm.log`).
+Its initial-pointer detector now checks actual black/white cursor ink, with the moved
+pointer as a positive control; the smaller form had moved a focus ring into its old
+flat-colour sample. It does not loosen the stable-layout check.
+
+The author’s physical and visual acceptance and the separate quiet-host timing run
+remain open. No timing baselines were changed.

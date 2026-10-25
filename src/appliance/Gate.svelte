@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { copy } from "../core/copy.ts";
   import * as ipc from "../core/ipc.ts";
   import Finish from "./Finish.svelte";
@@ -21,6 +21,7 @@
   let gate = $state((() => initial)());
   let layouts = $state<ipc.KeyboardLayout[]>([]);
   let down = $state(false);
+  let ready = $state(false);
   const view = $derived(viewFor(gate));
   const names = $derived(new Map(layouts.map((l) => [l.id, l.name])));
 
@@ -29,8 +30,25 @@
   let resuming = $state((() => initial.resume)());
 
   onMount(() => {
-    void ipc.applianceMark("gate-shown");
-    void ipc.applianceLayouts().then((l) => (layouts = l));
+    void (async () => {
+      try {
+        layouts = await ipc.applianceLayouts();
+      } catch {
+        down = true;
+      }
+      await tick();
+      await document.fonts.ready;
+      // The native window is mapped behind this invisible view. Wait for layout
+      // at its final viewport, including GTK focus, before showing any controls.
+      await new Promise<void>((done) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => done()));
+      });
+      ready = true;
+      await tick();
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => void ipc.applianceMark("gate-shown")),
+      );
+    })();
     if (resuming)
       void ipc
         .applianceOpen("resume", "")
@@ -59,34 +77,43 @@
   }
 </script>
 
-{#if resuming}
-  <Screen title={copy.appliance.wordmark}>
-    <p class="note" role="status">{copy.stick.resuming}</p>
-  </Screen>
-{:else if down}
-  <Screen title={copy.appliance.wordmark}>
-    <p class="problem" role="alert">{copy.appliance.helperDown}</p>
-  </Screen>
-{:else if view.view === "setup"}
-  <Setup
-    keyboardChosen={view.keyboardChosen}
-    current={gate.keyboard.layouts}
-    {layouts}
-    opened={(timeZone: string) => opened({ timeZone })}
-    {power}
-    changed={reload}
-  />
-{:else if view.view === "finish"}
-  <Finish {names} opened={() => opened(null)} restarted={reload} {power} changed={reload} />
-{:else if view.view === "unlock"}
-  <Unlock
-    verb={view.verb}
-    keyboardDamaged={gate.keyboard.source === "damaged"}
-    {names}
-    opened={() => opened(null)}
-    {power}
-    changed={reload}
-  />
-{:else}
-  <Stop title={view.title} body={view.body} restart={view.restart} {power} />
-{/if}
+<div class:preparing={!ready} inert={!ready} aria-busy={!ready}>
+  {#if resuming}
+    <Screen title={copy.appliance.wordmark}>
+      <p class="note" role="status">{copy.stick.resuming}</p>
+    </Screen>
+  {:else if down}
+    <Screen title={copy.appliance.wordmark}>
+      <p class="problem" role="alert">{copy.appliance.helperDown}</p>
+    </Screen>
+  {:else if view.view === "setup"}
+    <Setup
+      keyboardChosen={view.keyboardChosen}
+      current={gate.keyboard.layouts}
+      {layouts}
+      opened={(timeZone: string) => opened({ timeZone })}
+      {power}
+      changed={reload}
+    />
+  {:else if view.view === "finish"}
+    <Finish {names} opened={() => opened(null)} restarted={reload} {power} changed={reload} />
+  {:else if view.view === "unlock"}
+    <Unlock
+      verb={view.verb}
+      keyboardDamaged={gate.keyboard.source === "damaged"}
+      {names}
+      opened={() => opened(null)}
+      {power}
+      changed={reload}
+    />
+  {:else}
+    <Stop title={view.title} body={view.body} restart={view.restart} {power} />
+  {/if}
+</div>
+
+<style>
+  .preparing {
+    opacity: 0;
+    pointer-events: none;
+  }
+</style>

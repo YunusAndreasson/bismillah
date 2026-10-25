@@ -4,6 +4,12 @@ A USB stick that starts a laptop straight into bismillah and nothing else. The s
 
 This folder builds it. The plan and each phase's results are in [PLAN.md](PLAN.md), and the decisions are in [ADR-0013](../docs/decisions/0013-appliance-os.md) and [ADR-0014](../docs/decisions/0014-stick-stays-on-debian.md). The security audit is [docs/audits/2026-10-22-stick-1.0.md](../docs/audits/2026-10-22-stick-1.0.md).
 
+The [typewriter-only review](TRIMMING.md) lists everything removed or disabled,
+the additional input-driver cuts, and the WebKit dependencies still worth trimming.
+
+On supported touchpads, light taps click and accidental touches are suppressed
+while typing. Physical clicks and two-finger scrolling remain available.
+
 ## Making a stick
 
 You need this repository on a Linux machine with mkosi 27.1 (`os/inputs.lock` records the version), podman, QEMU and OVMF for the tests, and a USB stick of 2 GB or more.
@@ -109,3 +115,8 @@ Other machines are best effort. Certificate trust, revocations, firmware and GPU
 | `tests/` | The image contents check and the reflash tool's tests |
 | `inputs.lock`, `cache/` | The recorded inputs (mkosi, Debian snapshot), and the fetched ones (not committed) |
 | `spikes/` | OS-0's experiments, kept for reference |
+
+
+Startup keeps the pointer hidden until movement and reveals the first screen after
+its labels, fonts and display scaling are ready. Firmware logos and panel resets
+before Linux takes over still depend on the laptop.

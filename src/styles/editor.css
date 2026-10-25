@@ -86,7 +86,7 @@
   max-width: calc(var(--doc-measure) * var(--measure-scale) + 2 * var(--hang-gutter));
   flex-grow: 0;
   margin-inline: auto;
-  padding-block: var(--L) 30vh;
+  padding-block: min(var(--L), 4vh) 30vh;
   caret-color: var(--accent);
 }
 
@@ -493,15 +493,23 @@
 .cm-editor .cm-diag-spelling {
   text-decoration-style: wavy;
   text-decoration-color: var(--diagnostic-spelling);
-  text-decoration-thickness: max(1.5px, 0.075em);
+  text-decoration-thickness: max(1px, 0.05em);
 }
 .cm-editor .cm-diag-grammar {
   text-decoration-style: dotted;
   text-decoration-color: var(--diagnostic-grammar);
-  text-decoration-thickness: max(2px, 0.1em);
+  text-decoration-thickness: max(1.5px, 0.075em);
 }
 .cm-editor .cm-diag-ar {
   text-underline-offset: 0.45em;
+}
+
+/* Keep diagnostic strokes easy to locate when high contrast is requested. */
+:root[data-contrast="high"] .cm-editor .cm-diag-spelling {
+  text-decoration-thickness: max(1.5px, 0.075em);
+}
+:root[data-contrast="high"] .cm-editor .cm-diag-grammar {
+  text-decoration-thickness: max(2px, 0.1em);
 }
 
 /* Bidi isolation for inline code and URLs (bidi.ts). */
@@ -551,7 +559,7 @@
   line-height: 1.8;
   text-align: center;
   color: var(--text-faint);
-  padding-block: var(--L) calc(1.5 * var(--L));
+  padding-block: calc(0.5 * var(--L)) var(--L);
   /* Centred, so the side padding only bounds how wide it may grow. */
   padding-inline: var(--space-4);
   cursor: default;

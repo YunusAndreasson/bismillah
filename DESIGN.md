@@ -205,7 +205,7 @@ Measured in the real webview in Phase 0 (docs/spikes/font-profiles.md) and recor
   - `Mod-=`/`Mod--`/`Mod-0` change the writing size in small steps, and the choice persists.
   - Application zoom stays available for enlarging the interface too.
 - **Line height** can be adjusted in Settings (with Reset), including generous values for accessibility and vocalised Arabic.
-- **Mixed-script paragraphs:** one column width and a line height that fits both families.
+- **Mixed-script paragraphs:** one column width and a line height that fits both families. Ordinary Amiri runs use 1.15× in Duo/custom and 1.10× in Serif to balance their apparent size with Latin; Qur’anic runs retain their larger 1.20× / 1.15× sizes and mark clearance.
   - The document never resizes or reflows as the caret moves between languages.
   - Direction, language and typography profile are three separate decisions. A few Arabic words in an English paragraph do not switch the paragraph's profile.
 - It must be possible to reach lines of ≤ 80 characters and to enlarge text substantially (WCAG 1.4.8, AAA guidance).
@@ -299,7 +299,7 @@ The accent is a deep green, the project's identity colour, chosen in the 2026-10
 - **One deliberate exception:** the status line's routine parts (the *Library* toggle, file name, *Saved*, reading time) and the Basmallah wordmark are `text-faint`, about 2.5:1 in light themes, so they don't pull the eye from the writing (author's request, 2026-10-19: "dimmed even more"). A save failure is never faint: it is `status-error` at full contrast. Hover and keyboard focus raise the toggle to `text-primary`, and high contrast keeps `text-secondary`.
 - **Selected text is rendered in `text-primary`** (marks included), because `syntax-marker` falls to 4.29:1 (light) and 3.66:1 (dark) on the selection colour. Syntax styling never overrides selection readability.
 - Colour meanings are fixed: green means interaction, the diagnostic colours mean problems. Green and red can be confused under red-green colour blindness, so colour is never the only signal:
-  - spelling and grammar use different underline patterns and labels
+  - spelling and grammar use different underline patterns and labels; normal-contrast strokes start at 1px for spelling and 1.5px for grammar, scale with writing size, and retain the heavier 1.5px / 2px strokes in high contrast
   - a selected library item also gets a leading edge bar and heavier weight, and is exposed as selected to assistive technology.
 - Automated assertions check every semantic foreground/background pair, including selected and hover states.
 - A high-contrast override (pure black and white) is built in (§9.5). The system's forced-colours mode is respected, and `forced-color-adjust: none` is never applied wholesale.
@@ -381,7 +381,7 @@ It is **on by default** and can be turned off in Settings › Appearance (*Show 
   - **A wordmark, not a heading** (author's request, 2026-10-19): Amiri's Basmallah ligature ﷽, the traditional composition with the long sīn, starting at 17px / 1.8 (about 195px wide) and scaling with the writing-size preference; `text-faint` colour (§9.4), so it sits back from the writing; `lang="ar" dir="rtl"`; centred in the reading column.
   - **Drawn from pre-shaped outlines** (ADR-0011): the ligature shaped by HarfBuzz with Amiri, every mark at its true height (`fonts/tools/build_basmallah.py` → `src/editor/basmallahInk.ts`). It is laid over the real text on the same baseline and advance box; the text stays in the page, transparent, and is what is selected, copied and read by screen readers. Selecting it shows `selection-background` behind the ink.
   - Always one line: in a narrow window at a large writing size it shrinks to fit the column instead of wrapping.
-  - One body line of space above and one and a half below (less on short windows); enough block and inline padding for every mark.
+  - Half a body line of space above and one below; the writing surface’s own top padding is at most one body line, capped at 4vh on short windows. This keeps the opening compact while leaving room for every mark.
   - No decorative colour, ornament or image.
 - **Placement:** it scrolls with the document and appears once, at the top. It stays visible in Zuhd mode while in view, without being sticky.
 - **Deduplication:** if the document's first content block (after any frontmatter) is already a standalone Basmallah, the presentation element is suppressed, and it returns as soon as that block changes. The comparison is narrow and tested (`src/editor/basmallah.test.ts`):
@@ -432,7 +432,7 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
   - has focus or is being used
   - shows a save failure, conflict or recovery notice; these stay until resolved.
 - **Status line:** the *Library* toggle at the start; file name · save state · reading time at the end, all in `text-faint` (§9.4) so they stay out of the writing's way. No word count (author's request, 2026-10-19); the reading time is derived from it. A passing message sits just before the file's details, so they never shift, and the *Transliteration* indicator after them. Save state is honest: *Saving…* from the first unsaved edit until Rust confirms the durable write, then *Saved*; *Not saved — [reason]* on failure, which stays (in `status-error`) until a save succeeds. Routine saves are not announced to screen readers; failures are, by their notice.
-  - A truncated filename exposes its full name on hover. The Library button's shortcut hint and accessible shortcut follow `keybindings.toml`, including removal of a binding.
+  - The filename has medium weight. Routine Saved/Saving… labels occupy one fixed-width slot, and reading time reserves space for a change of digit count; neither moves the filename on each save. A truncated filename exposes its full name on hover. The Library button's shortcut hint and accessible shortcut follow `keybindings.toml`, including removal of a binding.
 - **Notices** (failure, conflict, recovered text) sit in a row above the writing surface, never over the text, inside a `surface-panel` region with a `border-control` boundary; errors add a `status-error` edge. Each says what happened and how the text is protected, and offers its actions as buttons (§14). They never fade.
   - Long, unbroken filenames wrap within the notice; they cannot widen the page or push recovery controls out of the window.
 - **Motion:** opacity and small transforms only, 120–180ms ease-out. All of it is removed under `prefers-reduced-motion`. Nothing animates while you type.
@@ -487,6 +487,8 @@ The table was chosen on 1.8M words of English and Islamic-studies prose (docs/sp
 - Focus rings appear for keyboard navigation (`:focus-visible`) in `focus-ring`, ≥ 3:1.
 - Tab order follows the visual organisation. Overlays trap focus while open and restore it on close (Bits UI handles this).
 - Ordinary operations keep plain functional names: Open, Save, Rename, Undo, Library, Settings. Arabic terms are used sparingly and only where they carry meaning (Zuhd).
+
+Opening or closing an editor panel preserves the reading row’s screen position when it still fits below the panel and the document can scroll far enough. At the document’s start, or when the panel would cover the row, normal scrolling keeps the text reachable.
 
 Search and line navigation use CodeMirror’s keyboard-accessible editor panels, with interface typography and semantic colours. Search offers case, word and regex options; replacements are explicit and undoable. Escape closes a panel before the editor’s pen-down action. Search compares Unicode-equivalent forms on a temporary copy and preserves Arabic marks. Find works in read-only documents; replacement does not. `Mod-D` and `Mod-Shift-L` retain Zuhd and Theme.
 
@@ -551,5 +553,7 @@ On the stick bismillah is the whole screen (os/PLAN.md). The same principles hol
 - **The status line** ends with the battery and a 24-hour clock in faint text, and fades with the rest of the quiet chrome. A low battery is a notice that stays until the battery charges.
 - **Commands:** *Power off* takes Quit's place and key (`Ctrl+Q`), beside *Lock*, *Suspend* and *Restart* in the File menu and the palette. Commands that need another app, a file outside the library or a window manager are left out rather than shown disabled.
 - **Settings › This stick:** keyboard layouts are chosen and then applied with one button, because applying restarts the app; everything else there applies immediately, like the rest of Settings.
-- **The pointer** hides while the writer types, and returns when the mouse moves.
+- **First-screen styling:** setup, unlock and lock share the writing page’s surface and a 195px Basmallah wordmark, quiet headings, 24px between form groups and 8px within fields. Inputs and selects use the page surface with a clear control boundary; selects retain native keyboard semantics. Feedback reserves two lines so ordinary busy, strength and wrong-passphrase messages do not recenter the form. Longer messages may grow rather than being clipped.
+- **Startup** stays blank until the first gate screen has its labels and fonts. Display scaling and fullscreen geometry are set before the window appears; no animation or minimum splash duration delays it. The preparing screen accepts no input and is excluded from the accessibility tree; its intended field gains focus when it becomes ready. Startup failures remain visible.
+- **The pointer** starts hidden, stays hidden for keyboard-only use, and returns when the mouse moves. It hides again while the writer types.
 

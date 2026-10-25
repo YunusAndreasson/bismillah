@@ -1,7 +1,7 @@
-import { describe as group, expect, it } from "vitest";
+import { afterEach, describe as group, expect, it } from "vitest";
 import { copy } from "../core/copy.ts";
 import type { GateState, Home } from "../core/ipc.ts";
-import { describe, viewFor } from "./gate.ts";
+import { describe, focus, viewFor } from "./gate.ts";
 
 const gate = (home: Home, source: GateState["keyboard"]["source"] = "default"): GateState => ({
   home,
@@ -59,5 +59,43 @@ group("the stick's first screen", () => {
       }),
     ).toBe(copy.appliance.unreadable.body);
     expect(describe({ answer: "failed", step: "mount" })).toBe(copy.appliance.failed);
+  });
+});
+
+group("focus while the first screen prepares", () => {
+  afterEach(() => document.body.replaceChildren());
+
+  it("focuses an available field immediately", () => {
+    const field = document.createElement("input");
+    document.body.append(field);
+    focus(field);
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("keeps preparing controls unfocused and restores focus when input is enabled", async () => {
+    const frame = document.createElement("div");
+    frame.setAttribute("inert", "");
+    const field = document.createElement("input");
+    frame.append(field);
+    document.body.append(frame);
+    const action = focus(field);
+    expect(document.activeElement).toBe(document.body);
+    frame.removeAttribute("inert");
+    await Promise.resolve();
+    expect(document.activeElement).toBe(field);
+    action?.destroy();
+  });
+
+  it("does not steal focus after the field is destroyed during preparation", async () => {
+    const frame = document.createElement("div");
+    frame.setAttribute("inert", "");
+    const field = document.createElement("input");
+    frame.append(field);
+    document.body.append(frame);
+    const action = focus(field);
+    action?.destroy();
+    frame.removeAttribute("inert");
+    await Promise.resolve();
+    expect(document.activeElement).toBe(document.body);
   });
 });

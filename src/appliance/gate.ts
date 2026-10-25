@@ -47,7 +47,20 @@ export function describe(answer: HelperAnswer): string {
   }
 }
 
-/** Focuses a field when it appears (autofocus works only at page load). */
+/** Focuses a field once its preparing screen accepts input. */
 export function focus(node: HTMLElement) {
-  node.focus();
+  const preparing = node.closest("[inert]");
+  if (preparing === null) {
+    node.focus();
+    return;
+  }
+  // Keep the screen out of keyboard navigation and the accessibility tree while
+  // it is invisible. Restore its chosen field before the first visible paint.
+  const observer = new MutationObserver(() => {
+    if (preparing.hasAttribute("inert")) return;
+    observer.disconnect();
+    if (node.isConnected) node.focus();
+  });
+  observer.observe(preparing, { attributes: true, attributeFilter: ["inert"] });
+  return { destroy: () => observer.disconnect() };
 }

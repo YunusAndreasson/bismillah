@@ -28,7 +28,6 @@ import {
   frames,
   hostDisk,
   imageFor,
-  lit,
   overlayWritten,
   root,
   stickFrom,
@@ -545,6 +544,7 @@ async function twoSticks(): Promise<void> {
   const name = "home-two-sticks";
   const disk = stickFrom(imageFor("debug"), join(out, name, "stick.raw"));
   const twin = stickFrom(imageFor("debug"), join(out, name, "twin.raw"));
+  const diskBefore = hostHash(disk);
   const twinBefore = hostHash(twin);
   let vm = await boot(name, "1-twin", { disk, others: [twin] });
   try {
@@ -552,14 +552,19 @@ async function twoSticks(): Promise<void> {
     await sleep(1500);
     await vm.screen("twin");
     const s = await status(vm);
+    // Identical partition UUIDs can make initrd choose the root's data and hash
+    // from different disks. disk::decide then refuses earlier with no_boot_disk
+    // (its two-root-disks unit test); otherwise it refuses with two_sticks.
     check(
-      s.home.state === "not_found" && s.home.reason === "two_sticks",
+      s.home.state === "not_found" &&
+        (s.home.reason === "two_sticks" || s.home.reason === "no_boot_disk"),
       `${name}: a twin stick attached → ${s.home.state} (${s.home.reason ?? ""})`,
     );
   } finally {
     await vm.powerdown();
     vm.pngs();
   }
+  check(hostHash(disk) === diskBefore, `${name}: the boot stick's bytes are unchanged`);
   check(hostHash(twin) === twinBefore, `${name}: the twin's bytes are unchanged`);
 
   // Another build: every partition and the disk get new UUIDs (sfdisk on the file).
@@ -1186,9 +1191,13 @@ async function tour(): Promise<void> {
     await step("bigger", () => vm.key("ctrl", "equal"));
     await vm.key("ctrl", "0");
     await step("lock", () => palette(vm, "lock"));
+    const unlockFrom = here(vm);
     await vm.type(PLAIN);
     await vm.key("ret");
-    await sleep(4000);
+    // Argon2 verification can exceed four seconds on a busy host. Do not send
+    // Restart to the still-locked passphrase field while verification runs.
+    await mark(vm, "app-started", 60, unlockFrom);
+    await vm.settled(60);
     await vm.screen("unlocked");
     await palette(vm, "restart");
     for (let i = 0; vm.running && i < 600; i++) await sleep(100);
@@ -1262,6 +1271,16 @@ async function hostUntouched(): Promise<void> {
     await passphraseAndCreate(vm, (v) => v.type(PLAIN));
     await sleep(8000);
     await vm.settled(60);
+    // Focus the webview after the setup form is removed. The pointer starts at
+    // the centre of the window, in the first screen's gap between its actions.
+    await vm.qmp("input-send-event", {
+      events: [{ type: "btn", data: { down: true, button: "left" } }],
+    });
+    await sleep(80);
+    await vm.qmp("input-send-event", {
+      events: [{ type: "btn", data: { down: false, button: "left" } }],
+    });
+    await sleep(500);
     await vm.key("f1");
     await vm.type("Nothing is written to the laptop.");
     await sleep(3000);
@@ -1363,9 +1382,17 @@ async function waysOut(): Promise<void> {
     await passphraseAndCreate(vm, (v) => v.type(PLAIN));
     await sleep(8000);
     await vm.settled(60);
-    await vm.key("f1");
+    // Open a known editable fixture through the command palette and wait for
+    // it to paint before testing shortcuts. A bare F1 from "Nothing open" did
+    // not reliably open the guide in these VM runs.
+    await palette(vm, "guide");
+    await vm.settled(60);
+    const guide = await vm.screen("guide");
     await vm.type("Ways out.");
     await sleep(1500);
+    const editable = changed(guide, await vm.screen("guide-ready")) > 0.0005;
+    check(editable, `${name}: the guide is open and answers typing before shortcut checks`);
+    if (!editable) return;
     const tries: [string, string[][]][] = [
       [
         "VT switching",
@@ -1403,16 +1430,19 @@ async function waysOut(): Promise<void> {
       // A restart or crash ends QEMU (-no-reboot), and an empty VT would be black. The
       // app may react in its own way (Alt shows its menu bar), so Escape closes that.
       const after = await vm.screen(`${i + 1}-after`);
-      const shown = lit(after) > 0.5;
       await vm.key("esc");
       await sleep(500);
       const ready = await vm.screen();
+      // Compare the restored app with itself, in either theme, after dismissing
+      // its own Alt menu. A mostly-dark document fails an absolute brightness
+      // test; a VT, lock screen or inspector must not replace the document.
+      const shown = changed(before, ready) < 0.01;
       await vm.type(" Still here.");
       await sleep(1500);
       const typed = changed(ready, await vm.screen());
       check(
         vm.running && shown && typed > 0.0005,
-        `${name}: ${what} → the system runs, the app is on screen (${(changed(before, after) * 100).toFixed(1)}% changed) and typing answers`,
+        `${name}: ${what} → the system runs, the app is on screen (${(changed(before, after) * 100).toFixed(1)}% changed) and typing answers (${(typed * 100).toFixed(2)}% typed, ${shown ? "same app" : "frame changed"})`,
       );
     }
   } finally {
@@ -1565,6 +1595,116 @@ async function reflash(): Promise<void> {
   }
 }
 
+/** Real touchpad events must become clicks through the compositor, not a direct
+ * QMP mouse click (which would bypass libinput tapping entirely).
+ */
+async function touchpad(): Promise<void> {
+  const vm = await Vm.boot({
+    image: imageFor("debug"),
+    out: join(out, "touchpad"),
+    debug: true,
+  });
+  try {
+    await mark(vm, "page-gate-shown", 240);
+    const from = here(vm);
+    const [result] = await Promise.all([
+      vm.run(
+        "modprobe uinput && XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-0 /usr/libexec/bismillah-touchpad-probe",
+        60,
+      ),
+      (async () => {
+        await vm.waitSerial(/TOUCHPAD_PROBE typing-ready/, 30, from);
+        await vm.key("a");
+      })(),
+    ]);
+    for (const behavior of [
+      "tap-to-click",
+      "physical-click",
+      "two-finger-scroll",
+      "disable-while-typing",
+      "tap-after-typing",
+    ])
+      check(result.includes(`TOUCHPAD_PROBE ${behavior} passed`), `touchpad: ${behavior}`);
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+}
+
+/** The first screen paints without input; the pointer starts hidden and returns on movement. */
+async function startup(): Promise<void> {
+  const vm = await Vm.boot({
+    image: imageFor("debug"),
+    out: join(out, "startup"),
+    debug: true,
+  });
+  try {
+    await mark(vm, "page-gate-shown", 240);
+    await sleep(1000);
+    const first = await vm.screen("first-without-input");
+    // A solid background is not a completed first screen. Count bright text and
+    // controls in the OS's default dark theme, without sending an input to repaint.
+    let bright = 0;
+    for (let i = 0; i < first.rgb.length; i += 3)
+      if ((first.rgb[i] ?? 0) > 100 && (first.rgb[i + 1] ?? 0) > 100) bright++;
+    check(bright > 1000, "startup: the complete first screen paints without input");
+
+    // The corner is empty page background, clear of controls and the blinking caret.
+    // Move away from the initial centre, then hide the pointer by typing a modifier.
+    await vm.qmp("input-send-event", {
+      events: [
+        { type: "abs", data: { axis: "x", value: 1000 } },
+        { type: "abs", data: { axis: "y", value: 1000 } },
+      ],
+    });
+    await sleep(500);
+    const moved = await vm.screen("pointer-after-movement");
+    await vm.key("shift");
+    await sleep(500);
+    const hidden = await vm.screen("pointer-after-keyboard");
+    // The default arrow has both white ink and a black edge. Unlike a flat-patch
+    // assertion, this does not mistake a control's grey border or green focus ring
+    // for a cursor when the form's spacing changes. The moved pointer is the
+    // positive control for this detector, on the same default dark screen.
+    const hasCursor = (screen: Screen, left: number, top: number, size: number): boolean => {
+      let white = 0;
+      let black = 0;
+      for (let y = top; y < Math.min(top + size, screen.height); y++)
+        for (let x = left; x < Math.min(left + size, screen.width); x++) {
+          const at = (y * screen.width + x) * 3;
+          const rgb = screen.rgb.subarray(at, at + 3);
+          if (rgb.every((channel) => channel > 230)) white++;
+          if (rgb.every((channel) => channel < 8)) black++;
+        }
+      return white > 10 && black > 10;
+    };
+    check(
+      hasCursor(moved, 0, 0, 100) && !hasCursor(hidden, 0, 0, 100),
+      "startup: the pointer returns on movement and hides on typing",
+    );
+    check(
+      !hasCursor(first, Math.floor(first.width / 2), Math.floor(first.height / 2), 32),
+      "startup: no pointer appears at the initial centre",
+    );
+    // First input must not finish/reposition the lower half of the form. The
+    // first select's focus/hover treatment is above this area. This catches stale
+    // GTK/WebKit resize damage (duplicated labels and offset controls).
+    let changedBelow = 0;
+    for (let y = Math.floor(first.height / 2) + 24; y < first.height; y++)
+      for (let x = 0; x < first.width; x++) {
+        const at = (y * first.width + x) * 3;
+        if (!first.rgb.subarray(at, at + 3).equals(hidden.rgb.subarray(at, at + 3))) changedBelow++;
+      }
+    check(
+      changedBelow < 256,
+      `startup: first input leaves the form layout stable (${changedBelow} pixels)`,
+    );
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+}
+
 const scenarios: Record<string, () => Promise<void>> = {
   "release-both": () => releaseBoots("release-both", "both"),
   "release-ca2011": () => releaseBoots("release-ca2011", "ca2011"),
@@ -1587,6 +1727,8 @@ const scenarios: Record<string, () => Promise<void>> = {
   "ways-out": waysOut,
   "helper-socket": helperSocket,
   reflash,
+  touchpad,
+  startup,
 };
 
 const chosen = process.argv.slice(2);

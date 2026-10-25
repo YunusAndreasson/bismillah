@@ -28,7 +28,7 @@
   --doc-size: 20px;
   --doc-line: 1.6;
   --doc-measure: 66ch;
-  --doc-arabic-scale: 1.2;
+  --doc-arabic-scale: 1.15;
   --doc-quran-scale: 1.2;
   --doc-mono-scale: 1;
   --doc-arabic-voc-line: 2;
@@ -43,7 +43,7 @@
   --doc-size: 21px;
   --doc-line: 1.6;
   --doc-measure: 30em;
-  --doc-arabic-scale: 1.15;
+  --doc-arabic-scale: 1.1;
   --doc-quran-scale: 1.15;
   --doc-mono-scale: 0.86;
   --doc-arabic-voc-line: 2;
@@ -87,7 +87,7 @@
   --doc-size: 20px;
   --doc-line: 1.6;
   --doc-measure: 32em;
-  --doc-arabic-scale: 1.2;
+  --doc-arabic-scale: 1.15;
   --doc-quran-scale: 1.2;
   --doc-mono-scale: 1;
   --doc-arabic-voc-line: 2;

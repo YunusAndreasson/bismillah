@@ -119,7 +119,8 @@ Find anything (`Shift Shift`) joins quick open, the palette, the library tree an
 settings in one panel; its gesture is unit-tested in `src/core/doubleShift.test.ts`
 and the panel in `tests/e2e/find-anything.e2e.ts`. Tests must not tap Shift on its
 own twice: that opens the panel.
-The current gate covers 432 frontend and 188 Rust tests, all 27
+The daily-polish follow-up tightens opening spacing, balances ordinary Arabic in Latin profiles, refines diagnostic strokes and appliance controls, and keeps panel/save transitions still. Evidence and design review: [the daily-polish audit](docs/audits/2026-10-25-daily-polish.md). Its five real-app regressions are in `tests/e2e/polish.e2e.ts`.
+The current gate covers 435 frontend and 188 Rust tests, all 28
 real-app suites and 16 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.

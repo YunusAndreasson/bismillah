@@ -32,26 +32,26 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--space-4);
+    gap: var(--space-6);
     padding: var(--space-8) var(--space-4);
     color: var(--text-primary);
     background: var(--surface-editor);
   }
   .wordmark {
-    width: min(14rem, 60vw);
+    width: min(195px, 60vw);
     height: auto;
     margin-bottom: var(--space-4);
-    fill: var(--text-secondary);
+    fill: var(--text-faint);
   }
   h1 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 1.125rem;
     font-weight: 600;
   }
   /* The column's shared controls. */
   .screen :global(.column) {
     display: grid;
-    gap: var(--space-4);
+    gap: var(--space-6);
     width: min(26rem, 100%);
   }
   .screen :global(.field) {
@@ -71,9 +71,29 @@
     padding: var(--space-2) var(--space-3);
     font: inherit;
     color: var(--text-primary);
-    background: var(--surface-panel);
+    background: var(--surface-editor);
     border: 1px solid var(--border-control);
     border-radius: 4px;
+  }
+  /* Keep the native select's keyboard semantics, with the same page surface as
+     the text fields. WebKit's default menu-list appearance paints a grey bevel. */
+  .screen :global(select) {
+    appearance: none;
+    padding-inline-end: var(--space-8);
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+      linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+    background-position:
+      right 16px center,
+      right 12px center;
+    background-size: 4px 4px;
+    background-repeat: no-repeat;
+  }
+  @media (forced-colors: active) {
+    .screen :global(select) {
+      appearance: auto;
+      background-image: none;
+    }
   }
   .screen :global(.check) {
     display: flex;
@@ -99,7 +119,7 @@
     color: var(--text-primary);
     background: var(--surface-editor);
     border: 1px solid var(--border-control);
-    border-radius: 6px;
+    border-radius: 4px;
     padding: var(--space-2) var(--space-4);
     cursor: pointer;
   }
@@ -138,6 +158,12 @@
     min-height: 1.5em;
     margin: 0;
     color: var(--text-secondary);
+  }
+  /* Feedback occupies the same two lines before and after a response. This keeps
+     a centred form still as strength, busy and wrong-passphrase messages arrive. */
+  .screen :global(.column > .note),
+  .screen :global(.column > .problem) {
+    min-block-size: calc(2em * var(--ui-line));
   }
   .screen :global(.problem) {
     margin: 0;

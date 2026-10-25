@@ -1,0 +1,43 @@
+#!/bin/sh
+# Build only Cage's small input-policy patch in mkosi's disposable build overlay.
+# Compilers and headers never enter the finished image. No network is used here.
+set -eu
+cd "$SRCDIR/cage"
+# Do not silently replace a future Debian security revision with our older source.
+# Review its source patches and rebase this policy when the package changes.
+version=$(dpkg-query -W -f='${Version}' cage)
+if [ "$version" != 0.2.0-2 ]; then
+  echo "Cage package is $version; review/rebase the pinned touchpad patch first." >&2
+  exit 1
+fi
+printf '%s\n' '9d3f659e0f19636a958f9e1bf4d22268d7e2705d7e2989888401ec443c1cb6c3  cage-0.2.0.tar.gz' | sha256sum -c -
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT HUP INT TERM
+tar -xzf cage-0.2.0.tar.gz -C "$work"
+patch --fuzz=0 -d "$work/cage-0.2.0" -p1 < tap-to-click.patch
+patch --fuzz=0 -d "$work/cage-0.2.0" -p1 < startup.patch
+cp touchpad.h "$work/cage-0.2.0/touchpad.h"
+cc -std=c11 -Wall -Wextra -Werror -DWLR_USE_UNSTABLE \
+  $(pkg-config --cflags wlroots-0.18 libinput) -I. touchpad-test.c -o "$work/touchpad-test"
+"$work/touchpad-test"
+# Keep the distro's security flags rather than replacing its binary with an
+# unhardened upstream-default build. These tools exist only in the build overlay.
+export DEB_BUILD_MAINT_OPTIONS=hardening=+all
+eval "$(dpkg-buildflags --export=sh)"
+meson setup "$work/build" "$work/cage-0.2.0" --prefix=/usr \
+  --buildtype=release --wrap-mode=nodownload -Dman-pages=disabled -Db_pie=true -Dstrip=true
+meson compile -C "$work/build" -j 2
+meson install -C "$work/build"
+install -Dm644 "$work/cage-0.2.0/LICENSE" "$DESTDIR/usr/share/licenses/bismillah/cage/LICENSE"
+
+case ",$PROFILES," in
+  *,debug,*)
+    protocol=$(pkg-config --variable=pkgdatadir wayland-protocols)/stable/xdg-shell/xdg-shell.xml
+    wayland-scanner client-header "$protocol" "$work/xdg-shell-client.h"
+    wayland-scanner private-code "$protocol" "$work/xdg-shell-client.c"
+    cc -std=c11 -Wall -Wextra -Werror -I"$work" \
+      touchpad-probe.c "$work/xdg-shell-client.c" \
+      $(pkg-config --cflags --libs wayland-client) -o "$work/touchpad-probe"
+    install -Dm755 "$work/touchpad-probe" "$DESTDIR/usr/libexec/bismillah-touchpad-probe"
+    ;;
+esac

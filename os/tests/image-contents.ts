@@ -143,7 +143,17 @@ function checkImage(profile: Profile): void {
     check(!has(`/usr/bin/${bin}`) && !has(`/usr/sbin/${bin}`), `${profile}: no ${bin}`);
   check(!has("/var/lib/dpkg") && !has("/var/lib/apt"), `${profile}: no package database`);
   if (profile === "release")
-    for (const shell of ["sh", "bash", "dash", "rbash", "perl", "python3", "busybox"])
+    for (const shell of [
+      "sh",
+      "bash",
+      "dash",
+      "rbash",
+      "perl",
+      "python3",
+      "busybox",
+      "stty",
+      "journalctl",
+    ])
       check(!has(`/usr/bin/${shell}`), `${profile}: no ${shell}`);
   // Nothing that opens other programs or another person's disks (os/PLAN.md, OS-5):
   // no xdg-open or gio launcher, no terminal, and no LVM, RAID or swap tools that
@@ -186,6 +196,20 @@ function checkImage(profile: Profile): void {
       `${profile}: no ${name} module`,
     );
   check(modules.length > 100, `${profile}: ${modules.length} modules in all`);
+  const unusedInput = modules.filter((p) =>
+    /\/drivers\/input\/(joystick\/|gameport\/|misc\/pcspkr\.ko)/.test(p),
+  );
+  check(
+    unusedInput.length === 0,
+    `${profile}: no joystick, gameport or PC speaker drivers (${unusedInput.slice(0, 3).join(" ") || "none"})`,
+  );
+  const capture = modules.filter((p) =>
+    /\/drivers\/media\/(usb\/|pci\/|platform\/|radio\/|dvb-frontends\/|tuners\/)/.test(p),
+  );
+  check(
+    capture.length === 0,
+    `${profile}: no camera, capture-card, radio or TV-tuner drivers (${capture.slice(0, 3).join(" ") || "none"})`,
+  );
   // By hardware class (mkosi.conf): the stick has no sound. Sound's core comes only as a
   // dependency of a laptop driver (thinkpad_acpi's mute lights).
   const sound = matching(/\/kernel\/sound\/.*\.ko/).filter(
@@ -247,6 +271,17 @@ function checkImage(profile: Profile): void {
   );
   const session = text("/etc/systemd/system/bismillah-session.service");
   check(
+    has("/usr/bin/cage") &&
+      readFileSync(join(tree, "usr/bin/cage")).includes(Buffer.from("0.2.0+bismillah.2")),
+    `${profile}: Cage includes the touchpad tapping policy`,
+  );
+  check(
+    has("/usr/share/licenses/bismillah/cage/LICENSE"),
+    `${profile}: the patched Cage's MIT licence`,
+  );
+  for (const tool of ["gcc", "cc", "meson", "ninja", "patch", "pkgconf"])
+    check(!has(`/usr/bin/${tool}`), `${profile}: no build-only ${tool}`);
+  check(
     /ExecStart=\/usr\/bin\/cage -d -- \/usr\/bin\/bismillah --appliance/.test(session),
     `${profile}: the session runs bismillah --appliance under cage`,
   );
@@ -292,6 +327,7 @@ function checkImage(profile: Profile): void {
     check(!has("/usr/libexec/bismillah-debug-console"), `${profile}: no debug command line`);
     check(!has("/usr/libexec/bismillah-trace"), `${profile}: no file recorder`);
     check(!has("/usr/libexec/bismillah-probe"), `${profile}: no socket probe`);
+    check(!has("/usr/libexec/bismillah-touchpad-probe"), `${profile}: no touchpad probe`);
     for (const unit of [
       "systemd-journald.service",
       "systemd-journald.socket",

@@ -76,3 +76,4 @@ debug: /usr/sbin/**
 debug: /usr/libexec/bismillah-debug-console
 debug: /usr/libexec/bismillah-trace
 debug: /usr/libexec/bismillah-probe
+debug: /usr/libexec/bismillah-touchpad-probe

@@ -378,6 +378,14 @@ What else came with it (links and *Show in file manager* were removed on 2026-10
 5. **When you accept it,** tag the commit `v1.0.0`.
 6. **Still open from earlier phases:** Phase 5's design questions and manual checks, Phase 4's, the hanging-mark gutter question (Phase 1, item 3) and the manual checks of Phases 1–3.
 
+## Daily polish follow-up (2026-10-25)
+
+The author authorized six refinements: opening proportions, Arabic/Latin balance,
+quieter checking marks, stable transitions, status hierarchy and consistent setup /
+unlock styling. Their implementation and real-app evidence are recorded in
+[the daily-polish audit](docs/audits/2026-10-25-daily-polish.md). The existing
+personal 1.0 acceptance remains the author’s check.
+
 ## Later (not scheduled)
 
 - Opening links to other Markdown files in the library from the editor (`[next](chapter-2.md)`).

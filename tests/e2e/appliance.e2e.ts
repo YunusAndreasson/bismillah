@@ -153,6 +153,23 @@ describe("the stick's first screens", () => {
     reports.length = 0;
   });
 
+  it("reveals a startup failure when the helper cannot provide the first screen", async () => {
+    respond = () => ({ answer: "failed", step: "status" });
+    const session = await remote({
+      hostname: "127.0.0.1",
+      port,
+      logLevel: "warn",
+      capabilities: capabilities(["--appliance"]),
+    });
+    try {
+      await session.$(".failure").waitForDisplayed({ timeout: 20_000 });
+      expect(await session.$(".failure").getText()).toContain("Please restart it");
+      await shot(session, "startup-failure");
+    } finally {
+      await session.deleteSession();
+    }
+  });
+
   it("sets up a blank stick: keyboard, passphrase, time zone", async () => {
     // Step 1, the keyboard. Choosing restarts the session (the app exits), so the
     // stand-in refuses here, and the request is what's checked.
@@ -163,7 +180,34 @@ describe("the stick's first screens", () => {
     let session = await app();
     try {
       expect(await heading(session)).toBe("Choose your keyboard");
+      await session.waitUntil(() =>
+        session.execute(() => document.activeElement?.id === "first-layout"),
+      );
+      expect(
+        await session.execute(
+          () => document.querySelector("#first-layout")?.closest("[inert]") === null,
+        ),
+      ).toBe(true);
       await shot(session, "setup-keyboard");
+      const window = await session.getWindowRect();
+      await session.setWindowRect(null, null, 480, 360);
+      for (let tab = 0; tab < 3; tab++) {
+        await session.keys("Tab");
+        const reachable = await session.execute(() => {
+          const field = document.activeElement;
+          const r = field?.getBoundingClientRect();
+          return (
+            !!field?.matches("input, select, button") &&
+            !!r &&
+            r.top >= 0 &&
+            r.bottom <= innerHeight &&
+            r.left >= 0 &&
+            r.right <= innerWidth
+          );
+        });
+        expect(reachable).toBe(true);
+      }
+      await session.setWindowRect(null, null, window.width, window.height);
       await session.$("#first-layout").selectByAttribute("value", "se");
       await session.$("#second-layout").selectByAttribute("value", "ara");
       await session.$("button[type=submit]").click();
@@ -280,6 +324,12 @@ describe("the stick's first screens", () => {
     const session = await app();
     try {
       expect(await heading(session)).toBe("Passphrase");
+      const fieldPosition = () =>
+        session.execute(() => {
+          const box = document.querySelector("#passphrase")?.getBoundingClientRect();
+          return box ? { top: box.top, left: box.left, width: box.width } : null;
+        });
+      const before = await fieldPosition();
       // Keyboard only: the field has focus; Enter submits.
       await type(session, "wrong");
       await session.keys(["Enter"]);
@@ -289,6 +339,7 @@ describe("the stick's first screens", () => {
         "That passphrase didn't unlock your texts. Check the keyboard layout and Caps Lock, then try again.",
       );
       expect(await session.$("#passphrase").getValue()).toBe("");
+      expect(await fieldPosition()).toEqual(before);
       await shot(session, "unlock-wrong");
       await session.$("#passphrase").click();
       await type(session, "right words here");
