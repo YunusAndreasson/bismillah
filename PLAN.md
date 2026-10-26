@@ -386,6 +386,24 @@ unlock styling. Their implementation and real-app evidence are recorded in
 [the daily-polish audit](docs/audits/2026-10-25-daily-polish.md). The existing
 personal 1.0 acceptance remains the author’s check.
 
+## Three panels (2026-10-26)
+
+The author found Find anything too crowded and asked for **Files, Commands and
+Settings** as separate panels opened from the bottom left, with no folder tree
+anywhere (ADR-0016). Built 2026-10-26; evidence in
+[the panels audit](docs/audits/2026-10-26-panels.md).
+
+**Acceptance check (the author):**
+1. Open each panel from the status line, with its shortcut and with `Shift Shift`;
+   its tabs sit over the status line's names.
+2. Type a word, then `Tab` through the three panels: the query stays and each tab
+   counts what it found.
+3. In Files: find a file by its folder, `Enter` on a folder, `F2`, `Delete` and
+   *Undo*, `Ctrl+Shift+N` in a folder.
+4. In Settings: `←` `→` on *Line length* and *Text size*, `Enter` to open a row,
+   `Esc` twice; *Show in Settings* from a broken keybindings.toml.
+5. On the stick: Settings › This stick (keyboard and time zone) by keyboard.
+
 ## Later (not scheduled)
 
 - Opening links to other Markdown files in the library from the editor (`[next](chapter-2.md)`).

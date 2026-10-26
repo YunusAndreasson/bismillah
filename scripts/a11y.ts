@@ -274,38 +274,57 @@ const STATES: State[] = [
     name: "Settings",
     enter: async () => {
       await browser.execute(() => window.__bismillah?.openSettings(null));
-      await browser.$(".settings-dialog").waitForDisplayed();
+      await browser.$(".panel").waitForDisplayed();
       await settle();
     },
     expect: (doc) => {
       const out: string[] = [];
       const dialog = find(doc, (n) => n.role === "dialog" && showing(n));
-      if (dialog[0]?.name !== "Settings")
-        out.push(`the dialog is named “${dialog[0]?.name ?? ""}”`);
-      const headings = find(doc, (n) => n.role === "heading" && n.attributes.level === "2").map(
-        (n) => n.name,
-      );
-      for (const section of ["Appearance", "Writing", "Language & checking", "Files & privacy"])
-        if (!headings.includes(section)) out.push(`no level-2 heading “${section}”`);
-      const radios = find(doc, (n) => n.role === "radio button");
-      if (radios.length < 10) out.push(`only ${radios.length} radio buttons`);
-      if (!radios.some((n) => n.states.includes("checked"))) out.push("no radio button is checked");
+      if (dialog[0]?.name !== "Settings") out.push(`the panel is named “${dialog[0]?.name ?? ""}”`);
+      const options = find(doc, (n) => n.role === "list item" && showing(n));
+      if (options.length < 8) out.push(`only ${options.length} settings are listed as options`);
+      if (!options.some((n) => n.states.includes("selected"))) out.push("no setting is selected");
+      const tabs = find(doc, (n) => /tab$/.test(n.role) && showing(n));
+      if (tabs.map((n) => n.name).join() !== "Files,Commands,Settings")
+        out.push(`its tabs are “${tabs.map((n) => n.name).join()}”`);
+      if (!tabs.some((n) => n.name === "Settings" && n.states.includes("selected")))
+        out.push("the Settings tab isn't selected");
       return out;
     },
     leave: escape,
+  },
+  {
+    name: "a setting opened in place",
+    enter: async () => {
+      await browser.execute(() => window.__bismillah?.openSettings({ row: "measure", open: true }));
+      await browser.$(".panel-opened").waitForDisplayed();
+      await settle();
+    },
+    expect: (doc) => {
+      const out: string[] = [];
+      const radios = find(doc, (n) => n.role === "radio button" && showing(n));
+      if (radios.length !== 3) out.push(`${radios.length} radio buttons for Line length`);
+      if (!radios.some((n) => n.states.includes("checked"))) out.push("no radio button is checked");
+      if (!radios.some((n) => n.states.includes("focused"))) out.push("no radio button has focus");
+      return out;
+    },
+    leave: async () => {
+      await escape();
+      await escape();
+    },
   },
   {
     name: "Settings could not be saved",
     enter: async () => {
       await browser.execute(async () => {
         await window.__bismillah?.changeSettings({ theme: "light" });
-        window.__bismillah?.openSettings("appearance");
+        window.__bismillah?.openSettings({ row: "theme", open: true });
       });
-      await browser.$(".settings-dialog").waitForDisplayed();
+      await browser.$(".panel").waitForDisplayed();
       settingsMode = statSync(settingsFolder).mode & 0o777;
       chmodSync(settingsFolder, 0o555);
-      await browser.$(".settings-dialog").$("button=Dark").click();
-      await browser.$(".settings-save-error").waitForDisplayed();
+      await browser.$(".panel").$("button=Dark").click();
+      await browser.$(".panel-save-error").waitForDisplayed();
       await settle();
     },
     expect: (doc) => {
@@ -325,6 +344,7 @@ const STATES: State[] = [
       if (settingsMode !== undefined) chmodSync(settingsFolder, settingsMode);
       await browser.execute(async () => window.__bismillah?.changeSettings({ theme: "system" }));
       await escape();
+      await escape();
     },
   },
   {
@@ -343,7 +363,7 @@ const STATES: State[] = [
     leave: escape,
   },
   {
-    name: "the library",
+    name: "Files",
     enter: async () => {
       await browser.execute(
         async (folder: string, file: string) => {
@@ -353,43 +373,26 @@ const STATES: State[] = [
         library,
         join(library, "letter.md"),
       );
-      await run("view.toggleLibrary");
-      await settle();
-    },
-    expect: (doc) => {
-      const out: string[] = [];
-      const trees = find(doc, (n) => n.role === "tree" && showing(n));
-      if (trees.length !== 1 || !trees[0]?.name) out.push("the library isn't one named tree");
-      const items = trees[0] ? find(trees[0], (n) => n.role === "tree item") : [];
-      if (items.length < 3) out.push(`only ${items.length} tree items`);
-      if (!items.some((n) => n.states.includes("expandable")))
-        out.push("no folder says it can be opened");
-      if (!items.some((n) => n.states.includes("selected") && n.name.includes("letter")))
-        out.push("the open file isn't the selected tree item");
-      return out;
-    },
-    leave: () => run("view.toggleLibrary"),
-  },
-  {
-    name: "quick open",
-    enter: async () => {
       await run("file.quickOpen");
-      await browser.keys([..."note"]);
+      await browser.keys([..."let"]);
       await settle();
     },
     expect: (doc) => {
       const out: string[] = [];
       const dialog = find(doc, (n) => n.role === "dialog" && showing(n));
-      if (!dialog[0]?.name) out.push("quick open isn't a named dialog");
+      if (!dialog[0]?.name?.startsWith("Files")) out.push("Files isn't a named dialog");
+      const field = find(doc, (n) => n.states.includes("focused") && showing(n));
+      if (!field[0]?.name) out.push("the search field has no name");
       const options = find(doc, (n) => n.role === "list item" && showing(n));
-      if (!options.length) out.push("no files are listed as options");
+      if (!options.some((n) => n.name.includes("letter")))
+        out.push("no file is listed as an option");
       if (!options.some((n) => n.states.includes("selected"))) out.push("no option is selected");
       return out;
     },
     leave: escape,
   },
   {
-    name: "the command palette",
+    name: "Commands",
     enter: async () => {
       await run("app.commandPalette");
       await browser.keys([..."zuhd"]);
@@ -399,29 +402,7 @@ const STATES: State[] = [
       const options = find(doc, (n) => n.role === "list item" && showing(n));
       return options.some((n) => n.name.includes("Zuhd mode"))
         ? []
-        : ["the palette doesn't list Zuhd mode as an option"];
-    },
-    leave: escape,
-  },
-  {
-    name: "Find anything",
-    enter: async () => {
-      await run("app.findAnything");
-      await settle();
-    },
-    expect: (doc) => {
-      const out: string[] = [];
-      const dialog = find(doc, (n) => n.role === "dialog" && showing(n));
-      if (dialog[0]?.name !== "Find anything") out.push("Find anything isn't a named dialog");
-      const trees = find(doc, (n) => n.role === "tree" && showing(n));
-      if (trees.length !== 1 || !trees[0]?.name) out.push("its library isn't one named tree");
-      const options = find(doc, (n) => n.role === "list item" && showing(n));
-      if (!options.some((n) => n.name.includes("Zuhd mode")))
-        out.push("it doesn't list Zuhd mode as an option");
-      const pressed = find(doc, (n) => n.role === "toggle button" && showing(n));
-      if (!pressed.some((n) => n.name === "Everything" && n.states.includes("pressed")))
-        out.push("its scope isn't a pressed toggle button");
-      return out;
+        : ["Commands doesn't list Zuhd mode as an option"];
     },
     leave: escape,
   },

@@ -113,7 +113,11 @@ describe("desktop basics", () => {
     await browser.execute(() => window.__bismillah?.run("app.settings"));
     const dialog = await browser.$("[role=dialog]");
     await dialog.waitForDisplayed();
-    expect(await browser.$("h2=Appearance").isDisplayed()).toBe(true);
+    expect(
+      await browser
+        .$("//*[contains(@class,'panel-group')][normalize-space()='Appearance']")
+        .isDisplayed(),
+    ).toBe(true);
     await browser.keys(["Escape"]);
     await dialog.waitForDisplayed({ reverse: true });
     expect(await notices()).toEqual([]);

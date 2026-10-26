@@ -28,10 +28,6 @@ describe("UI review: small windows and command feedback", () => {
       async (path: string) => window.__bismillah?.setLibrary(path),
       folder.path,
     );
-    await browser.execute(() => {
-      const hooks = window.__bismillah;
-      if (hooks?.library().visible) hooks.run("view.toggleLibrary");
-    });
   });
   after(async () => {
     await fault(null);
@@ -194,82 +190,68 @@ describe("UI review: small windows and command feedback", () => {
     }
   });
 
-  it("scrolls Settings headings clear of wrapped navigation", async () => {
+  it("keeps the highlighted setting in view in short windows", async () => {
     for (const width of [480, 640, 1280]) {
       await setViewport(browser, width, 360);
-      await browser.execute(() => window.__bismillah?.openSettings("files"));
-      await browser.$(".settings-dialog").waitForDisplayed();
-      for (const [label, id] of [
-        ["Files & privacy", "files"],
-        ["Appearance", "appearance"],
-        ["Writing", "writing"],
-        ["Language & checking", "checking"],
-      ]) {
-        await browser.$(".settings-dialog nav").$(`button=${label}`).click();
+      await browser.execute(() => window.__bismillah?.run("app.settings"));
+      await browser.$(".panel").waitForDisplayed();
+      // Up from the first row goes round to the last; Page Down jumps back down.
+      for (const key of ["ArrowUp", "PageUp", "PageDown", "ArrowDown"]) {
+        await browser.keys(key);
         await settle(browser);
-        const heading = await browser.execute((section: string) => {
-          const el = document.getElementById(`settings-${section}`);
-          const top = el?.getBoundingClientRect().top ?? -1;
-          const header =
-            document.querySelector(".settings-dialog header")?.getBoundingClientRect().bottom ??
-            Infinity;
-          return { visible: top >= header, focused: el === document.activeElement };
-        }, id ?? "");
-        expect(heading).toEqual({ visible: true, focused: true });
+        const inView = await browser.execute(() => {
+          const row = document.querySelector(".panel-row.current")?.getBoundingClientRect();
+          const list = document.querySelector(".panel-list")?.getBoundingClientRect();
+          return !!row && !!list && row.top >= list.top - 1 && row.bottom <= list.bottom + 1;
+        });
+        expect(inView).toBe(true);
       }
       await browser.keys("Escape");
+      await browser.$(".panel").waitForDisplayed({ reverse: true });
     }
   });
 
-  it("reveals the full filename and follows customised library shortcuts", async () => {
+  it("reveals the full filename and follows customised panel shortcuts", async () => {
     await setViewport(browser, 480, 360);
     await open(folder.file(LONG_NAME, TEXT));
     expect(await browser.$(".status .name").getAttribute("title")).toBe(LONG_NAME);
     const keybindings = join(process.env.XDG_CONFIG_HOME ?? "", "bismillah", "keybindings.toml");
     const previous = existsSync(keybindings) ? readFileSync(keybindings) : null;
+    const files = () => browser.$("//footer//button[normalize-space()='Files']");
+    const panel = () => browser.execute(() => window.__bismillah?.panel() ?? null);
     try {
-      writeFileSync(keybindings, '"view.toggleLibrary" = "Ctrl+Shift+B"\n');
+      writeFileSync(keybindings, '"file.quickOpen" = "Ctrl+Shift+B"\n');
       await browser.waitUntil(
-        async () =>
-          (await browser.$(".library-toggle").getAttribute("title")) === "Library (Ctrl+Shift+B)",
+        async () => (await files().getAttribute("title")) === "Files (Ctrl+Shift+B)",
       );
-      expect(await browser.$(".library-toggle").getAttribute("aria-keyshortcuts")).toBe(
-        "Control+Shift+B",
-      );
+      expect(await files().getAttribute("aria-keyshortcuts")).toBe("Control+Shift+B");
       await press("Control", "Shift", "B");
-      await browser.waitUntil(() => browser.execute(() => window.__bismillah?.library().visible));
-      await browser.waitUntil(() =>
-        browser.execute(() => window.__bismillah?.library().focusedRow !== null),
-      );
+      await browser.waitUntil(async () => (await panel())?.kind === "files");
       await browser.keys("F2");
       await browser.$(".prompt").waitForDisplayed();
       await browser.keys("Escape");
       await browser.$(".prompt").waitForDisplayed({ reverse: true });
       await browser.waitUntil(() =>
-        browser.execute(() => window.__bismillah?.library().focusedRow !== null),
+        browser.execute(() => document.activeElement?.classList.contains("panel-input") ?? false),
       );
       await press("Control", "Shift", "B");
-      await browser.waitUntil(() => browser.execute(() => !window.__bismillah?.library().visible));
-      writeFileSync(keybindings, '"view.toggleLibrary" = ""\n');
-      await browser.waitUntil(() =>
-        browser.execute(
-          () => !document.querySelector(".library-toggle")?.hasAttribute("aria-keyshortcuts"),
-        ),
+      await browser.waitUntil(async () => (await panel()) === null);
+      writeFileSync(keybindings, '"file.quickOpen" = ""\n');
+      await browser.waitUntil(
+        async () => (await files().getAttribute("aria-keyshortcuts")) === null,
       );
     } finally {
       if (previous) writeFileSync(keybindings, previous);
       else rmSync(keybindings, { force: true });
       await browser.waitUntil(() =>
-        browser.execute(
-          () => window.__bismillah?.shortcuts().keys["view.toggleLibrary"] === "Mod-\\",
-        ),
+        browser.execute(() => window.__bismillah?.shortcuts().keys["file.quickOpen"] === "Mod-p"),
       );
     }
   });
 
-  it("returns to writing after Open and New file from the overlay library", async () => {
+  it("returns to writing after opening or creating a file from the Files panel", async () => {
     await setViewport(browser, 480, 360);
-    await open(folder.file("before-overlay.md", TEXT));
+    await open(folder.file("before-panel.md", TEXT));
     const windowId = execFileSync(
       "xdotool",
       ["search", "--onlyvisible", "--class", "^bismillah$"],
@@ -280,23 +262,34 @@ describe("UI review: small windows and command feedback", () => {
       .at(-1);
     if (!windowId) throw new Error("the headless app window was not found");
     execFileSync("xdotool", ["windowfocus", "--sync", windowId]);
-    for (const [command, name, initial] of [
-      ["o", "opened-from-overlay.md", TEXT],
-      ["n", "created-from-overlay.md", ""],
+    for (const [how, name, initial] of [
+      ["open", "opened-from-panel.md", TEXT],
+      ["new", "created-from-panel.md", ""],
     ] as const) {
-      if (command === "o") folder.file(name, initial);
-      if (command === "o") await browser.$(".library-toggle").click();
-      else await press("Control", "\\");
-      await browser.waitUntil(() =>
-        browser.execute(() => window.__bismillah?.library().focusedRow !== null),
-      );
-      await browser.execute(
-        async (path: string) => window.__bismillah?.nextDialog(path),
-        join(folder.path, name),
-      );
-      await press("Control", command);
+      if (how === "open") {
+        folder.file(name, initial);
+        await browser.execute(() => window.__bismillah?.regainFocus());
+        await browser.$("//footer//button[normalize-space()='Files']").click();
+        await browser.$(".panel-input").waitForDisplayed();
+        await browser.$(".panel-input").setValue("opened-from");
+        await browser.waitUntil(() =>
+          browser.execute(
+            (n: string) => window.__bismillah?.panel()?.selected === `file:${n}`,
+            name,
+          ),
+        );
+        await press("Enter");
+      } else {
+        await press("Control", "p");
+        await browser.$(".panel-input").waitForDisplayed();
+        await browser.execute(
+          async (path: string) => window.__bismillah?.nextDialog(path),
+          join(folder.path, name),
+        );
+        await press("Control", "n");
+      }
       await browser.waitUntil(async () => (await browser.getTitle()) === `${name} — bismillah`);
-      await browser.waitUntil(() => browser.execute(() => !window.__bismillah?.library().visible));
+      await browser.waitUntil(() => browser.execute(() => window.__bismillah?.panel() === null));
       await settle(browser);
       await browser.waitUntil(() =>
         browser.execute(() => window.__bismillah?.view.contentDOM === document.activeElement),

@@ -248,7 +248,6 @@ pub fn run() {
             app::keybindings_get,
             app::keybindings_create,
             app::library_get,
-            app::library_remember_open,
             app::library_open_dialog,
             app::library_open_file,
             app::library_new_folder,

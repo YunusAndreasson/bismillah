@@ -68,7 +68,7 @@ describe("applying keybindings.toml", () => {
     const { keys, problems } = resolve(
       file([
         ["file.save", "Ctrl+C"],
-        ["view.toggleLibrary", "F10"],
+        ["view.cycleTheme", "F10"],
         ["file.trash", "Ctrl+Backspace"],
         ["app.settings", "Enter"],
         ["app.commandPalette", "Shift+P"],
@@ -81,7 +81,7 @@ describe("applying keybindings.toml", () => {
     expect(keys.get("edit.undo")).toBe("Mod-z");
   });
 
-  it("lets Move to trash, which works only in the library, take Delete with a modifier", () => {
+  it("lets Move to trash, which works only in the Files panel, take Delete with a modifier", () => {
     const { keys, problems } = resolve(file([["file.trash", "Shift+Delete"]]));
     expect(problems).toEqual([]);
     expect(keys.get("file.trash")).toBe("Shift-Delete");
@@ -91,19 +91,19 @@ describe("applying keybindings.toml", () => {
     const { keys, problems } = resolve(
       file([
         ["editor.toggleFocus", "Ctrl+K", 3],
-        ["view.toggleLibrary", "Ctrl+K", 5],
+        ["view.toggleMarkdown", "Ctrl+K", 5],
       ]),
     );
     expect(problems).toEqual([
       {
         kind: "twice",
         shortcut: "Mod-k",
-        commands: ["editor.toggleFocus", "view.toggleLibrary"],
+        commands: ["editor.toggleFocus", "view.toggleMarkdown"],
         line: 3,
       },
     ]);
     expect(keys.get("editor.toggleFocus")).toBe("Mod-d");
-    expect(keys.get("view.toggleLibrary")).toBe("Mod-\\");
+    expect(keys.get("view.toggleMarkdown")).toBe("Mod-r");
   });
 
   it("says which lines it couldn't use, in file order", () => {
@@ -135,7 +135,7 @@ describe("the starting file", () => {
     expect(text).toContain("# Zuhd mode");
     expect(text).toContain('# "view.textBigger" = "Ctrl+="');
     expect(text).not.toContain("edit.undo");
-    expect(text).toContain('# "view.toggleLibrary" = "Ctrl+\\\\"');
+    expect(text).toContain('# "app.commandPalette" = "Ctrl+Shift+P"');
   });
 
   it("gives back every command's own shortcut when its lines are uncommented", () => {

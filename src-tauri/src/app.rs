@@ -484,7 +484,6 @@ pub async fn doc_open_requested(state: State<'_, AppState>) -> Result<Option<Ope
         Some(path) if !crate::appliance::allows(&path) => Err(OpenError::Outside),
         Some(folder) if folder.is_dir() => {
             state.set_library(&folder);
-            state.remember(|m| m.library_open = true);
             Ok(None)
         }
         Some(path) => state.open_path(&path).map(Some),

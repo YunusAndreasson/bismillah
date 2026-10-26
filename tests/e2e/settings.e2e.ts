@@ -6,8 +6,8 @@ import { Folder, open } from "./files.ts";
 
 /**
  * Phase 5 in the real app: colour themes (built in and the writer's files, checked by
- * Rust), high contrast, keybindings.toml applied as soon as it is saved, the full
- * Settings screen and About (DESIGN.md §6, §9, §13; ARCHITECTURE.md §8–9).
+ * Rust), high contrast, keybindings.toml applied as soon as it is saved, the
+ * Settings panel and About (DESIGN.md §6, §9, §13; ARCHITECTURE.md §8–9).
  *
  * The harness gives every run a private config folder (scripts/headless.sh), so these
  * tests write theme files and keybindings.toml there, as a writer would in an editor.
@@ -152,7 +152,7 @@ describe("colour themes", () => {
 
   it("chooses colours from Settings by keyboard and saves the choice", async () => {
     await change({ theme: "light", colour_theme: "bismillah" });
-    await browser.execute(() => window.__bismillah?.openSettings("appearance"));
+    await browser.execute(() => window.__bismillah?.openSettings({ row: "colours", open: true }));
     const slate = await browser.$(radio("Slate"));
     await slate.waitForDisplayed();
     // The checked radio holds the group's tab stop; arrows move the choice.
@@ -165,6 +165,8 @@ describe("colour themes", () => {
     await browser.keys(["Space"]);
     await browser.waitUntil(async () => (await token("surface-editor")) === "rgb(243, 245, 247)");
     expect(readFileSync(join(config, "settings.toml"), "utf8")).toContain('colour_theme = "slate"');
+    // Esc closes the row, then the panel.
+    await browser.keys(["Escape"]);
     await browser.keys(["Escape"]);
     await browser.$("[role=dialog]").waitForDisplayed({ reverse: true });
   });
@@ -208,12 +210,14 @@ describe("keybindings.toml", () => {
     await browser.waitUntil(async () => !(await zuhdOn()));
   });
 
-  it("shows the shortcut the writer gave in the palette", async () => {
+  it("shows the shortcut the writer gave in the Commands panel", async () => {
     await browser.execute(() => window.__bismillah?.run("app.commandPalette"));
     await browser.keys([..."zuhd"]);
     await browser.waitUntil(async () => {
-      const picker = await browser.execute(() => window.__bismillah?.picker());
-      return picker?.items.some((i) => i.includes("Zuhd mode") && i.includes("Ctrl+Shift+D"));
+      const panel = await browser.execute(() => window.__bismillah?.panel());
+      return panel?.rows.some(
+        (r) => r.text.includes("Zuhd mode") && r.text.includes("Ctrl+Shift+D"),
+      );
     });
     await browser.keys(["Escape"]);
   });
@@ -233,13 +237,14 @@ describe("keybindings.toml", () => {
     ]);
     expect((await shortcuts()).keys["file.save"]).toBe("Mod-s");
     await browser.execute(() => window.__bismillah?.act("Show in Settings"));
-    const heading = await browser.$("#settings-files");
-    await heading.waitForDisplayed();
-    await browser.waitUntil(() =>
-      browser.execute(() => document.activeElement?.id === "settings-files"),
-    );
-    const text = await browser.$("[role=dialog]").getText();
+    // The Settings panel, with Keyboard shortcuts highlighted and opened.
+    await browser.waitUntil(async () => {
+      const panel = await browser.execute(() => window.__bismillah?.panel());
+      return panel?.opened === "setting:shortcuts" && panel.selected === "setting:shortcuts";
+    });
+    const text = await browser.$("#settings-shortcuts").getText();
     expect(text).toContain("Line 2: “view.fulscreen” isn't a command.");
+    await browser.keys(["Escape"]);
     await browser.keys(["Escape"]);
     await browser.$("[role=dialog]").waitForDisplayed({ reverse: true });
   });
@@ -249,11 +254,12 @@ describe("keybindings.toml", () => {
     await browser.waitUntil(async () => (await shortcuts()).problems.length === 0, {
       timeout: 5000,
     });
-    await browser.execute(() => window.__bismillah?.openSettings("files"));
+    await browser.execute(() => window.__bismillah?.openSettings({ row: "shortcuts", open: true }));
     const create = await browser.$("button=Create keybindings.toml");
     await create.waitForDisplayed();
     await create.click();
     await browser.waitUntil(() => existsSync(keybindings));
+    await browser.keys(["Escape"]);
     await browser.keys(["Escape"]);
     expect(await shortcuts()).toMatchObject({ problems: [], changed: 0 });
     // Every line uncommented gives every command its own shortcut back: the file is
@@ -267,7 +273,7 @@ describe("keybindings.toml", () => {
     await browser.waitUntil(async () => (await shortcuts()).changed > 20, { timeout: 5000 });
     const after = await shortcuts();
     expect(after.problems).toEqual([]);
-    expect(after.keys["view.toggleLibrary"]).toBe("Mod-\\");
+    expect(after.keys["app.commandPalette"]).toBe("Mod-Shift-p");
     expect(after.keys["file.trash"]).toBe("Delete");
   });
 });
@@ -290,17 +296,19 @@ describe("Settings and About", () => {
     folder.remove();
   });
 
-  it("moves between its four sections from the links at the top", async () => {
-    await browser.execute(() => window.__bismillah?.run("app.settings"));
+  it("lists every setting under its four sections, and finds one by another word", async () => {
+    await press("Control", ",");
     const dialog = await browser.$("[role=dialog]");
     await dialog.waitForDisplayed();
-    for (const name of ["Appearance", "Writing", "Language & checking", "Files & privacy"])
-      expect(await browser.$(`h2=${name}`).isExisting()).toBe(true);
-    const link = await browser.$('//nav//button[normalize-space()="Writing"]');
-    await link.click();
-    await browser.waitUntil(() =>
-      browser.execute(() => document.activeElement?.id === "settings-writing"),
+    const groups = await browser.execute(() =>
+      [...document.querySelectorAll(".panel-group")].map((el) => el.textContent?.trim()),
     );
+    expect(groups).toEqual(["Appearance", "Writing", "Language & checking", "Files & privacy"]);
+    await browser.keys([..."leading"]);
+    await browser.waitUntil(async () => {
+      const panel = await browser.execute(() => window.__bismillah?.panel());
+      return panel?.selected === "setting:line";
+    });
     await browser.keys(["Escape"]);
     await dialog.waitForDisplayed({ reverse: true });
   });
@@ -314,7 +322,7 @@ describe("Settings and About", () => {
     await browser.waitUntil(async () => (await family()).includes("Liberation Serif"), {
       timeoutMsg: "the installed font was never used",
     });
-    await browser.execute(() => window.__bismillah?.openSettings("appearance"));
+    await browser.execute(() => window.__bismillah?.openSettings({ row: "fontName", open: true }));
     const field = await browser.$("#set-font-name");
     await field.waitForDisplayed();
     await field.setValue("No Such Font");
@@ -327,6 +335,7 @@ describe("Settings and About", () => {
     // Not handed to the webview, which would draw a substitute: Duo is used instead.
     expect(await family()).not.toContain("No Such Font");
     expect(await family()).toContain("Bismillah Duo");
+    await browser.keys(["Escape"]);
     await browser.keys(["Escape"]);
     await browser.$("[role=dialog]").waitForDisplayed({ reverse: true });
   });

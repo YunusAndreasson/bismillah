@@ -537,16 +537,22 @@ describe("the stick's first screens", () => {
 
       // Settings › This stick: the keyboard, applied in one step, and the clock.
       await session.keys(["Control", ","]);
-      await session.$("#settings-stick").waitForExist();
-      await session.$("#settings-stick").scrollIntoView();
-      expect(await session.$("#set-local-clock").isExisting()).toBe(true);
-      // No other program on the stick can edit a theme, keybindings or settings file.
-      expect(await session.$("button=Create keybindings.toml").isExisting()).toBe(false);
-      const hints = await session.execute(
-        () => document.querySelector(".settings-dialog")?.textContent,
+      await session.$(".panel").waitForExist();
+      const rows = await session.execute(() =>
+        [...document.querySelectorAll(".panel-row")].map((el) => el.getAttribute("data-value")),
       );
-      expect(hints).not.toContain("Your own themes");
-      expect(hints).not.toContain("plain text files");
+      expect(rows).toEqual(
+        expect.arrayContaining(["setting:keyboard", "setting:zone", "setting:localClock"]),
+      );
+      // No other program on the stick can edit a theme, keybindings or settings file.
+      expect(rows).not.toContain("setting:shortcuts");
+      expect(rows).not.toContain("setting:yourFiles");
+      await session.keys([..."keyboard"]);
+      await session.waitUntil(() =>
+        session.execute(() => window.__bismillah?.panel()?.selected === "setting:keyboard"),
+      );
+      await session.keys(["Enter"]);
+      await session.$("#set-layout-1").waitForExist();
       await session.$("#set-layout-1").selectByAttribute("value", "ara");
       await session.$("#set-switch").waitForExist();
       await shot(session, "settings-stick");
@@ -558,6 +564,7 @@ describe("the stick's first screens", () => {
         options: "grp:alt_shift_toggle",
       });
       await session.$("p=That keyboard layout isn't one this stick knows.").waitForExist();
+      await session.keys(["Escape"]);
       await session.keys(["Escape"]);
 
       // Ctrl+Q powers off, after saving.

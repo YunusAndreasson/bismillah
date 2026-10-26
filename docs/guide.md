@@ -15,7 +15,7 @@ Your writing lives in **Markdown files** (ending in `.md` or `.markdown`) in a f
 
 - *Open folder…* (`Ctrl+Shift+O`) makes a folder the library.
 - *Open…* (`Ctrl+O`) opens one file. A file from outside the library makes its folder the library.
-- *New file…* (`Ctrl+N`) asks where to save a new file, starting in the folder you have selected in the library. It never replaces a file that is already there.
+- *New file…* (`Ctrl+N`) asks where to save a new file, starting in the folder of the open document, or of the file you have highlighted in *Files*. It never replaces a file that is already there.
 
 When nothing is open, bismillah offers those three: open a folder, open a file, or start a new one. A quiet *Guide* button opens this guide.
 
@@ -114,29 +114,35 @@ bismillah checks English and Arabic spelling and suggests English grammar correc
 - Spelling is British by default. Choose another in Settings › Language & checking, or write `lang: en-US` in a document’s frontmatter.
 - Qur’anic text, transliteration, code, addresses and Markdown are never checked. Words from Arabic written in plain letters are unknown until you add them to your dictionary.
 - Grammar suggestions are about grammar only, never style, and every change is yours to make.
-- *Check spelling* and *Grammar suggestions* turn each off, in the Edit menu, the palette and Settings.
+- *Check spelling* and *Grammar suggestions* turn each off, in the Edit menu, *Commands* and *Settings*.
 
-## The library
+## Files, Commands and Settings
 
-`Ctrl+\` shows the library beside the text, or over it in a narrow window, and moves the keyboard into it. The open file is marked with a green bar.
+At the bottom left of the window are **Files**, **Commands** and **Settings**. Each opens a panel that rises from there, with the same three names along its foot. Each panel starts with the keyboard in its search field, so you can type at once.
 
-- The arrows move through it; `→` opens a folder and `←` closes it; typing the first letters of a name finds it; `Enter` opens a file and puts the caret in it; `Esc` returns to the text.
-- `F2` (*Rename…*) renames the selected file or folder, or the open document.
-- `Ctrl+Shift+N` (*New folder…*) makes a folder in the selected one.
-- `Delete` moves the selected file or folder to the trash, and *Undo* puts it straight back. bismillah never deletes anything outright.
-- Files are listed in natural order, as a catalogue would list them: “Chapter 2” before “Chapter 10”, and “ʿIlm” under I.
-- In a narrow window the library opens over the writing. Its *Close* button returns to the text.
+- `Ctrl+P` opens *Files*, `Ctrl+Shift+P` *Commands* and `Ctrl+,` *Settings*. Pressed again, the same key closes its panel.
+- Tap `Shift` twice to open the panel you used last (*Files* the first time), and twice again to close it. Typing a capital never opens it, nor does `Shift` with `Ctrl` or `Alt` held, so switching keyboard layouts is safe.
+- `↑` and `↓` move the highlight (`Page Up` and `Page Down` a page at a time); `Enter` acts on it.
+- `Tab` moves to the next panel and `Shift+Tab` back, **keeping what you typed**: type “theme” once, then `Tab` to look for it among the commands and the settings. While you search, each name at the foot says how many it found.
+- `Esc` closes the panel, as does *Close* or a click outside it. The line above the names says what the keys do on the highlighted row.
+- Matching ignores case, diacritics and vocalisation, so “hadith” finds “ḥadīth.md”.
 
-### Find anything
+### Files
 
-Tap `Shift` twice (*Find anything*) to reach almost everything from one place: your files, the library, the commands and the settings. Typing a capital never opens it, nor does `Shift` with `Ctrl` or `Alt` held, so switching keyboard layouts is safe. Tapping `Shift` twice again closes it.
+With nothing typed, *Files* lists your recent files, then every file, in natural order as a catalogue would list them: “Chapter 2” before “Chapter 10”, and “ʿIlm” under I. Each shows its folder at the right, so files with the same name are told apart.
 
-- With nothing typed it shows the library on the left (in a window at least 760 pixels wide) and, beside it, your recent files, the main commands and the settings you change most. `Tab` moves into the library, where the arrows, `Enter`, `F2` and `Delete` work as they do in the library itself. *Move to trash* closes the panel, so its *Undo* is in reach.
-- Type to find a file by its name or folder, a command by its name or by other words for it, or a setting. Matching ignores case, diacritics and vocalisation, so “hadith” finds “ḥadīth.md”, and files with the same name show their folders.
-- Commands that are switches, such as *Zuhd mode*, say *On* or *Off*; running one closes the panel. The switches among the settings, such as *Smart punctuation*, change without closing it, so you can change several in a row. Any other setting shows its value, and `Enter` opens Settings at it.
-- **Quick open** (`Ctrl+P`) is the same panel showing only files, and **the command palette** (`Ctrl+Shift+P`) the same panel showing only commands, each with its shortcut. The buttons at the foot of the panel switch between *Everything*, *Files*, *Commands* and *Settings*; tapping `Shift` twice there goes back to *Everything*.
-- It shows keyboard hints and a *Close* button. With an empty library it offers *New file…*. Hover over a shortened file name or path to read it in full.
-- **The menu bar** appears when you press `Alt` or `F10`.
+- Type part of a name or a folder to find a file. Folders that match are listed too; `Enter` on a folder shows what is in it, as if you had typed its name and a `/`. Typing `Essays/` yourself does the same.
+- `Enter` opens a file and puts the caret in it.
+- `F2` (*Rename…*) renames the highlighted file or folder; *Files* stays open on its new name. Outside *Files*, `F2` renames the open document.
+- `Delete` moves the highlighted file or folder to the trash, once nothing is after the caret in the search field, and *Undo* puts it straight back. bismillah never deletes anything outright.
+- `Ctrl+N` and `Ctrl+Shift+N` make a new file or folder beside the highlighted one, or in it when it is a folder.
+- With no folder open, *Files* offers *Open a folder…*; with an empty one, *New file…*.
+
+### Commands
+
+Every command that can run now, grouped as the menus group them, with its shortcut. A switch such as *Zuhd mode* says *On* or *Off*, and `Enter` changes it without closing the panel; any other command closes the panel and runs.
+
+**The menu bar** appears when you press `Alt` or `F10`.
 
 ## Finding text and moving around
 
@@ -150,22 +156,26 @@ The panel shows these examples. If a position cannot be understood, it stays ope
 
 ## Settings, colours and shortcuts
 
-Settings changes apply immediately. Size controls stop at their limits. A line height marked *font default* follows your writing font; Reset returns to that default. If settings cannot be saved, the dialog explains why and offers *Try again* for your current choices.
+**Settings** (`Ctrl+,`) lists every setting in four parts: Appearance, Writing, Language & checking, and Files & privacy. Type to find one by its name or by other words for it (“leading” finds *Line height*). Every change applies at once and is saved.
 
-**Settings** (`Ctrl+,`) is one screen in four parts: Appearance, Writing, Language & checking, and Files & privacy. Every change applies at once and is saved.
+- A switch, such as *Smart punctuation*, says *On* or *Off*; `Enter` changes it.
+- A choice, such as *Line length*, or a size, such as *Text size*, changes with `←` and `→`. `Enter` opens it in place to show every choice; `Enter` or `Esc` closes it again.
+- Sizes stop at their limits. A line height marked *font default* follows your writing font, and *Reset* returns to it.
+- *Library folder* opens another folder; *Keyboard shortcuts*, *Your settings*, *Unsaved text* and *Privacy* say where things are kept.
+- If settings cannot be saved, the panel says why and offers *Try again* for your current choices.
 
 Your settings are plain text files in `~/.config/bismillah/`, which you may also edit in any text editor; changes apply as soon as you save them.
 
 | File | What it holds |
 |---|---|
-| `settings.toml` | Every setting on the Settings screen |
+| `settings.toml` | Every setting in *Settings* |
 | `keybindings.toml` | Your own keyboard shortcuts |
 | `themes/` | Your own colour themes |
 | `dictionary.txt` | Your dictionary, one word per line |
 
 ### Colours
 
-Choose the colours in Settings › Appearance: bismillah’s own, *Sepia* or *Slate*, each in light and dark. *Theme* chooses light, dark or whatever your system uses, and *High contrast* gives black and white with the most contrast of all.
+Choose the colours in Settings › Appearance (*Colours*): bismillah’s own, *Sepia* or *Slate*, each in light and dark. *Theme* chooses light, dark or whatever your system uses, and *High contrast* gives black and white with the most contrast of all.
 
 A colour theme of your own is a small TOML or JSON file in `~/.config/bismillah/themes/`. Its name, without the ending, appears under *Colours*:
 
@@ -203,10 +213,10 @@ Changes apply everywhere as soon as you save the file, and an empty shortcut lea
 | New folder… | `Ctrl+Shift+N` |
 | Open… | `Ctrl+O` |
 | Open folder… | `Ctrl+Shift+O` |
-| Quick open… | `Ctrl+P` |
+| Files | `Ctrl+P` |
 | Save now | `Ctrl+S` |
 | Rename… | `F2` |
-| Move to trash | `Delete` (in the library) |
+| Move to trash | `Delete` (in Files) |
 | Settings | `Ctrl+,` |
 | Quit | `Ctrl+Q` |
 | Undo | `Ctrl+Z` |
@@ -223,9 +233,8 @@ Changes apply everywhere as soon as you save the file, and an empty shortcut lea
 | Previous issue | `Shift+F7` |
 | Check spelling | — |
 | Grammar suggestions | — |
-| Library | `Ctrl+\` |
-| Command palette | `Ctrl+Shift+P` |
-| Find anything | `Shift Shift` |
+| Commands | `Ctrl+Shift+P` |
+| Last panel | `Shift Shift` |
 | Zuhd mode | `Ctrl+D` |
 | Typewriter scrolling | `Ctrl+T` |
 | Always show Markdown | `Ctrl+R` |
@@ -243,7 +252,7 @@ Changes apply everywhere as soon as you save the file, and an empty shortcut lea
 The bismillah stick starts a computer straight into bismillah, with your texts encrypted on the stick. Your passphrase opens them; nothing else runs, and nothing leaves the stick.
 
 - **Lock** hides your texts until you type the passphrase again. Closing the lid, and *Suspend*, lock before the computer sleeps.
-- **Power off** (`Ctrl`+`Q`), **Restart** and **Suspend** are in the File menu and the command palette. Each saves first.
+- **Power off** (`Ctrl`+`Q`), **Restart** and **Suspend** are in the File menu and *Commands*. Each saves first.
 - The **battery** and the **clock** are at the end of the status line. At 10% bismillah tells you; at 3% it saves and powers off. That narrows the chance of losing what you just typed, but a battery can still die suddenly, so save as you would anywhere.
 - **Settings › This stick** has your keyboard layouts (up to four, and the key that switches between them), the time zone, and a correction for computers whose clock keeps local time, as Windows sets it. Applying layouts restarts bismillah, which saves first and comes back to where you were.
 - The library is always the `Texts` folder on the stick.

@@ -22,27 +22,21 @@ describe("experience: clear actions and outcomes", () => {
     await fault(null);
   });
 
-  it("keeps section navigation stable across repeated opens", async () => {
+  it("opens Settings the same way each time, with focus in its search field", async () => {
     await setViewport(browser, 1280, 900);
     const positions: number[] = [];
     for (let i = 0; i < 8; i++) {
       await browser.execute(() => window.__bismillah?.run("app.settings"));
-      await browser.$(".settings-dialog").waitForDisplayed();
-      await browser.$(".settings-dialog nav").$("button=Writing").click();
+      await browser.$(".panel").waitForDisplayed();
       await settle(browser);
-      const geometry = await browser.execute(() => {
-        const panel = document.querySelector<HTMLElement>(".settings-dialog");
-        const header = panel?.querySelector("header");
-        return {
-          top: document.getElementById("settings-writing")?.getBoundingClientRect().top,
-          headerBottom: header?.getBoundingClientRect().bottom,
-          focused: document.activeElement?.id === "settings-writing",
-        };
-      });
+      const geometry = await browser.execute(() => ({
+        top: document.querySelector(".panel-row")?.getBoundingClientRect().top,
+        focused: document.activeElement?.classList.contains("panel-input") ?? false,
+      }));
       expect(geometry.focused).toBe(true);
-      expect(geometry.top).toBeGreaterThan(geometry.headerBottom ?? Infinity);
       positions.push(geometry.top ?? -1);
       await browser.keys("Escape");
+      await browser.$(".panel").waitForDisplayed({ reverse: true });
     }
     expect(Math.max(...positions) - Math.min(...positions)).toBeLessThan(0.01);
   });
@@ -76,27 +70,33 @@ describe("experience: clear actions and outcomes", () => {
 
   it("explains immediate application, enforces stepper limits and identifies font defaults", async () => {
     await change({ text_scale: 3, line_height: 3 });
-    await browser.execute(() => window.__bismillah?.openSettings("appearance"));
-    await browser.$(".settings-dialog").waitForDisplayed();
-    expect(await browser.$(".settings-description").getText()).toBe("Changes apply immediately.");
-    for (const label of ["Text size", "Line height"]) {
-      expect(await browser.$(`[aria-label="Bigger (${label})"]`).isEnabled()).toBe(false);
-      expect(await browser.$(`[aria-label="Smaller (${label})"]`).isEnabled()).toBe(true);
-    }
-    await change({ text_scale: 0.5, line_height: 1.2 });
-    for (const label of ["Text size", "Line height"]) {
-      expect(await browser.$(`[aria-label="Smaller (${label})"]`).isEnabled()).toBe(false);
-      expect(await browser.$(`[aria-label="Bigger (${label})"]`).isEnabled()).toBe(true);
-    }
-    await browser.execute(() =>
-      document.querySelector('[aria-labelledby="set-line"]')?.scrollIntoView(),
+    const steppers = async (id: string, label: string, top: boolean) => {
+      await browser.execute(
+        (row: string) => window.__bismillah?.openSettings({ row, open: true }),
+        id,
+      );
+      await browser.$(`[aria-label="Bigger (${label})"]`).waitForDisplayed();
+      expect(await browser.$(`[aria-label="Bigger (${label})"]`).isEnabled()).toBe(!top);
+      expect(await browser.$(`[aria-label="Smaller (${label})"]`).isEnabled()).toBe(top);
+    };
+    await browser.execute(() => window.__bismillah?.run("app.settings"));
+    await browser.$(".panel").waitForDisplayed();
+    expect(await browser.$(".panel-input").getAttribute("placeholder")).toContain(
+      "changes apply immediately",
     );
-    await browser.$('[aria-labelledby="set-line"]').$("button=Reset").click();
+    await steppers("size", "Text size", true);
+    await steppers("line", "Line height", true);
+    await change({ text_scale: 0.5, line_height: 1.2 });
+    await steppers("size", "Text size", false);
+    await steppers("line", "Line height", false);
+    await browser.$('[aria-labelledby="panel-label-line"]').$("button=Reset").click();
     await browser.waitUntil(async () =>
-      (await browser.$('[aria-labelledby="set-line"] output').getText()).includes("font default"),
+      (await browser.$('[aria-labelledby="panel-label-line"] output').getText()).includes(
+        "font default",
+      ),
     );
     await change({ writing_profile: "amiri" });
-    expect(await browser.$('[aria-labelledby="set-line"] output').getText()).toBe(
+    expect(await browser.$('[aria-labelledby="panel-label-line"] output').getText()).toBe(
       "1.8 (font default)",
     );
     await browser.saveScreenshot(`${shots}/after-settings-default.png`);
@@ -104,53 +104,45 @@ describe("experience: clear actions and outcomes", () => {
     await change({ text_scale: 1, line_height: null, writing_profile: "duo" });
   });
 
-  it("reports settings failures inside the dialog and retries without losing choices", async () => {
+  it("reports settings failures inside the panel and retries without losing choices", async () => {
     const config = join(process.env.XDG_CONFIG_HOME ?? "", "bismillah");
     const mode = statSync(config).mode & 0o777;
     await change({ theme: "light" });
-    await browser.execute(() => window.__bismillah?.openSettings("appearance"));
-    await browser.$(".settings-dialog").waitForDisplayed();
+    await browser.execute(() => window.__bismillah?.openSettings({ row: "theme", open: true }));
+    await browser.$(".panel").waitForDisplayed();
     const before = readFileSync(join(config, "settings.toml"), "utf8");
     try {
       chmodSync(config, 0o555);
-      await browser.$(".settings-dialog").$("button=Dark").click();
-      await browser.$(".settings-save-error").waitForDisplayed();
-      expect(await browser.$(".settings-save-error").getText()).toContain(
+      await browser.$(".panel").$("button=Dark").click();
+      await browser.$(".panel-save-error").waitForDisplayed();
+      expect(await browser.$(".panel-save-error").getText()).toContain(
         "Couldn't save your settings",
       );
       expect(readFileSync(join(config, "settings.toml"), "utf8")).toBe(before);
       await setViewport(browser, 480, 360);
       await browser.saveScreenshot(`${shots}/after-settings-error.png`);
+      // The list keeps room to read between the field and the hint.
       expect(
         await browser.execute(() => {
-          const panel = document.querySelector(".settings-dialog");
-          const header = panel?.querySelector("header")?.getBoundingClientRect();
-          const footer = panel?.querySelector("footer")?.getBoundingClientRect();
-          return header && footer ? footer.top - header.bottom : 0;
+          const r = document.querySelector(".panel-list")?.getBoundingClientRect();
+          return r ? r.height : 0;
         }),
       ).toBeGreaterThanOrEqual(48);
-      await browser.keys("Tab");
       expect(
         await browser.execute(() => {
-          const panel = document.querySelector(".settings-dialog");
-          const r = document.activeElement?.getBoundingClientRect();
-          const header = panel?.querySelector("header")?.getBoundingClientRect();
-          const footer = panel?.querySelector("footer")?.getBoundingClientRect();
-          return !!r && !!header && !!footer && r.top >= header.bottom && r.bottom <= footer.top;
-        }),
-      ).toBe(true);
-      expect(
-        await browser.execute(() => {
-          const r = document.querySelector(".settings-save-error .action")?.getBoundingClientRect();
+          const r = document
+            .querySelector(".panel-save-error .panel-action")
+            ?.getBoundingClientRect();
           return !!r && r.top >= 0 && r.bottom <= innerHeight;
         }),
       ).toBe(true);
       chmodSync(config, mode);
-      await browser.$(".settings-save-error .action").click();
-      await browser.$(".settings-save-error").waitForDisplayed({ reverse: true });
+      await browser.$(".panel-save-error .panel-action").click();
+      await browser.$(".panel-save-error").waitForDisplayed({ reverse: true });
       expect(readFileSync(join(config, "settings.toml"), "utf8")).toContain('theme = "dark"');
     } finally {
       chmodSync(config, mode);
+      await browser.keys("Escape");
       await browser.keys("Escape");
       await change({ theme: "system" });
     }
@@ -220,7 +212,7 @@ describe("experience: clear actions and outcomes", () => {
         await browser.execute(async (s: number) => window.__bismillah?.setScale(s), scale);
         for (const [command, selector] of [
           ["edit.goToLine", ".cm-goto-line"],
-          ["app.settings", ".settings-dialog"],
+          ["app.settings", ".panel"],
         ] as const) {
           await browser.execute((id: typeof command) => window.__bismillah?.run(id), command);
           await browser.$(selector).waitForDisplayed();

@@ -16,13 +16,13 @@
  *   --typewriter          keep typewriter scrolling on (off by default for shots)
  *   --markdown <mode>     rendered (live preview, the default) or shown (Always show Markdown)
  *   --caret <text>        put the caret at the first <text>, revealing that block
- *   --library <dir>       show a copy of <dir> as the library (docked or overlay, by width)
+ *   --library <dir>       make a copy of <dir> the library (see it with --open files)
  *   --library-file <rel>  open this file from that library instead of the specimen
  *   --settings <json>     settings to apply first, e.g. '{"high_contrast": true}'
  *   --config <dir>        copy <dir> into the private config folder before launch
  *                         (themes/, keybindings.toml)
- *   --open <what>         shoot with a dialog open: settings, settings:files,
- *                         settings:appearance or about
+ *   --open <what>         shoot with a panel open: files[:query], commands[:query],
+ *                         settings[:row] (that row opened in place), or about
  *   --out <dir>           output directory (default: <repo>/target/shots)
  *
  * Needs `pnpm app:build` first. Prints the paths of the PNGs it wrote.
@@ -120,28 +120,19 @@ async function shootFull(): Promise<PNG> {
 const scratch = values.library ? mkdtempSync(join(tmpdir(), "bismillah-shot-")) : null;
 if (scratch && values.library) cpSync(resolve(values.library), scratch, { recursive: true });
 
-/** Shows the library at this width, docked or as the overlay. */
-async function showLibrary(): Promise<void> {
-  await browser.execute(async () => {
-    const hooks = window.__bismillah;
-    await hooks?.measure();
-    if (!hooks?.library().visible) hooks?.run("view.toggleLibrary");
-    await hooks?.settle();
-    (document.activeElement as HTMLElement | null)?.blur();
-  });
-}
-
-/** Opens Settings (at a section) or About, and waits for it to show. */
+/** Opens a panel (with a query, or Settings at a row opened in place) or About, and
+ * waits for it to show. */
 async function openDialog(what: string): Promise<void> {
-  const [dialog, section] = what.split(":");
+  const [kind, rest] = what.split(/:(.*)/s);
   await browser.execute(
-    (d: string, s: string | null) => {
+    async (k: string, r: string | null) => {
       const hooks = window.__bismillah;
-      if (d === "about") hooks?.run("app.about");
-      else hooks?.openSettings(s as "files" | null);
+      if (k === "about") hooks?.run("app.about");
+      else if (k === "settings" && r) hooks?.openSettings({ row: r, open: true });
+      else await hooks?.openPanel(k as "files", r ?? undefined);
     },
-    dialog ?? "settings",
-    section ?? null,
+    kind ?? "files",
+    rest ?? null,
   );
   await browser.$("[role=dialog]").waitForDisplayed();
   await browser.pause(300);
@@ -191,7 +182,6 @@ try {
       await browser.execute((t: string) => window.__bismillah?.setTheme(t as "light"), theme);
       for (const width of widths) {
         await setViewport(browser, width, height);
-        if (scratch) await showLibrary();
         if (values["scroll-to"]) {
           await browser.execute((needle: string) => {
             const view = window.__bismillah?.view;
@@ -211,7 +201,7 @@ try {
         if (values.open) await openDialog(values.open);
         const png = values.full ? await shootFull() : await shoot();
         if (values.open) await browser.keys(["Escape"]);
-        const opened = values.open ? `-${values.open.replace(":", "-")}` : "";
+        const opened = values.open ? `-${values.open.replace(/[^\p{L}\p{N}]+/gu, "-")}` : "";
         const suffix = `${scratch ? "-library" : ""}${values.full ? "-full" : ""}${opened}`;
         const mode = values.markdown === "shown" ? "-shown" : "";
         const name = `${profile}-${theme}-${width}${mode}${suffix}.png`;

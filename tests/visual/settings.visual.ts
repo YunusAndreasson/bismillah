@@ -10,8 +10,8 @@ const change = (patch: Record<string, unknown>) =>
     await window.__bismillah?.changeSettings(p);
   }, patch);
 
-/** High contrast over the specimen, and the Settings screen (Phase 5). */
-describe("high contrast and Settings", () => {
+/** High contrast over the specimen (Phase 5). The Settings panel is in panels.visual.ts. */
+describe("high contrast", () => {
   before(async () => {
     await waitForApp(browser);
     await browser.execute(() => {
@@ -21,14 +21,6 @@ describe("high contrast and Settings", () => {
     await setViewport(browser, 1280, 900);
     await browser.execute(async () => {
       const hooks = window.__bismillah;
-      // Variable-width random directory names can add a wrapped line above Writing.
-      // Stable display data makes its fractional scroll position deterministic.
-      hooks?.setFolderLabels({
-        config: "/tmp/bismillah-visual/config",
-        data: "/tmp/bismillah-visual/data",
-      });
-      await hooks?.measure();
-      if (hooks?.library().visible) hooks.run("view.toggleLibrary");
       const s = hooks?.view.scrollDOM;
       if (s) s.scrollTop = 0;
       await hooks?.settle();
@@ -44,18 +36,4 @@ describe("high contrast and Settings", () => {
       expect(compareWithBaseline(name, await browser.takeScreenshot())).toBeLessThan(TOLERANCE);
     });
   }
-
-  // The Writing section: Appearance and Files & privacy name the run's private folders.
-  it("draws Settings at its Writing section", async () => {
-    await change({ theme: "light", high_contrast: false });
-    await browser.execute(() => window.__bismillah?.run("app.settings"));
-    await browser.$(".settings-dialog").waitForDisplayed();
-    await browser.$(".settings-dialog nav").$("button=Writing").click();
-    await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
-    await settle(browser);
-    const shot = await browser.takeScreenshot();
-    await browser.keys(["Escape"]);
-    await browser.$(".settings-dialog").waitForDisplayed({ reverse: true });
-    expect(compareWithBaseline("settings-writing-light-1280", shot)).toBeLessThan(TOLERANCE);
-  });
 });

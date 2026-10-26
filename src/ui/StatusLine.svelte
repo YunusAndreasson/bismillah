@@ -5,9 +5,11 @@
   import type { SaveState } from "../core/session.svelte.ts";
   import { readingMinutes } from "../editor/wordCount.ts";
   import { shortcuts } from "../core/keybindings.svelte.ts";
+  import { PANELS, type Panel } from "../core/panels.ts";
 
   /**
-   * The status line (DESIGN.md §12): the library toggle at the start; file name · save
+   * The status line (DESIGN.md §12): Files, Commands and Settings at the start (each
+   * opens its panel, which rises from here: Panel.svelte); file name · save
    * state · reading time at the end, both in faint text so they stay out of
    * the writing's way. Quiet parts may fade while the writer types; a failure, anything
    * with focus and the transliteration indicator never do. Routine saves are not
@@ -21,8 +23,9 @@
     /** A passing message ("No spelling or grammar issues."). */
     note: string | null;
     faded: boolean;
-    libraryShown: boolean;
-    toggleLibrary: () => void;
+    /** The open panel, if any. */
+    panel: Panel | null;
+    openPanel: (panel: Panel) => void;
     /** The bismillah stick's clock ("15:04") and battery, at the very end; null on the
      * desktop, and without a battery. */
     clock?: string | null;
@@ -35,8 +38,8 @@
     transliteration,
     note,
     faded,
-    libraryShown,
-    toggleLibrary,
+    panel,
+    openPanel,
     clock = null,
     battery = null,
   }: Props = $props();
@@ -64,19 +67,27 @@
   const match = $derived(name === null ? null : /\.(md|markdown)$/i.exec(name));
   const stem = $derived(name === null || !match ? (name ?? "") : name.slice(0, match.index));
   const ending = $derived(match?.[0] ?? "");
-  const libraryShortcut = $derived(shortcuts.label("view.toggleLibrary"));
+  const COMMAND = {
+    files: "file.quickOpen",
+    commands: "app.commandPalette",
+    settings: "app.settings",
+  } as const;
 </script>
 
 <footer class="status" aria-label={copy.status.region}>
   <div class="quiet start" class:faded={faded && !failed}>
-    <button
-      type="button"
-      class="library-toggle"
-      aria-expanded={libraryShown}
-      aria-keyshortcuts={libraryShortcut.replace("Ctrl+", "Control+") || undefined}
-      title={libraryShortcut ? `${copy.library.toggle} (${libraryShortcut})` : undefined}
-      onclick={toggleLibrary}>{copy.library.toggle}</button
-    >
+    {#each PANELS as each (each)}
+      {@const key = shortcuts.label(COMMAND[each])}
+      <button
+        type="button"
+        class="panel-toggle"
+        aria-haspopup="dialog"
+        aria-expanded={panel === each}
+        aria-keyshortcuts={key.replaceAll("Ctrl+", "Control+") || undefined}
+        title={key ? `${copy.panels.tabs[each]} (${key})` : undefined}
+        onclick={() => openPanel(each)}>{copy.panels.tabs[each]}</button
+      >
+    {/each}
   </div>
   {#if name !== null && state !== null}
     <div class="quiet info" class:faded={faded && !failed}>
@@ -149,9 +160,9 @@
     flex-shrink: 0;
     text-align: end;
   }
-  /* A quiet text button. Its hover boundary is drawn inside it, so the status line
-     keeps the height of one line of text. */
-  .library-toggle {
+  /* Quiet text buttons. Their hover boundary is drawn inside them, so the status line
+     keeps the height of one line of text. The panel's tabs sit exactly over them. */
+  .panel-toggle {
     font: inherit;
     color: var(--text-faint);
     background: none;
@@ -161,14 +172,14 @@
     padding: 0 var(--space-2);
     cursor: pointer;
   }
-  .library-toggle:hover {
+  .panel-toggle + .panel-toggle {
+    margin-inline-start: 0;
+  }
+  .panel-toggle:hover {
     color: var(--text-primary);
     box-shadow: inset 0 0 0 1px var(--border-control);
   }
-  .library-toggle[aria-expanded="true"] {
-    color: var(--text-secondary);
-  }
-  .library-toggle:focus-visible {
+  .panel-toggle:focus-visible {
     color: var(--text-primary);
     outline: 2px solid var(--focus-ring);
     outline-offset: 1px;

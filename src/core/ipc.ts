@@ -102,11 +102,6 @@ export type LibraryView =
     }
   | { kind: "unavailable"; name: string };
 
-export interface LibraryPanel {
-  view: LibraryView;
-  open: boolean;
-}
-
 export interface RenameOutcome {
   path: string;
   document: { name: string; library_path: string | null } | null;
@@ -173,9 +168,7 @@ export const reload = (id: number, localText: string | null) =>
   invoke<OpenedDocument>("doc_reload", { id, localText });
 export const settleRecovery = (id: number) => invoke<null>("recovery_settle", { id });
 
-export const libraryGet = (refresh: boolean) => invoke<LibraryPanel>("library_get", { refresh });
-export const libraryRememberOpen = (open: boolean) =>
-  invoke<null>("library_remember_open", { open });
+export const libraryGet = (refresh: boolean) => invoke<LibraryView>("library_get", { refresh });
 export const libraryOpenDialog = () => invoke<LibraryView | null>("library_open_dialog");
 export const libraryOpenFile = (path: string) =>
   invoke<OpenedDocument>("library_open_file", { path });

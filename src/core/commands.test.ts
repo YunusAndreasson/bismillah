@@ -21,7 +21,7 @@ describe("command registry", () => {
     // Linux text field; neither may ever trash a file from the editor.
     const editing = /^(Mod-)?(Shift-)?(Backspace|Delete)$/;
     for (const { key } of GLOBAL_COMMANDS) if (key) expect(key).not.toMatch(editing);
-    expect(COMMANDS.find((c) => c.id === "file.trash")?.keyScope).toBe("library");
+    expect(COMMANDS.find((c) => c.id === "file.trash")?.keyScope).toBe("files");
   });
 
   it("finds Zuhd mode by its aliases (DESIGN.md §11.1)", () => {

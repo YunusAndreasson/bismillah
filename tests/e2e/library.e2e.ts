@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -16,9 +17,10 @@ import type { LibraryProbe } from "../../src/core/testHooks.ts";
 import { act, docText, Folder, notices, open, statusText, typeAtEnd } from "./files.ts";
 
 /**
- * The library in the real app (PLAN.md Phase 2 accept): every library action from the
- * keyboard alone, files with the same name told apart, and every attempt to leave the
- * library refused. Each test works on a fresh copy of tests/fixtures/library.
+ * The library in the real app, through the Files panel (PLAN.md Phase 2 accept,
+ * ADR-0016): every library action from the keyboard alone, files with the same name
+ * told apart, and every attempt to leave the library refused. Each test works on a
+ * fresh copy of tests/fixtures/library.
  */
 
 const FIXTURE = resolve(REPO, "tests/fixtures/library");
@@ -49,18 +51,25 @@ const library = (): Promise<LibraryProbe> =>
     return probe;
   });
 
-const rowPaths = async () => (await library()).rows.map((r) => r.path);
-
 async function until(check: () => boolean | Promise<boolean>, message: string, timeout = 5000) {
   await browser.waitUntil(check, { timeout, timeoutMsg: message });
 }
 
-async function focusedRowIs(path: string) {
-  await until(async () => (await library()).focusedRow === path, `focus never reached ${path}`);
+const panel = () => browser.execute(() => window.__bismillah?.panel() ?? null);
+const prompt = () => browser.execute(() => window.__bismillah?.prompt() ?? null);
+/** The Files panel's rows, by value ("file:notes.md", "folder:Essays"). */
+const rows = async () => ((await panel())?.rows ?? []).map((r) => r.value);
+
+async function selectedIs(value: string) {
+  await until(async () => (await panel())?.selected === value, `${value} never highlighted`);
 }
 
-const picker = () => browser.execute(() => window.__bismillah?.picker() ?? null);
-const prompt = () => browser.execute(() => window.__bismillah?.prompt() ?? null);
+/** Opens the Files panel with Ctrl+P, and types `query` into it. */
+async function files(query = ""): Promise<void> {
+  await press("Control", "p");
+  await until(async () => (await panel())?.kind === "files", "the Files panel never opened");
+  if (query) await type(query);
+}
 
 /** Invokes a Rust command directly, as a compromised or buggy frontend might. (Not
  * `error`: WebDriver reads a result with that key as a failure of its own.) */
@@ -98,82 +107,80 @@ describe("library", () => {
     cpSync(FIXTURE, root, { recursive: true });
     await browser.execute(async (dir: string) => {
       await window.__bismillah?.setLibrary(dir);
-      await window.__bismillah?.measure();
     }, root);
   });
 
   afterEach(async () => {
-    // Leave the library hidden, so later suites start as they always did.
     await browser.execute(async () => {
       const hooks = window.__bismillah;
       await hooks?.flush();
-      if (hooks?.library().visible) hooks.run("view.toggleLibrary");
       await hooks?.settle();
     });
     // Dismiss whatever is open; in the text, Escape would put the pen down instead.
-    const inText = await browser.execute(
-      () => document.activeElement?.classList.contains("cm-content") ?? false,
-    );
-    if (!inText) await browser.keys(["Escape"]);
+    for (let i = 0; i < 3; i++) {
+      const open = await browser.execute(
+        () =>
+          window.__bismillah?.prompt() !== null || (window.__bismillah?.panel() ?? null) !== null,
+      );
+      if (open) await browser.keys(["Escape"]);
+    }
     folder.remove();
   });
 
-  it("lists folders first, in natural order, and only Markdown files", async () => {
-    await press("Control", "\\");
-    await until(async () => (await library()).visible, "the library never showed");
-    expect(await rowPaths()).toEqual([
-      "Essays",
-      "Notes",
-      "رسائل",
-      "Chapter 2.md",
-      "Chapter 10.md",
-      "Qurʾān citations.markdown",
+  it("lists recent files, then every file in natural order, and only Markdown files", async () => {
+    await files();
+    expect(await rows()).toEqual([
+      "file:Essays/2026/Letter to Ḥasan.md",
+      "file:Essays/ʿIlm and adab.md",
+      "file:Essays/notes.md",
+      "file:Notes/notes.md",
+      "file:رسائل/سلام.md",
+      "file:Chapter 2.md",
+      "file:Chapter 10.md",
+      "file:Qurʾān citations.markdown",
     ]);
-    const probe = await library();
-    expect(probe.name).toBe("Writing");
-    expect(probe.mode).toBe("docked");
-    expect(probe.rows[0]).toMatchObject({ level: 1, expanded: false });
-  });
-
-  it("is used from the keyboard alone: open, move, expand, open a file, go back", async () => {
-    await press("Control", "\\");
-    await focusedRowIs("Essays");
-    await press("ArrowRight");
-    expect((await library()).rows[0]?.expanded).toBe(true);
-    await press("ArrowDown");
-    await focusedRowIs("Essays/2026");
-    await press("ArrowRight");
-    await press("ArrowRight");
-    await focusedRowIs("Essays/2026/Letter to Ḥasan.md");
+    expect((await library()).name).toBe("Writing");
     await press("Enter");
     await until(async () => (await docText()).startsWith("# Letter to Ḥasan"), "never opened");
-    const probe = await library();
-    expect(probe.active).toBe("Essays/2026/Letter to Ḥasan.md");
-    expect(probe.rows.find((r) => r.selected)?.path).toBe("Essays/2026/Letter to Ḥasan.md");
+    // It comes first now, as a recent file.
+    await files();
+    expect((await rows())[0]).toBe("recent:Essays/2026/Letter to Ḥasan.md");
+    expect(
+      await browser.execute(() => document.querySelectorAll(".panel-row.current").length),
+    ).toBe(1);
+    expect((await panel())?.rows[0]?.text).toContain("Essays/2026");
+  });
+
+  it("is used from the keyboard alone: find, narrow to a folder, open a file", async () => {
+    await files("essays");
+    await selectedIs("folder:Essays");
+    await press("Enter");
+    await until(async () => (await panel())?.query === "Essays/", "never narrowed to Essays");
+    expect(await rows()).toEqual([
+      "folder:Essays",
+      "folder:Essays/2026",
+      "file:Essays/2026/Letter to Ḥasan.md",
+      "file:Essays/ʿIlm and adab.md",
+      "file:Essays/notes.md",
+    ]);
+    await press("ArrowDown");
+    await selectedIs("folder:Essays/2026");
+    await press("Enter");
+    await until(async () => (await panel())?.query === "Essays/2026/", "never narrowed");
+    await press("ArrowDown");
+    await selectedIs("file:Essays/2026/Letter to Ḥasan.md");
+    await press("Enter");
+    await until(async () => (await docText()).startsWith("# Letter to Ḥasan"), "never opened");
+    expect((await library()).active).toBe("Essays/2026/Letter to Ḥasan.md");
     expect(await browser.getTitle()).toBe("Letter to Ḥasan.md — bismillah");
-    // Back in the tree: Left goes to the parent folder, then closes it.
-    await press("Control", "\\");
-    await focusedRowIs("Essays/2026/Letter to Ḥasan.md");
-    await press("ArrowLeft");
-    await focusedRowIs("Essays/2026");
-    await press("ArrowLeft");
-    expect((await library()).rows.find((r) => r.path === "Essays/2026")?.expanded).toBe(false);
-    // Type-ahead finds rows by their first letters, IJMES letters folded.
-    await press("Home");
-    await type("q");
-    await focusedRowIs("Qurʾān citations.markdown");
-    // Esc returns to the text; Mod-\ in the library hides it.
-    await press("Escape");
-    expect((await library()).focusedRow).toBeNull();
-    await press("Control", "\\");
-    await press("Control", "\\");
-    expect((await library()).visible).toBe(false);
+    expect(
+      await browser.execute(() => document.activeElement?.classList.contains("cm-content")),
+    ).toBe(true);
   });
 
   it("renames from the keyboard without ever replacing a file", async () => {
-    await press("Control", "\\");
-    await type("c");
-    await focusedRowIs("Chapter 2.md");
+    await files("chapter 2");
+    await selectedIs("file:Chapter 2.md");
     await press("F2");
     await until(async () => (await prompt())?.ready === true, "the rename prompt never opened");
     expect(await prompt()).toMatchObject({
@@ -195,7 +202,7 @@ describe("library", () => {
     await until(async () => (await prompt()) === null, "the prompt never closed");
     expect(existsSync(join(root, "Chapter two.md"))).toBe(true);
     expect(existsSync(join(root, "Chapter 2.md"))).toBe(false);
-    await focusedRowIs("Chapter two.md");
+    await selectedIs("file:Chapter two.md");
   });
 
   it("renames the open document, saving its edits first, and keeps saving there", async () => {
@@ -219,9 +226,9 @@ describe("library", () => {
     expect(await statusText()).toContain("Reading list.md · Saved");
   });
 
-  it("creates a folder from the keyboard inside the focused folder", async () => {
-    await press("Control", "\\");
-    await focusedRowIs("Essays");
+  it("creates a folder from the keyboard inside the highlighted folder", async () => {
+    await files("essays");
+    await selectedIs("folder:Essays");
     await press("Control", "Shift", "n");
     await until(async () => (await prompt())?.ready === true, "the new folder prompt never opened");
     expect((await prompt())?.title).toBe("New folder in “Essays”");
@@ -231,13 +238,14 @@ describe("library", () => {
     await press("Enter");
     await until(async () => (await prompt()) === null, "the prompt never closed");
     expect(existsSync(join(root, "Essays/Drafts"))).toBe(true);
-    await focusedRowIs("Essays/Drafts");
+    // The panel shows the new, empty folder, so a file can be made in it.
+    await until(async () => (await panel())?.query === "Essays/Drafts/", "never shown");
+    await selectedIs("folder:Essays/Drafts");
   });
 
   it("moves to the trash with Delete and puts it back with Undo", async () => {
-    await press("Control", "\\");
-    await type("chapter 1");
-    await focusedRowIs("Chapter 10.md");
+    await files("chapter 10");
+    await selectedIs("file:Chapter 10.md");
     await press("Delete");
     await until(() => !existsSync(join(root, "Chapter 10.md")), "never trashed");
     // The private trash of the headless run (scripts/headless.sh), never the author's.
@@ -247,13 +255,31 @@ describe("library", () => {
       message: "Moved “Chapter 10.md” to the trash.",
       actions: ["Undo", "OK"],
     });
-    await focusedRowIs("Qurʾān citations.markdown");
     await act("Undo");
     await until(() => existsSync(join(root, "Chapter 10.md")), "never restored");
     expect(readFileSync(join(root, "Chapter 10.md"), "utf8")).toBe(
       "# Chapter 10\n\nThe tenth chapter.\n",
     );
-    await until(async () => (await rowPaths()).includes("Chapter 10.md"), "row never came back");
+    await until(
+      async () => (await library()).paths.includes("Chapter 10.md"),
+      "never listed again",
+    );
+  });
+
+  it("says why a file couldn't go to the trash, and leaves it", async () => {
+    chmodSync(root, 0o555);
+    try {
+      await files("chapter 10");
+      await selectedIs("file:Chapter 10.md");
+      await press("Delete");
+      await until(
+        async () => (await notices()).some((n) => n.message.startsWith("Couldn't move")),
+        "no notice for the failure",
+      );
+      expect(existsSync(join(root, "Chapter 10.md"))).toBe(true);
+    } finally {
+      chmodSync(root, 0o755);
+    }
   });
 
   it("closes a trashed open document, and Undo opens it again", async () => {
@@ -272,13 +298,17 @@ describe("library", () => {
     );
   });
 
-  it("tells files with the same name apart in quick open, by their folders", async () => {
-    await press("Control", "p");
-    await until(async () => (await picker()) !== null, "quick open never opened");
-    await type("notes");
-    await until(async () => (await picker())?.items.length === 2, "expected two notes.md");
+  it("tells files with the same name apart, by their folders", async () => {
+    await files("notes");
+    await until(
+      async () => (await rows()).filter((r) => r.startsWith("file:")).length === 2,
+      "expected two notes.md",
+    );
     // Equally good matches: the shallower path first.
-    expect((await picker())?.items).toEqual(["notes.md Notes", "notes.md Essays"]);
+    expect((await panel())?.rows.slice(0, 2).map((r) => r.text)).toEqual([
+      "notes.md Notes",
+      "notes.md Essays",
+    ]);
     await press("Enter");
     await until(async () => (await docText()).startsWith("# Notes\n"), "never opened");
     expect((await library()).active).toBe("Notes/notes.md");
@@ -292,21 +322,21 @@ describe("library", () => {
       writeFileSync(join(many, `سَلَام ${i}.md`), `# سَلَام ${i}\n\nالكتابةُ أمانةٌ.\n`);
     }
     await browser.execute(async (path: string) => window.__bismillah?.setLibrary(path), root);
-    await press("Control", "p");
-    await until(
-      async () => (await picker())?.items.length === 50,
-      "quick open never filled its page",
-    );
+    await files();
+    // The first 500 are listed; typing finds the others.
+    await until(async () => (await rows()).length === 500, "the list never filled");
     await type("hadith");
     await until(
-      async () => (await picker())?.items.every((item) => item.startsWith("ḥadīth")) ?? false,
+      async () =>
+        ((await panel())?.rows ?? []).every((r) => r.text.startsWith("ḥadīth")) &&
+        (await rows()).length > 0,
       "folded Latin query never matched",
     );
-    expect((await picker())?.items).toHaveLength(50);
+    expect(await rows()).toHaveLength(50);
     await press("Control", "a");
     await type("سلام 599");
-    await until(async () => (await picker())?.items.length === 1, "Arabic query never narrowed");
-    expect((await picker())?.items[0]).toBe("سَلَام 599.md Many");
+    await until(async () => (await rows()).length === 1, "Arabic query never narrowed");
+    expect((await panel())?.rows[0]?.text).toBe("سَلَام 599.md Many");
     await press("Enter");
     await until(async () => (await docText()).startsWith("# سَلَام 599"), "wrong file opened");
     expect(await docText()).toBe("# سَلَام 599\n\nالكتابةُ أمانةٌ.\n");
@@ -314,89 +344,53 @@ describe("library", () => {
   });
 
   it("finds files without their diacritics, ʿayn or vocalisation", async () => {
-    await press("Control", "p");
-    await type("hasan");
-    await until(
-      async () =>
-        (await picker())?.items[0]?.replace(/\s*\/\s*/g, "/") === "Letter to Ḥasan.md Essays/2026",
-      "Ḥasan not found by hasan",
-    );
+    await files("hasan");
+    await selectedIs("file:Essays/2026/Letter to Ḥasan.md");
     await press("Control", "a");
     await type("ilm");
-    await until(
-      async () => (await picker())?.items[0] === "ʿIlm and adab.md Essays",
-      "ʿIlm not found by ilm",
-    );
+    await selectedIs("file:Essays/ʿIlm and adab.md");
     await press("Escape");
-    await until(async () => (await picker()) === null, "quick open never closed");
+    await until(async () => (await panel()) === null, "the panel never closed");
   });
 
-  it("runs commands from the palette, found by their aliases", async () => {
+  it("runs commands from the Commands panel, found by their aliases", async () => {
     await press("Control", "Shift", "p");
-    await until(async () => (await picker())?.kind === "palette", "the palette never opened");
+    await until(async () => (await panel())?.kind === "commands", "Commands never opened");
     await type("distraction");
-    await until(
-      async () => (await picker())?.selected?.startsWith("Zuhd mode") ?? false,
-      "no Zuhd",
-    );
+    await selectedIs("command:editor.toggleFocus");
+    // A switch changes in place, and the panel stays open.
     await press("Enter");
     await until(
       () => browser.execute(() => document.querySelector(".cm-zuhd-dim") !== null),
       "Zuhd mode never came on",
     );
-    await press("Control", "Shift", "p");
-    await type("zuhd");
-    await until(async () => (await picker())?.selected?.includes("· On") ?? false, "not shown On");
+    expect((await panel())?.rows[0]?.text).toMatch(/On/);
     await press("Enter");
     await until(
       () => browser.execute(() => document.querySelector(".cm-zuhd-dim") === null),
       "Zuhd mode never went off",
     );
-  });
-
-  it("opens the palette and quick open while a library row has focus", async () => {
-    // Listing the palette's commands once changed state while Svelte derived it,
-    // which threw and left both pickers dead for the rest of the session.
-    await press("Control", "\\");
-    await focusedRowIs("Essays");
-    await press("Control", "Shift", "p");
-    await until(async () => (await picker())?.kind === "palette", "the palette never opened");
-    await type("zuhd");
-    await until(async () => (await picker())?.selected?.startsWith("Zuhd") ?? false, "no Zuhd");
+    // Any other command closes the panel and runs in the text.
+    await press("Control", "a");
+    await type("go to line");
+    await selectedIs("command:edit.goToLine");
     await press("Enter");
-    await until(async () => (await picker()) === null, "the palette never closed");
-    // The command runs where focus was: in the tree.
-    await focusedRowIs("Essays");
-    await press("Control", "Shift", "p");
-    await type("zuhd");
-    await until(async () => (await picker())?.selected?.includes("· On") ?? false, "not shown On");
-    await press("Escape");
-    await until(async () => (await picker()) === null, "the palette never closed");
-    await press("Control", "p");
-    await until(async () => (await picker())?.kind === "quickOpen", "quick open never opened");
+    await until(async () => (await panel()) === null, "the panel never closed");
+    await until(
+      () => browser.execute(() => document.querySelector(".cm-navigation-feedback") !== null),
+      "Go to line never opened",
+    );
     await press("Escape");
   });
 
-  it("puts the caret in a file opened from quick open beside the docked library", async () => {
-    // The tree's focus effect also followed the open document, so once the library
-    // had been focused every file opened beside it took the focus into the tree.
-    const inText = () =>
-      browser.execute(() => document.activeElement?.classList.contains("cm-content") ?? false);
-    await press("Control", "p");
-    await type("chapter 2");
-    await press("Enter");
-    await until(async () => (await docText()).startsWith("# Chapter 2"), "never opened");
-    await press("Control", "\\");
-    await focusedRowIs("Chapter 2.md");
+  it("offers what an empty or missing library needs", async () => {
+    const empty = join(folder.path, "Empty");
+    mkdirSync(empty);
+    await browser.execute(async (path: string) => window.__bismillah?.setLibrary(path), empty);
+    await files();
+    expect((await panel())?.rows.map((r) => r.text)).toEqual(["New file…"]);
     await press("Escape");
-    await until(inText, "Escape never returned to the text");
-    await press("Control", "p");
-    await type("chapter 10");
-    await press("Enter");
-    await until(async () => (await docText()).startsWith("# Chapter 10"), "never opened");
-    await browser.pause(300);
-    expect(await inText()).toBe(true);
-    expect((await library()).visible).toBe(true);
+    await until(async () => (await panel()) === null, "the panel never closed");
   });
 
   it("refuses every attempt to leave the library", async () => {
@@ -405,10 +399,11 @@ describe("library", () => {
     mkdirSync(join(folder.path, "elsewhere"));
     symlinkSync(join(folder.path, "elsewhere"), join(root, "away"));
     await browser.execute(() => window.__bismillah?.regainFocus());
-    await press("Control", "\\");
-    // Listed, so the writer sees them, but never opened or listed into.
-    await until(async () => (await rowPaths()).includes("leak.md"), "the link isn't listed");
-    expect(await rowPaths()).toContain("away");
+    // Rust lists them, but the Files panel never offers them.
+    await until(async () => (await library()).paths.includes("leak.md"), "the link isn't seen");
+    await files("leak");
+    expect(await rows()).not.toContain("file:leak.md");
+    await press("Escape");
     for (const path of ["../outside.md", "/etc/passwd", "Essays/../../outside.md", "leak.md"]) {
       expect(await invoke("library_open_file", { path })).toEqual({ refused: { kind: "outside" } });
     }
@@ -431,9 +426,8 @@ describe("library", () => {
   });
 
   it("follows changes other programs make, without focus or polling", async () => {
-    await press("Control", "\\");
     writeFileSync(join(root, "From elsewhere.md"), "# New\n");
-    await until(async () => (await rowPaths()).includes("From elsewhere.md"), "never listed");
+    await until(async () => (await library()).paths.includes("From elsewhere.md"), "never listed");
     // The open file changes on disk: with no local edits it reloads quietly…
     await open(join(root, "Chapter 2.md"));
     writeFileSync(join(root, "Chapter 2.md"), "# Chapter 2\n\nRewritten elsewhere.\n");
@@ -453,43 +447,6 @@ describe("library", () => {
     );
   });
 
-  it("docks beside the text on wide windows and opens over it on narrow ones", async () => {
-    const left = () =>
-      browser.execute(
-        () => document.querySelector(".cm-content")?.getBoundingClientRect().left ?? -1,
-      );
-    await open(join(root, "Chapter 2.md"));
-    await setViewport(browser, 1920, 900);
-    await browser.execute(() => window.__bismillah?.measure());
-    const before = await left();
-    await press("Control", "\\");
-    expect(await library()).toMatchObject({ visible: true, mode: "docked", offset: 0 });
-    expect(await left()).toBe(before); // wide: opening the library moves no text
-    await setViewport(browser, 1280, 860);
-    await browser.execute(() => window.__bismillah?.measure());
-    const probe = await library();
-    expect(probe.mode).toBe("docked");
-    expect(await left()).toBeGreaterThanOrEqual(287);
-    await setViewport(browser, 640, 800);
-    await browser.execute(() => window.__bismillah?.measure());
-    expect(await library()).toMatchObject({ mode: "overlay", visible: false });
-    await press("Control", "\\");
-    await until(
-      () => browser.execute(() => document.querySelector(".library-overlay") !== null),
-      "the overlay never opened",
-    );
-    await focusedRowIs("Chapter 2.md");
-    await press("Home");
-    await press("ArrowRight");
-    await press("ArrowDown");
-    await press("ArrowDown");
-    await focusedRowIs("Essays/ʿIlm and adab.md");
-    await press("Enter");
-    await until(async () => (await docText()).startsWith("# ʿIlm"), "never opened");
-    expect(await browser.execute(() => document.querySelector(".library-overlay"))).toBeNull();
-    await setViewport(browser, 1280, 860);
-  });
-
   it("takes a folder from a second launch as the library", async () => {
     const other = join(folder.path, "Other folder");
     mkdirSync(other);
@@ -497,6 +454,6 @@ describe("library", () => {
     const launch = spawnSync(APP_BINARY, [other], { timeout: 20_000, env: process.env });
     expect(launch.status).toBe(0);
     await until(async () => (await library()).name === "Other folder", "never switched");
-    await until(async () => (await rowPaths()).join() === "only.md", "never listed its file");
+    await until(async () => (await library()).paths.join() === "only.md", "never listed its file");
   });
 });

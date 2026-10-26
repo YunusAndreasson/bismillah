@@ -29,9 +29,6 @@ pub struct State {
     /// The library folder, canonicalised.
     #[serde(default)]
     pub library: Option<PathBuf>,
-    /// Whether the writer left the library shown.
-    #[serde(default)]
-    pub library_open: bool,
     /// Recently opened files, newest first.
     #[serde(default)]
     pub recent: Vec<PathBuf>,
@@ -192,7 +189,6 @@ mod tests {
                 maximized: false,
             }),
             library: Some("/home/writer".into()),
-            library_open: true,
             recent: vec!["/home/writer/letter.md".into()],
         };
         state.save(&path);
@@ -202,6 +198,9 @@ mod tests {
         // A file from before the library existed still loads.
         fs::write(&path, br#"{"last_document":"/a.md"}"#).unwrap();
         assert_eq!(State::load(&path).last_document, Some("/a.md".into()));
+        // So does one from when the library could be docked (ADR-0016).
+        fs::write(&path, br#"{"library":"/lib","library_open":true}"#).unwrap();
+        assert_eq!(State::load(&path).library, Some("/lib".into()));
     }
 
     #[test]

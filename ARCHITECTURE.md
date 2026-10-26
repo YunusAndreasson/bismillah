@@ -10,7 +10,7 @@ This document describes how bismillah is built and the contracts each part must 
 
 ```
 ┌──────────────────────── Tauri window (system webview) ────────────────────────┐
-│  Svelte 5 UI (library, palette, settings, status)   CodeMirror 6 editor       │
+│  Svelte 5 UI (Files, Commands, Settings, status)    CodeMirror 6 editor       │
 │  Bits UI primitives + plain CSS tokens              live preview (Phase 4)    │
 │                │                                          │                   │
 │                └──────────── core/ (commands, state, bridge) ─────────────┘    │
@@ -109,8 +109,9 @@ bismillah/
 ├─ src/
 │  ├─ core/                   command registry, native menu, typed IPC bridge, workspace (open,
 │  │                          save, notices, library actions), save session, settings, copy (all
-│  │                          interface sentences), appearance, library store, tree keyboard model,
-│  │                          fuzzy matching, library layout, checking (the suggestions and what
+│  │                          interface sentences), appearance, library store, tree (paths),
+│  │                          fuzzy matching, panels (what each lists), setting entries (every
+│  │                          setting as a row), checking (the suggestions and what
 │  │                          was ignored), colour themes, shortcuts (the rules of keybindings.toml)
 │  │                          and keybindings (the writer's shortcuts now), about (the credits),
 │  │                          test hooks (only with BISMILLAH_TEST=1)
@@ -123,9 +124,9 @@ bismillah/
 │  │                          (folded frontmatter, images, addresses on hover), previewTables
 │  │                          (tables as grids, clicks and arrows into them);
 │  │                          wordCount
-│  ├─ ui/                     Svelte components: status line, notices, first screen, Settings,
-│  │                          About, library panel and tree, Find anything (quick open / palette), name prompt,
-│  │                          suggestions
+│  ├─ ui/                     Svelte components: status line, notices, first screen, the panel
+│  │                          (Files, Commands, Settings) and a setting's controls, About, name
+│  │                          prompt, suggestions
 │  └─ styles/                 tokens.css, fonts.css, profiles.css, editor.css
 ├─ fonts/  source/ (upstream) · build/ (Bismillah Duo/Mono) · tools/ (build + verify scripts,
 │                             the icon)
@@ -158,7 +159,7 @@ All commands are typed on both sides (Rust structs ↔ TS types in `src/core/ipc
 | `themes_list()` → every colour theme, each with its tokens per variant and its problems | Settings › Appearance and applying the chosen theme (§8) |
 | `keybindings_get()` → the lines of `keybindings.toml` · `keybindings_create(text)` | The writer's shortcuts (§9); the starting file is never written over an existing one |
 | `font_installed(family)` → `true`, `false` or `null` (unknown) | *Another font* (DESIGN.md §8.2) |
-| `library_get(refresh)` → the listing and whether the library is shown · `library_remember_open(open)` | The panel (refresh: on focus, or *Try again*) |
+| `library_get(refresh)` → the listing | The Files panel (refresh: on focus, or *Try again*) |
 | `library_open_dialog()` → listing or `null` | File › Open folder… |
 | `library_open_file(path)` → document | Open a file from the library |
 | `library_new_folder(parent, name)` · `library_rename(path, name)` | New folder…, Rename… (never replaces; the open document, recovered text and remembered files follow a rename) |
@@ -237,7 +238,7 @@ ASCII and Arabic filename lengths, a rename-stage failure and retry, and cleanup
 - The library root is chosen by the writer through the native dialog (or the command line, a dropped folder, a second launch), then stored canonicalised. Opening a file outside it makes the file's folder the library (§12.2). A remembered root that has gone missing is shown as unavailable and tried again on focus.
 - Every incoming path must be made of plain names: no empty parts, `.`, `..`, absolute paths or NUL. It is then resolved against the root and canonicalised, and rejected if it ends up outside (`Outside`), which catches **symlinks resolving outside the root**. Entries that are renamed or trashed resolve their folder this way and act on the final name itself, so a link is never followed for them. Symlinks inside the root are followed; symlinks pointing outside, and links back up the tree, are listed but marked unavailable. Each check happens just before its operation; a race with another program swapping links at that moment is outside the local, single-user threat model.
 - Only folders and `.md`/`.markdown` files are listed. Hidden names (a leading dot: `.git`, our save temporaries) are not, nor are names that aren't UTF-8 (they can't cross the IPC boundary). A listing stops at 20,000 entries or 64 levels and says so.
-- **Order:** folders first, then natural order on a sort key: canonical decomposition, combining marks (Latin diacritics, Arabic vocalisation and Qur'anic marks) dropped, ʿ ʾ, apostrophes and tatweel skipped, lower case, numbers compared by value (ASCII and Arabic-Indic digits). Names equal under that key fall back to their exact text. Quick open folds the same way (`src/core/fuzzy.ts`). Names themselves are never changed.
+- **Order:** folders first, then natural order on a sort key: canonical decomposition, combining marks (Latin diacritics, Arabic vocalisation and Qur'anic marks) dropped, ʿ ʾ, apostrophes and tatweel skipped, lower case, numbers compared by value (ASCII and Arabic-Indic digits). Names equal under that key fall back to their exact text. The Files panel folds the same way (`src/core/fuzzy.ts`). Names themselves are never changed.
 - New names are checked (`validate_name`): not empty, no `/`, no leading dot (it would hide the entry), no control characters, at most 255 bytes. Spaces, Arabic and every other printable character are kept exactly as typed.
 - **Local images shown by live preview** come through the `bismillah-image` scheme (`images.rs`), not Tauri's asset protocol, so they pass the same checks as every other path: the destination as the document writes it (relative to the document, absolute, or a `file:` URL; `%`-escapes decoded) is canonicalised and served only if it is inside the library root and has an image ending (PNG, JPEG, GIF, WebP, AVIF, BMP, SVG), up to 64 MiB. Links out of the library are refused like `..`. Anything refused gets the same empty "not found", so a document can't probe what lies outside the library. Responses carry `Cache-Control: no-store` and a sandboxing CSP. Web addresses never reach Rust: the editor shows a note instead (DESIGN.md §11).
 
@@ -319,7 +320,7 @@ See ADR-0005.
 - The schema is versioned (`schema = 1`) and keys are `snake_case`: `theme`, `colour_theme` (a theme's id, `bismillah` for the app's own), `high_contrast`, `writing_profile` (`custom` for *Another font*), `custom_font` (a family name; no quotes, backslashes, `;`, `{` or `}`, so it can't end the CSS string it is set in), `text_scale`, `measure`, `line_height` (absent = the profile's), `fade_chrome`, `basmallah_opening`, `smart_punctuation`, `typewriter_scrolling`, `always_show_markdown`, `focus_mode`, `focus_granularity`, `focus_dimming` (`quiet` or `faint`), `check_spelling`, `check_grammar`, `english_dialect` (`settings.rs` holds the table with each key's range).
 - Comments, layout and unknown keys are preserved when rewriting (`toml_edit`). An invalid value falls back to its default with a notice; an unreadable file is kept as `settings.toml.invalid` while the defaults apply. It never crashes, and a value the UI sends that fails validation is refused whole.
 - **The configuration folder is watched** (`watch.rs`, as the library is; `config.rs` sorts what changed): `settings.toml`, `keybindings.toml`, `themes/` and `dictionary.txt` edited in another program apply as soon as they are saved, with no polling. Our own writes are recognised by their modification time and change nothing. Regaining window focus reads them again too, in case the folder couldn't be watched. The folder is created at launch so it can be watched.
-- **`keybindings.toml`** (DESIGN.md §13): Rust reads it (`keybindings.rs`), flattening tables into dotted ids, so `"file.save" = …`, `file.save = …` and `[file]` `save = …` name the same command, and hands over each line with its number. The frontend checks the lines against the command registry, which it owns (`src/core/shortcuts.ts`: the notation, which keys a command may take, two commands given one key), and keeps each command's shortcut now (`src/core/keybindings.svelte.ts`), which the editor keymap (a compartment), the native menu (`setAccelerator`), the palette and the window's own handler follow. A file that can't be read leaves every command its own shortcut. bismillah writes the file only on *Create keybindings.toml*, never over an existing one.
+- **`keybindings.toml`** (DESIGN.md §13): Rust reads it (`keybindings.rs`), flattening tables into dotted ids, so `"file.save" = …`, `file.save = …` and `[file]` `save = …` name the same command, and hands over each line with its number. The frontend checks the lines against the command registry, which it owns (`src/core/shortcuts.ts`: the notation, which keys a command may take, two commands given one key), and keeps each command's shortcut now (`src/core/keybindings.svelte.ts`), which the editor keymap (a compartment), the native menu (`setAccelerator`), the panels and the window's own handler follow. A file that can't be read leaves every command its own shortcut. bismillah writes the file only on *Create keybindings.toml*, never over an existing one.
 
 ## 10. Privacy and the network boundary
 
@@ -364,8 +365,8 @@ opens. The application grids constrain their single columns with `minmax(0, 1fr)
 so enlarged document text cannot increase the page width beyond the desktop window.
 
 ### 12.2 Desktop integration
-- **Find anything** (`src/ui/Picker.svelte`, DESIGN.md §6): one panel in four scopes over the command registry, the library's files and tree, and the settings that aren't commands (`src/core/settingEntries.ts`). Switches change through the settings store as Settings' own do; other settings open Settings with a `{ section, control }` target. `Shift Shift` is recognised by a pure state machine (`src/core/doubleShift.ts`) fed from capture-phase key listeners on the window, so it works over the editor without a CodeMirror binding.
-- **Native application menu**, generated from the command registry (`src/core/commands.ts` → `src/core/menu.ts`, Tauri's JS menu API) with the same labels, IDs and accelerators as the palette and the editor keymap.
+- **Files, Commands and Settings** (`src/ui/Panel.svelte`, DESIGN.md §6, ADR-0016): one Bits UI dialog in three kinds over the library's files and folders, the command registry and every setting (`src/core/settingEntries.ts`, rows with their values, steps and choices). What each lists for a query is `src/core/panels.ts`; the panel, its query and a row to highlight live in the workspace (`panel`, `panelQuery`, `panelFocus`), so *Show in Settings*, a rename and the test hooks can open it at a row. Focus stays in the search field, a combobox whose highlighted option is its `aria-activedescendant`. Settings change through the settings store; an opened row's controls are `src/ui/SettingControls.svelte`. `Shift Shift` is recognised by a pure state machine (`src/core/doubleShift.ts`) fed from capture-phase key listeners on the window, so it works over the editor without a CodeMirror binding.
+- **Native application menu**, generated from the command registry (`src/core/commands.ts` → `src/core/menu.ts`, Tauri's JS menu API) with the same labels, IDs and accelerators as the Commands panel and the editor keymap.
   - On macOS it lives in the global menu bar and must include the standard App and Edit menus, because without them `Cmd-C`/`Cmd-V`/`Cmd-Q` do not work in the webview.
   - On Linux and Windows the menu bar is hidden by default to keep the window calm, and is revealed with `Alt` (pressed and released alone) or `F10`, which also focus its first menu (`menu_reveal` → `platform.rs`); it hides again when it closes. While hidden, GTK fires no menu accelerators, so the editor keymap handles shortcuts exactly once.
 - **The command line:** `bismillah [file | folder]`; `--help` and `--version` answer in the terminal and exit before any window or socket exists.
@@ -377,7 +378,7 @@ so enlarged document text cannot increase the page width beyond the desktop wind
   - File › Open… (`Mod-O`) and New file… (`Mod-N`) through the native dialogs, shown by Rust.
   - A second launch hands its arguments to the running instance over `$XDG_RUNTIME_DIR/bismillah.sock` and exits; the running app saves, opens the file and focuses its window.
   - Opening a file outside the current library opens its parent folder as the library, so path validation (§6) always has a root.
-- `bismillah folder/` (or a second launch with a folder) makes the folder the library and shows it; the last document opens only if it belongs to it.
+- `bismillah folder/` (or a second launch with a folder) makes the folder the library; the last document opens only if it belongs to it. *Open folder…* shows the new library in the Files panel.
 - **Windows:** v1 has one main window. Size and maximised state are remembered (`state.rs`; the window starts hidden and is shown at its remembered size). The minimum window size is 480×360. The title shows `filename — bismillah`.
 - **Native dialogs** for choosing a library folder and for "Save mine as…" (conflicts).
 - **Quitting** flushes pending saves first (§5.5), including from the window manager's close and from `Mod-Q`.
@@ -392,7 +393,7 @@ The native menu is created from fresh recursive option objects in one `Menu.new`
 
 The editor’s `focusKeepsScroll` plugin also observes changes to the scroller’s size. When a top panel changes its origin, it compensates the scroll offset before paint if the caret’s previous row still fits in the new viewport; document-start clamping and occluded rows retain normal scrolling. The observer disconnects when the editor is destroyed and does no work while idle.
 
-Search feedback extends CodeMirror's existing panel with a polite status region and an accessible field description. It uses the same `SearchQuery` cursor, stops at the first match, and does not rescan on selection-only transactions. No document edits or parallel search implementation are involved. Picker recovery actions close the modal before opening a native file dialog; visible Close controls preserve focus return.
+Search feedback extends CodeMirror's existing panel with a polite status region and an accessible field description. It uses the same `SearchQuery` cursor, stops at the first match, and does not rescan on selection-only transactions. No document edits or parallel search implementation are involved. The Files panel's recovery actions close the panel before opening a native file dialog; visible Close controls preserve focus return.
 
 ### 12.3 Platforms
 - **For now bismillah runs only on the author's Linux machine.** It is installed with a local Arch `PKGBUILD` (`makepkg -si`), so it appears in the launcher and opens `.md` files from the file manager. The package holds the binary (fonts, the dictionary and the guide compiled in), the desktop entry (`text/markdown`, `text/x-markdown`; its name, the Wayland app id and `StartupWMClass` are all `bismillah`), the icon from 32 px to scalable, the guide, README and PRIVACY under `/usr/share/doc/bismillah/`, and the licences. `packaging/check.sh` checks a built package: its files, the entry, *Open with* opening a file (launched from the entry under the harness), `--version`, and that every linked library belongs to a declared dependency.
@@ -475,7 +476,7 @@ and the [Svelte plugin setup](https://sveltejs.github.io/eslint-plugin-svelte/us
 | Live preview | `tests/e2e/spikes/live-preview.e2e.ts`, `tests/e2e/live-preview.e2e.ts`, `spikes/webview/composition.ts` | Clicks, selection, keyboard motion and typewriter scrolling on RTL and mixed lines while blocks reveal; the fold, images (with links out of the library), hover addresses, `Mod-R`; the XSS fixture inert in the editor; Ctrl+click on a link only places the caret |
 | Contrast | Unit test over the token table (`tokens.test.ts`), and `themes.rs` for built-in themes | Every semantic pair (DESIGN.md §9.4), high contrast at 7:1, Zuhd mode's faint text |
 | Arabic rendering | `pnpm test:visual` (`tests/visual/arabic-rendering.visual.ts`) | Ink of every vocalised fixture word against a HarfBuzz reference, per bundled Arabic font; fails when a word gets worse, notes when WebKitGTK improves (ADR-0011) |
-| Accessibility | `pnpm a11y` (`scripts/a11y.ts`, `a11y_tree.py`) | The tree Orca reads over AT-SPI, from a private accessibility bus inside the harness, in every screen and state: named controls and dialogs, Settings' headings, the library tree and its selected file, the palette's options, a failure as an alert, the first screen |
+| Accessibility | `pnpm a11y` (`scripts/a11y.ts`, `a11y_tree.py`) | The tree Orca reads over AT-SPI, from a private accessibility bus inside the harness, in every screen and state: named controls and dialogs, the panels' options and tabs, an opened setting's radio buttons, a failure as an alert, the first screen |
 | Performance | `pnpm perf` (`scripts/perf.ts`) | §14's budgets in the release build: launch to an editable caret, typing in a 1 MB document, synchronous edits, scrolling, idle CPU, memory; a separate Node comparison of word counting |
 | Package | `packaging/check.sh <package>` | §12.3 |
 | Supply chain | `cargo deny check`, `pnpm audit` | Banned crates, licences, advisories |
@@ -494,7 +495,7 @@ Round-trip acceptance checks that must always pass:
 The [resource-use follow-up](docs/audits/2026-10-20-resource-use.md) removes
 speculative English loading from sessions that do not need it and skips identical
 remembered-state writes (retrying failures, including a return to an old value).
-Quick open caches Unicode-folded keys weakly by candidate, checking the original
+The Files panel caches Unicode-folded keys weakly by candidate, checking the original
 name/path for changes, and retains only its best 50 matches instead of sorting every
 match. Empty searches gather recent files and the first page in library order.
 Matching, recency and tie-break rules remain the same. `pnpm perf -- --parts
@@ -526,8 +527,7 @@ leave delimiters, escapes and the enclosing block's mapped boundaries intact;
 syntax-sensitive edits still rebuild. Paragraph-end lookups check both sides of
 the syntax boundary. Checker batching uses a cursor to stop the whole tree walk
 at its UTF-16 budget, including the same whole blocks and inclusive range edges.
-Library snapshots use Svelte's `$state.raw` because Rust replaces them as a whole;
-expansion/focus/selection stay reactive. `library_get` uses Tauri async command
+Library snapshots use Svelte's `$state.raw` because Rust replaces them as a whole. `library_get` uses Tauri async command
 dispatch so startup joins and filesystem refreshes do not run on GTK's main thread.
 Its payload and locking/path-validation behavior are unchanged.
 

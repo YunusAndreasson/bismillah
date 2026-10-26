@@ -49,7 +49,7 @@ pnpm test                        # vitest
 pnpm test:e2e                    # tauri-driver against the real app
 pnpm test:visual                 # screenshot regression in the real app (UPDATE_BASELINES=1 to rewrite)
 pnpm app:build                   # debug build with the frontend embedded (needed by the real-app commands)
-pnpm app:shot                    # specimen screenshots at 640/1280/1920/2560; --open settings|about (see run-app skill)
+pnpm app:shot                    # specimen screenshots at 640/1280/1920/2560; --open files|commands|settings[:row]|about (see run-app skill)
 pnpm test:offline                # e2e suite with no network, under strace
 pnpm a11y                        # the accessibility tree (AT-SPI, as Orca reads it) in every screen
 pnpm perf                        # §14 budgets, editing/scrolling, Node word-count comparison; release build
@@ -115,13 +115,17 @@ The [stick QA pass](docs/audits/2026-10-22-stick-qa.md) drove the editor in the
 stick's VM by keyboard: pickers that died after the library had focus, focus left in
 the tree after quick open, dialogs that scrolled long texts to the top, and frames
 shown late on software rendering.
-Find anything (`Shift Shift`) joins quick open, the palette, the library tree and
-settings in one panel; its gesture is unit-tested in `src/core/doubleShift.test.ts`
-and the panel in `tests/e2e/find-anything.e2e.ts`. Tests must not tap Shift on its
-own twice: that opens the panel.
+Files, Commands and Settings (ADR-0016) are three panels opened from the status
+line, replacing Find anything, the library tree and the Settings dialog: what they
+list is unit-tested in `src/core/panels.test.ts` and `src/core/settingEntries.test.ts`,
+the panels in `tests/e2e/panels.e2e.ts` and `tests/e2e/library.e2e.ts`, and their
+look in `tests/visual/panels.visual.ts` ([the panels audit](docs/audits/2026-10-26-panels.md)).
+`Shift Shift` (unit-tested in `src/core/doubleShift.test.ts`) reopens the last panel.
+Tests must not tap Shift on its own twice: that opens a panel. WebKitGTK sends
+Shift+Tab as `Unidentified` with code `Tab`.
 The daily-polish follow-up tightens opening spacing, balances ordinary Arabic in Latin profiles, refines diagnostic strokes and appliance controls, and keeps panel/save transitions still. Evidence and design review: [the daily-polish audit](docs/audits/2026-10-25-daily-polish.md). Its five real-app regressions are in `tests/e2e/polish.e2e.ts`.
-The current gate covers 435 frontend and 188 Rust tests, all 28
-real-app suites and 16 visual checks.
+The current gate covers 434 frontend and 188 Rust tests, all 28
+real-app suites and 17 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.
 - File-handling changes include a failure-path test (disk full, read-only, conflict, killed process).

@@ -78,12 +78,15 @@ describe("exploratory regressions", () => {
     await browser.execute(() => window.__bismillah?.run("file.trash"));
     await browser.$(".welcome").waitForDisplayed();
     await browser.keys(["Control", "Shift", "P"]);
-    const input = await browser.$(".picker-input");
+    const input = await browser.$(".panel-input");
     await input.waitForDisplayed();
     for (const label of ["Save now", "Undo", "Redo", "Select all", "Show suggestions"]) {
       await input.setValue(label);
       await browser.waitUntil(() =>
-        browser.execute(() => window.__bismillah?.picker()?.items.length === 0),
+        browser.execute(
+          (l: string) => !window.__bismillah?.panel()?.rows.some((r) => r.text.startsWith(l)),
+          label,
+        ),
       );
     }
     await browser.keys("Escape");
@@ -104,10 +107,6 @@ describe("exploratory regressions", () => {
   it("keeps enlarged mixed-script text inside a narrow desktop window", async () => {
     const text = readFileSync("docs/specimen.md", "utf8");
     await open(folder.file("zoom.md", text));
-    await browser.execute(() => {
-      const hooks = window.__bismillah;
-      if (hooks?.library().visible) hooks.run("view.toggleLibrary");
-    });
     try {
       for (const width of [480, 640, 1280]) {
         await setViewport(browser, width, 600);

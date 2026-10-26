@@ -128,8 +128,8 @@ function allowed(key: string, command: Command): boolean {
   const mods = parts.slice(0, -1);
   if (RESERVED.has(key) || name === "F10") return false;
   if (/^F\d+$/.test(name)) return true;
-  // In the library, where there is no text, Delete may act on files (DESIGN.md §13).
-  if (command.keyScope === "library" && name === "Delete") return true;
+  // In the Files panel, on its highlighted file, Delete may act on files (DESIGN.md §13).
+  if (command.keyScope === "files" && name === "Delete") return true;
   if (TEXT_KEYS.has(name)) return false;
   return mods.includes("Mod") || mods.includes("Alt");
 }

@@ -62,13 +62,6 @@ pub enum LibraryView {
     },
 }
 
-#[derive(Serialize)]
-pub struct LibraryPanel {
-    view: LibraryView,
-    /// Whether the writer left the library shown.
-    open: bool,
-}
-
 #[derive(Clone, Serialize)]
 struct DocumentChanged {
     id: u64,
@@ -367,26 +360,17 @@ impl AppState {
     }
 }
 
-/// The library for the panel. With `refresh`, it is listed again first (window focus,
+/// The library for the Files panel. With `refresh`, it is listed again first (window focus,
 /// or the writer asked to try an unavailable folder again).
 /// Listing or joining the startup worker must not block GTK's main thread. Tauri's
 /// async dispatch keeps this synchronous, mutex-protected operation off that thread.
 #[tauri::command(async)]
-pub fn library_get(state: State<'_, AppState>, refresh: bool) -> LibraryPanel {
+pub fn library_get(state: State<'_, AppState>, refresh: bool) -> LibraryView {
     state.library_ready();
     if refresh {
         state.refresh();
     }
-    LibraryPanel {
-        view: state.view(),
-        open: state.memory().library_open,
-    }
-}
-
-/// Remembers whether the writer left the library shown.
-#[tauri::command]
-pub fn library_remember_open(state: State<'_, AppState>, open: bool) {
-    state.remember(|m| m.library_open = open);
+    state.view()
 }
 
 /// File › Open folder…: the native folder dialog; the chosen folder becomes the
@@ -417,7 +401,6 @@ pub async fn library_open_dialog(
         return Err(LibraryError::Outside);
     }
     state.set_library(&folder);
-    state.remember(|m| m.library_open = true);
     Ok(Some(state.view()))
 }
 

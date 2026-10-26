@@ -33,30 +33,29 @@ describe("usability: feedback, discovery and escape routes", () => {
     expect(await browser.$(".status").getText()).toContain("changes aren't saved");
   });
 
-  it("starts the palette in its field, shows both toggle states and restores keyboard focus", async () => {
+  it("starts the Commands panel in its field, shows both toggle states and restores keyboard focus", async () => {
     await open(folder.file("specimen.md", readFileSync("docs/specimen.md", "utf8")));
     await browser.execute(async () => {
       await window.__bismillah?.changeSettings({ focus_mode: false });
       window.__bismillah?.view.focus();
       window.__bismillah?.run("app.commandPalette");
     });
-    await browser.$(".picker").waitForDisplayed();
+    await browser.$(".panel").waitForDisplayed();
     expect(
-      await browser.execute(() => document.activeElement?.classList.contains("picker-input")),
+      await browser.execute(() => document.activeElement?.classList.contains("panel-input")),
     ).toBe(true);
-    await browser.$(".picker-input").setValue("Zuhd");
+    await browser.$(".panel-input").setValue("Zuhd");
     await browser.waitUntil(async () =>
-      (await browser.$(".picker-item").getText()).includes("· Off"),
+      (await browser.$(".panel-row.current").getText()).includes("Off"),
     );
+    // A switch changes in place: the panel stays, showing the new state.
     await browser.keys("Enter");
-    await browser.$(".picker").waitForDisplayed({ reverse: true });
-    await browser.execute(() => window.__bismillah?.run("app.commandPalette"));
-    await browser.$(".picker-input").setValue("Zuhd");
     await browser.waitUntil(async () =>
-      (await browser.$(".picker-item").getText()).includes("· On"),
+      (await browser.$(".panel-row.current").getText()).includes("On"),
     );
-    await browser.saveScreenshot(`${shots}/after-palette.png`);
-    await browser.$(".picker-close").click();
+    await browser.saveScreenshot(`${shots}/after-commands.png`);
+    await browser.$(".panel-close").click();
+    await browser.$(".panel").waitForDisplayed({ reverse: true });
     await browser.waitUntil(() =>
       browser.execute(() => document.activeElement === window.__bismillah?.view.contentDOM),
     );
@@ -66,19 +65,19 @@ describe("usability: feedback, discovery and escape routes", () => {
 
   it("distinguishes an empty library from a failed query and offers a working New file action", async () => {
     const empty = new Folder();
+    const action = (label: string) =>
+      browser.$(`//*[contains(@class,'panel-row')][normalize-space()='${label}']`);
     try {
       await browser.execute(
         async (path: string) => window.__bismillah?.setLibrary(path),
         empty.path,
       );
       await browser.execute(() => window.__bismillah?.run("file.quickOpen"));
-      await browser.$(".picker-empty").waitForDisplayed();
-      expect(await browser.$(".picker-empty").getText()).toContain(
-        "No Markdown files in this folder yet.",
-      );
+      await browser.$(".panel-note").waitForDisplayed();
+      expect(await browser.$(".panel-note").getText()).toContain("No Markdown files in");
       await browser.execute(async () => window.__bismillah?.nextDialog(null));
-      await browser.$(".picker-action").click();
-      await browser.$(".picker").waitForDisplayed({ reverse: true });
+      await action("New file…").click();
+      await browser.$(".panel").waitForDisplayed({ reverse: true });
       await browser.waitUntil(() =>
         browser.execute(() => document.activeElement === window.__bismillah?.view.contentDOM),
       );
@@ -87,17 +86,16 @@ describe("usability: feedback, discovery and escape routes", () => {
         async (path: string) => window.__bismillah?.nextDialog(path),
         join(empty.path, "new.md"),
       );
-      await browser.$(".picker-action").click();
+      await action("New file…").click();
       await browser.waitUntil(async () => (await browser.getTitle()).startsWith("new.md"));
       expect(empty.read("new.md").toString()).toBe("");
       await browser.execute(() => window.__bismillah?.run("file.quickOpen"));
-      await browser.$(".picker-input").setValue("no-such-file");
-      await browser.$(".picker-empty").waitForDisplayed();
+      await browser.$(".panel-input").setValue("no-such-file");
       // The title can update before the debounced library watcher reports the new file.
       await browser.waitUntil(
-        async () => (await browser.$(".picker-empty").getText()) === "No file matches.",
+        async () => (await browser.$(".panel-note").getText()) === "No file or folder matches.",
       );
-      expect(await browser.$(".picker-action").isExisting()).toBe(false);
+      expect(await browser.$(".panel-row").isExisting()).toBe(false);
       await browser.keys("Escape");
     } finally {
       await open(folder.file("back.md", "بِسْمِ scatter"));
@@ -138,7 +136,7 @@ describe("usability: feedback, discovery and escape routes", () => {
     );
   });
 
-  it("offers a working folder chooser if the library disappears while quick open is open", async () => {
+  it("offers a working folder chooser if the library disappears while Files is open", async () => {
     const missing = new Folder();
     const moved = `${missing.path}-moved`;
     try {
@@ -147,21 +145,28 @@ describe("usability: feedback, discovery and escape routes", () => {
         missing.path,
       );
       await browser.execute(() => window.__bismillah?.run("file.quickOpen"));
-      await browser.$(".picker").waitForDisplayed();
+      await browser.$(".panel").waitForDisplayed();
       renameSync(missing.path, moved);
       await browser.execute(async () => window.__bismillah?.regainFocus());
       await browser.waitUntil(() =>
         browser.execute(() => window.__bismillah?.library().kind === "unavailable"),
       );
-      expect(await browser.$(".picker-empty").getText()).toContain("isn't available");
+      await browser.waitUntil(async () =>
+        (await browser.$(".panel-note").getText()).includes("isn't available"),
+      );
       await browser.execute(
         async (path: string) => window.__bismillah?.nextDialog(path),
         folder.path,
       );
-      await browser.$(".picker-action").click();
-      await browser.$(".picker").waitForDisplayed({ reverse: true });
+      await browser
+        .$("//*[contains(@class,'panel-row')][normalize-space()='Choose another folder…']")
+        .click();
+      // The chosen folder becomes the library, shown in the Files panel.
       await browser.waitUntil(() =>
         browser.execute(() => window.__bismillah?.library().kind === "ready"),
+      );
+      await browser.waitUntil(() =>
+        browser.execute(() => window.__bismillah?.panel()?.kind === "files"),
       );
       expect(await browser.execute(() => window.__bismillah?.library().name)).toBe(
         folder.path.split("/").at(-1),
@@ -172,21 +177,21 @@ describe("usability: feedback, discovery and escape routes", () => {
     }
   });
 
-  it("closes the overlay library with a visible button and returns to writing", async () => {
+  it("closes a panel with a visible button and returns to writing", async () => {
     await setViewport(browser, 640, 700);
-    await open(folder.file("library-close.md", "Arabic العربية"));
-    await browser.$(".library-toggle").click();
-    await browser.$(".library-overlay").waitForDisplayed();
-    await browser.saveScreenshot(`${shots}/after-library.png`);
-    await browser.$('[aria-label="Close library"]').click();
-    await browser.$(".library-overlay").waitForDisplayed({ reverse: true });
+    await open(folder.file("panel-close.md", "Arabic العربية"));
+    await browser.$("//footer//button[normalize-space()='Files']").click();
+    await browser.$(".panel").waitForDisplayed();
+    await browser.saveScreenshot(`${shots}/after-files.png`);
+    await browser.$(".panel-close").click();
+    await browser.$(".panel").waitForDisplayed({ reverse: true });
     await browser.waitUntil(() =>
       browser.execute(() => document.activeElement === window.__bismillah?.view.contentDOM),
     );
     expect(await docText()).toBe("Arabic العربية");
   });
 
-  it("keeps search and picker controls inside short, narrow, wide and enlarged windows", async () => {
+  it("keeps search and panel controls inside short, narrow, wide and enlarged windows", async () => {
     await open(folder.file("specimen.md", readFileSync("docs/specimen.md", "utf8")));
     for (const theme of ["light", "dark"] as const) {
       await browser.execute((t: typeof theme) => window.__bismillah?.setTheme(t), theme);
@@ -200,7 +205,7 @@ describe("usability: feedback, discovery and escape routes", () => {
         await setViewport(browser, width ?? 640, height ?? 700);
         await browser.execute(async (s: number) => window.__bismillah?.setScale(s), scale ?? 1);
         for (const [command, selector] of [
-          ["app.commandPalette", ".picker"],
+          ["app.commandPalette", ".panel"],
           ["edit.find", ".cm-search"],
         ] as const) {
           await browser.execute((id: typeof command) => window.__bismillah?.run(id), command);

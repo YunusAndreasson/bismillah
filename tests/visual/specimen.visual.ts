@@ -68,13 +68,7 @@ describe("specimen screenshots", () => {
       window.__bismillah?.view.contentDOM.blur();
     });
     await setViewport(browser, 1280, 900);
-    // An earlier spec's library is remembered within a run; the specimen is shot alone.
-    await browser.execute(async () => {
-      const hooks = window.__bismillah;
-      await hooks?.measure();
-      if (hooks?.library().visible) hooks.run("view.toggleLibrary");
-      await hooks?.settle();
-    });
+    await browser.execute(async () => window.__bismillah?.settle());
   });
 
   // With every mark shown, the baselines are Phase 1's own: "Always show Markdown"

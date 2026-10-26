@@ -6,7 +6,7 @@ import type { EditorView } from "@codemirror/view";
 
 /**
  * The command registry (DESIGN.md §13): one ID, one label and one shortcut per action,
- * shared by the native menu, the editor keymap, the command palette and Settings.
+ * shared by the native menu, the editor keymap, the Commands panel and Settings.
  */
 
 export type CommandId =
@@ -48,7 +48,6 @@ export type CommandId =
   | "view.textReset"
   | "view.cycleTheme"
   | "view.fullscreen"
-  | "view.toggleLibrary"
   | "app.commandPalette"
   | "app.findAnything";
 
@@ -60,8 +59,7 @@ export type ToggleId =
   | "editor.toggleTransliteration"
   | "check.toggleSpelling"
   | "check.toggleGrammar"
-  | "view.fullscreen"
-  | "view.toggleLibrary";
+  | "view.fullscreen";
 
 export type MenuSection = "File" | "Edit" | "View" | "Help";
 
@@ -75,24 +73,24 @@ export interface Command {
    * has now (keybindings.svelte.ts). */
   key?: string;
   /** A fixed gesture that isn't a shortcut, shown where its shortcut would be ("Shift
-   * Shift" for Find anything). It can't be changed; a shortcut can be added. */
+   * Shift" for Last panel). It can't be changed; a shortcut can be added. */
   gesture?: string;
   /** Keeps the desktop's standard key whatever keybindings.toml says (Undo, Redo,
    * Select all: the text field's own keys everywhere). */
   fixedKey?: boolean;
   /**
-   * Where the shortcut works. Everywhere by default; "library" binds it only while the
-   * library has focus, never in the editor or the menu, for keys that mean something
-   * else in text (Delete).
+   * Where the shortcut works. Everywhere by default; "files" binds it only in the Files
+   * panel, on its highlighted file or folder, never in the editor or the menu, for keys
+   * that mean something else in text (Delete).
    */
-  keyScope?: "library";
-  /** Other words the palette finds it by (DESIGN.md §11.1). */
+  keyScope?: "files";
+  /** Other words the Commands panel finds it by (DESIGN.md §11.1). */
   aliases?: readonly string[];
-  /** One sentence shown beneath it in the palette. */
+  /** One sentence shown beneath it in the Commands panel. */
   description?: string;
   /** A switch: the menu shows it with a check mark. */
   toggle?: (context: CommandContext) => boolean;
-  /** Whether it can run now; the palette lists only commands that can. */
+  /** Whether it can run now; the Commands panel lists only commands that can. */
   available?: (context: CommandContext) => boolean;
   /** Starts a new group in its menu. */
   separatorBefore?: boolean;
@@ -124,20 +122,18 @@ export interface CommandContext {
   isOn(id: ToggleId): boolean;
   /** A library folder is open (and available). */
   hasLibrary(): boolean;
-  /** Rename and Move to trash have something to act on: the entry focused in the
-   * library, else the open document. */
+  /** Rename and Move to trash have something to act on outside the Files panel: the
+   * open document. */
   hasTarget(): boolean;
   newFolder(): void;
   openFolder(): void;
+  /** The Files panel. */
   quickOpen(): void;
   rename(): void;
   trash(): void;
-  /** Shows or hides the library. From the keyboard, a library that is shown but
-   * doesn't have focus gets focus instead. */
-  toggleLibrary(fromKeyboard: boolean): void;
+  /** The Commands panel. */
   commandPalette(): void;
-  /** Find anything: files, the library, commands and settings in one panel (Shift
-   * Shift). */
+  /** The panel used last, Files the first time (Shift Shift). */
   findAnything(): void;
   toggleFocus(): void;
   toggleTypewriter(): void;
@@ -197,11 +193,11 @@ const ALL: readonly Command[] = [
   },
   {
     id: "file.quickOpen",
-    label: "Quick open…",
+    label: "Files",
     section: "File",
     key: "Mod-p",
-    aliases: ["find file", "go to file", "switch"],
-    available: (c) => c.hasLibrary(),
+    aliases: ["quick open", "find file", "go to file", "switch", "library", "folder"],
+    description: "Find, open, rename and move your files.",
     run: (c) => c.quickOpen(),
   },
   {
@@ -227,7 +223,7 @@ const ALL: readonly Command[] = [
     label: "Move to trash",
     section: "File",
     key: "Delete",
-    keyScope: "library",
+    keyScope: "files",
     aliases: ["delete", "remove", "bin"],
     description: "Undo puts it back.",
     available: (c) => c.hasTarget(),
@@ -240,6 +236,7 @@ const ALL: readonly Command[] = [
     key: "Mod-,",
     separatorBefore: true,
     aliases: ["preferences", "options"],
+    description: "Every setting, changed in place.",
     run: (c) => c.openSettings(),
   },
   {
@@ -437,29 +434,20 @@ const ALL: readonly Command[] = [
     run: (c) => c.toggleGrammar(),
   },
   {
-    id: "view.toggleLibrary",
-    label: "Library",
-    section: "View",
-    key: "Mod-\\",
-    aliases: ["files", "folder", "sidebar", "tree"],
-    toggle: (c) => c.isOn("view.toggleLibrary"),
-    run: (c, source) => c.toggleLibrary(source === "keymap"),
-  },
-  {
     id: "app.commandPalette",
-    label: "Command palette",
+    label: "Commands",
     section: "View",
     key: "Mod-Shift-p",
-    aliases: ["commands", "actions"],
+    aliases: ["command palette", "actions"],
     run: (c) => c.commandPalette(),
   },
   {
     id: "app.findAnything",
-    label: "Find anything",
+    label: "Last panel",
     section: "View",
     gesture: "Shift Shift",
-    aliases: ["search", "everything", "go to", "settings", "files", "shift shift"],
-    description: "Files, commands and settings in one place. Tap Shift twice to open it.",
+    aliases: ["find anything", "search", "panel", "shift shift"],
+    description: "Files, Commands or Settings, whichever you used last. Tap Shift twice.",
     run: (c) => c.findAnything(),
   },
   {

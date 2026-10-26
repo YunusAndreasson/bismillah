@@ -1,26 +1,20 @@
 <script lang="ts">
-  import { Dialog } from "bits-ui";
   import { onMount, untrack } from "svelte";
   import { colourThemes } from "./core/themes.svelte.ts";
   import { runCommand, type CommandId } from "./core/commands.ts";
-  import { copy } from "./core/copy.ts";
   import * as ipc from "./core/ipc.ts";
   import { installMenu } from "./core/menu.ts";
   import { settings, type Settings } from "./core/settings.svelte.ts";
   import { installTestHooks } from "./core/testHooks.ts";
-  import type { SettingsTarget } from "./core/settingEntries.ts";
-  import {
-    workspace,
-    type NamePrompt as Prompt,
-    type Picker as PickerKind,
-  } from "./core/workspace.svelte.ts";
+  import type { Panel as PanelKind } from "./core/panels.ts";
+  import type { SettingsContext } from "./core/settingEntries.ts";
+  import { shortcuts } from "./core/keybindings.svelte.ts";
+  import { workspace, type NamePrompt as Prompt } from "./core/workspace.svelte.ts";
   import { remeasure } from "./editor/typography.ts";
   import AboutDialog from "./ui/AboutDialog.svelte";
-  import LibraryPanel from "./ui/LibraryPanel.svelte";
   import NamePrompt from "./ui/NamePrompt.svelte";
   import Notices from "./ui/Notices.svelte";
-  import Picker from "./ui/Picker.svelte";
-  import SettingsDialog from "./ui/SettingsDialog.svelte";
+  import Panel from "./ui/Panel.svelte";
   import StatusLine from "./ui/StatusLine.svelte";
   import Suggestions from "./ui/Suggestions.svelte";
   import Welcome from "./ui/Welcome.svelte";
@@ -64,7 +58,6 @@
 
   const session = $derived(workspace.session);
   const library = workspace.library;
-  const docked = $derived(library.visible && library.layout.mode === "docked");
   const run = (id: CommandId) => runCommand(id, "ui", workspace.context);
 
   // Settings apply to the page and the editor whenever they change.
@@ -76,28 +69,40 @@
 
   $effect(() => workspace.syncMenu());
 
-  // The writing column moves clear of a docked library (DESIGN.md §7).
-  $effect(() => {
-    void library.visible;
-    void library.layout;
-    if (started) workspace.applyLibraryOffset();
+  // What the Settings panel's rows read beyond the settings themselves.
+  const settingsContext = $derived<SettingsContext>({
+    colours: colourThemes.list,
+    stick: workspace.stick !== null,
+    library: { kind: library.view.kind, name: library.name },
+    shortcuts: {
+      exists: shortcuts.file.exists,
+      changed: shortcuts.changed,
+      unreadable: shortcuts.file.unreadable !== null,
+      problems: shortcuts.problems.length,
+    },
+    folders: workspace.info.folders,
   });
 
-  const panel = {
-    open: (path: string) => void workspace.openFromLibrary(path),
-    run,
-    newHere: (kind: "file" | "folder", folder: string) => {
-      if (kind === "file") void workspace.newFile(folder);
-      else workspace.newFolder(folder);
-    },
-    escape: () => workspace.focusEditor(),
-    retry: () => void ipc.libraryGet(true).then((p) => library.apply(p.view)),
+  const panelActions = {
+    close: () => (workspace.panel = null),
+    focusText: () => workspace.focusEditor(),
+    setPanel: (kind: PanelKind) => workspace.openPanel(kind),
+    openFile: (path: string) => void workspace.openFromLibrary(path),
+    runCommand: run,
+    change: (patch: Partial<Settings>) => void settings.set(patch),
+    rename: (path: string) => void workspace.rename(path),
+    trash: (path: string) => void workspace.trash(path),
+    newFile: (folder: string) => void workspace.newFile(folder),
+    newFolder: (folder: string) => workspace.newFolder(folder),
+    retry: () => void ipc.libraryGet(true).then((view) => library.apply(view)),
+    openAbout: () => (workspace.aboutOpen = true),
+    createKeybindings: () => workspace.createKeybindings(),
+    applyKeyboard: (layouts: string, options: string) => workspace.applyKeyboard(layouts, options),
   };
 
   onMount(() => {
     const onFonts = () => {
       if (workspace.editor) remeasure(workspace.editor.view);
-      workspace.measureLayout();
     };
     const hidePointer = (event: KeyboardEvent) => {
       if (!event.repeat) pointerHidden = true;
@@ -157,11 +162,6 @@
 <div class="window" inert={workspace.locked}>
   <div class="notices-row"><Notices notices={workspace.notices} /></div>
   <div class="middle">
-    {#if docked}
-      <nav class="library-dock" aria-label={copy.library.region}>
-        <LibraryPanel {library} {...panel} />
-      </nav>
-    {/if}
     <main class="writing" class:hidden={workspace.welcome} bind:this={host}>
       {#if failure}
         <p class="failure" role="alert">{failure}</p>
@@ -180,8 +180,9 @@
         transliteration={workspace.transliteration}
         note={workspace.checking.note}
         faded={settings.values.fade_chrome && workspace.typing}
-        libraryShown={library.visible}
-        toggleLibrary={() => workspace.toggleLibrary()}
+        panel={workspace.panel}
+        openPanel={(kind: PanelKind) =>
+          workspace.panel === kind ? (workspace.panel = null) : workspace.openPanel(kind)}
         clock={workspace.clock}
         battery={workspace.battery}
       />
@@ -189,74 +190,24 @@
   {/if}
 </div>
 
-<!-- Narrow windows: the library opens over the text, and closes once a file is chosen. -->
-<Dialog.Root
-  open={library.overlay && library.layout.mode === "overlay"}
-  onOpenChange={(open) => {
-    if (!open) library.overlay = false;
-  }}
->
-  <Dialog.Portal>
-    <Dialog.Overlay class="library-scrim" />
-    <Dialog.Content
-      class="library-overlay"
-      aria-label={copy.library.region}
-      aria-describedby={undefined}
-      onOpenAutoFocus={(event) => {
-        event.preventDefault();
-        library.requestFocus();
-      }}
-      onCloseAutoFocus={(event) => {
-        if (library.takeEditorFocusRequest()) {
-          event.preventDefault();
-          // As in Picker: wait until the focus trap and its inert layer are removed.
-          setTimeout(() => workspace.focusEditor(), 0);
-        }
-      }}
-    >
-      <LibraryPanel {library} {...panel} dismiss={() => library.closeForDocument()} />
-    </Dialog.Content>
-  </Dialog.Portal>
-</Dialog.Root>
-
-<SettingsDialog
-  bind:open={workspace.settingsOpen}
-  values={settings.values}
-  saveError={settings.notSaved}
-  change={(patch: Partial<Settings>) => void settings.set(patch)}
-  {library}
-  folders={workspace.info.folders}
-  customFont={workspace.customFont}
-  section={workspace.settingsSection}
-  shown={() => (workspace.settingsSection = null)}
-  openFolder={() => void workspace.openFolder()}
-  createKeybindings={() => workspace.createKeybindings()}
-  openAbout={() => (workspace.aboutOpen = true)}
-  stick={workspace.stick
-    ? { apply: (layouts: string, options: string) => workspace.applyKeyboard(layouts, options) }
-    : null}
-/>
-
 <AboutDialog
   bind:open={workspace.aboutOpen}
   version={workspace.info.version}
   stick={workspace.stick}
 />
 
-<Picker
-  kind={workspace.picker}
+<Panel
+  kind={workspace.panel}
+  bind:query={workspace.panelQuery}
+  focus={workspace.panelFocus}
+  focused={() => (workspace.panelFocus = null)}
   {library}
   context={workspace.context}
   values={settings.values}
-  stick={workspace.stick !== null}
-  close={() => (workspace.picker = null)}
-  setScope={(kind: PickerKind) => (workspace.picker = kind)}
-  openFile={(path: string) => void workspace.openFromLibrary(path)}
-  runCommand={run}
-  change={(patch: Partial<Settings>) => void settings.set(patch)}
-  openSettingsAt={(target: SettingsTarget) => workspace.openSettings(target)}
-  newHere={panel.newHere}
-  retry={panel.retry}
+  settings={settingsContext}
+  customFont={workspace.customFont}
+  saveError={settings.notSaved}
+  actions={panelActions}
 />
 
 <NamePrompt prompt={workspace.prompt} closed={(p: Prompt) => workspace.promptClosed(p)} />
@@ -298,43 +249,9 @@
   .first-screen {
     grid-area: 1 / 1;
     min-height: 0;
-    /* Clears a docked library; 0 otherwise (workspace.applyLibraryOffset). */
-    padding-inline-start: var(--library-offset, 0px);
   }
   .writing.hidden {
     display: none;
-  }
-  /* The docked library (DESIGN.md §7): edge padding and 240px of list in the margin.
-     Opening it never changes the writing column's width. */
-  .library-dock {
-    position: absolute;
-    z-index: var(--layer-dock);
-    inset-block: 0;
-    inset-inline-start: 0;
-    box-sizing: border-box;
-    inline-size: calc(var(--space-6) + 240px);
-    padding-block: var(--space-4);
-    padding-inline: var(--space-6) 0;
-    background: var(--surface-panel);
-  }
-  :global(.library-scrim) {
-    position: fixed;
-    z-index: var(--layer-popover);
-    inset: 0;
-  }
-  :global(.library-overlay) {
-    position: fixed;
-    z-index: var(--layer-popover);
-    inset-block: 0;
-    inset-inline-start: 0;
-    box-sizing: border-box;
-    inline-size: min(calc(var(--space-6) + 240px + var(--space-4)), 90vw);
-    padding: var(--space-4) var(--space-4) var(--space-4) var(--space-6);
-    background: var(--surface-editor);
-    color: var(--text-primary);
-    border-inline-end: 1px solid var(--border-control);
-    box-shadow: 0 8px 32px color-mix(in srgb, var(--text-primary) 14%, transparent);
-    outline: none;
   }
   .failure {
     margin: var(--space-12) auto;

@@ -29,7 +29,7 @@ describe("the guide", () => {
         expect(cell, command.label).toBe(`\`${command.gesture}\``);
       else if (!command.key) expect(cell, command.label).toBe("—");
       else expect(cell, command.label).toContain(`\`${shortcutLabel(command.key)}\``);
-      if (command.keyScope === "library") expect(cell).toContain("(in the library)");
+      if (command.keyScope === "files") expect(cell).toContain("(in Files)");
     }
     // Nothing that isn't a command, except the menu bar, which GTK shows.
     const labels = new Set(COMMANDS.map((c) => c.label));

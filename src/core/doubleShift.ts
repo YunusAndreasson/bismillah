@@ -1,5 +1,5 @@
 /**
- * Shift Shift opens Find anything (DESIGN.md §13). Two taps of Shift, each pressed and
+ * Shift Shift reopens the last panel (DESIGN.md §13). Two taps of Shift, each pressed and
  * released on its own, with no other key between them and the second within
  * `WINDOW_MS` of the first. Typing a capital puts a letter between the taps, so it never
  * counts; neither do a held or repeating Shift, both Shifts together (some layouts

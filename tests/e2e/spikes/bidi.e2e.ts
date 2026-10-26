@@ -115,7 +115,7 @@ describe("bidi", () => {
         from,
         to,
       );
-      // A lone key lets the selection layer draw. Not Shift: two in a row open Find anything.
+      // A lone key lets the selection layer draw. Not Shift: two in a row open a panel.
       await press("Control");
       const boxes = await browser.execute(() => window.__bismillah?.geometry.selectionBoxes() ?? []);
       const inside = (x: number, y: number) =>

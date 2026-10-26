@@ -22,17 +22,17 @@ import {
 } from "./ipc.ts";
 import { shortcuts } from "./keybindings.svelte.ts";
 import { DoubleShift } from "./doubleShift.ts";
-import type { Scope } from "./findAnything.ts";
 import { keyOf, normalise } from "./keys.ts";
+import type { Panel } from "./panels.ts";
 import { applyColours, colourThemes, DEFAULT_THEME, onSystemScheme } from "./themes.svelte.ts";
 import { Checking } from "./checking.svelte.ts";
 import { GUIDE_NAME, GUIDE_WORDS } from "./guide.ts";
 import { LibraryStore } from "./library.svelte.ts";
 import type { NativeMenu } from "./menu.ts";
 import { quietReload } from "./reload.ts";
-import type { SettingsSection, SettingsTarget } from "./settingEntries.ts";
+import type { SettingsTarget } from "./settingEntries.ts";
 import { DocumentSession } from "./session.svelte.ts";
-import { findNode } from "./tree.ts";
+import { findNode, folderFor } from "./tree.ts";
 import {
   applyAppearance,
   clampScale,
@@ -70,14 +70,11 @@ export interface NamePrompt {
   select: number;
   hint: string | null;
   action: string;
-  /** Where focus goes when it closes. */
-  returnTo: "tree" | "editor";
+  /** Where focus goes when it closes: the open panel's field, or the text. */
+  returnTo: "panel" | "editor";
   /** Resolves with a sentence explaining why the name didn't work, or null when done. */
   submit(name: string): Promise<string | null>;
 }
-
-/** Find anything's scope (DESIGN.md §6), while it is open. */
-export type Picker = Scope;
 
 /** How long quitting waits for a save before leaving the text to recovery. */
 const QUIT_TIMEOUT_MS = 4000;
@@ -98,9 +95,6 @@ export class Workspace {
   typing = $state(false);
   transliteration = $state(false);
   fullscreen = $state(false);
-  settingsOpen = $state(false);
-  /** A Settings section, or a control in it, to show when it opens. */
-  settingsSection = $state<SettingsTarget | null>(null);
   aboutOpen = $state(false);
   /** Where bismillah keeps its files and its version (app_info), for Settings and About. */
   info = $state<{ version: string; folders: { config: string; data: string } }>({
@@ -131,7 +125,15 @@ export class Workspace {
     checking: () => settings.values.check_spelling || settings.values.check_grammar,
     failed: (message) => this.#notice("add-word-failed", "error", message, []),
   });
-  picker = $state<Picker | null>(null);
+  /** The open panel: Files, Commands or Settings (DESIGN.md §6, ADR-0016). */
+  panel = $state<Panel | null>(null);
+  /** Its search field, kept as Tab moves to another panel. */
+  panelQuery = $state("");
+  /** A row for the open panel to highlight, and open in place (Show in Settings, a
+   * renamed file); the panel takes it once it lists that row. */
+  panelFocus = $state<{ value: string; open: boolean } | null>(null);
+  /** The panel Shift Shift opens: the one used last. */
+  lastPanel: Panel = "files";
   prompt = $state<NamePrompt | null>(null);
   recovery = $state<ipc.RecoveryEntry | null>(null);
   pending = $state<ipc.PendingRecovery[]>([]);
@@ -248,7 +250,7 @@ export class Workspace {
   /** keybindings.toml that couldn't be used, and a chosen colour theme that can't. */
   #configNotices(): Notice[] {
     const out: Notice[] = [];
-    const notice = (id: string, message: string, section: "files" | "appearance") => {
+    const notice = (id: string, message: string, row: "shortcuts" | "colours") => {
       if (this.#dismissed.includes(message)) return;
       out.push({
         id,
@@ -258,27 +260,48 @@ export class Workspace {
           {
             label: copy.actions.showInSettings,
             primary: true,
-            run: () => this.openSettings(section),
+            run: () => this.openSettings({ row, open: true }),
           },
           { label: copy.actions.dismiss, run: () => this.#dismissed.push(message) },
         ],
       });
     };
     if (shortcuts.file.unreadable) {
-      notice("keybindings", copy.shortcuts.unreadable(shortcuts.file.unreadable), "files");
+      notice("keybindings", copy.shortcuts.unreadable(shortcuts.file.unreadable), "shortcuts");
     } else if (shortcuts.problems.length > 0) {
-      notice("keybindings", copy.shortcuts.problemsNotice, "files");
+      notice("keybindings", copy.shortcuts.problemsNotice, "shortcuts");
     }
     const chosen = settings.values.colour_theme;
     if (colourThemes.loaded && chosen !== DEFAULT_THEME && !colourThemes.find(chosen)) {
-      notice("colour-theme", copy.themes.unusableNotice(chosen), "appearance");
+      notice("colour-theme", copy.themes.unusableNotice(chosen), "colours");
     }
     return out;
   }
 
-  openSettings(at: SettingsSection | SettingsTarget | null = null): void {
-    this.settingsSection = typeof at === "string" ? { section: at } : at;
-    this.settingsOpen = true;
+  /** Opens the Settings panel, at a row if given. */
+  openSettings(at: SettingsTarget | null = null): void {
+    this.openPanel("settings", {
+      focus: at ? { value: `setting:${at.row}`, open: at.open ?? false } : null,
+    });
+  }
+
+  /** Opens a panel afresh: an empty search (or `query`), on its first row (or `focus`). */
+  openPanel(
+    panel: Panel,
+    at: { query?: string; focus?: { value: string; open: boolean } | null } = {},
+  ): void {
+    if (this.locked) return;
+    if (this.panel === null) this.panelQuery = at.query ?? "";
+    else if (at.query !== undefined) this.panelQuery = at.query;
+    this.panelFocus = at.focus ?? null;
+    this.panel = panel;
+    this.lastPanel = panel;
+  }
+
+  /** A panel's own shortcut: opens it, switches to it, or closes it when it's open. */
+  #togglePanel(panel: Panel): void {
+    if (this.panel === panel) this.panel = null;
+    else this.openPanel(panel);
   }
 
   #info(id: string, message: string): void {
@@ -329,10 +352,9 @@ export class Workspace {
     await listen<ipc.LibraryView>("library-changed", ({ payload }) => this.library.apply(payload));
     const first = await ipc.startup();
     performance.mark("bismillah:document");
-    const panel = await ipc.libraryGet(false);
+    const view = await ipc.libraryGet(false);
     performance.mark("bismillah:library");
-    this.library.apply(panel.view);
-    this.library.docked = panel.open;
+    this.library.apply(view);
     await fonts;
     performance.mark("bismillah:fonts");
     if (first.kind === "document") {
@@ -345,7 +367,6 @@ export class Workspace {
       else this.#info("open-failed", copy.openFailed(first.name, first.error));
     }
     this.#listen();
-    this.measureLayout();
     performance.mark("bismillah:editor");
     // The native menu takes some sixty calls to Rust; nothing needs it before the text
     // is editable, so it is built after (ARCHITECTURE.md §14).
@@ -381,7 +402,6 @@ export class Workspace {
       const session = this.session;
       if (session && session.id === payload.id) void this.#reactToDisk(session, payload.status);
     });
-    window.addEventListener("resize", () => this.measureLayout());
     void appWindow.onFocusChanged(({ payload: focused }) => {
       if (focused) void this.checkOnFocus();
       else void this.session?.flush();
@@ -393,16 +413,13 @@ export class Workspace {
         new Promise((resolve) => setTimeout(resolve, QUIT_TIMEOUT_MS)),
       ]);
     });
-    // Shortcuts while focus is outside the editor (the first screen, the library). They
-    // don't act behind an open dialog, and keys without Ctrl (F2) don't act in a field.
+    // Shortcuts while focus is outside the editor (the first screen, the status line).
+    // They don't act behind an open dialog (a panel handles its own), and keys without
+    // Ctrl (F2) don't act in a field.
     window.addEventListener("keydown", (event) => {
       if (event.defaultPrevented || this.locked || this.editor?.view.hasFocus) return;
       const target = event.target instanceof Element ? event.target : null;
-      const dialog = target?.closest('[role="dialog"], [role="alertdialog"]');
-      // The overlay is the same library as the docked panel, so its file and
-      // navigation shortcuts still work. Other dialogs keep commands behind them inert
-      // (Find anything's tree handles its own keys).
-      if (dialog && !dialog.classList.contains("library-overlay")) return;
+      if (target?.closest('[role="dialog"], [role="alertdialog"]')) return;
       const key = keyOf(event);
       const field = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
       if (field && !key.startsWith("Mod-")) return;
@@ -411,8 +428,8 @@ export class Workspace {
         .find((b) => normalise(b.key) === key && b.command.section !== "Edit");
       if (bound && runCommand(bound.command.id, "keymap", this.context)) event.preventDefault();
     });
-    // Shift Shift opens Find anything from anywhere, the editor too (DESIGN.md §13).
-    // Not behind another dialog or the lock view.
+    // Shift Shift opens the last panel from anywhere, the editor too (DESIGN.md §13),
+    // and closes it again. Not behind another dialog or the lock view.
     const doubleShift = new DoubleShift();
     const onShift = (event: KeyboardEvent) => {
       const moment = {
@@ -426,13 +443,11 @@ export class Workspace {
       if (!doubleShift.feed(moment) || this.locked) return;
       const target = event.target instanceof Element ? event.target : null;
       const dialog = target?.closest('[role="dialog"], [role="alertdialog"]');
-      if (this.picker !== null) {
-        // In the panel: to Everything, or from it closed. Not while Rename… or another
-        // dialog is over it.
-        if (dialog && !dialog.classList.contains("picker")) return;
-        this.picker = this.picker === "everything" ? null : "everything";
-      } else if (!dialog || dialog.classList.contains("library-overlay"))
-        runCommand("app.findAnything", "keymap", this.context);
+      if (this.panel !== null) {
+        // In the panel it closes; not while Rename… or another dialog is over it.
+        if (dialog && !dialog.classList.contains("panel")) return;
+        this.panel = null;
+      } else if (!dialog) runCommand("app.findAnything", "keymap", this.context);
     };
     window.addEventListener("keydown", onShift, true);
     window.addEventListener("keyup", onShift, true);
@@ -488,10 +503,8 @@ export class Workspace {
    * document is saved behind it. */
   lock(): void {
     this.locked = true;
-    this.settingsOpen = false;
     this.aboutOpen = false;
-    this.picker = null;
-    this.library.overlay = false;
+    this.panel = null;
     // Two frames: the lock view has been drawn (docs/spikes/os-suspend-lock.md).
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
@@ -558,7 +571,7 @@ export class Workspace {
     await this.#reloadConfig({ settings: true, keybindings: true, themes: true, dictionary: true });
     void ipc
       .libraryGet(true)
-      .then((panel) => this.library.apply(panel.view))
+      .then((view) => this.library.apply(view))
       .catch(() => {});
     const session = this.session;
     if (!session?.saveable) return;
@@ -668,7 +681,6 @@ export class Workspace {
     // Before the text loads: its images are asked for by this id.
     this.#documentId = opened.id;
     this.welcome = false;
-    if (!options.quiet) this.library.closeForDocument();
     const existing = this.editor;
     const editor = existing ?? this.#createEditor(opened.text, opened.read_only);
     if (existing && options.quiet) editor.reloadQuietly(opened.text);
@@ -780,10 +792,7 @@ export class Workspace {
         this.editor.recheck();
       }
       const view = this.editor.view;
-      void document.fonts.ready.then(() => {
-        remeasure(view);
-        this.measureLayout();
-      });
+      void document.fonts.ready.then(() => remeasure(view));
     }
   }
 
@@ -812,33 +821,6 @@ export class Workspace {
     return { runs: this.#wordCountRuns, paused: this.#wordCountPaused };
   }
 
-  /**
-   * The writer's column width for the library layout: the editor's measure plus its
-   * hanging gutters, as CSS resolves them for the current profile and size.
-   */
-  measureLayout(): void {
-    const content = this.editor?.view.contentDOM;
-    const column = content ? parseFloat(getComputedStyle(content).maxWidth) : NaN;
-    const visible = this.library.visible;
-    this.library.measure(window.innerWidth, Number.isFinite(column) ? column : undefined);
-    // Docked ↔ overlay can show or hide the library: keep the menu's check mark true.
-    if (this.library.visible !== visible) void this.#menu?.sync();
-  }
-
-  /** Moves the writing column clear of a docked library, keeping the reading position
-   * (DESIGN.md §7: opening the library may reflow, but the caret and scroll stay). */
-  applyLibraryOffset(): void {
-    const { layout, visible } = this.library;
-    const offset = visible && layout.mode === "docked" ? layout.offset : 0;
-    const root = document.documentElement.style;
-    const next = `${offset}px`;
-    if (root.getPropertyValue("--library-offset") === next) return;
-    const view = this.editor?.view;
-    const snapshot = view?.scrollSnapshot();
-    root.setProperty("--library-offset", next);
-    if (view && snapshot) view.dispatch({ effects: snapshot });
-  }
-
   async #setTitle(name: string | null): Promise<void> {
     document.title = name ? `${name} — bismillah` : "bismillah";
     await getCurrentWindow().setTitle(document.title);
@@ -849,7 +831,10 @@ export class Workspace {
     await this.session?.flush();
     try {
       const opened = await open();
-      if (opened) this.#show(opened);
+      if (!opened) return;
+      this.#show(opened);
+      // Rust has moved it to the front of the recent files: Files lists it there.
+      void this.#reloadLibrary().catch(() => {});
     } catch (error) {
       if (isError<OpenError>(error)) this.#info("open-failed", copy.openFailed("the file", error));
     }
@@ -861,21 +846,17 @@ export class Workspace {
 
   /** Takes the listing as Rust has it now, right after an action changed it. */
   async #reloadLibrary(): Promise<void> {
-    const panel = await ipc.libraryGet(false);
-    this.library.apply(panel.view);
+    this.library.apply(await ipc.libraryGet(false));
   }
 
   /** A drop or a second launch: a file opens; a folder becomes the library. */
   async #openRequested(): Promise<void> {
     await this.#openWith(ipc.openRequested);
-    const panel = await ipc.libraryGet(false);
-    this.library.apply(panel.view);
-    if (panel.open && !this.library.docked) this.showLibrary(false);
+    await this.#reloadLibrary();
   }
 
   /** Opens a file from the library, then puts the caret back in the text. */
   async openFromLibrary(path: string): Promise<void> {
-    this.library.closeForDocument();
     if (path === this.library.active && this.session) {
       this.editor?.view.focus();
       return;
@@ -884,35 +865,16 @@ export class Workspace {
   }
 
   focusEditor(): void {
-    this.library.overlay = false;
     if (!this.welcome) this.editor?.view.focus();
   }
 
-  #treeHasFocus(): boolean {
-    const active = document.activeElement;
-    return active instanceof HTMLElement && active.closest('[role="tree"]') !== null;
-  }
-
-  /** The library row that has keyboard focus, read from the page itself (focus events
-   * don't fire while the window is in the background). */
-  #focusedEntry(): string | null {
-    const active = document.activeElement;
-    const row =
-      active instanceof HTMLElement ? active.closest<HTMLElement>('[role="treeitem"]') : null;
-    return row?.dataset.path ?? null;
-  }
-
-  /** What Rename and Move to trash act on: the entry focused in the library, else the
-   * open document (when it is in the library). Acting on a row remembers it as the
-   * tree's tab stop; asking (the palette, the menu) changes nothing, since Svelte
-   * refuses state changes while it derives. */
-  #target(acting = false): { path: string; name: string; folder: boolean } | null {
+  /** What Rename and Move to trash act on: `path` (the Files panel's highlighted row),
+   * else the open document (when it is in the library). */
+  #target(path?: string): { path: string; name: string; folder: boolean } | null {
     const lib = this.library;
-    const focused = this.#focusedEntry();
-    if (acting && focused !== null) lib.focused = focused;
-    if (focused !== null) {
-      const node = findNode(lib.nodes, focused);
-      if (node) return { path: node.path, name: node.name, folder: node.kind === "folder" };
+    if (path !== undefined) {
+      const node = findNode(lib.nodes, path);
+      return node ? { path: node.path, name: node.name, folder: node.kind === "folder" } : null;
     }
     if (lib.active !== null && this.session)
       return { path: lib.active, name: this.session.name, folder: false };
@@ -944,10 +906,12 @@ export class Workspace {
     return true;
   }
 
-  async rename(): Promise<void> {
-    const target = this.#target(true);
+  /** Rename…: `path` from the Files panel, else the open document. The panel stays
+   * open behind the name prompt, on the renamed row. */
+  async rename(path?: string): Promise<void> {
+    const target = this.#target(path);
     if (!target) return;
-    const inTree = this.#treeHasFocus();
+    const inPanel = this.panel !== null;
     if (!(await this.#readyToMove(target.path))) return;
     const dot = target.folder ? -1 : target.name.lastIndexOf(".");
     this.prompt = {
@@ -956,7 +920,7 @@ export class Workspace {
       select: dot > 0 ? dot : target.name.length,
       hint: target.folder ? null : copy.prompt.fileHint,
       action: copy.prompt.renameAction,
-      returnTo: inTree ? "tree" : "editor",
+      returnTo: inPanel ? "panel" : "editor",
       submit: async (name) => {
         try {
           const outcome = await ipc.libraryRename(target.path, name);
@@ -968,7 +932,13 @@ export class Workspace {
             this.editor?.setLabel(moved.name);
             this.library.setActive(moved.library_path);
           }
-          if (inTree) this.library.focused = outcome.path;
+          // The panel lists everything again, on the renamed row: the query that
+          // found it may not find its new name.
+          if (inPanel && this.panel !== null)
+            this.openPanel(this.panel, {
+              query: "",
+              focus: { value: `${target.folder ? "folder" : "file"}:${outcome.path}`, open: false },
+            });
           return null;
         } catch (error) {
           return isError<LibraryError>(error) ? nameError(error) : String(error);
@@ -977,27 +947,17 @@ export class Workspace {
     };
   }
 
-  async trash(): Promise<void> {
-    const target = this.#target(true);
+  /** Move to trash: `path` from the Files panel (which closes first, so the notice's
+   * Undo can be reached), else the open document. */
+  async trash(path?: string): Promise<void> {
+    const target = this.#target(path);
     if (!target) return;
-    const inTree = this.#treeHasFocus();
     const reopen = this.#holdsOpen(target.path) ? this.library.active : null;
     if (!(await this.#readyToMove(target.path))) return;
-    // Focus moves to the next row that isn't going too.
-    const rows = this.library.rows;
-    const at = rows.findIndex((r) => r.node.path === target.path);
-    const staying = (r: (typeof rows)[number]) =>
-      r.node.path !== target.path && !r.node.path.startsWith(`${target.path}/`);
-    const next =
-      rows.slice(at + 1).find(staying) ?? rows.slice(0, Math.max(at, 0)).findLast(staying);
     try {
       const outcome = await ipc.libraryTrash(target.path);
       if (outcome.closed) this.#closeDocument();
       await this.#reloadLibrary();
-      if (inTree) {
-        this.library.focused = next?.node.path ?? null;
-        this.library.requestFocus();
-      }
       this.#notice("trashed", "info", copy.trashed(outcome.name), [
         {
           label: copy.actions.undo,
@@ -1014,39 +974,43 @@ export class Workspace {
   async #untrash(outcome: ipc.TrashOutcome, reopen: string | null): Promise<void> {
     this.#dismiss("trashed");
     try {
-      const path = await ipc.libraryUntrash(outcome.token);
+      await ipc.libraryUntrash(outcome.token);
       await this.#reloadLibrary();
       if (reopen) await this.#openWith(() => ipc.libraryOpenFile(reopen));
-      else if (path) {
-        this.library.reveal(path);
-        this.library.focused = path;
-      }
     } catch (error) {
       if (isError<LibraryError>(error))
         this.#notice("untrash-failed", "error", copy.untrashFailed(outcome.name, error), []);
     }
   }
 
-  /** New folder…: in `parent`, else beside the focused entry or the open document. */
+  /** Where something new goes: beside `path` (a folder: in it), else beside the open
+   * document, else at the top of the library. */
+  #folderFor(path?: string): string {
+    return folderFor(this.library.nodes, path ?? this.library.active);
+  }
+
+  /** New folder…: in `parent`, else beside the open document. Afterwards the Files
+   * panel shows the new folder, so a file can be made in it. */
   newFolder(parent?: string): void {
     const lib = this.library;
     if (!lib.ready) return;
-    parent ??= lib.folderForNew(this.#treeHasFocus());
-    const where = parent ? (findNode(lib.nodes, parent)?.name ?? parent) : (lib.name ?? "");
+    const where = parent ?? this.#folderFor();
+    const name = where ? (findNode(lib.nodes, where)?.name ?? where) : (lib.name ?? "");
     this.prompt = {
-      title: copy.prompt.newFolder(where),
+      title: copy.prompt.newFolder(name),
       value: "",
       select: 0,
       hint: null,
       action: copy.prompt.createAction,
-      returnTo: "tree",
-      submit: async (name) => {
+      returnTo: "panel",
+      submit: async (folder) => {
         try {
-          const path = await ipc.libraryNewFolder(parent, name);
+          const path = await ipc.libraryNewFolder(where, folder);
           await this.#reloadLibrary();
-          if (parent) lib.expanded.add(parent);
-          lib.focused = path;
-          if (!lib.visible) this.showLibrary(false);
+          this.openPanel("files", {
+            query: `${path}/`,
+            focus: { value: `folder:${path}`, open: false },
+          });
           return null;
         } catch (error) {
           return isError<LibraryError>(error) ? nameError(error) : String(error);
@@ -1058,66 +1022,31 @@ export class Workspace {
   /** Called when the name prompt closes: focus goes back where it belongs. */
   promptClosed(prompt: NamePrompt): void {
     if (this.prompt === prompt) this.prompt = null;
-    // Restore focus after the prompt's inert layer has been removed, including
-    // when returning to a row inside the still-open library overlay.
+    // Restore focus after the prompt's inert layer has been removed.
     setTimeout(() => {
       if (this.prompt) return;
-      const lib = this.library;
-      if (prompt.returnTo === "tree" && (lib.visible || lib.embedded)) lib.requestFocus();
+      const field = document.querySelector<HTMLInputElement>(".panel-input");
+      if (prompt.returnTo === "panel" && this.panel !== null && field) field.focus();
       else this.focusEditor();
     }, 0);
   }
 
+  /** Open folder…: the chosen folder becomes the library, shown in the Files panel. */
   async openFolder(): Promise<void> {
     try {
       const view = await ipc.libraryOpenDialog();
       if (!view) return;
       this.library.apply(view);
-      this.showLibrary(true);
+      this.openPanel("files");
     } catch (error) {
       if (isError<LibraryError>(error)) console.error("bismillah: couldn't open the folder", error);
     }
   }
 
-  /** Shows the library (docked, or as the overlay on narrow windows). */
-  showLibrary(focus: boolean): void {
-    const lib = this.library;
-    if (lib.layout.mode === "docked") {
-      lib.docked = true;
-      void ipc.libraryRememberOpen(true);
-    } else lib.overlay = true;
-    if (focus) lib.requestFocus();
-    void this.#menu?.sync();
-  }
-
-  /** Library (Mod-\): shows it and moves focus into it, or hides it. From the keyboard,
-   * a docked library that is shown but doesn't have focus gets focus instead, so the
-   * writer can always reach it; pressed again there, it hides. */
-  toggleLibrary(fromKeyboard = false): void {
-    const lib = this.library;
-    if (!lib.visible) {
-      this.showLibrary(true);
-      return;
-    }
-    const inTree = this.#treeHasFocus();
-    if (fromKeyboard && !inTree) {
-      lib.requestFocus();
-      return;
-    }
-    if (lib.layout.mode === "docked") {
-      lib.docked = false;
-      void ipc.libraryRememberOpen(false);
-    } else lib.overlay = false;
-    if (inTree) this.focusEditor();
-    void this.#menu?.sync();
-  }
-
-  /** New file…: the save dialog starts in `folder`, else beside the focused entry or
-   * the open document. */
+  /** New file…: the save dialog starts in `folder`, else beside the open document. */
   async newFile(folder?: string): Promise<void> {
-    const inTree = this.#treeHasFocus();
     await this.session?.flush();
-    folder ??= this.library.ready ? this.library.folderForNew(inTree) : undefined;
+    folder ??= this.library.ready ? this.#folderFor() : undefined;
     try {
       const opened = await ipc.newDialog(folder ?? null);
       if (opened) this.#show(opened);
@@ -1195,7 +1124,7 @@ export class Workspace {
       newFile: () => void this.newFile(),
       openFile: () => void this.#openWith(ipc.openDialog),
       save: () => void this.saveNow(),
-      openSettings: () => this.openSettings(),
+      openSettings: () => this.#togglePanel("settings"),
       openAbout: () => (this.aboutOpen = true),
       openGuide: () => void this.#openWith(ipc.openGuide),
       quit: () => void getCurrentWindow().close(),
@@ -1206,21 +1135,13 @@ export class Workspace {
       hasTarget: () => this.#target() !== null,
       newFolder: () => this.newFolder(),
       openFolder: () => void this.openFolder(),
-      quickOpen: () => {
-        if (this.library.ready) this.picker = "quickOpen";
-      },
-      findAnything: () => {
-        this.library.overlay = false;
-        this.picker = "everything";
-      },
+      quickOpen: () => this.#togglePanel("files"),
+      findAnything: () => this.#togglePanel(this.lastPanel),
       rename: () => void this.rename(),
       trash: () => void this.trash(),
-      toggleLibrary: (fromKeyboard) => this.toggleLibrary(fromKeyboard),
-      commandPalette: () => (this.picker = "palette"),
+      commandPalette: () => this.#togglePanel("commands"),
       isOn: (id) => {
         switch (id) {
-          case "view.toggleLibrary":
-            return this.library.visible;
           case "editor.toggleFocus":
             return settings.values.focus_mode;
           case "editor.toggleTypewriter":

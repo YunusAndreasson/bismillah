@@ -52,18 +52,16 @@ describe("the guide", () => {
     await browser.waitUntil(async () => (await text()) === guide, { timeout: 5000 });
   });
 
-  it("is in the palette as Guide, with its shortcut", async () => {
+  it("is in the Commands panel as Guide, with its shortcut", async () => {
+    const items = async () =>
+      ((await browser.execute(() => window.__bismillah?.panel()?.rows)) ?? []).map((r) => r.text);
     await browser.execute(() => window.__bismillah?.run("app.commandPalette"));
     await browser.keys([..."manual"]);
-    await browser.waitUntil(
-      async () =>
-        (await browser.execute(() => window.__bismillah?.picker()?.items ?? [])).some((item) =>
-          item.startsWith("Guide"),
-        ),
-      { timeout: 3000, timeoutMsg: "the palette doesn't find Guide by an alias" },
-    );
-    const items = await browser.execute(() => window.__bismillah?.picker()?.items ?? []);
-    expect(items.find((item) => item.startsWith("Guide"))).toContain("F1");
+    await browser.waitUntil(async () => (await items()).some((item) => item.startsWith("Guide")), {
+      timeout: 3000,
+      timeoutMsg: "the Commands panel doesn't find Guide by an alias",
+    });
+    expect((await items()).find((item) => item.startsWith("Guide"))).toContain("F1");
     await browser.keys(["Escape"]);
   });
 

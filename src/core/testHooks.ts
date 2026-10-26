@@ -19,7 +19,8 @@ import {
   testOpen,
   type MenuState,
 } from "./ipc.ts";
-import type { SettingsSection, SettingsTarget } from "./settingEntries.ts";
+import type { Panel } from "./panels.ts";
+import type { SettingsTarget } from "./settingEntries.ts";
 import type { SaveState } from "./session.svelte.ts";
 import { copy } from "./copy.ts";
 import { shortcuts } from "./keybindings.svelte.ts";
@@ -81,13 +82,14 @@ export interface TestHooks {
   /** The next native file dialog answers `path` (null: cancelled) without showing. */
   nextDialog(path: string | null): Promise<void>;
   library(): LibraryProbe;
-  /** The open quick open or palette: its kind and the text of each item. */
-  picker(): { kind: string; items: string[]; selected: string | null } | null;
+  /** The open panel: its kind, query, rows (as read), the highlighted row, the row
+   * opened in place, and each tab's count while searching. */
+  panel(): PanelProbe | null;
+  /** Opens a panel afresh, with `query` typed if given. */
+  openPanel(kind: Panel, query?: string): Promise<void>;
   /** The open name prompt; `ready` once its field has focus. `problem`, not `error`:
    * WebDriver reads a result with an `error` key as a failure of its own. */
   prompt(): { title: string; value: string; problem: string | null; ready: boolean } | null;
-  /** Lays the library out again for the current window (tests resize the window). */
-  measure(): Promise<void>;
   /** Resolves once checking has caught up with the document (or after `timeoutMs`). */
   lintSettled(timeoutMs?: number): Promise<boolean>;
   /** The diagnostics the writer can see, and which of them are drawn now. */
@@ -106,8 +108,8 @@ export interface TestHooks {
     items: string[];
     focused: string | null;
   } | null;
-  /** Opens Settings, at a section if given. */
-  openSettings(section?: SettingsSection | SettingsTarget | null): void;
+  /** Opens the Settings panel, at a row (and opened in place) if given. */
+  openSettings(at?: SettingsTarget | null): void;
   /** Visual fixtures only: labels never change Rust's actual storage locations. */
   setFolderLabels(folders: { config: string; data: string }): void;
   /** Each command's shortcut now, and why lines of keybindings.toml weren't used. */
@@ -121,14 +123,23 @@ export interface TestHooks {
 export interface LibraryProbe {
   kind: string;
   name: string | null;
-  visible: boolean;
-  mode: "docked" | "overlay";
-  offset: number;
-  focused: string | null;
   active: string | null;
-  /** The element with keyboard focus is a row of the tree: its path. */
-  focusedRow: string | null;
-  rows: { path: string; level: number; expanded: boolean | null; selected: boolean }[];
+  /** Every file and folder path in the listing, in tree order. */
+  paths: string[];
+}
+
+export interface PanelProbe {
+  kind: Panel;
+  query: string;
+  /** Each row's text, with its value ("file:notes.md", "setting:measure"). */
+  rows: { value: string; text: string }[];
+  selected: string | null;
+  opened: string | null;
+  /** The element with keyboard focus: "field", "opened" (a control in the opened
+   * row) or "other". */
+  focus: "field" | "opened" | "other";
+  counts: Record<Panel, number> | null;
+  keys: string;
 }
 
 declare global {
@@ -245,11 +256,11 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
       await settings.set(patch);
       await settle();
     },
-    // The document's status, without the library toggle at its start.
+    // The document's status, without the panels' items at its start.
     status() {
       const status = document.querySelector(".status")?.cloneNode(true);
       if (!(status instanceof HTMLElement)) return "";
-      status.querySelector(".library-toggle")?.remove();
+      status.querySelector(".start")?.remove();
       return status.textContent?.replace(/\s+/g, " ").trim() ?? "";
     },
     async fault(kind) {
@@ -270,41 +281,52 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
     },
     library() {
       const lib = workspace.library;
+      const paths: string[] = [];
+      const walk = (nodes: typeof lib.nodes) => {
+        for (const node of nodes) {
+          paths.push(node.path);
+          walk(node.children);
+        }
+      };
+      walk(lib.nodes);
+      return { kind: lib.view.kind, name: lib.name, active: lib.active, paths };
+    },
+    panel() {
+      const kind = workspace.panel;
+      const box = document.querySelector(".panel");
+      if (!kind || !box) return null;
+      const text = (el: Element | null) => el?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+      const rows = [...box.querySelectorAll<HTMLElement>(".panel-row")];
+      const value = (el: Element) => el.getAttribute("data-value") ?? "";
+      const current = box.querySelector(".panel-row.current");
+      const opened = box.querySelector(".panel-opened");
       const active = document.activeElement;
-      const row =
-        active instanceof HTMLElement ? active.closest<HTMLElement>('[role="treeitem"]') : null;
+      const counts = [...box.querySelectorAll(".panel-tab .count")].map((el) =>
+        Number(text(el).replace(/\D/g, "")),
+      );
       return {
-        kind: lib.view.kind,
-        name: lib.name,
-        visible: lib.visible,
-        mode: lib.layout.mode,
-        offset: lib.layout.offset,
-        focused: lib.focused,
-        active: lib.active,
-        focusedRow: row?.dataset.path ?? null,
-        // One tree's rows: Find anything's while it is open, else the library's.
-        rows: [
-          ...((
-            document.querySelector(".picker [role='tree']") ??
-            document.querySelector("[role='tree']")
-          )?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? []),
-        ].map((el) => ({
-          path: el.dataset.path ?? "",
-          level: Number(el.getAttribute("aria-level")),
-          expanded: el.hasAttribute("aria-expanded")
-            ? el.getAttribute("aria-expanded") === "true"
+        kind,
+        query: workspace.panelQuery,
+        rows: rows.map((el) => ({ value: value(el), text: text(el) })),
+        selected: current ? value(current) : null,
+        opened: opened ? value(opened) : null,
+        focus: active?.classList.contains("panel-input")
+          ? "field"
+          : opened?.contains(active)
+            ? "opened"
+            : "other",
+        counts:
+          counts.length === 3
+            ? { files: counts[0] ?? 0, commands: counts[1] ?? 0, settings: counts[2] ?? 0 }
             : null,
-          selected: el.getAttribute("aria-selected") === "true",
-        })),
+        keys: text(box.querySelector(".panel-keys .now")),
       };
     },
-    picker() {
-      const kind = workspace.picker;
-      if (!kind) return null;
-      const text = (el: Element) => el.textContent?.replace(/\s+/g, " ").trim() ?? "";
-      const items = [...document.querySelectorAll(".picker-item")];
-      const selected = document.querySelector(".picker-item[data-selected]");
-      return { kind, items: items.map(text), selected: selected ? text(selected) : null };
+    async openPanel(kind, query) {
+      workspace.panel = null;
+      await settle();
+      workspace.openPanel(kind, query === undefined ? {} : { query });
+      await settle();
     },
     prompt() {
       const dialog = document.querySelector(".prompt");
@@ -316,10 +338,6 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
         problem: dialog.querySelector(".error")?.textContent?.trim() ?? null,
         ready: input !== null && document.activeElement === input,
       };
-    },
-    async measure() {
-      workspace.measureLayout();
-      await settle();
     },
     async lintSettled(timeoutMs = 15_000) {
       const end = Date.now() + timeoutMs;
@@ -361,7 +379,7 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
         focused: focused ? text(focused) : null,
       };
     },
-    openSettings: (section = null) => workspace.openSettings(section),
+    openSettings: (at = null) => workspace.openSettings(at),
     setFolderLabels: (folders) => {
       workspace.info.folders = folders;
     },
