@@ -55,6 +55,9 @@ export type SaveError =
   | { kind: "outside" }
   | { kind: "other"; detail: string };
 
+/** A failed doc_save: recovery is confirmed only for the text in that request. */
+export type SaveFailure = SaveError & { recovered: boolean };
+
 export type OpenError =
   | { kind: "not_found" }
   | { kind: "permission_denied" }
@@ -158,7 +161,7 @@ export const openRequested = () => invoke<OpenedDocument | null>("doc_open_reque
 export const openRecovered = (token: number) =>
   invoke<OpenedDocument>("doc_open_recovered", { token });
 
-/** Resolves with the revision now durably on disk, or rejects with a `SaveError`. */
+/** Resolves with the durable revision, or rejects with a `SaveFailure`. */
 export const saveDocument = (id: number, text: string, revision: number, force: boolean) =>
   invoke<number>("doc_save", { id, text, revision, force });
 export const saveAs = (id: number, text: string) =>

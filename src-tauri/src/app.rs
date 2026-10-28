@@ -216,8 +216,8 @@ impl AppState {
         // Where the document is in the library needs the library.
         self.library_ready();
         // Text the writer leaves behind unsaved (its last save failed) stays on offer.
-        if let Some(previous) = self.current_path() {
-            self.recovery.retain_mirror(&previous);
+        if self.current_path().is_some() {
+            self.recovery.retain_mirror();
         }
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (name, path, sample) = match &source {
@@ -499,7 +499,56 @@ pub async fn doc_open_recovered(
 ) -> Result<Opened, OpenError> {
     let path = lock(&state.recovered).get(token).cloned();
     let path = path.ok_or(OpenError::NotFound)?;
-    state.open_path(&path)
+    if !crate::appliance::allows_document(&path) {
+        return Err(OpenError::Outside);
+    }
+    let (doc, decoded) = open_recoverable(&state.recovery, &path)?;
+    Ok(state.install(Source::File(doc), decoded))
+}
+
+/// Recovery can outlive its original file or volume. Opening its offer must not
+/// create anything: Restore goes through the usual removed-file save protection.
+fn open_recoverable(
+    recovery: &Recovery,
+    path: &Path,
+) -> Result<(Document, documents::Decoded), OpenError> {
+    match documents::open(path) {
+        Err(OpenError::NotFound) if recovery.offer(path).is_some() => {
+            let decoded = documents::decode(b"");
+            let doc = Document {
+                path: path.to_path_buf(),
+                missing: true,
+                line_ending: decoded.line_ending,
+                bom: false,
+                utf8: true,
+                disk: documents::DiskState {
+                    mtime: None,
+                    size: 0,
+                    hash: documents::content_hash(b""),
+                },
+                saved_revision: 0,
+            };
+            Ok((doc, decoded))
+        }
+        result => result,
+    }
+}
+
+/// A failed save says explicitly whether its text reached durable recovery.
+#[derive(Debug, Serialize)]
+pub struct SaveFailure {
+    #[serde(flatten)]
+    error: SaveError,
+    recovered: bool,
+}
+
+impl SaveFailure {
+    fn unprotected(error: SaveError) -> Self {
+        Self {
+            error,
+            recovered: false,
+        }
+    }
 }
 
 /// Saves the open document (ARCHITECTURE.md §5). The text is mirrored to the recovery
@@ -512,8 +561,10 @@ pub async fn doc_save(
     text: String,
     revision: u64,
     force: bool,
-) -> Result<u64, SaveError> {
-    let open = state.current(id).ok_or(SaveError::Closed)?;
+) -> Result<u64, SaveFailure> {
+    let open = state
+        .current(id)
+        .ok_or_else(|| SaveFailure::unprotected(SaveError::Closed))?;
     let recovery = Arc::clone(&state.recovery);
     let fault = Arc::clone(&state.fault);
     // File I/O and fsync block, so they run off the async runtime. Saves for one
@@ -521,8 +572,11 @@ pub async fn doc_save(
     let result = tauri::async_runtime::spawn_blocking(move || {
         let mut open = lock(&open);
         match &mut open.source {
-            Source::Sample(_) => Err(SaveError::NotAFile),
+            Source::Sample(_) => Err(SaveFailure::unprotected(SaveError::NotAFile)),
             Source::File(doc) => {
+                if !crate::appliance::allows_document(&doc.path) {
+                    return Err(SaveFailure::unprotected(SaveError::Outside));
+                }
                 let fault = *lock(&fault);
                 let faults = move |step| fault.map_or(Ok(()), |f| f.at(step));
                 save_with_recovery(&recovery, doc, &text, revision, force, &faults)
@@ -531,12 +585,12 @@ pub async fn doc_save(
     })
     .await
     .unwrap_or_else(|_| {
-        Err(SaveError::Other {
+        Err(SaveFailure::unprotected(SaveError::Other {
             detail: "Interrupted".into(),
-        })
+        }))
     });
     if let Err(e) = &result {
-        eprintln!("bismillah: save failed: {e}");
+        eprintln!("bismillah: save failed: {}", e.error);
     }
     result
 }
@@ -548,7 +602,7 @@ fn save_with_recovery(
     revision: u64,
     force: bool,
     faults: documents::Faults<'_>,
-) -> Result<u64, SaveError> {
+) -> Result<u64, SaveFailure> {
     if revision <= doc.saved_revision {
         return Ok(doc.saved_revision);
     }
@@ -561,10 +615,14 @@ fn save_with_recovery(
             Ok(saved)
         }
         Err(error) => {
-            if let Err(e) = recovery.mirror(&doc.path, text, revision, true) {
-                eprintln!("bismillah: couldn't keep text in recovery: {:?}", e.kind());
-            }
-            Err(error)
+            let recovered = match recovery.mirror(&doc.path, text, revision, true) {
+                Ok(()) => true,
+                Err(e) => {
+                    eprintln!("bismillah: couldn't keep text in recovery: {:?}", e.kind());
+                    false
+                }
+            };
+            Err(SaveFailure { error, recovered })
         }
     }
 }
@@ -904,4 +962,131 @@ pub fn dirs(app: &AppHandle) -> tauri::Result<(PathBuf, PathBuf)> {
         paths.config_dir()?.join("bismillah"),
         paths.data_dir()?.join("bismillah"),
     ))
+}
+
+#[cfg(test)]
+mod save_tests {
+    use super::*;
+    use crate::testing::Scratch;
+    use std::{fs, io};
+
+    #[test]
+    fn missing_original_recovery_needs_explicit_recreation() {
+        let scratch = Scratch::new();
+        let path = scratch.file("gone.md", b"old");
+        let recovery = Recovery::new(scratch.path().join("recovery"));
+        recovery.keep(&path, "حَدِيث\n").unwrap();
+        fs::remove_file(&path).unwrap();
+        let (mut doc, decoded) = open_recoverable(&recovery, &path).unwrap();
+        assert!(decoded.text.is_empty());
+        assert!(!path.exists());
+        assert_eq!(
+            documents::save(&mut doc, "حَدِيث\n", 1, false, NO_FAULTS),
+            Err(SaveError::Removed)
+        );
+        assert!(!path.exists());
+        // Even an empty replacement was never the document we opened.
+        fs::write(&path, b"").unwrap();
+        assert_eq!(
+            documents::save(&mut doc, "حَدِيث\n", 1, false, NO_FAULTS),
+            Err(SaveError::Conflict)
+        );
+        assert_eq!(fs::read(&path).unwrap(), b"");
+        documents::save(&mut doc, "حَدِيث\n", 1, true, NO_FAULTS).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "حَدِيث\n");
+    }
+
+    #[test]
+    fn recovery_opens_when_the_original_folder_is_gone() {
+        let scratch = Scratch::new();
+        let folder = scratch.path().join("gone");
+        fs::create_dir(&folder).unwrap();
+        let path = folder.join("letter.md");
+        fs::write(&path, b"old").unwrap();
+        let recovery = Recovery::new(scratch.path().join("recovery"));
+        recovery.keep(&path, "unsaved").unwrap();
+        fs::remove_dir_all(&folder).unwrap();
+        let (mut doc, _) = open_recoverable(&recovery, &path).unwrap();
+        assert_eq!(
+            documents::save(&mut doc, "unsaved", 1, true, NO_FAULTS),
+            Err(SaveError::Unavailable)
+        );
+        assert!(!folder.exists());
+    }
+
+    #[test]
+    fn recovery_fallback_requires_an_entry_and_does_not_hide_other_open_errors() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let scratch = Scratch::new();
+        let recovery = Recovery::new(scratch.path().join("recovery"));
+        assert!(matches!(
+            open_recoverable(&recovery, &scratch.path().join("absent.md")),
+            Err(OpenError::NotFound)
+        ));
+        let path = scratch.file("private.md", b"private");
+        recovery.keep(&path, "unsaved").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o000)).unwrap();
+        let result = open_recoverable(&recovery, &path);
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(matches!(result, Err(OpenError::PermissionDenied)));
+        // If the original exists, its content and disk state remain authoritative.
+        let (mut doc, decoded) = open_recoverable(&recovery, &path).unwrap();
+        assert_eq!(decoded.text, "private");
+        fs::write(&path, b"external change").unwrap();
+        assert_eq!(
+            documents::save(&mut doc, "unsaved", 1, false, NO_FAULTS),
+            Err(SaveError::Conflict)
+        );
+    }
+
+    #[test]
+    fn save_failure_reports_when_recovery_also_failed() {
+        let scratch = Scratch::new();
+        let path = scratch.file("original.md", b"original");
+        let blocked = scratch.file("recovery", b"not a directory");
+        let recovery = Recovery::new(blocked);
+        let (mut doc, _) = documents::open(&path).expect("opens");
+        let fault = |_| Err(io::Error::from(io::ErrorKind::StorageFull));
+        let error = save_with_recovery(&recovery, &mut doc, "unsaved", 1, false, &fault)
+            .expect_err("save fails");
+        assert_eq!(error.error, SaveError::DiskFull);
+        assert!(!error.recovered);
+        assert_eq!(fs::read_to_string(path).expect("reads"), "original");
+        let serialized = serde_json::to_value(error).expect("serializes");
+        assert_eq!(serialized["kind"], "disk_full");
+        assert_eq!(serialized["recovered"], false);
+    }
+
+    #[test]
+    fn save_failure_confirms_a_durable_recovery_copy() {
+        let scratch = Scratch::new();
+        let path = scratch.file("original.md", b"original");
+        let dir = scratch.path().join("recovery");
+        let recovery = Recovery::new(dir.clone());
+        let (mut doc, _) = documents::open(&path).expect("opens");
+        let fault = |_| Err(io::Error::from(io::ErrorKind::StorageFull));
+        let error = save_with_recovery(&recovery, &mut doc, "unsaved", 1, false, &fault)
+            .expect_err("save fails");
+        assert!(error.recovered);
+        assert!(fs::read_dir(dir).expect("recovery exists").any(|entry| {
+            let path = entry.expect("entry").path();
+            path.extension().is_some_and(|e| e == "md")
+                && fs::read_to_string(path).expect("reads") == "unsaved"
+        }));
+    }
+
+    #[test]
+    fn a_durable_save_still_succeeds_when_recovery_is_unavailable() {
+        let scratch = Scratch::new();
+        let path = scratch.file("original.md", b"original");
+        let blocked = scratch.file("recovery", b"not a directory");
+        let recovery = Recovery::new(blocked);
+        let (mut doc, _) = documents::open(&path).expect("opens");
+        assert_eq!(
+            save_with_recovery(&recovery, &mut doc, "saved", 1, false, NO_FAULTS).expect("saves"),
+            1
+        );
+        assert_eq!(fs::read_to_string(path).expect("reads"), "saved");
+    }
 }

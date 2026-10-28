@@ -29,11 +29,11 @@ Your text is saved **exactly as you typed it**: line endings, vocalisation, punc
 
 ### When saving fails
 
-If a save fails, because the disk is full, say, or the folder has gone, a notice above the text says what happened, and the status line keeps saying *Not saved* until a save succeeds. Your text is kept in recovery meanwhile, so nothing is lost.
+If a save fails, because the disk is full, say, or the folder has gone, a notice above the text says what happened, and the status line keeps saying *Not saved* until a save succeeds. When a recovery copy has been made, the notice says so. If recovery also fails, your text stays in the window: bismillah refuses to replace or close it until a durable copy exists. Use *Save elsewhere…* to keep it in another file. A sudden power loss can still lose edits that have not reached the disk or recovery.
 
 - *Try again* saves again; *Save elsewhere…* saves the text to another file.
 - If another program changes the file while you are editing it, bismillah shows both possibilities: *Keep mine* saves your text over theirs, *Load theirs* replaces your text with the file as it is now (yours stays in recovery), and *Save mine as…* keeps both. A file changed elsewhere while you have no unsaved changes simply reloads.
-- If bismillah or your computer stops before your text is saved, the text is waiting the next time you open that file: *Restore* puts it back, *Discard* lets it go. Other files with waiting text are mentioned when bismillah starts.
+- If bismillah or your computer stops before your text is saved, the text is waiting the next time you open that file: *Restore* puts it back, *Discard* lets it go. Other files with waiting text are mentioned when bismillah starts. You can open that recovery even if its original file or folder has gone. After *Restore*, use *Save it again* to recreate a missing file or *Save elsewhere…* to choose another location; opening recovery does not create files or folders.
 
 ## Writing
 

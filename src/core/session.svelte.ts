@@ -1,4 +1,4 @@
-import { isError, type OpenedDocument, type SaveError } from "./ipc.ts";
+import { isError, type OpenedDocument, type SaveError, type SaveFailure } from "./ipc.ts";
 
 /**
  * The open document's save state (ARCHITECTURE.md §5, DESIGN.md §12).
@@ -20,7 +20,7 @@ export type SaveState =
   | { kind: "read_only" };
 
 export interface SaveIO {
-  /** Resolves with the revision now on disk, or rejects with a `SaveError`. */
+  /** Resolves with the durable revision, or rejects with a `SaveFailure`. */
   save(id: number, text: string, revision: number, force: boolean): Promise<number>;
 }
 
@@ -43,7 +43,9 @@ export class DocumentSession {
   #running: Promise<void> | null = null;
   #again = false;
   #force = false;
+  #requiresResolution = false;
   #disposed = false;
+  #recoveredRevision = $state(-1);
 
   constructor(doc: OpenedDocument, text: () => string, io: SaveIO, delay = AUTOSAVE_DELAY_MS) {
     this.id = doc.id;
@@ -66,6 +68,17 @@ export class DocumentSession {
     return this.revision > this.savedRevision;
   }
 
+  /** Rust confirmed a durable recovery copy of the latest edits. */
+  get recoveryCurrent(): boolean {
+    return this.#recoveredRevision >= this.revision;
+  }
+
+  /** Replacing the editor or ending the process cannot lose these edits. */
+  get canLeave(): boolean {
+    if (this.#requiresResolution) return false;
+    return this.sample || this.readOnly || !this.dirty || this.recoveryCurrent;
+  }
+
   /** Records an edit and schedules a save after the typing pause. */
   edited(): void {
     this.revision++;
@@ -76,6 +89,16 @@ export class DocumentSession {
     this.#timer = setTimeout(() => void this.save(), this.#delay);
   }
 
+  /** A reload opened a new disk version but could not keep the latest local text.
+   * Keep it visible; autosave must not silently overwrite the version just read. */
+  requireConflictResolution(): void {
+    clearTimeout(this.#timer);
+    this.#timer = undefined;
+    this.#requiresResolution = true;
+    this.#recoveredRevision = -1;
+    this.state = { kind: "failed", error: { kind: "conflict" } };
+  }
+
   /**
    * Saves now. With `force`, the save goes ahead even though the file changed on disk
    * ("Keep mine"). Resolves true when every edit is durably on disk.
@@ -84,11 +107,15 @@ export class DocumentSession {
     clearTimeout(this.#timer);
     this.#timer = undefined;
     if (!this.saveable) return Promise.resolve(!this.dirty || this.sample);
-    if (force) this.#force = true;
+    if (force) {
+      this.#requiresResolution = false;
+      this.#force = true;
+    }
     if (this.#running) {
       this.#again = true;
       return this.#running.then(() => this.save());
     }
+    if (this.#requiresResolution) return Promise.resolve(false);
     this.#running = this.#loop().finally(() => (this.#running = null));
     return this.#running.then(() => !this.dirty);
   }
@@ -109,10 +136,15 @@ export class DocumentSession {
       const force = this.#force;
       this.#force = false;
       if (this.state.kind !== "failed") this.state = { kind: "saving" };
+      // A retry may overwrite the old mirror before its new durable write.
+      // Never let a timeout rely on the previous recovery confirmation.
+      this.#recoveredRevision = -1;
       try {
         const saved = await this.#io.save(this.id, this.#text(), revision, force);
         this.savedRevision = Math.max(this.savedRevision, saved);
       } catch (error) {
+        if (isError<SaveFailure>(error) && error.recovered === true)
+          this.#recoveredRevision = Math.max(this.#recoveredRevision, revision);
         this.state = {
           kind: "failed",
           error: isError<SaveError>(error) ? error : { kind: "other", detail: String(error) },

@@ -2,8 +2,9 @@
 //!
 //! Before every save, the text being saved is mirrored to `<data>/recovery/`, with a
 //! small JSON sidecar naming the file it belongs to. A clean save removes the mirror; a
-//! failed save makes it durable. So a failed save, a refused save (conflict) or a process
-//! killed in the middle of saving always leaves the writer's text here.
+//! failed save makes it durable. A successful recovery write protects against failed or
+//! refused saves. If recovery also fails, app.rs reports that fact so the frontend keeps
+//! the text open instead of claiming that a recovery copy exists.
 //!
 //! Entries are kept per app session, so the running session's mirrors can never
 //! overwrite text left by an earlier one: that text is offered when its file is opened,
@@ -32,6 +33,17 @@ struct Sidecar {
     path: PathBuf,
     revision: u64,
     saved_at_ms: u64,
+    /// Precise ordering for copies written within a single millisecond. Optional
+    /// so entries written by earlier versions remain readable.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    saved_at_ns: Option<u64>,
+}
+
+impl Sidecar {
+    fn timestamp_ns(&self) -> u128 {
+        self.saved_at_ns
+            .map_or_else(|| u128::from(self.saved_at_ms) * 1_000_000, u128::from)
+    }
 }
 
 /// A recovered text, offered to the writer when its file is opened.
@@ -50,9 +62,12 @@ pub struct Pending {
 
 pub struct Recovery {
     dir: PathBuf,
-    /// This run's key; entries with any other key come from earlier sessions.
+    /// This run's prefix; mirror generations and deliberately kept entries extend it.
     session: String,
     kept: AtomicU64,
+    /// One document is open at a time. Leaving it retires its mirror key without
+    /// moving either journal file; future writes use a fresh generation.
+    generation: AtomicU64,
 }
 
 fn now_ms() -> u64 {
@@ -92,6 +107,7 @@ impl Recovery {
             dir,
             session,
             kept: AtomicU64::new(0),
+            generation: AtomicU64::new(0),
         }
     }
 
@@ -124,10 +140,15 @@ impl Recovery {
         }
         platform::create_private_dir(&self.dir)?;
         let (text_path, sidecar_path) = self.entry_paths(path, key);
+        let now = SystemTime::now();
         let sidecar = Sidecar {
             path: path.to_path_buf(),
             revision,
-            saved_at_ms: now_ms(),
+            saved_at_ms: ms(now),
+            saved_at_ns: now
+                .duration_since(UNIX_EPOCH)
+                .ok()
+                .and_then(|duration| u64::try_from(duration.as_nanos()).ok()),
         };
         let json = serde_json::to_vec(&sidecar).map_err(io::Error::other)?;
         if durable {
@@ -140,33 +161,31 @@ impl Recovery {
         }
     }
 
+    fn mirror_key(&self) -> String {
+        format!(
+            "{}-m{}",
+            self.session,
+            self.generation.load(Ordering::Relaxed)
+        )
+    }
+
     /// Mirrors the text about to be saved. `durable` also fsyncs it, after a failed save.
     pub fn mirror(&self, path: &Path, text: &str, revision: u64, durable: bool) -> io::Result<()> {
-        self.write_entry(path, &self.session, text, revision, durable)
+        self.write_entry(path, &self.mirror_key(), text, revision, durable)
     }
 
     /// Removes this session's mirror after a clean save.
     pub fn clear_mirror(&self, path: &Path) {
-        let (text_path, sidecar_path) = self.entry_paths(path, &self.session);
+        let (text_path, sidecar_path) = self.entry_paths(path, &self.mirror_key());
         let _ = fs::remove_file(sidecar_path);
         let _ = fs::remove_file(text_path);
     }
 
-    /// Turns this session's mirror for `path`, if any, into a kept entry: the writer is
-    /// leaving a document whose last save failed, and its text must be offered when
-    /// they come back to it, even in this session.
-    pub fn retain_mirror(&self, path: &Path) {
-        let (text_path, sidecar_path) = self.entry_paths(path, &self.session);
-        if !sidecar_path.exists() {
-            return;
-        }
-        let key = self.kept_key();
-        let (kept_text, kept_sidecar) = self.entry_paths(path, &key);
-        let moved = fs::rename(&text_path, kept_text)
-            .and_then(|()| fs::rename(&sidecar_path, kept_sidecar));
-        if let Err(e) = moved {
-            eprintln!("bismillah: couldn't keep recovered text: {:?}", e.kind());
-        }
+    /// Retires the open document's mirror so it is offered when the writer returns.
+    /// Its completed files stay untouched: two renames could fail partway through,
+    /// or fail on a read-only/full recovery volume and hide the only saved copy.
+    pub fn retain_mirror(&self) {
+        self.generation.fetch_add(1, Ordering::Relaxed);
     }
 
     fn kept_key(&self) -> String {
@@ -206,19 +225,20 @@ impl Recovery {
 
     /// Entries for `path` left by earlier sessions or kept on purpose, newest first.
     fn earlier(&self, path: &Path) -> Vec<Found> {
+        let current = self.mirror_key();
         let mut found: Vec<Found> = self
             .entries()
             .into_iter()
-            .filter(|f| f.key != self.session && f.sidecar.path == path)
+            .filter(|f| f.key != current && f.sidecar.path == path)
             .collect();
-        found.sort_by_key(|f| std::cmp::Reverse(f.sidecar.saved_at_ms));
+        found.sort_by_key(|f| std::cmp::Reverse(f.sidecar.timestamp_ns()));
         found
     }
 
     /// The newest earlier text for `path`, if it is newer than the file and differs
     /// from it. An entry identical to the file is removed: it was saved after all.
     pub fn offer(&self, path: &Path) -> Option<Entry> {
-        let file_mtime = fs::metadata(path).and_then(|m| m.modified()).ok().map(ms);
+        let file_mtime = fs::metadata(path).and_then(|m| m.modified()).ok();
         let on_disk = documents::read(path)
             .ok()
             .map(|bytes| documents::decode(&bytes).text);
@@ -230,7 +250,14 @@ impl Recovery {
                 found.remove();
                 continue;
             }
-            if file_mtime.is_some_and(|m| found.sidecar.saved_at_ms <= m) {
+            if file_mtime.is_some_and(|modified| match found.sidecar.saved_at_ns {
+                Some(saved) => modified
+                    .duration_since(UNIX_EPOCH)
+                    .is_ok_and(|time| time.as_nanos() >= u128::from(saved)),
+                // Equal milliseconds cannot establish which legacy write came
+                // first. Offer the differing text instead of hiding it.
+                None => found.sidecar.saved_at_ms < ms(modified),
+            }) {
                 continue;
             }
             return Some(Entry {
@@ -260,6 +287,9 @@ impl Recovery {
             } else {
                 to.join(rest)
             };
+            if path == found.sidecar.path {
+                continue;
+            }
             let (text_path, sidecar_path) = self.entry_paths(&path, &found.key);
             let sidecar = Sidecar {
                 path,
@@ -267,9 +297,14 @@ impl Recovery {
             };
             let result = (|| {
                 let json = serde_json::to_vec(&sidecar).map_err(io::Error::other)?;
-                fs::rename(&found.text_path, &text_path)?;
-                documents::write_atomic(&sidecar_path, &json, platform::owner_only(), NO_FAULTS)?;
-                fs::remove_file(&found.sidecar_path)
+                let text = fs::read(&found.text_path)?;
+                let private = platform::owner_only();
+                // Keep the old pair until both replacements are durable. Moving the
+                // text first would orphan it if writing its new sidecar failed.
+                documents::write_atomic(&text_path, &text, private.clone(), NO_FAULTS)?;
+                documents::write_atomic(&sidecar_path, &json, private, NO_FAULTS)?;
+                fs::remove_file(&found.sidecar_path)?;
+                fs::remove_file(&found.text_path)
             })();
             if let Err(e) = result {
                 eprintln!(
@@ -282,10 +317,11 @@ impl Recovery {
 
     /// Other files with text waiting in recovery, newest first.
     pub fn pending(&self, except: Option<&Path>) -> Vec<Pending> {
+        let current = self.mirror_key();
         let mut paths: Vec<PathBuf> = self
             .entries()
             .into_iter()
-            .filter(|f| f.key != self.session && Some(f.sidecar.path.as_path()) != except)
+            .filter(|f| f.key != current && Some(f.sidecar.path.as_path()) != except)
             .map(|f| f.sidecar.path)
             .collect();
         paths.sort();
@@ -308,14 +344,14 @@ impl Recovery {
     pub fn prune(&self) {
         let now = now_ms();
         let max_age_ms = u64::try_from(MAX_AGE.as_millis()).unwrap_or(u64::MAX);
-        let mut kept: Vec<(u64, u64, Found)> = Vec::new();
+        let mut kept: Vec<(u128, u64, Found)> = Vec::new();
         for found in self.entries() {
             if now.saturating_sub(found.sidecar.saved_at_ms) > max_age_ms {
                 found.remove();
                 continue;
             }
             let size = fs::metadata(&found.text_path).map_or(0, |m| m.len());
-            kept.push((found.sidecar.saved_at_ms, size, found));
+            kept.push((found.sidecar.timestamp_ns(), size, found));
         }
         kept.sort_by_key(|k| std::cmp::Reverse(k.0));
         let mut total = 0u64;
@@ -355,6 +391,119 @@ mod tests {
         // Make the file clearly older than anything written to the journal.
         age(&file, -60);
         (scratch, dir, file)
+    }
+
+    fn set_time(found: &Found, milliseconds: u64, nanoseconds: Option<u64>) {
+        let mut json: serde_json::Value =
+            serde_json::from_slice(&fs::read(&found.sidecar_path).unwrap()).unwrap();
+        json["saved_at_ms"] = serde_json::json!(milliseconds);
+        if let Some(ns) = nanoseconds {
+            json["saved_at_ns"] = serde_json::json!(ns);
+        } else {
+            json.as_object_mut().unwrap().remove("saved_at_ns");
+        }
+        fs::write(&found.sidecar_path, serde_json::to_vec(&json).unwrap()).unwrap();
+    }
+
+    #[test]
+    fn same_millisecond_recovery_entries_offer_the_newest_text_after_restart() {
+        let (_s, dir, file) = setup();
+        let recovery = Recovery::new(dir.clone());
+        recovery.keep(&file, "one").unwrap();
+        recovery.keep(&file, "two").unwrap();
+        let found = recovery.entries();
+        assert_eq!(found.len(), 2);
+        let at = now_ms() + 1000;
+        // Give the first directory entry the older precise timestamp. Directory
+        // enumeration order must not decide which unsaved text is restored.
+        fs::write(&found[0].text_path, "older local text").unwrap();
+        fs::write(&found[1].text_path, "newer حَدِيث\n").unwrap();
+        set_time(&found[0], at, Some(at * 1_000_000 + 100));
+        set_time(&found[1], at, Some(at * 1_000_000 + 900));
+        assert_eq!(
+            Recovery::new(dir).offer(&file).map(|e| e.text),
+            Some("newer حَدِيث\n".into())
+        );
+    }
+
+    #[test]
+    fn a_recovery_copy_newer_than_the_file_in_the_same_millisecond_is_not_hidden() {
+        let (_s, dir, file) = setup();
+        let recovery = Recovery::new(dir);
+        recovery.keep(&file, "protected text").unwrap();
+        let at = now_ms();
+        let modified = UNIX_EPOCH + Duration::from_millis(at) + Duration::from_nanos(500);
+        fs::File::options()
+            .write(true)
+            .open(&file)
+            .unwrap()
+            .set_modified(modified)
+            .unwrap();
+        assert_eq!(fs::metadata(&file).unwrap().modified().unwrap(), modified);
+        let entry = recovery.entries().remove(0);
+        set_time(&entry, at, Some(at * 1_000_000 + 900));
+        assert_eq!(
+            recovery.offer(&file).map(|e| e.text),
+            Some("protected text".into())
+        );
+        set_time(&entry, at, Some(at * 1_000_000 + 100));
+        assert_eq!(
+            recovery.offer(&file),
+            None,
+            "an older copy stays suppressed"
+        );
+    }
+
+    #[test]
+    fn legacy_recovery_with_ambiguous_equal_milliseconds_remains_available() {
+        let (_s, dir, file) = setup();
+        let recovery = Recovery::new(dir);
+        recovery.keep(&file, "legacy text").unwrap();
+        let at = now_ms();
+        let modified = UNIX_EPOCH + Duration::from_millis(at) + Duration::from_nanos(500);
+        fs::File::options()
+            .write(true)
+            .open(&file)
+            .unwrap()
+            .set_modified(modified)
+            .unwrap();
+        let entry = recovery.entries().remove(0);
+        set_time(&entry, at, None);
+        assert_eq!(
+            recovery.offer(&file).map(|e| e.text),
+            Some("legacy text".into())
+        );
+        set_time(&entry, at - 1, None);
+        assert_eq!(recovery.offer(&file), None);
+    }
+
+    #[test]
+    fn pruning_same_millisecond_entries_keeps_the_newest_copies() {
+        let (_s, dir, file) = setup();
+        let recovery = Recovery::new(dir);
+        for _ in 0..17 {
+            recovery.keep(&file, "text").unwrap();
+        }
+        let found = recovery.entries();
+        assert_eq!(found.len(), 17);
+        let at = now_ms() + 1000;
+        for (i, entry) in found.iter().enumerate() {
+            // Sparse files exceed the total budget without allocating 272 MiB.
+            fs::File::options()
+                .write(true)
+                .open(&entry.text_path)
+                .unwrap()
+                .set_len(MAX_ENTRY_BYTES as u64)
+                .unwrap();
+            set_time(entry, at, Some(at * 1_000_000 + i as u64));
+        }
+        recovery.prune();
+        assert!(
+            !found[0].text_path.exists(),
+            "the oldest copy is pruned first"
+        );
+        assert!(found[16].text_path.exists(), "the newest copy survives");
+        assert_eq!(recovery.entries().len(), 16);
     }
 
     #[test]
@@ -413,11 +562,64 @@ mod tests {
             None,
             "still the open document's own mirror"
         );
-        recovery.retain_mirror(&file);
+        recovery.retain_mirror();
         assert_eq!(
             recovery.offer(&file).map(|e| e.text),
             Some("never saved\n".into())
         );
+    }
+
+    #[test]
+    fn retaining_a_mirror_does_not_need_a_writable_journal() {
+        let (_s, dir, file) = setup();
+        let recovery = Recovery::new(dir.clone());
+        recovery.mirror(&file, "never saved\n", 4, true).unwrap();
+        let names = || {
+            let mut names: Vec<_> = fs::read_dir(&dir)
+                .unwrap()
+                .map(|e| e.unwrap().file_name())
+                .collect();
+            names.sort();
+            names
+        };
+        let before = names();
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o500)).unwrap();
+        recovery.retain_mirror();
+        let after = names();
+        let offered = recovery.offer(&file);
+        let restarted = Recovery::new(dir.clone()).offer(&file);
+        // Restore permission before assertions so Scratch can clean up on failure.
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
+        assert_eq!(
+            before, after,
+            "retention must leave both journal files in place"
+        );
+        assert_eq!(offered.map(|e| e.text), Some("never saved\n".into()));
+        assert_eq!(restarted.map(|e| e.text), Some("never saved\n".into()));
+    }
+
+    #[test]
+    fn new_mirrors_never_overwrite_or_clear_retired_text() {
+        let (_s, dir, file) = setup();
+        let recovery = Recovery::new(dir);
+        recovery.mirror(&file, "retained text\n", 4, true).unwrap();
+        // Keys remain bounded even after many document switches.
+        for _ in 0..1000 {
+            recovery.retain_mirror();
+        }
+        recovery.mirror(&file, "current edits\n", 5, false).unwrap();
+        assert_eq!(
+            recovery.offer(&file).map(|e| e.text),
+            Some("retained text\n".into())
+        );
+        assert_eq!(recovery.pending(None).len(), 1);
+        recovery.clear_mirror(&file);
+        assert_eq!(
+            recovery.offer(&file).map(|e| e.text),
+            Some("retained text\n".into())
+        );
+        recovery.settle(&file);
+        assert_eq!(recovery.offer(&file), None);
     }
 
     #[test]
@@ -487,11 +689,12 @@ mod tests {
         let (_s, dir, file) = setup();
         let recovery = Recovery::new(dir.clone());
         recovery.mirror(&file, "ancient\n", 1, false).unwrap();
-        let (_, sidecar_path) = recovery.entry_paths(&file, &recovery.session);
+        let (_, sidecar_path) = recovery.entry_paths(&file, &recovery.mirror_key());
         let stale = Sidecar {
             path: file.clone(),
             revision: 1,
             saved_at_ms: 1,
+            saved_at_ns: None,
         };
         fs::write(&sidecar_path, serde_json::to_vec(&stale).unwrap()).unwrap();
         recovery.prune();
@@ -532,6 +735,35 @@ mod tests {
             let mode = entry.unwrap().metadata().unwrap().permissions().mode() & 0o777;
             assert_eq!(mode, 0o600, "moved entries stay private");
         }
+    }
+
+    #[test]
+    fn failed_recovery_move_preserves_the_original_pair_for_retry() {
+        let (scratch, dir, file) = setup();
+        let previous = Recovery::new(dir.clone());
+        previous
+            .mirror(&file, "unsaved ḥadīth — حَدِيث\n", 2, true)
+            .unwrap();
+        let renamed = scratch.path().join("renamed.md");
+        fs::rename(&file, &renamed).unwrap();
+        let next = Recovery::new(dir.clone());
+        // Fail the metadata replacement after the text transfer completed.
+        let (_, blocked) = next.entry_paths(&renamed, &previous.mirror_key());
+        fs::create_dir(&blocked).unwrap();
+        next.moved(&file, &renamed);
+        let restarted = Recovery::new(dir);
+        assert_eq!(
+            restarted.offer(&file).map(|e| e.text),
+            Some("unsaved ḥadīth — حَدِيث\n".into()),
+            "a failed move must leave a discoverable original pair after restart"
+        );
+        fs::remove_dir(&blocked).unwrap();
+        restarted.moved(&file, &renamed);
+        assert_eq!(restarted.offer(&file), None);
+        assert_eq!(
+            restarted.offer(&renamed).map(|e| e.text),
+            Some("unsaved ḥadīth — حَدِيث\n".into())
+        );
     }
 
     #[test]

@@ -63,6 +63,11 @@ const NAME_PROBLEMS: Record<NameProblem, string> = {
   control: "A name can't contain control characters.",
 };
 
+const protection = (recovered: boolean) =>
+  recovered
+    ? "Your text is kept in recovery."
+    : "Your text is only in this window. Save it elsewhere before closing.";
+
 export const saveReason = (error: SaveError) => SAVE_REASONS[error.kind];
 export const libraryReason = (error: LibraryError) =>
   error.kind === "invalid_name" ? NAME_PROBLEMS[error.reason] : LIBRARY_REASONS[error.kind];
@@ -89,12 +94,12 @@ export const copy = {
     sample:
       "This is a sample, so changes aren't saved. To keep them, copy the text into a new file.",
   },
-  failure: (name: string, error: SaveError) =>
-    `Couldn't save ${quote(name)} — ${saveReason(error)}. Your text is kept in recovery.`,
-  conflict: (name: string) =>
-    `${quote(name)} changed on disk while you were editing it. Your text is kept in recovery.`,
-  removed: (name: string) =>
-    `${quote(name)} was moved or deleted while you were editing it. Your text is kept in recovery.`,
+  failure: (name: string, error: SaveError, recovered = false) =>
+    `Couldn't save ${quote(name)} — ${saveReason(error)}. ${protection(recovered)}`,
+  conflict: (name: string, recovered = false) =>
+    `${quote(name)} changed on disk while you were editing it. ${protection(recovered)}`,
+  removed: (name: string, recovered = false) =>
+    `${quote(name)} was moved or deleted while you were editing it. ${protection(recovered)}`,
   recovered: (name: string, when: string) =>
     `Unsaved text from ${when} was kept for ${quote(name)}.`,
   pendingRecovery: (name: string, when: string) =>

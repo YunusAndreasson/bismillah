@@ -124,7 +124,29 @@ look in `tests/visual/panels.visual.ts` ([the panels audit](docs/audits/2026-10-
 Tests must not tap Shift on its own twice: that opens a panel. WebKitGTK sends
 Shift+Tab as `Unidentified` with code `Tab`.
 The daily-polish follow-up tightens opening spacing, balances ordinary Arabic in Latin profiles, refines diagnostic strokes and appliance controls, and keeps panel/save transitions still. Evidence and design review: [the daily-polish audit](docs/audits/2026-10-25-daily-polish.md). Its five real-app regressions are in `tests/e2e/polish.e2e.ts`.
-The current gate covers 434 frontend and 188 Rust tests, all 28
+The recovery-failure follow-up reports whether a failed save actually reached
+durable recovery and keeps unprotected edits open. Tests cover blocked navigation,
+quitting, failed retries and Save elsewhere in
+`tests/e2e/recovery-unavailable.e2e.ts`; the protocol and revision tracking are tested
+in `src-tauri/src/app.rs` and `src/core/session.test.ts`. Evidence:
+[the recovery audit](docs/audits/2026-10-27-recovery-failure.md).
+Recovery retention also preserves completed journal files without renaming them;
+read-only journal and generation-isolation tests live in `src-tauri/src/recovery.rs`.
+Missing-original recovery is covered in `tests/e2e/recovery-missing.e2e.ts` and
+`src-tauri/src/app.rs`, including explicit recreation, unavailable folders and
+conflicts with reappearing files.
+Save elsewhere preserves edits made while its dialog/write/IPC is pending;
+additions, deletion to empty text, cancellation, caret, BOM and CRLF are covered in
+`tests/e2e/save-as-race.e2e.ts`.
+Load theirs also retains edits arriving during its reload; the shared reload loop
+is covered in `src/core/reload.test.ts` and the restore result in
+`tests/e2e/load-theirs-race.e2e.ts`.
+A failed follow-up recovery write retains the live backend ID and local text;
+session tests cover the explicit conflict hold, and the real-app reload suite
+checks rescue after exceeding the recovery size cap without filling a disk.
+Recovery metadata also retains precise write timestamps; same-millisecond restore,
+file-age, legacy-entry and pruning regressions live in `src-tauri/src/recovery.rs`.
+The current gate covers 450 frontend and 201 Rust tests, all 32
 real-app suites and 17 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.

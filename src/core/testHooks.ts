@@ -57,6 +57,9 @@ export interface TestHooks {
   settle(): Promise<void>;
   /** Opens a file by path, standing in for the native Open dialog. */
   open(path: string): Promise<void>;
+  /** Production navigation paths, awaited for failure-path checks. */
+  openLibraryFile(path: string): Promise<void>;
+  newFile(): Promise<void>;
   /** Runs a command as the menu would. */
   run(id: CommandId): void;
   /** The open document's save state and revisions. */
@@ -231,6 +234,8 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
       workspace.showForTest(opened);
       await settle();
     },
+    openLibraryFile: (path) => workspace.openFromLibrary(path),
+    newFile: () => workspace.newFile(),
     run: (id) => void runCommand(id, "ui", workspace.context),
     saveState() {
       const s = workspace.session;

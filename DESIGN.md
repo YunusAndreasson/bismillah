@@ -497,6 +497,8 @@ Go to line shows examples of the supported forms, including the zero-based colum
 - An explicit **Save now** request gets a polite **Saved now.** only after the current revision is durably saved. Autosave stays quiet. That passing feedback clears on the next edit or document change. Asking to save a sample explains how to keep its text in a real file; asking to save a read-only file repeats its encoding explanation. Neither claims success.
 - **Errors:** what failed, why (if known), and how the text is protected. Example:
   > Couldn't save "letter.md" — the disk is full. Your text is kept in recovery. **Try again** · **Save elsewhere…**
+- Opening waiting recovery remains possible when its original file or folder has gone. Offer the existing Restore/Discard choice without creating anything; after Restore, use the existing missing-file or unavailable-folder notice and save actions.
+- If recovery also failed, say “Your text is only in this window. Save it elsewhere before closing.” Keep the document open until saving or recovery succeeds; do not claim a recovery copy exists.
 - **Suggestions:** "Possible spelling mistake" / "Grammar suggestion", one sentence of explanation, explicit actions (*Replace with …*, *Add to dictionary*, *Ignore*). Never "wrong" or "error" for grammar.
 - Never judge the writer, their productivity, intentions or religious merit.
 - New terms (like Zuhd) are added only when the feature exists, with a one-sentence functional explanation, used consistently. Stable command IDs and setting keys stay functional and English (`editor.toggleFocus`, `focus_mode`).

@@ -123,6 +123,34 @@ pub fn allows(path: &Path) -> bool {
     library().is_some_and(|library| within(&library, path))
 }
 
+/// A known document or recovery entry may name a missing subfolder. Validate its
+/// nearest existing ancestor; saving still requires an existing parent and never
+/// creates folders. New destinations continue to use the stricter `allows` rule.
+pub fn allows_document(path: &Path) -> bool {
+    !active() || library().is_some_and(|library| within_document(&library, path))
+}
+
+fn within_document(library: &Path, path: &Path) -> bool {
+    use std::path::Component;
+
+    if !path.is_absolute() || path.components().any(|c| c == Component::ParentDir) {
+        return false;
+    }
+    let mut ancestor = path;
+    loop {
+        match ancestor.symlink_metadata() {
+            Ok(_) => return within(library, ancestor),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                let Some(parent) = ancestor.parent() else {
+                    return false;
+                };
+                ancestor = parent;
+            }
+            Err(_) => return false,
+        }
+    }
+}
+
 /// Whether `path`, with every symlink resolved, is `library` or inside it. A file that
 /// doesn't exist yet (New file…, Save as…) is judged by its folder.
 fn within(library: &Path, path: &Path) -> bool {
@@ -747,6 +775,20 @@ mod tests {
         assert!(!within(&library, &library.join("out/new.md")));
         assert!(!within(&library, &library.join("leak.md")));
         assert!(!within(&library, &library.join("missing/new.md")));
+        assert!(within_document(
+            &library,
+            &library.join("missing/nested/new.md")
+        ));
+        assert!(!within_document(&library, &dir.join("missing/new.md")));
+        assert!(!within_document(
+            &library,
+            &library.join("out/missing/new.md")
+        ));
+        assert!(!within_document(
+            &library,
+            &library.join("missing/../../new.md")
+        ));
+        assert!(!within_document(&library, Path::new("missing/new.md")));
     }
 
     #[test]

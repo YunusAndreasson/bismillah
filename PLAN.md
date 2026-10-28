@@ -404,6 +404,59 @@ anywhere (ADR-0016). Built 2026-10-26; evidence in
    `Esc` twice; *Show in Settings* from a broken keybindings.toml.
 5. On the stick: Settings › This stick (keyboard and time zone) by keyboard.
 
+## Recovery failure follow-up (2026-10-27)
+
+Fixed and verified: a failed document save no longer implies that recovery succeeded.
+Rust confirms durable recovery per request; the frontend tracks the exact protected
+revision and clears the confirmation before a retry can overwrite the mirror. If
+neither copy is safe, document replacement and closing are refused. Save elsewhere
+still works. The guide and privacy claim now describe this limit honestly.
+
+Evidence and design review: [the recovery audit](docs/audits/2026-10-27-recovery-failure.md).
+Four new session tests, three Rust tests and two real-app regressions cover the
+failure path; `pnpm verify --fast`, the existing real-app suites and all 17 visual
+checks pass. The new real-app suite was rerun separately after correcting its fixture.
+
+A further recovery check reproduced completed copies becoming hidden when the
+journal became read-only during document switching. Retention now advances an
+in-memory generation instead of renaming the text and sidecar. Two added Rust
+tests cover read-only retention, restart discovery and isolation from later saves;
+`pnpm verify --fast` and the three recovery/file-safety real-app suites pass.
+
+Recovery rename failures also preserve the original text/sidecar pair until the
+replacement pair is durable. A regression reproduces failure after text transfer,
+checks discovery after restart, and verifies a subsequent retry succeeds. The
+recovery audit records the remaining old-path association when migration fails.
+
+Pending recovery now opens even when the original file or folder has disappeared.
+Opening creates no files; Restore retains the usual explicit recreation and Save
+elsewhere choices. Three Rust regressions and a killed-process real-app regression
+cover missing originals, reappearing files and unavailable folders. Evidence is in
+the recovery audit.
+
+Save elsewhere now carries edits made during the pending dialog/write into the
+destination as unsaved text, rather than replacing them with the earlier snapshot.
+The real-app regression covers additions, deletion to empty, cancellation, the
+caret and BOM/CRLF preservation. Evidence is in the recovery audit.
+
+Load theirs now keeps edits arriving during the reload in recovery before showing
+the disk version. The shared quiet-reload loop retains the initial local text for
+explicit reloads too. Two unit tests cover repeated edits and deletion to empty;
+two real-app regressions restore the latest English/Arabic text and preserve the
+BOM and CRLF. Evidence is in the recovery audit.
+
+Failed follow-up recovery writes during reload no longer strand the frontend on
+an obsolete document ID. The latest text stays visible under an explicit conflict
+hold; autosave cannot overwrite the freshly read disk version, and Save mine as
+still works. Six unit regressions and a real-app recovery-cap failure cover the
+path, including retries and a read-only replacement. Evidence is in the audit.
+
+Recovery ordering and pruning now retain precise write times rather than letting
+directory order decide between entries from the same millisecond. File-age checks
+retain filesystem timestamp precision too; ambiguous legacy entries remain
+available. Four Rust regressions cover the boundary cases; evidence is in the
+recovery audit.
+
 ## Later (not scheduled)
 
 - Opening links to other Markdown files in the library from the editor (`[next](chapter-2.md)`).

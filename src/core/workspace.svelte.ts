@@ -217,7 +217,7 @@ export class Workspace {
       return {
         id: "conflict",
         tone: "error",
-        message: copy.conflict(name),
+        message: copy.conflict(name, session.recoveryCurrent),
         actions: [
           { label: copy.actions.keepMine, run: () => session.save(true), primary: true },
           { label: copy.actions.loadTheirs, run: () => this.loadTheirs() },
@@ -229,7 +229,7 @@ export class Workspace {
       return {
         id: "removed",
         tone: "error",
-        message: copy.removed(name),
+        message: copy.removed(name, session.recoveryCurrent),
         actions: [
           { label: copy.actions.saveAgain, run: () => session.save(true), primary: true },
           { label: copy.actions.saveElsewhere, run: () => this.saveAs() },
@@ -239,7 +239,7 @@ export class Workspace {
     return {
       id: "failure",
       tone: "error",
-      message: copy.failure(name, error),
+      message: copy.failure(name, error, session.recoveryCurrent),
       actions: [
         { label: copy.actions.tryAgain, run: () => session.save(), primary: true },
         { label: copy.actions.saveElsewhere, run: () => this.saveAs() },
@@ -406,12 +406,13 @@ export class Workspace {
       if (focused) void this.checkOnFocus();
       else void this.session?.flush();
     });
-    void appWindow.onCloseRequested(async () => {
-      // Flush first; on timeout or failure the text is already in recovery.
+    void appWindow.onCloseRequested(async (event) => {
+      // A failed or timed-out save is safe to leave only if recovery was confirmed.
       await Promise.race([
         this.session?.flush(),
         new Promise((resolve) => setTimeout(resolve, QUIT_TIMEOUT_MS)),
       ]);
+      if (this.session && !this.session.canLeave) event.preventDefault();
     });
     // Shortcuts while focus is outside the editor (the first screen, the status line).
     // They don't act behind an open dialog (a panel handles its own), and keys without
@@ -665,13 +666,35 @@ export class Workspace {
         text: () => editor.text(),
         reload: (id, local) => ipc.reload(id, local),
       }).catch(() => null);
-      if (result && this.session === session) this.#show(result.opened, { quiet: true });
+      if (result) this.#showReload(session, result, true);
     } else if (status === "changed" || status === "removed") {
       // Local edits: never overwrite. Saving now surfaces the conflict.
       session.state = {
         kind: "failed",
         error: { kind: status === "changed" ? "conflict" : "removed" },
       };
+    }
+  }
+
+  /** Even a failed follow-up keep may have opened a new backend document. */
+  #showReload(
+    previous: DocumentSession,
+    result: Awaited<ReturnType<typeof quietReload>>,
+    quiet = false,
+  ): void {
+    const editor = this.editor;
+    if (this.session !== previous || !editor) return;
+    const local = editor.text();
+    const selection = editor.view.state.selection;
+    const top = editor.view.scrollDOM.scrollTop;
+    this.#show(result.opened, { quiet });
+    if (result.keepFailed && (local !== result.opened.text || result.opened.read_only)) {
+      editor.replaceAll(local);
+      editor.view.dispatch({ selection });
+      editor.view.scrollDOM.scrollTop = top;
+      // Older recovery offers cannot stand in for the unprotected latest text.
+      this.recovery = null;
+      this.session?.requireConflictResolution();
     }
   }
 
@@ -826,9 +849,16 @@ export class Workspace {
     await getCurrentWindow().setTitle(document.title);
   }
 
+  /** A failed save may be left only after Rust confirmed durable recovery. */
+  async #readyToLeave(): Promise<boolean> {
+    const session = this.session;
+    await session?.flush();
+    return this.session === session && (!session || session.canLeave);
+  }
+
   /** Saves the current document, then opens what `open` returns (null: cancelled). */
   async #openWith(open: () => Promise<OpenedDocument | null>): Promise<void> {
-    await this.session?.flush();
+    if (!(await this.#readyToLeave())) return;
     try {
       const opened = await open();
       if (!opened) return;
@@ -1045,7 +1075,7 @@ export class Workspace {
 
   /** New file…: the save dialog starts in `folder`, else beside the open document. */
   async newFile(folder?: string): Promise<void> {
-    await this.session?.flush();
+    if (!(await this.#readyToLeave())) return;
     folder ??= this.library.ready ? this.#folderFor() : undefined;
     try {
       const opened = await ipc.newDialog(folder ?? null);
@@ -1058,21 +1088,41 @@ export class Workspace {
   /** "Save mine as…" / "Save elsewhere…": the text goes to a file the writer chooses. */
   async saveAs(): Promise<void> {
     const session = this.session;
-    if (!session || !this.editor) return;
+    const editor = this.editor;
+    if (!session || !editor) return;
+    const snapshot = editor.text();
     try {
-      const opened = await ipc.saveAs(session.id, this.editor.text());
-      if (opened) this.#show(opened);
+      const opened = await ipc.saveAs(session.id, snapshot);
+      if (!opened || this.session !== session) return;
+      const latest = editor.text();
+      const selection = editor.view.state.selection;
+      const top = editor.view.scrollDOM.scrollTop;
+      this.#show(opened);
+      if (latest !== snapshot) {
+        // The dialog/write/IPC can outlast more typing. Only the snapshot reached
+        // disk: retain later edits in the new session and let autosave protect them.
+        editor.replaceAll(latest);
+        editor.view.dispatch({ selection });
+        editor.view.scrollDOM.scrollTop = top;
+      }
     } catch (error) {
-      if (isError<SaveError>(error)) session.state = { kind: "failed", error };
+      if (this.session === session && isError<SaveError>(error))
+        session.state = { kind: "failed", error };
     }
   }
 
   /** "Load theirs": the writer's version is kept in recovery, then the file reloads. */
   async loadTheirs(): Promise<void> {
     const session = this.session;
-    if (!session || !this.editor) return;
-    const opened = await ipc.reload(session.id, this.editor.text()).catch(() => null);
-    if (opened) this.#show(opened);
+    const editor = this.editor;
+    if (!session || !editor) return;
+    const result = await quietReload({
+      id: session.id,
+      keepLocal: true,
+      text: () => editor.text(),
+      reload: (id, local) => ipc.reload(id, local),
+    }).catch(() => null);
+    if (result) this.#showReload(session, result);
   }
 
   /** Puts the recovered text in the editor as one undoable edit, then saves it. The

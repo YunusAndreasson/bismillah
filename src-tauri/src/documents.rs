@@ -237,6 +237,8 @@ pub struct Document {
     pub bom: bool,
     pub utf8: bool,
     pub disk: DiskState,
+    /// Recovery opened without an original file; any reappearance is a conflict.
+    pub missing: bool,
     /// The newest revision known to be durably on disk.
     pub saved_revision: u64,
 }
@@ -266,6 +268,7 @@ pub fn open(path: &Path) -> Result<(Document, Decoded), OpenError> {
     let decoded = decode(&bytes);
     let doc = Document {
         disk: DiskState::of(&meta, &bytes),
+        missing: false,
         line_ending: decoded.line_ending,
         bom: decoded.bom,
         utf8: decoded.utf8,
@@ -352,6 +355,7 @@ pub fn save(
     write_atomic(&doc.path, &bytes, permissions, faults).map_err(|e| SaveError::from_io(&e))?;
     let meta = fs::metadata(&doc.path).map_err(|e| SaveError::from_io(&e))?;
     doc.disk = DiskState::of(&meta, &bytes);
+    doc.missing = false;
     doc.saved_revision = revision;
     Ok(revision)
 }
@@ -359,6 +363,9 @@ pub fn save(
 /// Whether the file on disk still matches what we last read or wrote. A changed mtime or
 /// size alone is not a conflict: the bytes are compared too, so `touch` is harmless.
 fn check_unchanged(doc: &mut Document, meta: &fs::Metadata) -> Result<(), SaveError> {
+    if doc.missing {
+        return Err(SaveError::Conflict);
+    }
     if meta.modified().ok() == doc.disk.mtime && meta.len() == doc.disk.size {
         return Ok(());
     }
