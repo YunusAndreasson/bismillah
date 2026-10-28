@@ -1,0 +1,11 @@
+[Unit]
+Description=The quiet-laptop check: measure the laptop idle in the editor, phase by phase
+After=bismillah-session.service
+
+[Service]
+# In /etc: the allowlist prunes files elsewhere that the VM scenarios never opened.
+ExecStart=/usr/bin/bash /etc/bismillah-power/report
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -15,6 +15,7 @@ import {
   rmSync,
 } from "node:fs";
 import { dirname, join, normalize } from "node:path";
+import { crc32 } from "node:zlib";
 import { root } from "./vm.ts";
 
 export const ESP = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b";
@@ -44,18 +45,40 @@ export interface Entry extends Part {
   uuid: string;
 }
 
-/** The disk's GUID and its used GPT entries (512-byte sectors). Reads images and disks. */
+/** The disk's GUID and used GPT entries (512-byte sectors), checked against their CRCs. */
 export function gpt(path: string): { disk: string; entries: Entry[] } {
   const fd = openSync(path, "r");
   try {
-    const header = Buffer.alloc(92);
-    readSync(fd, header, 0, 92, 512);
+    const header = Buffer.alloc(512);
+    if (readSync(fd, header, 0, header.length, 512) !== header.length)
+      throw new Error(`${path}: incomplete GPT header`);
     if (header.toString("latin1", 0, 8) !== "EFI PART") throw new Error(`${path}: no GPT`);
+    const headerSize = header.readUInt32LE(12);
+    if (headerSize < 92 || headerSize > header.length)
+      throw new Error(`${path}: invalid GPT header size`);
+    const checksum = header.readUInt32LE(16);
+    header.writeUInt32LE(0, 16);
+    if (crc32(header.subarray(0, headerSize)) !== checksum)
+      throw new Error(`${path}: invalid GPT header checksum`);
     const start = Number(header.readBigUInt64LE(72)) * 512;
     const count = header.readUInt32LE(80);
     const size = header.readUInt32LE(84);
+    // Bound allocation before reading a damaged or malformed table. The images
+    // have 128 entries; even a 16 MiB table leaves ample room for other disks.
+    if (
+      !Number.isSafeInteger(start) ||
+      start < 1024 ||
+      count === 0 ||
+      size < 128 ||
+      size % 128 !== 0 ||
+      count * size > 16 * MIB
+    )
+      throw new Error(`${path}: invalid GPT table size or offset`);
     const table = Buffer.alloc(count * size);
-    readSync(fd, table, 0, table.length, start);
+    if (readSync(fd, table, 0, table.length, start) !== table.length)
+      throw new Error(`${path}: incomplete GPT partition table`);
+    if (crc32(table) !== header.readUInt32LE(88))
+      throw new Error(`${path}: invalid GPT partition table checksum`);
     const entries: Entry[] = [];
     for (let i = 0; i < count; i++) {
       const entry = table.subarray(i * size, (i + 1) * size);

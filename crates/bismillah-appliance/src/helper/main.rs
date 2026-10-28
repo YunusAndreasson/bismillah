@@ -223,7 +223,9 @@ fn handle(stream: UnixStream, session: &Arc<Session>) {
             PowerAction::Suspend => "suspend",
         };
         mark(&format!("power-{verb}"));
-        let _ = tools::status("systemctl", &[verb]);
+        // No wall message: once cage has gone, logind's "The system will power off
+        // now!" would be the last thing on tty1. The app's farewell is the last screen.
+        let _ = tools::status("systemctl", &["--no-wall", verb]);
     }
 }
 

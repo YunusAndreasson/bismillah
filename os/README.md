@@ -21,9 +21,9 @@ pnpm os:verify    # contents, every VM scenario and the measurements
 bash os/scripts/flash.sh release
 ```
 
-`flash.sh` lists your USB disks and asks which one to erase. It refuses any disk that isn't USB, removable or hot-pluggable, that holds this machine's root, or that is still mounted. It writes nothing until you type the stick's model name back.
+`flash.sh` lists your USB disks and asks which one to erase. It refuses any disk that isn't USB, removable or hot-pluggable, that holds this machine's root, or that is still mounted. If it cannot inspect the root disk ancestry or mounted partitions, it refuses to proceed. Device aliases are checked by their kernel device names. It writes nothing until you type the stick's model name back.
 
-The first flash erases the whole stick. It gives the stick its own disk, ESP and home GUIDs, writes them into the ESP's `bismillah/stick-id`, and records them in `os/sticks.toml` on this machine. That file is never committed, and updating the stick later needs it, so keep it.
+The first flash erases the whole stick. It checks that the image's partitions are complete before preparing its copy, gives the stick its own disk, ESP and home GUIDs, writes them into the ESP's `bismillah/stick-id`, and records them in `os/sticks.toml` on this machine. That file is never committed, and updating the stick later needs it, so keep it. Registry changes use an atomic replacement and are synced to disk; a failed write preserves the previous entries.
 
 At its first boot the stick asks for a keyboard, a passphrase and a time zone. It then formats its home partition (LUKS2 with Argon2id, calibrated on that laptop). From then on it boots to the unlock screen. **There is no recovery: if you forget the passphrase, the texts are gone.**
 
@@ -38,6 +38,8 @@ bash os/scripts/flash.sh --update release
 
 - that the stick's disk GUID and the GUIDs of its ESP and home are the ones `os/sticks.toml` recorded at the first flash, and that the ESP's stick-id names the same three. Labels are never trusted, because any disk can carry any label.
 - that the stick has exactly an ESP, a root, a verity and a home partition, and nothing else.
+- that the primary GPT header and partition table have valid checksums before trusting their offsets, on both the stick and the image.
+- that the image contains the complete ESP, root and verity partitions, so a truncated image is refused before changing the stick.
 - that the new system fits the stick's slots: the root slot is 640 MiB and the verity slot 8 MiB, against a root of about 360 MiB today.
 
 It then writes the root and verity first and the ESP last, gives the root and verity partitions the new build's GUIDs (the boot finds them by the root hash), and reads all three back. An update cut off halfway can be run again.
@@ -112,7 +114,7 @@ Other machines are best effort. Certificate trust, revocations, firmware and GPU
 | `mkosi/` | The image: Debian 13 packages, the units and settings, the partitions (`mkosi.repart/`), the release and debug profiles, the allowlist and `prune.py` |
 | `build/` | The container that builds the app offline (`build-app.sh`) |
 | `scripts/` | `fetch.sh`, `build.sh`, `flash.sh`, `stick.ts` (which stick is ours; reflash), `verify.sh`, the VM harness `vm.ts`, the scenarios `test.ts`, `perf.ts`, `trace.sh` |
-| `tests/` | The image contents check and the reflash tool's tests |
+| `tests/` | The image contents check; reflash, boot timing, capture evidence, QMP and firmware-cache regressions |
 | `inputs.lock`, `cache/` | The recorded inputs (mkosi, Debian snapshot), and the fetched ones (not committed) |
 | `spikes/` | OS-0's experiments, kept for reference |
 

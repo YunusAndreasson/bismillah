@@ -375,6 +375,9 @@ describe("the stick's first screens", () => {
       expect(await focused()).toBe("Power off");
       await shot(session, "unlock");
       await session.keys(["Enter"]);
+      // The farewell goes up at once, before the helper is asked.
+      await session.$("h1=Powering off…").waitForDisplayed();
+      expect(requests.some((r) => r.verb === "power")).toBe(false);
       await session.waitUntil(() => requests.some((r) => r.verb === "power"));
       expect(requests.find((r) => r.verb === "power")).toEqual({
         v: 1,
@@ -567,14 +570,72 @@ describe("the stick's first screens", () => {
       await session.keys(["Escape"]);
       await session.keys(["Escape"]);
 
-      // Ctrl+Q powers off, after saving.
+      // Ctrl+Q powers off, after saving, behind the farewell: nothing behind it acts.
       await session.keys(["Control", "q"]);
+      await session.$("h1=Powering off…").waitForDisplayed();
+      await session.keys(["Control", "p"]);
+      expect(await session.$(".panel-input").isExisting()).toBe(false);
       await session.waitUntil(() => requests.some((r) => r.verb === "power"));
       expect(requests.find((r) => r.verb === "power")).toEqual({
         v: 1,
         verb: "power",
         action: "off",
       });
+      await shot(session, "farewell");
+    } finally {
+      await session.deleteSession();
+    }
+  });
+
+  it("stays still while the writer pauses: no change on screen, nothing animating", async () => {
+    respond = (r) => (r.verb === "status" ? status({ state: "ready" }, "token") : { answer: "ok" });
+    makeHome();
+    const session = await app();
+    try {
+      await type(session, "right words here");
+      await session.keys(["Enter"]);
+      await session.$("main.screen").waitForExist({ reverse: true, timeout: 20_000 });
+      await session.$("footer.status time.clock").waitForExist({ timeout: 10_000 });
+      // The guide, with the caret in the text.
+      await session.keys(["F1"]);
+      await session.$(".cm-content").waitForExist({ timeout: 10_000 });
+      await session.waitUntil(() =>
+        session.execute(() => document.activeElement?.classList.contains("cm-content") ?? false),
+      );
+      // The caret rests after about ten idle seconds (DESIGN.md §11).
+      await session.pause(11_000);
+      await session.execute(() => {
+        const seen: string[] = [];
+        const probe = window as unknown as { stillness?: string[] };
+        probe.stillness = seen;
+        new MutationObserver((records) => {
+          for (const r of records) {
+            const target = r.target instanceof Element ? r.target : r.target.parentElement;
+            const where = target ? `${target.tagName.toLowerCase()}.${target.className}` : "?";
+            seen.push(`${r.type} ${r.attributeName ?? ""} ${where}`.trim());
+          }
+        }).observe(document, {
+          subtree: true,
+          childList: true,
+          attributes: true,
+          characterData: true,
+        });
+      });
+      // Past a battery reading (30 s) and several clock ticks (5 s).
+      await session.pause(32_000);
+      const still = await session.execute(() => ({
+        changes: (window as unknown as { stillness: string[] }).stillness,
+        animating: document
+          .getAnimations()
+          .filter((a) => a.playState === "running")
+          .map((a) => {
+            const t = (a.effect as KeyframeEffect | null)?.target;
+            return `${a.constructor.name} ${t instanceof Element ? t.className : "?"}`;
+          }),
+      }));
+      // The clock may turn over a minute; nothing else may change.
+      expect(still.changes.filter((c) => !c.includes("time.clock"))).toEqual([]);
+      expect(still.animating).toEqual([]);
     } finally {
       await session.deleteSession();
     }

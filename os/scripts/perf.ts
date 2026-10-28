@@ -26,6 +26,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { switchRootSeconds } from "./boot-timing.ts";
 import { esp, ESP, extractRoot, MIB, partitions, ROOT, ROOT_VERITY } from "./image.ts";
 import { here, mark, PLAIN, setUpQuickly, sleep } from "./steps.ts";
 import { imageFor, root, stickFrom, Vm, type Stick } from "./vm.ts";
@@ -178,16 +179,6 @@ const median = (xs: number[]) => {
   return s.length % 2 ? at(mid) : (at(mid - 1) + at(mid)) / 2;
 };
 
-/** systemd-analyze's first line, in seconds per stage. */
-function analyzed(line: string): Numbers {
-  const stages: Numbers = {};
-  for (const m of line.matchAll(/([\d.]+)(min|s|ms) \((\w+)\)/g)) {
-    const scale = m[2] === "ms" ? 0.001 : m[2] === "min" ? 60 : 1;
-    stages[m[3] ?? ""] = Number(m[1]) * scale;
-  }
-  return stages;
-}
-
 /** A stick set up once on the US layout, with a short note as the last document. */
 async function preparedStick(): Promise<string> {
   const disk = stickFrom(imageFor("debug"), join(out, "stick.raw"));
@@ -233,8 +224,7 @@ async function coldBoot(disk: string, stick: Stick, n: number, ram: boolean): Pr
     let line = "";
     for (let i = 0; i < 30 && !/Startup finished/.test(line); i++, await sleep(1000))
       line = await vm.run("systemd-analyze 2>&1 | head -1");
-    const a = analyzed(line);
-    const switchRoot = (a["kernel"] ?? 0) + (a["initrd"] ?? 0);
+    const switchRoot = switchRootSeconds(line);
     await sleep(1500);
     const from = here(vm);
     await vm.type(PLAIN);

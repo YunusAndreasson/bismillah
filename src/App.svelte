@@ -18,6 +18,8 @@
   import StatusLine from "./ui/StatusLine.svelte";
   import Suggestions from "./ui/Suggestions.svelte";
   import Welcome from "./ui/Welcome.svelte";
+  import Farewell from "./appliance/Farewell.svelte";
+  import { farewell } from "./appliance/farewell.svelte.ts";
   import Gate from "./appliance/Gate.svelte";
   import Lock from "./appliance/Lock.svelte";
 
@@ -149,17 +151,22 @@
 </script>
 
 {#if gate}
-  <div class="appliance-gate"><Gate initial={gate.initial} opened={gate.opened} /></div>
+  <div class="appliance-gate" inert={farewell.action !== null}>
+    <Gate initial={gate.initial} opened={gate.opened} />
+  </div>
 {/if}
 {#if workspace.locked}
-  <div class="appliance-gate">
+  <div class="appliance-gate" inert={farewell.action !== null}>
     <Lock
       unlocked={() => workspace.unlocked()}
       power={(action: ipc.PowerAction) => void workspace.power(action)}
     />
   </div>
 {/if}
-<div class="window" inert={workspace.locked}>
+{#if farewell.action}
+  <div class="appliance-gate farewell"><Farewell action={farewell.action} /></div>
+{/if}
+<div class="window" inert={workspace.shut}>
   <div class="notices-row"><Notices notices={workspace.notices} /></div>
   <div class="middle">
     <main class="writing" class:hidden={workspace.welcome} bind:this={host}>
@@ -224,6 +231,9 @@
     inset: 0;
     z-index: 100;
     overflow: auto;
+  }
+  .farewell {
+    z-index: 101;
   }
   .window {
     height: 100%;

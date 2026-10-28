@@ -1,0 +1,5 @@
+# Devices the stick has no driver for may power down: the PCI core leaves them on, but
+# with runtime PM allowed the port above them can switch them off (D3cold). The Wi-Fi
+# or Ethernet card is then not just driverless but without power, and stops costing
+# the battery and heat. Network (0x02), wireless (0x0d) and audio (0x0403) controllers.
+ACTION=="add", SUBSYSTEM=="pci", ATTR{class}=="0x02*|0x0d*|0x0403*", ATTR{power/control}="auto"

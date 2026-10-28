@@ -7,6 +7,7 @@
   import Setup from "./Setup.svelte";
   import Stop from "./Stop.svelte";
   import Unlock from "./Unlock.svelte";
+  import { farewellThen } from "./farewell.svelte.ts";
   import { viewFor } from "./gate.ts";
 
   /**
@@ -60,11 +61,8 @@
   });
 
   async function power(action: "off" | "reboot") {
-    try {
-      await ipc.appliancePower(action);
-    } catch {
-      down = true;
-    }
+    await farewellThen(action, Promise.resolve(), () => ipc.appliancePower(action));
+    down = true;
   }
 
   async function reload() {

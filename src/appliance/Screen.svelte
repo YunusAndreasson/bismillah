@@ -8,7 +8,7 @@
    * The wordmark is the Basmallah opening's pre-shaped ink (ADR-0011), so it needs no
    * font and draws before any has loaded (docs/spikes/os-unlock-in-app.md, finding 6).
    */
-  let { title, children }: { title: string; children: Snippet } = $props();
+  let { title, children }: { title: string; children?: Snippet } = $props();
 </script>
 
 <main class="screen" aria-labelledby="screen-title">
@@ -21,7 +21,7 @@
     <path d={ink.d} />
   </svg>
   <h1 id="screen-title">{title}</h1>
-  {@render children()}
+  {@render children?.()}
 </main>
 
 <style>

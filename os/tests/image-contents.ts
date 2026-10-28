@@ -219,6 +219,16 @@ function checkImage(profile: Profile): void {
     sound.length === 0,
     `${profile}: no sound drivers (${sound.slice(0, 3).join(" ") || "none"})`,
   );
+  // A quiet laptop: the card reader's core lets it sleep, but no card can be read.
+  check(
+    modules.some((p) => /\/rtsx_pci\.ko/.test(p)) &&
+      !modules.some((p) => /\/(rtsx_pci_sdmmc|rtsx_pci_ms|mmc_block)\.ko/.test(p)),
+    `${profile}: the card reader's core driver, and no card storage`,
+  );
+  check(
+    /power\/control\}="auto"/.test(text("/usr/lib/udev/rules.d/70-bismillah-power.rules")),
+    `${profile}: driverless devices may power down`,
+  );
   const firmware = readdirSync(join(tree, "usr/lib/firmware")).sort();
   const gpu = /^(i915|xe|amdgpu|radeon|nvidia|amd|intel|regulatory\.db.*|.*\.(txt|md))$/;
   const other = firmware.filter((f) => !gpu.test(f));

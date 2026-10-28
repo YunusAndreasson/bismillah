@@ -10,11 +10,24 @@
  * boots os/out/image/bismillah-<profile>.raw and stays until the VM powers off.
  */
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  copyFileSync,
+  existsSync,
+  fsyncSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createConnection, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { QmpClient } from "./qmp.ts";
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 export const images = join(root, "os/out/image");
@@ -77,8 +90,8 @@ const certs = "/usr/lib/python3.14/site-packages/virt/firmware/certs/microsoft.c
 const microsoft = "77fa9abd-0359-4d32-bd60-28f4e78f784b";
 
 /** Builds a firmware variable set once, into os/out/vars/. */
-export function varsFile(vars: Vars): string {
-  const file = join(root, "os/out/vars", `${vars}.fd`);
+export function varsFile(vars: Vars, directory = join(root, "os/out/vars")): string {
+  const file = join(directory, `${vars}.fd`);
   if (existsSync(file)) return file;
   mkdirSync(dirname(file), { recursive: true });
   const db =
@@ -97,17 +110,38 @@ export function varsFile(vars: Vars): string {
             microsoft,
             join(certs, "windows-2011.pem"),
           ];
-  execFileSync("virt-fw-vars", [
-    "-i",
-    blankVars,
-    "-o",
-    file,
-    "--enroll-microsoft",
-    "--microsoft-kek",
-    "all",
-    ...db,
-    "--sb",
-  ]);
+  // A failed or interrupted generator can leave output behind. Publish only a
+  // complete, durable store; a later boot must never mistake partial output for it.
+  const temporary = mkdtempSync(join(dirname(file), `.${vars}-`));
+  try {
+    const staged = join(temporary, "vars.fd");
+    execFileSync("virt-fw-vars", [
+      "-i",
+      blankVars,
+      "-o",
+      staged,
+      "--enroll-microsoft",
+      "--microsoft-kek",
+      "all",
+      ...db,
+      "--sb",
+    ]);
+    const fd = openSync(staged, "r");
+    try {
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    renameSync(staged, file);
+    const parent = openSync(dirname(file), "r");
+    try {
+      fsyncSync(parent);
+    } finally {
+      closeSync(parent);
+    }
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
   return file;
 }
 
@@ -150,10 +184,30 @@ export function lit(s: Screen): number {
 
 /** Frames in a pcap file (QEMU's filter-dump). */
 export function frames(file: string): number {
-  if (!existsSync(file)) return 0;
   const d = readFileSync(file);
+  // QEMU writes a little-endian pcap 2.4 header even when no frames were sent.
+  // Missing or incomplete evidence must never pass the offline test as silence.
+  if (
+    d.length < 24 ||
+    d.readUInt32LE(0) !== 0xa1b2c3d4 ||
+    d.readUInt16LE(4) !== 2 ||
+    d.readUInt16LE(6) !== 4 ||
+    d.readUInt32LE(16) === 0
+  )
+    throw new Error(`${file}: invalid or incomplete pcap header`);
   let n = 0;
-  for (let i = 24; i + 16 <= d.length; i += 16 + d.readUInt32LE(i + 8)) n++;
+  for (let i = 24; i < d.length;) {
+    if (i + 16 > d.length) throw new Error(`${file}: incomplete pcap record`);
+    const captured = d.readUInt32LE(i + 8);
+    if (
+      captured > d.readUInt32LE(16) ||
+      captured > d.readUInt32LE(i + 12) ||
+      i + 16 + captured > d.length
+    )
+      throw new Error(`${file}: invalid or incomplete pcap packet`);
+    i += 16 + captured;
+    n++;
+  }
   return n;
 }
 
@@ -179,8 +233,7 @@ export class Vm {
   private readonly cmdPath: string | null;
   private readonly throwaway: string | null;
   private qmpSocket: Socket | null = null;
-  private qmpBuffer = "";
-  private readonly waiting: ((reply: Record<string, unknown>) => void)[] = [];
+  private qmpClient: QmpClient | null = null;
   private exited = false;
   private commands = 0;
 
@@ -269,13 +322,18 @@ export class Vm {
 
   private static async start(options: BootOptions): Promise<Vm> {
     const vm = new Vm(options);
-    for (let i = 0; !vm.qmpSocket; i++) {
-      if (vm.exited || i > 100) throw new Error("QEMU didn't start");
-      await sleep(100);
-      if (existsSync(vm.qmpPath)) await vm.connect().catch(() => undefined);
+    try {
+      for (let i = 0; !vm.qmpSocket; i++) {
+        if (vm.exited || i > 100) throw new Error("QEMU didn't start");
+        await sleep(100);
+        if (existsSync(vm.qmpPath)) await vm.connect().catch(() => undefined);
+      }
+      await vm.qmp("qmp_capabilities");
+      return vm;
+    } catch (error) {
+      vm.kill();
+      throw error;
     }
-    await vm.qmp("qmp_capabilities");
-    return vm;
   }
 
   /**
@@ -308,19 +366,12 @@ export class Vm {
   private connect(): Promise<void> {
     return new Promise((done, fail) => {
       const socket = createConnection(this.qmpPath);
-      socket.setEncoding("utf8");
+      const client = new QmpClient(socket);
       socket.once("error", fail);
-      socket.on("data", (chunk: string) => {
-        this.qmpBuffer += chunk;
-        for (let nl = this.qmpBuffer.indexOf("\n"); nl >= 0; nl = this.qmpBuffer.indexOf("\n")) {
-          const line = this.qmpBuffer.slice(0, nl);
-          this.qmpBuffer = this.qmpBuffer.slice(nl + 1);
-          const reply = JSON.parse(line) as Record<string, unknown>;
-          if ("return" in reply || "error" in reply) this.waiting.shift()?.(reply);
-        }
-      });
+      socket.once("close", () => fail(new Error("QMP connection closed during connect")));
       socket.once("connect", () => {
         this.qmpSocket = socket;
+        this.qmpClient = client;
         done();
       });
     });
@@ -328,14 +379,8 @@ export class Vm {
 
   /** Runs one QMP command and returns its result. */
   async qmp(execute: string, args: Record<string, unknown> = {}): Promise<unknown> {
-    const socket = this.qmpSocket;
-    if (!socket) throw new Error("no QMP connection");
-    const reply = await new Promise<Record<string, unknown>>((done) => {
-      this.waiting.push(done);
-      socket.write(JSON.stringify({ execute, arguments: args }) + "\n");
-    });
-    if ("error" in reply) throw new Error(`qmp ${execute}: ${JSON.stringify(reply["error"])}`);
-    return reply["return"];
+    if (!this.qmpClient) throw new Error("no QMP connection");
+    return this.qmpClient.command(execute, args);
   }
 
   async screen(name?: string): Promise<Screen> {
@@ -459,7 +504,10 @@ export class Vm {
 
   /** ACPI power button, then waits for QEMU to exit. */
   async powerdown(seconds = 60): Promise<void> {
-    if (this.exited) return;
+    if (this.exited) {
+      this.kill();
+      return;
+    }
     await this.qmp("system_powerdown").catch(() => undefined);
     for (const end = Date.now() + seconds * 1000; Date.now() < end && !this.exited;)
       await sleep(200);

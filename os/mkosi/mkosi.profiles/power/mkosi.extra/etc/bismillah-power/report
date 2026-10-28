@@ -1,0 +1,174 @@
+#!/bin/bash
+# The quiet-laptop check (os/PLAN.md, *A quiet laptop*). Once the editor is open and the
+# writer has left the laptop alone, it measures one phase at a time: the stick as it
+# was, then each power change added. For each: package power, the CPU's and GPU's idle
+# depth, temperature, the fans, and who woke the CPU. It writes power-report.txt to the
+# stick's own ESP after every phase, for Omarchy to read. It reads the fans and never
+# sets them. Never document text: only numbers, names of processes and devices.
+set -u
+run=/run/bismillah-power
+esp=$run/esp
+report=$run/power-report.txt
+mkdir -p "$run" "$esp"
+awk=mawk
+
+# The stick's ESP: an EFI system partition on a USB disk that holds our stick-id. Never
+# the laptop's own.
+esp_device() {
+  lsblk -nrpo NAME,PARTTYPE,PKNAME | while read -r name type disk; do
+    [ "$type" = c12a7328-f81f-11d2-ba4b-00a0c93ec93b ] || continue
+    [ "$(lsblk -dno TRAN "$disk" 2>/dev/null)" = usb ] || continue
+    mount -o ro "$name" "$esp" 2>/dev/null || continue
+    found=$([ -f "$esp/bismillah/stick-id" ] && echo yes)
+    umount "$esp"
+    [ "$found" = yes ] && { echo "$name"; return; }
+  done
+}
+save() {
+  local device
+  device=$(esp_device)
+  [ -n "$device" ] || { echo "power report: no stick ESP found"; return; }
+  mount "$device" "$esp" && cp "$report" "$esp/power-report.txt" && sync && umount "$esp"
+  echo "power report: written to $device"
+}
+
+modprobe intel_rapl_msr 2>/dev/null
+modprobe coretemp 2>/dev/null
+modprobe dell_smm_hwmon 2>/dev/null
+modprobe intel_pmc_core 2>/dev/null
+mount -t debugfs none /sys/kernel/debug 2>/dev/null
+
+first() { for f in "$@"; do [ -r "$f" ] && { cat "$f"; return; }; done; echo "-"; }
+rapl=/sys/class/powercap/intel-rapl:0
+energy() { first "$rapl/energy_uj"; }
+cpu_jiffies() { read -r _ u n s i w q sq st _ </proc/stat; echo "$((u + n + s + q + sq + st)) $((u + n + s + i + w + q + sq + st))"; }
+# Package C-states since boot (pmc_core), as "name value" lines.
+pkg_cstates() { sed -n 's/^\(Package C[0-9]*\)[^0-9]*\([0-9]*\).*/\1 \2/p' /sys/kernel/debug/pmc_core/package_cstate_show 2>/dev/null; }
+# Core C-states of CPU 0 since boot, microseconds.
+core_cstates() { for s in /sys/devices/system/cpu/cpu0/cpuidle/state*; do echo "$(cat "$s/name") $(cat "$s/time")"; done; }
+rc6() { first /sys/class/drm/card*/gt/gt0/rc6_residency_ms /sys/class/drm/card*/power/rc6_residency_ms; }
+# Render-engine time (ns) of the session's processes on the GPU.
+render_ns() {
+  local total=0 p f v
+  for p in $(pgrep -x cage) $(pgrep -x bismillah) $(pgrep -f '^[^ ]*WebKitWebProcess'); do
+    for f in /proc/"$p"/fdinfo/*; do
+      v=$(sed -n 's/^drm-engine-render:[[:space:]]*\([0-9]*\).*/\1/p' "$f" 2>/dev/null)
+      [ -n "$v" ] && total=$((total + v))
+    done
+  done
+  echo "$total"
+}
+# CPU ticks per process: "pid comm ticks".
+proc_ticks() {
+  # The name sits in parentheses and may hold spaces or parentheses: fields count from
+  # after its last ") ". utime and stime are the 14th and 15th fields.
+  cat /proc/[0-9]*/stat 2>/dev/null | $awk '{
+    match($0, /\(.*\) /); name = substr($0, RSTART + 1, RLENGTH - 3)
+    split(substr($0, RSTART + RLENGTH), f, " "); gsub(/ /, "_", name)
+    print $1, name, f[12] + f[13]
+  }'
+}
+temps() {
+  local z
+  for z in /sys/class/thermal/thermal_zone*; do
+    case $(cat "$z/type") in x86_pkg_temp | acpitz | TCPU | B0D4) echo -n "$(cat "$z/type")=$(($(cat "$z/temp") / 1000))C " ;; esac
+  done
+}
+fans() {
+  local h f
+  for h in /sys/class/hwmon/hwmon*; do
+    [ "$(cat "$h/name")" = dell_smm ] || continue
+    for f in "$h"/fan*_input; do echo -n "$(basename "$f" _input)=$(cat "$f")rpm "; done
+  done
+}
+# The devices the stick has no driver for, and the card reader.
+devices() {
+  local d
+  for d in /sys/bus/pci/devices/*; do
+    case "$(cat "$d/class")" in
+      0x02* | 0x0d* | 0x0403* | 0xff00*)
+        echo "  $(basename "$d") $(cat "$d/vendor"):$(cat "$d/device") class=$(cat "$d/class") driver=$(basename "$(readlink "$d/driver" 2>/dev/null)" 2>/dev/null) control=$(cat "$d/power/control") runtime=$(cat "$d/power/runtime_status") state=$(cat "$d/power_state" 2>/dev/null)"
+        ;;
+    esac
+  done
+}
+power_control() {
+  local d
+  for d in /sys/bus/pci/devices/*; do
+    case "$(cat "$d/class")" in 0x02* | 0x0d* | 0x0403*) echo "$1" >"$d/power/control" ;; esac
+  done
+}
+epp() { for f in /sys/devices/system/cpu/cpufreq/policy*/energy_performance_preference; do echo "$1" >"$f"; done 2>/dev/null; }
+
+{
+  echo "# bismillah quiet-laptop check, started $(date -u +%FT%TZ)"
+  echo "machine: $(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/product_name /sys/class/dmi/id/bios_version 2>/dev/null | tr '\n' ' ')"
+  echo "kernel: $(uname -r); cmdline: $(cat /proc/cmdline)"
+  echo "secure boot: $(tail -c 1 /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c 2>/dev/null | od -An -tu1 | tr -d ' ') (1 = on); lockdown: $(cat /sys/kernel/security/lockdown 2>/dev/null)"
+  echo "cpufreq: $(first /sys/devices/system/cpu/cpufreq/policy0/scaling_driver) $(first /sys/devices/system/cpu/cpufreq/policy0/scaling_governor); epp at boot: $(first /sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference); intel_pstate: $(first /sys/devices/system/cpu/intel_pstate/status)"
+  echo "measures: rapl=$([ -r "$rapl/energy_uj" ] && echo yes || echo no) pmc_core=$([ -n "$(pkg_cstates)" ] && echo yes || echo no) fans=$([ -n "$(fans)" ] && echo yes || echo no) rc6=$(rc6)"
+  echo "power: AC online=$(first /sys/class/power_supply/A*/online) battery=$(first /sys/class/power_supply/BAT*/capacity)% $(first /sys/class/power_supply/BAT*/status)"
+  echo
+  echo "Waiting for the editor and then one quiet minute. Leave the laptop alone until"
+  echo "the last phase is written (about 11 minutes)."
+} >"$report"
+save
+
+# The editor is open (the app's boot mark), then the writer's hands are off.
+until journalctl -b -q --no-pager 2>/dev/null | grep -q 'BISMILLAH_MARK page-editable'; do sleep 5; done
+sleep 60
+
+phase() {
+  local name=$1 e0 e1 c0 c1 r0 r1 g0 g1 t0 t1 p0 p1 k0 k1 secs
+  shift
+  "$@"
+  sleep 20 # settle
+  t0=$(date +%s.%N) e0=$(energy) c0=$(cpu_jiffies) r0=$(rc6) g0=$(render_ns)
+  p0=$(pkg_cstates) k0=$(core_cstates)
+  proc_ticks >"$run/ticks0"
+  sleep 90
+  t1=$(date +%s.%N) e1=$(energy) c1=$(cpu_jiffies) r1=$(rc6) g1=$(render_ns)
+  p1=$(pkg_cstates) k1=$(core_cstates)
+  proc_ticks >"$run/ticks1"
+  secs=$($awk -v a="$t0" -v b="$t1" 'BEGIN { print b - a }')
+  {
+    echo "## $name"
+    if [ "$e0" != - ]; then
+      max=$(first "$rapl/max_energy_range_uj")
+      $awk -v a="$e0" -v b="$e1" -v m="$max" -v s="$secs" 'BEGIN { d = b - a; if (d < 0) d += m; printf "package power: %.2f W\n", d / s / 1e6 }'
+    fi
+    set -- $c0
+    local busy0=$1 all0=$2
+    set -- $c1
+    $awk -v b=$(($1 - busy0)) -v a=$(($2 - all0)) 'BEGIN { printf "cpu busy: %.2f%% of all CPUs\n", 100 * b / a }'
+    [ "$r0" != - ] && $awk -v a="$r0" -v b="$r1" -v s="$secs" 'BEGIN { printf "gpu idle (rc6): %.1f%%\n", (b - a) / 10 / s }'
+    $awk -v a="$g0" -v b="$g1" -v s="$secs" 'BEGIN { printf "session render-engine time: %.2f%% of the time\n", (b - a) / 1e7 / s }'
+    if [ -n "$p0" ]; then
+      # The residency counters tick at the TSC's rate, which is the base frequency here.
+      echo -n "package C-states (share of the time; raw ticks): "
+      paste -d' ' <(echo "$p0") <(echo "$p1") | $awk -v s="$secs" -v k="$(first /sys/devices/system/cpu/cpu0/cpufreq/base_frequency)" '{ d = $6 - $3; printf "%s%s %.1f%% (%d)  ", $1, $2, 100 * d / (k * 1000 * s), d }'
+      echo
+    fi
+    echo -n "cpu0 C-states (share of the time): "
+    paste -d' ' <(echo "$k0") <(echo "$k1") | $awk -v s="$secs" '{ printf "%s %.1f%%  ", $1, ($4 - $2) / 1e4 / s }'
+    echo
+    echo "temperatures: $(temps)"
+    echo "fans: $(fans)"
+    echo "epp: $(first /sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference); battery: $(first /sys/class/power_supply/BAT*/power_now) uW $(first /sys/class/power_supply/BAT*/status)"
+    echo "devices:"
+    devices
+    echo "busiest processes (CPU ticks of 10 ms in ${secs%.*} s):"
+    $awk 'NR == FNR { t[$1] = $3; next } ($1 in t) { d = $3 - t[$1]; if (d > 0) print d, $2 }' "$run/ticks0" "$run/ticks1" | sort -rn | head -6 | sed 's/^/  /'
+    echo
+  } >>"$report"
+  save
+}
+
+today() { epp balance_power; power_control on; }
+phase "1. the stick before these changes (card reader without its driver, devices kept on)" today
+phase "2. + the card reader's core driver" modprobe rtsx_pci
+phase "3. + driverless devices may power down (all of this change)" power_control auto
+phase "4. + the CPU prefers power (stronger, for comparison only)" epp power
+phase "5. back to 3, to see how much the laptop drifted as it warmed" epp balance_power
+echo "# done $(date -u +%FT%TZ)" >>"$report"
+save

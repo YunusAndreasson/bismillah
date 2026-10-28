@@ -15,6 +15,7 @@
 # Usage: os/scripts/flash.sh [--update] [release|debug|image.raw]
 set -euo pipefail
 root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+source "$root/os/scripts/flash-safety.sh"
 stick_ts=$root/os/scripts/stick.ts
 node=$(command -v node)
 
@@ -42,11 +43,12 @@ dev="/dev/${name#/dev/}"
 [[ "$(lsblk -dno RM "$dev" | xargs)" == 1 || "$(lsblk -dno HOTPLUG "$dev" | xargs)" == 1 ]] ||
   { echo "$dev is neither removable nor hot-pluggable. Refusing."; exit 1; }
 root_source=$(findmnt -no SOURCE / | sed 's/\[.*//')
-if lsblk -lsno NAME "$root_source" | grep -qx "${dev#/dev/}"; then
-  echo "$dev holds this machine's root. Refusing."
-  exit 1
-fi
-if lsblk -no MOUNTPOINTS "$dev" | grep -q .; then
+flash_check_root "$dev" "$root_source"
+if flash_unmounted "$dev"; then
+  : # Inspection succeeded and nothing is mounted.
+else
+  inspected=$?
+  [[ "$inspected" == 1 ]] || exit 1
   echo "$dev has mounted partitions (the desktop mounts sticks when they're plugged in):"
   lsblk -o NAME,MOUNTPOINTS "$dev"
   read -rp "Unmount them? [y/N] " answer
@@ -54,8 +56,8 @@ if lsblk -no MOUNTPOINTS "$dev" | grep -q .; then
   for part in $(lsblk -lno PATH,MOUNTPOINTS "$dev" | awk 'NF>1{print $1}'); do
     udisksctl unmount -b "$part" >/dev/null 2>&1 || sudo umount "$part"
   done
-  if lsblk -no MOUNTPOINTS "$dev" | grep -q .; then
-    echo "Still mounted. Refusing."
+  if ! flash_unmounted "$dev"; then
+    echo "Still mounted or couldn't inspect the stick. Refusing."
     exit 1
   fi
 fi

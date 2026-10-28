@@ -23,7 +23,8 @@ import sys
 root = os.environ["BUILDROOT"]
 src = os.environ["SRCDIR"]
 initrd = sys.argv[1:] == ["initrd"]
-debug = "debug" in os.environ.get("PROFILES", "").split(",")
+# mkosi separates the profiles with spaces (debug power); older versions with commas.
+debug = "debug" in re.split(r"[ ,]+", os.environ.get("PROFILES", ""))
 if os.environ.get("BISMILLAH_UNPRUNED") == "1" and not initrd:
     print("prune: unpruned build, keeping every file")
     sys.exit(0)

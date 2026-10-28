@@ -16,6 +16,7 @@ import {
   writeSync,
   closeSync,
   readSync,
+  truncateSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -176,11 +177,146 @@ void test("a system bigger than the stick's slot is refused before anything is w
   assert.equal(readRegistry(registry)[0]?.updating, false);
 });
 
+void test("a truncated update image is refused before changing the stick or registry", () => {
+  for (const type of [ROOT, ROOT_VERITY]) {
+    const { stick, registry } = flashed(`truncated-${type}`);
+    const next = image(`truncated-next-${type}.raw`, { fill: "B" });
+    const part = gpt(next).entries.find((e) => e.type === type);
+    assert.ok(part);
+    truncateSync(next, part.offset + part.bytes / 2);
+    const before = hash(stick);
+    const registryBefore = readFileSync(registry, "utf8");
+    assert.throws(() => update(next, stick, registry, () => undefined), /truncated/);
+    assert.equal(hash(stick), before);
+    assert.equal(readFileSync(registry, "utf8"), registryBefore);
+  }
+});
+
+void test("first-flash preparation refuses truncated partitions before replacing its output", () => {
+  for (const type of [ESP, ROOT, ROOT_VERITY, HOME]) {
+    const source = image(`truncated-first-${type}.raw`);
+    const part = gpt(source).entries.find((e) => e.type === type);
+    assert.ok(part);
+    truncateSync(source, part.offset + part.bytes / 2);
+    const out = join(dir, "refused-first.raw");
+    writeFileSync(out, "previous prepared image");
+    assert.throws(() => prepare(source, out), /truncated/);
+    assert.equal(readFileSync(out, "utf8"), "previous prepared image");
+  }
+});
+
 void test("a disk with a missing or a foreign partition is refused", () => {
   const registry = join(dir, "none.toml");
   assert.throws(() => prepare(image("nohome.raw", { home: false }), join(dir, "x.raw")), Refusal);
   assert.throws(() => identify(image("extra.raw", { extra: true })), /another type/);
   assert.throws(() => ours(image("plain.raw"), registry), /isn't a stick this machine flashed/);
+});
+
+void test("a failed registry write preserves the identities already recorded", () => {
+  const { stick, registry } = flashed("registry-failure");
+  const before = readFileSync(registry, "utf8");
+  // Limit the child's file size to 1 KiB: interrupt a registry rewrite after it
+  // starts writing, without filling the author's disk or changing this process.
+  const script = `
+    import { record } from ${JSON.stringify(new URL("../scripts/stick.ts", import.meta.url).href)};
+    record(process.argv[1], process.argv[2], "x".repeat(8192));
+  `;
+  assert.throws(() =>
+    execFileSync(
+      "bash",
+      [
+        "-c",
+        'ulimit -c 0; ulimit -f 1; exec "$@"',
+        "registry-test",
+        process.execPath,
+        "--input-type=module",
+        "-e",
+        script,
+        stick,
+        registry,
+      ],
+      { stdio: "pipe" },
+    ),
+  );
+  assert.equal(readFileSync(registry, "utf8"), before);
+  assert.deepEqual(ours(stick, registry), readRegistry(registry)[0]);
+});
+
+void test("a failed update checkpoint leaves the stick and its registry untouched", () => {
+  const { stick, registry } = flashed("checkpoint-failure");
+  record(stick, registry, "old system ".repeat(200));
+  const next = image("checkpoint-next.raw", { fill: "B" });
+  const before = hash(stick);
+  const registryBefore = readFileSync(registry, "utf8");
+  const script = `
+    import { update } from ${JSON.stringify(new URL("../scripts/stick.ts", import.meta.url).href)};
+    update(process.argv[1], process.argv[2], process.argv[3], () => {}, "new system");
+  `;
+  assert.throws(() =>
+    execFileSync(
+      "bash",
+      [
+        "-c",
+        'ulimit -c 0; ulimit -f 1; exec "$@"',
+        "checkpoint-test",
+        process.execPath,
+        "--input-type=module",
+        "-e",
+        script,
+        next,
+        stick,
+        registry,
+      ],
+      { stdio: "pipe" },
+    ),
+  );
+  assert.equal(hash(stick), before);
+  assert.equal(readFileSync(registry, "utf8"), registryBefore);
+});
+
+void test("a damaged GPT cannot redirect a system update into home", () => {
+  const { stick, registry } = flashed("damaged-table");
+  const parts = gpt(stick).entries;
+  const rootPart = parts.find((p) => p.type === ROOT);
+  const home = parts.find((p) => p.type === HOME);
+  assert.ok(rootPart && home);
+  // Corrupt the root's LBAs without updating the table checksum, as a damaged
+  // partition table might. Its apparent system slot now overlaps the writer's home.
+  const bounds = Buffer.alloc(16);
+  bounds.writeBigUInt64LE(BigInt(home.offset / 512));
+  bounds.writeBigUInt64LE(BigInt((home.offset + rootPart.bytes) / 512 - 1), 8);
+  const fd = openSync(stick, "r+");
+  try {
+    writeSync(fd, bounds, 0, 16, 1024 + (rootPart.number - 1) * 128 + 32);
+  } finally {
+    closeSync(fd);
+  }
+  const next = image("damaged-table-next.raw", { fill: "B" });
+  const before = hash(stick);
+  const registryBefore = readFileSync(registry, "utf8");
+  assert.throws(
+    () => update(next, stick, registry, () => undefined),
+    /GPT partition table checksum/,
+  );
+  assert.equal(hash(stick), before);
+  assert.equal(readFileSync(registry, "utf8"), registryBefore);
+});
+
+void test("a damaged source GPT header is refused before replacing a prepared image", () => {
+  const source = image("damaged-header.raw");
+  const fd = openSync(source, "r+");
+  try {
+    const byte = Buffer.alloc(1);
+    readSync(fd, byte, 0, 1, 512 + 16);
+    byte[0] = (byte[0] ?? 0) ^ 1;
+    writeSync(fd, byte, 0, 1, 512 + 16);
+  } finally {
+    closeSync(fd);
+  }
+  const out = join(dir, "header-refused.raw");
+  writeFileSync(out, "previous prepared image");
+  assert.throws(() => prepare(source, out), /GPT header checksum/);
+  assert.equal(readFileSync(out, "utf8"), "previous prepared image");
 });
 
 void test("an interrupted update, its stick-id half-written, can be run again", () => {

@@ -147,6 +147,8 @@ export const copy = {
     wordmark: "bismillah",
     powerOff: "Power off",
     restart: "Restart",
+    poweringOff: "Powering off…",
+    restarting: "Restarting…",
     showPassphrase: "Show passphrase",
     passphrase: "Passphrase",
     keyboard: (layout: string, rtl: boolean) =>

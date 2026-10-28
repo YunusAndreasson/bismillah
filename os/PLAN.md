@@ -475,7 +475,7 @@ Built 2026-10-21 (commits dffbbb0 to the OS-2 result). The app gate (`pnpm verif
 
 Goal: the stick can be used every day without a desktop.
 
-- **Power:** *Power off*, *Restart*, *Suspend* and *Lock* in the menu and the palette. Quit means power off: the app flushes saves first, then the helper powers off cleanly (unmount, close LUKS).
+- **Power:** *Power off*, *Restart*, *Suspend* and *Lock* in the menu and the palette. Quit means power off: the app flushes saves first, then the helper powers off cleanly (unmount, close LUKS). The app's farewell (DESIGN.md §19) is the last screen; the helper calls `systemctl --no-wall`, so logind's broadcast never reaches tty1 once cage has gone.
 - **Lid:** suspend, with the lock view painted *before* sleep (the delay-inhibitor handshake) and verified by passphrase on resume. No flash of text on resume.
 - **Clock and battery** in the quiet status area (DESIGN.md's fading chrome; errors never fade):
   - Battery is read from `/sys/class/power_supply`.
@@ -933,3 +933,179 @@ flat-colour sample. It does not loosen the stable-layout check.
 
 The author’s physical and visual acceptance and the separate quiet-host timing run
 remain open. No timing baselines were changed.
+
+## A calm shutdown and a quiet laptop (2026-10-26)
+
+The author asked for a branded shutdown and a quieter fan, keeping the writing as calm
+as possible.
+
+**Shutdown.** After `Ctrl+Q` the console showed logind's wall broadcast ("The system
+will power off now!") once cage had gone. The helper now calls `systemctl --no-wall`,
+and the app shows a farewell (DESIGN.md §19) from the moment Power off or Restart is
+chosen. VM frames: editor → farewell (from 0.2 s) → solid black (0.8 s) → off. Restart,
+suspend and wake, low battery and session restarts show no console text either. The
+laptop's power button goes through logind directly, so it skips the farewell; at most
+the last autosave interval (500 ms) of typing is unsaved.
+
+**Quiet laptop.** The fan follows heat, so the changes lower idle power and never touch
+fan control (no `dell-smm-hwmon` writes, no undervolting):
+
+- **No native caret blink** (`platform::steady_native_caret`). WebKit blinked its
+  transparent caret under the editor's drawn one forever, and each blink redrew the page
+  and cage: in the VM a frame every 0.6 s and 8.6% of a CPU in cage's renderer, idle.
+  `gtk-cursor-blink=false` in settings.ini had no effect (under Wayland GSettings'
+  default outranks it), and set by the app it made WebKitGTK redraw without pause (a
+  whole CPU). The app instead sets GTK's longest blink cycle, so a field caret turns
+  over about every twelve days. Now the unlock screen and the editor draw nothing while
+  the writer pauses (VM: zero render ticks in 4 s, against 18 and 54 before). The
+  editor's caret still blinks and rests by itself; the unlock caret is steady. A
+  real-app check (`appliance.e2e.ts`) proves the page itself makes no DOM change and
+  runs no animation while the writer pauses.
+- **The card reader's core driver** (`rtsx_pci`, without `rtsx_pci_sdmmc` or
+  `rtsx_pci_ms`, so no card is readable). An undriven Realtek reader holds the CPU
+  package out of its deep idle states on this model.
+- **Driverless devices may power down** (`70-bismillah-power.rules`): network, wireless
+  and audio controllers get runtime PM, so their port can cut their power.
+- The CPU's `balance_power` preference was already set (OS-4, `2b85641`).
+
+**The Dell check** (`os/scripts/build.sh power`, the debug image plus
+`mkosi.profiles/power/`): after the editor opens and a quiet minute, it measures five
+phases of 90 s (the stick before these changes, + the reader's driver, + power-down,
++ `power` preference for comparison, back to the change) and writes package watts,
+package and core C-states, GPU RC6, temperatures, fan speeds and the busiest processes to
+`power-report.txt` on the stick's ESP after each phase. The caret change can't be
+toggled at runtime; the report shows the session's render time in every phase.
+
+1. `! os/scripts/flash.sh --update os/out/image/bismillah-power.raw` (keeps the texts).
+2. Boot it on the Dell, unlock, open a text, then leave the laptop alone for 11 minutes,
+   lid open, ideally on battery. Listen to the fan.
+3. Back in Omarchy, mount the stick's ESP read-only and ask Claude to read
+   `power-report.txt`, then reflash the release image with `--update`.
+
+### Reflash failure follow-up (2026-10-27)
+
+Truncated source images are refused before preparing a first-flash copy or writing
+an update. First-flash validation also preserves an existing prepared copy on
+failure. The stick registry is replaced atomically, with both file and directory
+syncs, so a failed write cannot truncate the previously recorded identities and an
+update's recovery checkpoint is durable before the stick changes. Replacement
+preserves the registry's owner when the update runs under sudo.
+
+The ten tests in `tests/stick.test.ts` cover incomplete image partitions, a failed
+registry rewrite and a failed update checkpoint, in addition to the existing
+identity, slot-size and interrupted-update checks. Write failures use a file-size
+limit in a child process. The `reflash` VM scenario passed with the existing images:
+debug → release → debug, the saved text intact, home unchanged and the new root
+verified. These changes affect the host's flashing tools; no image rebuild is needed.
+
+### Boot measurement follow-up (2026-10-27)
+
+The performance gate now sums compound `systemd-analyze` durations (such as
+`1min 5s`) instead of retaining only their seconds. Missing kernel or initrd timing
+fails the measurement rather than being counted as zero. The three regression
+tests in `tests/boot-timing.test.ts` include a recorded VM startup, compound
+durations and unfinished or incomplete timing output; `scripts/verify.sh` runs
+them before checking the images.
+
+Validation: the regression tests and `pnpm verify --fast` pass. A live measurement
+(`node os/scripts/perf.ts --boots 1`) exhausted all three firmware boot attempts:
+OVMF reported no bootable device, and the run timed out waiting for setup before
+reaching the changed parser. Both source and copied GPTs pass `sfdisk --verify`.
+The performance baseline is unchanged; live timing validation remains outstanding.
+
+### Offline evidence follow-up (2026-10-27)
+
+The no-network test no longer treats a missing or incomplete packet capture as
+zero traffic. `frames()` requires QEMU's PCAP header and complete, consistent
+packet records; failures fail the scenario. Three tests in
+`tests/capture.test.ts`, included in `scripts/verify.sh`, cover empty valid captures,
+missing or malformed evidence, packet counts and incomplete or inconsistent
+records. The saved virtio, PCIe and USB captures from the previous no-network VM
+run all remain valid and contain zero frames.
+
+Further boot diagnostics used 60-second snapshots in the original spike harness:
+the source debug image did not reach its loader, while the previously reflashed
+stick reached the app. Their ESPs differ only in the stick-ID block. This narrows
+the investigation but does not yet establish a cause or justify a boot workaround.
+
+### Damaged partition-table follow-up (2026-10-27)
+
+The GPT reader now checks the primary header and partition-table CRCs, requires
+complete reads and bounds table allocation before trusting partition offsets. A
+regression that redirects the root slot into home through a damaged table changed
+the stick with the old updater; it now fails before changing either the stick or
+its registry. A damaged source header also preserves an existing prepared image.
+These checks use Node's built-in CRC32 implementation and add no dependency.
+
+The source debug and release images and the previously reflashed stick pass the
+new checks. Further boot isolation changed only the disposable copy's ESP GUID:
+that run reached the loader but failed signature verification. No firmware or boot
+configuration change has been made on this evidence.
+
+Validation: all 18 OS regression tests and `pnpm verify --fast` pass.
+
+### VM monitor failure follow-up (2026-10-27)
+
+The QMP transport no longer leaves commands pending forever when QEMU disconnects
+or stops answering. Commands have IDs and a 30-second deadline; replies are matched
+by ID, so a late or out-of-order reply cannot satisfy a different request. Socket
+errors, closure and malformed replies reject pending requests. Startup handshake
+failures stop the VM, and cleanup also runs when QEMU has already exited.
+
+The six socket-based tests in `tests/qmp.test.ts` run in `scripts/verify.sh` and cover
+disconnects with multiple requests, out-of-order replies, timeouts and late replies,
+fragmented messages and events, command errors and malformed monitor data. All 24
+OS regression tests pass. A paused, diskless real QEMU check also passed capability
+negotiation, concurrent queries, command-error recovery and shutdown. This validates
+the changed transport without depending on the unresolved firmware boot failure.
+
+Validation also passes `pnpm verify --fast`.
+
+### Firmware cache failure follow-up (2026-10-27)
+
+Firmware-variable generation used to write directly to the cached filename. A
+failed generator that had already written part of its output left that file behind;
+the next boot reused it as though generation had succeeded. The regression in
+`tests/vars.test.ts` reproduced that failure before the fix.
+
+Generation now uses a private temporary directory on the cache filesystem, syncs
+the completed store, renames it to the cached filename and syncs the parent
+directory. A failed generation cleans its staging directory and cannot publish a
+partial cache entry. An interrupted process can leave staging files, but later
+boots do not treat them as completed stores. Completed stores are still reused.
+`scripts/verify.sh` runs the regression before checking the images.
+
+Validation: all 25 OS regression tests and `pnpm verify --fast` pass. Fresh stores
+generated with the real `virt-fw-vars` for `both`, `ca2011` and `ca2023` match the
+firmware template size, parse correctly, have Secure Boot enabled and contain
+readable PK, KEK and db entries; a second call reuses each completed store. This
+changes only the host VM harness, so no image rebuild is needed. Existing cached
+stores are readable; the separate firmware boot failure remains unresolved and no
+boot or performance result is claimed here.
+
+### Flash inspection failure follow-up (2026-10-27)
+
+The flashing wrapper's root and mount guards put `lsblk` in conditional pipelines.
+Even with `set -euo pipefail`, a failed query made the condition false and was
+treated as "not the root disk" or "unmounted". A Bash reproduction with a failing
+read-only command stub confirmed both incorrect results; no real device was used.
+The root guard also compared the typed path with `lsblk` names, so a device alias
+could evade the root ancestry comparison.
+
+`scripts/flash-safety.sh` now captures and checks the inspection result before
+deciding. A failed or empty root ancestry query and a missing/ambiguous target
+kernel name refuse the flash. Root ancestry and the selected disk are compared by
+KNAME, including `/dev/disk/by-id` aliases. Mount inspection returns a separate
+failure status, so the wrapper offers to unmount only after a successful query
+found mounts; a failed recheck also refuses to write. The model confirmation,
+USB-only restriction and choice to unmount remain in place.
+
+The three regressions in `tests/flash-safety.test.ts` source only the read-only
+guards and stub `lsblk`: they never run the interactive flashing wrapper, ask for
+sudo, or open/write a device. They cover failed and empty queries, partially
+printed failed results, root ancestry, an alias of the root disk and mounted versus
+unmounted states. `scripts/verify.sh` runs them with the other OS regressions.
+
+Validation: all 28 OS regression tests, `pnpm verify --fast`, the shell syntax
+checks and `git diff --check` pass. This changes the host flashing checks only;
+no stick was flashed or mounted, and no image rebuild or VM boot is claimed.

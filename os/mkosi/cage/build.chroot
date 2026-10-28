@@ -30,7 +30,8 @@ meson compile -C "$work/build" -j 2
 meson install -C "$work/build"
 install -Dm644 "$work/cage-0.2.0/LICENSE" "$DESTDIR/usr/share/licenses/bismillah/cage/LICENSE"
 
-case ",$PROFILES," in
+# mkosi separates the profiles with spaces (debug power).
+case ",$(echo "$PROFILES" | tr " " ",")," in
   *,debug,*)
     protocol=$(pkg-config --variable=pkgdatadir wayland-protocols)/stable/xdg-shell/xdg-shell.xml
     wayland-scanner client-header "$protocol" "$work/xdg-shell-client.h"

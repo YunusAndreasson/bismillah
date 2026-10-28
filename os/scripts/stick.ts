@@ -25,15 +25,19 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   closeSync,
   existsSync,
+  fchownSync,
   fstatSync,
   fsyncSync,
   openSync,
   readFileSync,
   readSync,
+  renameSync,
+  rmSync,
+  statSync,
   writeFileSync,
   writeSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ESP, gpt, HOME, ROOT, ROOT_VERITY, type Entry } from "./image.ts";
 import { root } from "./vm.ts";
@@ -126,6 +130,16 @@ function layout(path: string): {
 /** A reason not to touch a stick, said plainly. */
 export class Refusal extends Error {}
 
+/** Check source images before copying them or replacing any part of a stick. */
+function completeImage(path: string): ReturnType<typeof layout> {
+  const parts = layout(path);
+  const st = statSync(path);
+  for (const part of [parts.esp, parts.root, parts.verity, parts.home])
+    if (part && st.isFile() && part.offset + part.bytes > st.size)
+      throw new Refusal(`${path}: partition ${part.number} is truncated`);
+  return parts;
+}
+
 export function readRegistry(file: string): Registered[] {
   if (!existsSync(file)) return [];
   return readFileSync(file, "utf8")
@@ -145,14 +159,40 @@ export function readRegistry(file: string): Registered[] {
 }
 
 function writeRegistry(file: string, sticks: Registered[]): void {
+  const previous = existsSync(file) ? statSync(file) : undefined;
   const blocks = sticks.map(
     (s) =>
       `[[stick]]\ndisk = "${s.disk}"\nesp = "${s.esp}"\nhome = "${s.home}"\nflashed = "${s.flashed}"\nsystem = "${s.system}"\nupdating = ${s.updating}\n`,
   );
-  writeFileSync(
-    file,
-    `# The bismillah sticks this machine flashed (os/scripts/stick.ts). Not committed:\n# reflashing a stick needs its entry here.\n\n${blocks.join("\n")}`,
-  );
+  // Keep the old identities if a write fails, and make the interrupted-update
+  // checkpoint durable before the first byte of the stick is overwritten.
+  const temporary = `${file}.${randomUUID()}.tmp`;
+  try {
+    const fd = openSync(temporary, "wx", 0o600);
+    try {
+      // Updates run under sudo, while the next first-flash record runs as the
+      // author. Keep their registry readable after replacing it as root.
+      const created = fstatSync(fd);
+      if (previous && (previous.uid !== created.uid || previous.gid !== created.gid))
+        fchownSync(fd, previous.uid, previous.gid);
+      writeFileSync(
+        fd,
+        `# The bismillah sticks this machine flashed (os/scripts/stick.ts). Not committed:\n# reflashing a stick needs its entry here.\n\n${blocks.join("\n")}`,
+      );
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    renameSync(temporary, file);
+    const parent = openSync(dirname(file), "r");
+    try {
+      fsyncSync(parent);
+    } finally {
+      closeSync(parent);
+    }
+  } finally {
+    rmSync(temporary, { force: true });
+  }
 }
 
 /** What the image was built from, as About shows it. */
@@ -169,9 +209,9 @@ const sfdisk = (...args: string[]) =>
 
 /** A copy of `image` at `out` with new GUIDs for the disk, the ESP and home, and its stick-id. */
 export function prepare(image: string, out: string): Identity {
-  execFileSync("cp", ["--sparse=always", image, out]);
-  const parts = layout(out);
+  const parts = completeImage(image);
   if (!parts.home) throw new Refusal(`${image} has no home partition`);
+  execFileSync("cp", ["--sparse=always", image, out]);
   const id: Identity = { disk: randomUUID(), esp: randomUUID(), home: randomUUID() };
   sfdisk("--disk-id", out, id.disk);
   sfdisk("--part-uuid", out, String(parts.esp.number), id.esp);
@@ -307,7 +347,7 @@ export function update(
 ): void {
   const entry = ours(stick, registry);
   const target = layout(stick);
-  const source = layout(image);
+  const source = completeImage(image);
   for (const [name, s, t] of [
     ["ESP", source.esp, target.esp],
     ["root", source.root, target.root],

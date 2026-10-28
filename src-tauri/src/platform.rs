@@ -379,6 +379,18 @@ pub fn cancel_dialogs() {
     linux::cancel_dialogs();
 }
 
+/// No native caret blink (os/PLAN.md, *A calm shutdown and a quiet laptop*). WebKit
+/// blinks its own caret even where it is transparent, under the editor's drawn one, and
+/// each blink redraws the page and the compositor for as long as the stick is on. The
+/// editor's caret blinks and rests by itself; field carets stay steady. Not by turning
+/// blinking off: WebKitGTK then redraws without pause. Instead the longest cycle GTK
+/// takes, so a field caret turns over about every twelve days. Set on GTK's settings
+/// directly: under Wayland GSettings' default outranks settings.ini.
+pub fn steady_native_caret() {
+    #[cfg(target_os = "linux")]
+    linux::steady_native_caret();
+}
+
 /// Calls `changed` on every key press in `window` and every change of layout group or
 /// modifiers. GTK 3 reports the active group only with each key event; direction and
 /// Caps Lock are live (docs/spikes/os-keyboard.md).
@@ -434,6 +446,12 @@ mod linux {
         });
         if let Some(map) = gdk::Display::default().and_then(|d| gdk::Keymap::for_display(&d)) {
             map.connect_state_changed(move |_| changed(state(group.get())));
+        }
+    }
+
+    pub fn steady_native_caret() {
+        if let Some(settings) = gtk::Settings::default() {
+            settings.set_gtk_cursor_blink_time(i32::MAX);
         }
     }
 

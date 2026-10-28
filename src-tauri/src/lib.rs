@@ -282,6 +282,7 @@ pub fn run() {
         .setup(move |app| {
             if appliance {
                 appliance::scale_outputs();
+                platform::steady_native_caret();
             }
             // Everything that reads the writer's home. On the stick it runs only once
             // the helper has opened home (appliance.rs).

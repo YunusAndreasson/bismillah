@@ -8,6 +8,7 @@ import { createEditor, type Editor } from "../editor/setup.ts";
 import { remeasure } from "../editor/typography.ts";
 import { toggleTransliteration, transliterationOn } from "../editor/typingAids.ts";
 import { WordCounter } from "../editor/wordCount.ts";
+import { farewell, farewellThen } from "../appliance/farewell.svelte.ts";
 import { batteryLevel, clockText, correctedNow } from "../appliance/power.ts";
 import { runCommand, useStickCommands, type CommandContext, type CommandId } from "./commands.ts";
 import { copy, nameError, when } from "./copy.ts";
@@ -107,6 +108,10 @@ export class Workspace {
   stick = $state<ipc.StickInfo | null>(null);
   /** The stick's lock view is up over everything (src/appliance/, os/PLAN.md OS-3). */
   locked = $state(false);
+  /** Nothing acts: the lock view or the stick's farewell is up. */
+  get shut(): boolean {
+    return this.locked || farewell.action !== null;
+  }
   /** The stick's battery, null without one; and its clock ("15:04"). */
   battery = $state<ipc.Battery | null>(null);
   clock = $state<string | null>(null);
@@ -290,7 +295,7 @@ export class Workspace {
     panel: Panel,
     at: { query?: string; focus?: { value: string; open: boolean } | null } = {},
   ): void {
-    if (this.locked) return;
+    if (this.shut) return;
     if (this.panel === null) this.panelQuery = at.query ?? "";
     else if (at.query !== undefined) this.panelQuery = at.query;
     this.panelFocus = at.focus ?? null;
@@ -418,7 +423,7 @@ export class Workspace {
     // They don't act behind an open dialog (a panel handles its own), and keys without
     // Ctrl (F2) don't act in a field.
     window.addEventListener("keydown", (event) => {
-      if (event.defaultPrevented || this.locked || this.editor?.view.hasFocus) return;
+      if (event.defaultPrevented || this.shut || this.editor?.view.hasFocus) return;
       const target = event.target instanceof Element ? event.target : null;
       if (target?.closest('[role="dialog"], [role="alertdialog"]')) return;
       const key = keyOf(event);
@@ -441,7 +446,7 @@ export class Workspace {
         modified: event.ctrlKey || event.altKey || event.metaKey,
         time: event.timeStamp,
       };
-      if (!doubleShift.feed(moment) || this.locked) return;
+      if (!doubleShift.feed(moment) || this.shut) return;
       const target = event.target instanceof Element ? event.target : null;
       const dialog = target?.closest('[role="dialog"], [role="alertdialog"]');
       if (this.panel !== null) {
@@ -523,18 +528,34 @@ export class Workspace {
   }
 
   /** Saves (or leaves the text to recovery after a timeout), then asks the helper to
-   * power off, restart or suspend. Suspending locks first. */
+   * power off, restart or suspend. Suspending locks first; powering off and restarting
+   * show the farewell while they save. */
   async power(action: ipc.PowerAction): Promise<void> {
-    if (action === "suspend") this.lock();
-    await Promise.race([
+    if (farewell.action !== null) return;
+    const saved = Promise.race([
       this.session?.flush(),
       new Promise((resolve) => setTimeout(resolve, QUIT_TIMEOUT_MS)),
     ]);
-    try {
-      await ipc.appliancePower(action);
-    } catch {
-      this.#notice("power-failed", "error", copy.stick.powerFailed, []);
+    if (action === "suspend") {
+      this.lock();
+      await saved;
+      try {
+        await ipc.appliancePower(action);
+      } catch {
+        this.#notice("power-failed", "error", copy.stick.powerFailed, []);
+      }
+      return;
     }
+    this.panel = null;
+    this.aboutOpen = false;
+    this.prompt = null;
+    await farewellThen(action, saved, () => {
+      if (this.session && !this.session.canLeave)
+        return Promise.reject(new Error("Unsaved text has no durable copy"));
+      return ipc.appliancePower(action);
+    });
+    this.#notice("power-failed", "error", copy.stick.powerFailed, []);
+    if (!this.locked) this.focusEditor();
   }
 
   /** After a keyboard change restarted the session: the caret goes back where it was,
@@ -1180,7 +1201,7 @@ export class Workspace {
       quit: () => void getCurrentWindow().close(),
       lock: () => this.lock(),
       power: (action) => void this.power(action),
-      locked: () => this.locked,
+      locked: () => this.shut,
       hasLibrary: () => this.library.ready,
       hasTarget: () => this.#target() !== null,
       newFolder: () => this.newFolder(),

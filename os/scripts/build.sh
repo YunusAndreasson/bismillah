@@ -5,7 +5,8 @@
 # Refuses an mkosi or a Debian snapshot other than the ones os/inputs.lock records.
 # --unpruned keeps every file the packages installed (os/mkosi/prune.py), for
 # recording the allowlist (os/scripts/trace.sh).
-# Usage: os/scripts/build.sh [--online] [--unpruned] [release|debug]
+# power is the debug image with the quiet-laptop report (mkosi.profiles/power/).
+# Usage: os/scripts/build.sh [--online] [--unpruned] [release|debug|power]
 set -euo pipefail
 root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 # shellcheck source=../inputs.lock
@@ -16,8 +17,9 @@ unpruned=()
 [ "${1:-}" = --unpruned ] && { unpruned=(--environment=BISMILLAH_UNPRUNED=1); shift; }
 profile=${1:-release}
 case $profile in
-  release | debug) ;;
-  *) echo "usage: build.sh [--online] [--unpruned] [release|debug]" >&2; exit 2 ;;
+  release | debug) profiles=(--profile="$profile") ;;
+  power) profiles=(--profile=debug --profile=power) ;;
+  *) echo "usage: build.sh [--online] [--unpruned] [release|debug|power]" >&2; exit 2 ;;
 esac
 
 have=$(mkosi --version | awk '{print $2}')
@@ -39,5 +41,5 @@ mkdir -p "$root/os/cache/mkosi" "$root/os/cache/mkosi-metadata" "$root/os/out/im
 cd "$root/os/mkosi"
 [ ${#tools[@]} -gt 0 ] || [ -d "$root/os/cache/mkosi.tools" ] ||
   { echo "No os/cache/mkosi.tools: run pnpm os:fetch first." >&2; exit 1; }
-mkosi "${tools[@]}" "${unpruned[@]}" --profile="$profile" --output="bismillah-$profile" --cache-only="$cache_only" -f build
+mkosi "${tools[@]}" "${unpruned[@]}" "${profiles[@]}" --output="bismillah-$profile" --cache-only="$cache_only" -f build
 echo "$root/os/out/image/bismillah-$profile.raw"
