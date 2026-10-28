@@ -83,7 +83,9 @@ redirections and substitutions can prevent prefix rules from matching.
 
 Under the harness the app opens the bundled specimen as a *sample* (never saved) and uses private config, data and trash directories. E2e tests open real files with the `open(path)` test hook, make a scratch copy of `tests/fixtures/library` the library with `setLibrary(path)`, answer the next native dialog with `nextDialog(path)` and inject save failures with `fault(kind)` (debug builds only; see `src/core/testHooks.ts`). Visual tests use `setFolderLabels` for stable display-only paths; it never changes Rust’s storage locations. WebDriver reads any script result with an `error` key as its own failure, so probes name such fields differently.
 
-**Never launch the app outside `scripts/headless.sh` for automated work** (`pnpm app:shot`, `pnpm test:e2e` and the spike scripts already use it); a bare launch opens a window on the author's desktop. Use the `run-app` skill: headless runs by default (`xvfb-run`), webview screenshots via `tauri-driver` that you inspect yourself, window-only captures on the live Hyprland session when native behaviour matters, and offline proof runs (`unshare -rn`, `strace`). Never capture the author's full screen.
+**Never launch the app outside `scripts/headless.sh` for automated work** (`pnpm app:shot`, `pnpm test:e2e` and the spike scripts already use it); a bare launch opens a window on the author's desktop. Use the `run-app` skill: headless runs by default (`xvfb-run`), webview screenshots via `tauri-driver` that you inspect yourself, window-only captures on the live Hyprland session when native behaviour matters, and offline proof runs (`unshare -rn`, `strace`). Never capture the author's full screen. The harness uses `xvfb-run --auto-display`
+so Xvfb allocates each display atomically; the older `--auto-servernum` can race
+when a screenshot and a test start together.
 
 ## Definition of done
 

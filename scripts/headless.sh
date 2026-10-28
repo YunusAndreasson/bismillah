@@ -31,7 +31,9 @@ scale="${BISMILLAH_SCALE:-2}"
 bridge=(NO_AT_BRIDGE=1)
 [[ "${BISMILLAH_A11Y:-}" == 1 ]] && bridge=(GTK_A11Y=atspi)
 
-xvfb-run --auto-servernum --server-args="-screen 0 ${screen} -nolisten tcp" \
+# Let Xvfb allocate the display atomically; choosing a free number in the shell
+# races when a screenshot and an e2e run start together.
+xvfb-run --auto-display --server-args="-screen 0 ${screen} -nolisten tcp" \
   env -u WAYLAND_DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE -u XDG_CURRENT_DESKTOP \
   -u XDG_SESSION_TYPE -u XDG_SESSION_DESKTOP -u DESKTOP_SESSION -u GNOME_KEYRING_CONTROL \
   -u SSH_AUTH_SOCK -u GTK_IM_MODULE -u QT_IM_MODULE -u XMODIFIERS \
