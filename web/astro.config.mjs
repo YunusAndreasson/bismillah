@@ -10,4 +10,12 @@ export default defineConfig({
   // `about.html` directly, so no URL ever answers with a redirect.
   trailingSlash: "never",
   build: { format: "file" },
+  vite: {
+    // Without a named tsconfig, Vite looks up the one that governs each file, and for
+    // a file web/tsconfig.json doesn't include (anything in node_modules) it climbs
+    // out of web/ to the app's root tsconfig. That extends @tsconfig/svelte, which
+    // only the app installs, so a clean checkout (CI) failed to build. The site has no
+    // business reading the app's config either way.
+    tsconfig: "./tsconfig.json",
+  },
 });
