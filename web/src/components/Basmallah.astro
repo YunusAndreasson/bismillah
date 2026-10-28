@@ -1,0 +1,42 @@
+---
+// The Basmallah opening, as the editor draws it (DESIGN.md §11.2): Amiri's ligature ﷽
+// from the app's pre-shaped outline (scripts/basmallah.sh), a quiet wordmark centred
+// above the document. Screen readers read the real text; the ink is hidden from them.
+import { BASMALLAH_INK as ink } from "../assets/basmallah";
+
+const em = (units: number) => `${units / ink.unitsPerEm}em`;
+---
+
+<p class="basmallah" lang="ar" dir="rtl">
+  <svg
+    class="ink"
+    width={em(ink.advance)}
+    height={em(ink.ascent + ink.descent)}
+    viewBox={`0 ${-ink.ascent} ${ink.advance} ${ink.ascent + ink.descent}`}
+    preserveAspectRatio="none"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <path d={ink.d}></path>
+  </svg>
+  <span class="visually-hidden">{ink.text}</span>
+</p>
+
+<style>
+  /* 17px at the editor's 20px writing size, growing with it, in text-faint. */
+  .basmallah {
+    margin: 0;
+    padding-block: calc(0.5 * var(--L)) var(--L);
+    font-size: calc(var(--size-page) * 0.85);
+    line-height: 1;
+    color: var(--page-faint);
+  }
+
+  .ink {
+    display: block;
+    max-inline-size: 100%;
+    margin-inline: auto;
+    overflow: visible;
+    fill: currentColor;
+  }
+</style>

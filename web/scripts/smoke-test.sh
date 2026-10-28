@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# After a deploy (`pnpm ship` runs it last): the home page serves the site, and an
+# After a deploy (`pnpm ship` runs it last): the home page serves the site with its
+# Content-Security-Policy, the film and the loops serve with their media types, and an
 # unknown path is a real 404, not a 200. Retries while the deploy reaches every edge.
 #
 #   scripts/smoke-test.sh <base-url>
@@ -22,3 +23,27 @@ if [[ "$status" != 404 ]]; then
   exit 1
 fi
 echo "ok  $base/smoke-test-no-such-page → 404"
+
+csp="$(curl "${opts[@]}" --head "$base/" | tr -d '\r' | grep -i '^content-security-policy:' || true)"
+if [[ "$csp" != *"default-src 'self'"* ]]; then
+  echo "$base/ has no same-origin Content-Security-Policy" >&2
+  exit 1
+fi
+echo "ok  $base/ has its Content-Security-Policy"
+
+# The film's first files, as Safari, Chrome and Firefox ask for them.
+for check in \
+  "media/film/cut-v35/hls/master.m3u8 mpegurl" \
+  "media/film/cut-v35/hls/1080p/init_0.mp4 video/mp4" \
+  "media/film/cut-v35/hls/1080p/000.m4s video/" \
+  "media/film/cut-v35/film-av1.mp4 video/mp4" \
+  "media/loops/v1/night/index.m3u8 mpegurl" \
+  "media/captions/cut-v35.en.vtt text/vtt"; do
+  read -r path type <<<"$check"
+  got="$(curl "${opts[@]}" --fail --head "$base/$path" | tr -d '\r' | grep -i '^content-type:' || true)"
+  if [[ "$got" != *"$type"* ]]; then
+    echo "$base/$path answered '${got:-no content type}', not $type" >&2
+    exit 1
+  fi
+  echo "ok  $base/$path ($type)"
+done

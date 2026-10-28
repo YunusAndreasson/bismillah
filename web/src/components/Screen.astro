@@ -1,0 +1,99 @@
+---
+// Her screen: the film's second and third shots at the visitor's pace. She types at her
+// laptop in the dark (still 03); scrolling pushes the camera into her screen, and its
+// light becomes the page that follows. Her screen already shows the real editor, the
+// Basmallah and "How will we t…", so the page continues it.
+//
+// The site's one pinned sequence: native scrolling, one viewport long, one move. Without
+// the script, or under reduced motion, it is a still.
+import { Picture } from "astro:assets";
+import still from "../assets/stills/03-her-screen.jpg";
+---
+
+<section class="her-screen night" aria-hidden="true" data-push>
+  <div class="stage">
+    <div class="camera" data-camera>
+      <Picture
+        src={still}
+        formats={["avif", "webp"]}
+        widths={[640, 960, 1280, 1920]}
+        sizes="100vw"
+        quality={80}
+        alt=""
+        class="still"
+      />
+      <div class="light" data-light></div>
+    </div>
+    <div class="veil" data-veil></div>
+  </div>
+</section>
+
+<style>
+  .her-screen {
+    position: relative;
+  }
+
+  .stage {
+    position: relative;
+    block-size: min(100svh, 56.25vw);
+    overflow: hidden;
+  }
+
+  .camera {
+    position: absolute;
+    inset: 0;
+    /* The centre of her laptop's screen in the still, so the camera pushes into it. */
+    transform-origin: 74.4% 58.3%;
+  }
+
+  .camera :global(picture),
+  .still {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+  }
+
+  .still {
+    object-fit: cover;
+    object-position: 74.4% 58.3%;
+  }
+
+  /* Her laptop's screen, corner for corner (x 1120–1738, y 408–852 of the 1920 × 1080
+     still). Its light rises to the page's as the camera arrives. */
+  .light {
+    position: absolute;
+    inset-inline-start: 58.33%;
+    inset-block-start: 37.78%;
+    inline-size: 32.19%;
+    block-size: 41.11%;
+    clip-path: polygon(11% 0, 100% 5.6%, 93% 100%, 0 82.7%);
+    background: var(--page);
+    opacity: 0;
+  }
+
+  .veil {
+    position: absolute;
+    inset: 0;
+    background: var(--page);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* With the script and motion allowed, the stage holds for one viewport of scrolling. */
+  @media (prefers-reduced-motion: no-preference) {
+    [data-live].her-screen {
+      block-size: 200svh;
+    }
+
+    [data-live] .stage {
+      position: sticky;
+      inset-block-start: 0;
+      block-size: 100svh;
+    }
+
+    [data-live] .camera {
+      inset: auto;
+      will-change: transform;
+    }
+  }
+</style>

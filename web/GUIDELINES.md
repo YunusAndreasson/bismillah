@@ -59,6 +59,8 @@ See `palette.jpg`. Each colour has a place in the story:
 - **The night** `#0A0D0C` and **the kitchen at night** `#0C1714`: the grounds of every dark section.
 - **Cold screen** `#BCD5CA`: only for the machine's light. Use sparingly, never for her words.
 - **Her shawl** `#56625D`: the quiet grey for secondary text in the dark.
+  It is 3.07:1 on the night, so it is for text of 24px and up; small quiet text in the dark
+  uses the same grey lit, `#72827C` (4.5:1 or more on every dark ground; the author's choice, 2026-10-28).
 - **Her light** `#A6733A`: the one warm window. Use it once or twice on the whole site, never as decoration.
 - **Dawn paper** `#AAB4A7`: the morning, the passing on.
 - **The page** `#F7F6F2`, **ink** `#1E1E1E` and **the caret** `#1E6B4A`: her world, the product's own colours.
@@ -122,9 +124,10 @@ The site should keep the promises the editor keeps:
 
 ## Still to decide
 
-- The web address, and the one line under "bismillah" that says what it is and where to get it.
-- A short, honest note that the film's pictures, voices and sound were made with AI tools, while every word
-  was written by a person.
+- The web address, and where to get it (the stick, its download and steps). The one line under "bismillah"
+  is decided (2026-10-28): _Nothing writes for you._ (from the README).
+- ~~A short, honest note that the film's pictures, voices and sound were made with AI tools.~~ Decided
+  2026-10-28: the site carries no such note.
 
 ## In this folder
 

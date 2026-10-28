@@ -1,0 +1,172 @@
+---
+// The close. Dawn first: the same tower, every window dark but hers, the one warm
+// light, as at the end of the film. Then the page: bismillah, her line, and how to get
+// the editor, which comes on a USB stick.
+import { getImage } from "astro:assets";
+import loopDawn from "../assets/stills/loop-dawn.jpg";
+import { copy } from "../copy";
+
+const loop = "/media/loops/v1/dawn";
+const poster = await getImage({ src: loopDawn, format: "webp", width: 1600, quality: 82 });
+const moving = "(prefers-reduced-motion: no-preference)";
+const s = copy.stick;
+---
+
+<section class="dawn night" aria-hidden="true">
+  <video
+    class="loop"
+    muted
+    playsinline
+    preload="none"
+    poster={poster.src}
+    width="1600"
+    height="900"
+    tabindex="-1"
+    data-dawn
+  >
+    <source src={`${loop}/index.m3u8`} type="application/vnd.apple.mpegurl" media={moving} />
+    <source src={`${loop}/av1.mp4`} type='video/mp4; codecs="av01.0.08M.10"' media={moving} />
+    <source src={`${loop}/h264.mp4`} type='video/mp4; codecs="avc1.640028"' media={moving} />
+  </video>
+</section>
+
+<section class="close page" id="stick" aria-labelledby="stick-heading">
+  <div class="card">
+    <p class="name">bismillah</p>
+    <p class="mine">These words are mine.</p>
+    <p class="what">{copy.close.what}</p>
+  </div>
+
+  <div class="stick">
+    <h2 id="stick-heading">{s.heading}</h2>
+    <p>{s.about}</p>
+    <ul class="claims">
+      {s.claims.map((claim) => <li>{claim}</li>)}
+    </ul>
+    <ol class="steps">
+      {s.steps.map((step) => <li>{step}</li>)}
+    </ol>
+    <p class="get">
+      <a href="#stick">{s.download}</a>
+      <span class="details">{s.details}</span>
+    </p>
+    <p class="needs">{s.needs}</p>
+  </div>
+</section>
+
+<footer class="footer page">
+  <p>{copy.footer.privacy}</p>
+  <p>{copy.footer.colophon}</p>
+</footer>
+
+<style>
+  /* 16:9 on a wide screen; on a phone, a tall crop around her window. */
+  .dawn {
+    block-size: max(min(100svh, 56.25vw), 70svh);
+    overflow: hidden;
+  }
+
+  .dawn .loop {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: cover;
+    /* Her window, the only one lit. */
+    object-position: 60% 50%;
+  }
+
+  .close {
+    --L: calc(var(--size-page) * 1.6);
+    padding-inline: var(--gutter);
+    font-size: var(--size-page);
+  }
+
+  /* The film's end card, in the light: the name, her line, and what it is. */
+  .card {
+    box-sizing: border-box;
+    min-block-size: 70svh;
+    display: grid;
+    place-content: center;
+    gap: calc(0.25 * var(--L));
+    padding-block: calc(3 * var(--L));
+    text-align: center;
+  }
+
+  .card p {
+    margin: 0;
+  }
+
+  .name {
+    font-size: 28px;
+    line-height: 1.3;
+  }
+
+  .mine {
+    color: var(--page-secondary);
+  }
+
+  .card .what {
+    margin-block-start: var(--L);
+    font-size: var(--size-ui);
+    color: var(--page-secondary);
+  }
+
+  /* The stick, in the reading column. */
+  .stick {
+    max-inline-size: 66ch;
+    margin-inline: auto;
+    padding-block: 0 calc(3 * var(--L));
+    font-size: var(--size-page);
+    line-height: 1.6;
+  }
+
+  .stick h2 {
+    margin: 0 0 var(--L);
+    font-size: 1.22em;
+    line-height: 1.3em;
+    font-weight: 700;
+  }
+
+  .stick p,
+  .stick ul,
+  .stick ol {
+    margin-block: 0 var(--L);
+  }
+
+  .stick ul,
+  .stick ol {
+    padding-inline-start: 2ch;
+  }
+
+  /* The editor draws list markers in text-secondary. */
+  .stick li::marker {
+    color: var(--page-secondary);
+  }
+
+  /* Green means something to press, as in the editor. */
+  .get a {
+    color: var(--caret);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+  }
+
+  .details,
+  .needs {
+    color: var(--page-secondary);
+  }
+
+  .details {
+    margin-inline-start: 2ch;
+  }
+
+  .footer {
+    padding: var(--gutter) var(--gutter) calc(2 * var(--gutter));
+    font-size: var(--size-small);
+    color: var(--page-secondary);
+    text-align: center;
+  }
+
+  .footer p {
+    margin: 0;
+  }
+</style>

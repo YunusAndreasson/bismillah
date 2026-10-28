@@ -3,20 +3,30 @@ import Base from "../layouts/Base.astro";
 ---
 
 <Base title="Not found · bismillah">
-  <main>
+  <main class="night">
     <h1>Not found</h1>
     <p><a href="/">bismillah</a></p>
   </main>
 </Base>
 
 <style>
+  main {
+    box-sizing: border-box;
+    min-block-size: 100svh;
+    display: grid;
+    place-content: center;
+    padding: var(--gutter);
+    text-align: center;
+  }
+
   h1 {
     margin: 0;
-    font-size: 1.25rem;
-    font-weight: normal;
+    font-size: 20px;
+    font-weight: 400;
   }
 
   p {
-    margin: 0.5rem 0 0;
+    margin: 8px 0 0;
+    color: var(--shawl-light);
   }
 </style>

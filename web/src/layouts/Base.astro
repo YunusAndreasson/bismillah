@@ -1,9 +1,24 @@
 ---
+import { getImage } from "astro:assets";
+import duoRegular from "../assets/fonts/BismillahDuo-Regular.woff2?url";
+import tower from "../assets/stills/01-tower-night.jpg";
+import { copy } from "../copy";
+
 interface Props {
   title?: string;
 }
 
 const { title = "bismillah" } = Astro.props;
+
+// The link preview: the tower at night, cropped to the 1.91:1 that previews use.
+const preview = await getImage({
+  src: tower,
+  width: 1200,
+  height: 630,
+  fit: "cover",
+  format: "jpg",
+});
+const previewUrl = new URL(preview.src, Astro.site).href;
 ---
 
 <!doctype html>
@@ -12,7 +27,16 @@ const { title = "bismillah" } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
+    <meta name="description" content={copy.description} />
+    <meta name="theme-color" content="#0a0d0c" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href={duoRegular} as="font" type="font/woff2" crossorigin />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={copy.description} />
+    <meta property="og:image" content={previewUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <slot />
@@ -20,8 +44,27 @@ const { title = "bismillah" } = Astro.props;
 </html>
 
 <style is:global>
-  /* The palette in GUIDELINES.md. Each colour has one place in the story, so use
-     it there and nowhere else. */
+  /* The editor's own typeface (scripts/fonts.sh). A variable font: one file per style
+     carries every weight from 400 to 700. */
+  @font-face {
+    font-family: "Bismillah Duo";
+    src: url("../assets/fonts/BismillahDuo-Regular.woff2") format("woff2");
+    font-weight: 400 700;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: "Bismillah Duo";
+    src: url("../assets/fonts/BismillahDuo-Italic.woff2") format("woff2");
+    font-weight: 400 700;
+    font-style: italic;
+    font-display: swap;
+  }
+
+  /* The palette in GUIDELINES.md. Each colour has one place in the story, so use it
+     there and nowhere else. The night and the page are the story's two worlds, not a
+     theme: the site ignores the system's light or dark preference. */
   :root {
     --night: #0a0d0c;
     --kitchen: #0c1714;
@@ -34,28 +77,97 @@ const { title = "bismillah" } = Astro.props;
     --caret: #1e6b4a;
     --end-card: #151515;
 
-    /* The page is her world, and it is always light. */
-    color-scheme: light;
+    /* Her shawl, lit: the same grey raised to 4.5:1 or more on every dark ground, for
+       small quiet text. The shawl itself (3.07:1 on the night) is for 24px and up. */
+    --shawl-light: #72827c;
+
+    /* The editor's own quiet tones on the page (DESIGN.md §9.2), so the page looks as
+       the app does: text-secondary (5.66:1) and text-faint (the Basmallah wordmark). */
+    --page-secondary: #62625e;
+    --page-faint: #9e9d99;
+
+    --font: "Bismillah Duo", ui-monospace, monospace;
+
+    /* Sizes, all of them. The page's size steps with the screen; the rest never move. */
+    --size-small: 15px;
+    --size-ui: 16px;
+    --size-page: 20px;
+    --gutter: 16px;
+
+    background: var(--night);
+  }
+
+  @media (max-width: 640px) {
+    :root {
+      --size-page: 17px;
+    }
+  }
+
+  @media (min-width: 768px) {
+    :root {
+      --gutter: 32px;
+    }
+  }
+
+  @media (min-width: 1920px) {
+    :root {
+      --size-page: 22px;
+    }
   }
 
   body {
     margin: 0;
-    background: var(--page);
-    color: var(--ink);
-    /* Until the editor's own Bismillah Duo is served as a web font. */
-    font-family: ui-monospace, monospace;
+    background: var(--night);
+    color: var(--page);
+    font-family: var(--font);
+    font-size: var(--size-ui);
     line-height: 1.6;
+    font-kerning: normal;
+    font-synthesis: none;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
-  main {
-    box-sizing: border-box;
-    min-height: 100svh;
-    display: grid;
-    place-content: center;
-    padding: 1rem;
+  /* The two worlds. Each section belongs to one. */
+  .night {
+    background: var(--night);
+    color: var(--page);
+    color-scheme: dark;
+  }
+
+  .page {
+    background: var(--page);
+    color: var(--ink);
+    color-scheme: light;
   }
 
   a {
     color: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--page);
+    outline-offset: 3px;
+  }
+
+  .page :focus-visible {
+    outline-color: var(--caret);
+  }
+
+  .visually-hidden {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* The editor's caret (DESIGN.md §11): 2px, green. It blinks on the app's 1.2 s cycle
+     four times, under WCAG's five seconds, and then rests, visible. */
+  @keyframes caret-blink {
+    50% {
+      opacity: 0;
+    }
   }
 </style>

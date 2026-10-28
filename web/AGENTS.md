@@ -5,8 +5,12 @@ It is built with Astro 7, fully static, and served by Cloudflare as the `bismill
 static assets only, no Worker script. Until the site has its own address it lives at
 https://bismillah.jonas-268.workers.dev.
 
-**Status:** base only (2026-10-28). The build, CI and shipping work, and the one page
-is a placeholder. The design comes next, from GUIDELINES.md.
+**Status:** the design is built (2026-10-28) and waits for the author's review, with
+every unwritten word as a visible ⟨placeholder⟩ in `src/copy.ts`. One page, in five
+scenes: the film (our own player, the tower loop as its picture), her screen (the
+camera pushes into her laptop and its light becomes the page), the manifesto set as
+the editor sets a document (Zuhd mode follows the reader), the dawn, and the close
+with the stick, which is the call to action.
 
 ## Read first
 
@@ -26,7 +30,14 @@ is a placeholder. The design comes next, from GUIDELINES.md.
 - **Static by default.** No adapter, no Worker script, no request-time code. Anything
   live runs in the browser. Adding `@astrojs/cloudflare` or a `main` script is a
   decision: say why first.
-- `.astro` first. Client JavaScript only where a page truly needs it (none today).
+- `.astro` first. Client JavaScript only where a page truly needs it: today one module,
+  `src/scripts/site.ts` (the player, the push, Zuhd mode, the caret and the dawn).
+  Everything reads and plays without it.
+- **Words that aren't approved live in `src/copy.ts`**, as ⟨placeholders⟩ until the
+  author writes them. Accessible names there are proposals awaiting approval.
+- **Motion is slow and one thing at a time** (GUIDELINES.md): the loops play once and
+  rest (WCAG 2.2.2's five seconds), the caret blinks four times, and
+  `prefers-reduced-motion` turns the loops and the push into stills.
 - Colours come from the tokens in `src/layouts/Base.astro`, which hold the palette in
   GUIDELINES.md. Never a literal colour in a component.
 - Prefer retrieval over memory for Astro and Cloudflare APIs, because both move fast
@@ -35,9 +46,19 @@ is a placeholder. The design comes next, from GUIDELINES.md.
 
 ## Layout
 
-- `src/layouts/Base.astro`: the document shell, the palette tokens and base type.
-- `src/pages/index.astro`: the placeholder. `404.astro` is served with status 404 for
-  any unknown path.
+- `src/layouts/Base.astro`: the document shell, the palette tokens, the fonts and base
+  type, and the link preview.
+- `src/pages/index.astro`: the page, built from `src/components/`: `Film` (the player),
+  `Screen` (her screen), `Document` and `Basmallah` (a document as the editor sets it),
+  `Close` (the dawn, the close, the stick, the footer). `404.astro` is served with
+  status 404 for any unknown path.
+- `src/content/manifesto.md`: a byte-for-byte copy of `../MANIFESTO.md`. Markdown is
+  rendered by Sätteri with smart punctuation off, so it shows exactly as typed.
+- `src/assets/`: the stills (Astro makes AVIF and WebP), the fonts (`scripts/fonts.sh`)
+  and the Basmallah outline (`scripts/basmallah.sh`, copied from the app).
+- `public/media/`: the film as HLS and one AV1 file, the loops, and the captions, in
+  versioned folders (`scripts/media.sh`). Encoded from the director project's master;
+  committed, so a build needs nothing outside `web/`.
 - `public/favicon.svg`: the app's bāʾ icon, copied from `../src-tauri/icons/source.svg`.
   Copy it again when the icon changes.
 - `public/_headers`: response headers (see Delivery).
@@ -45,6 +66,8 @@ is a placeholder. The design comes next, from GUIDELINES.md.
   film's frames and loops. These are inputs: move what a page uses into `src/assets/`
   (processed and fingerprinted by Astro) or `public/`.
 - `scripts/ship.sh`, `scripts/smoke-test.sh`: deploying (see CI and deploy).
+- `scripts/media.sh`, `scripts/fonts.sh`, `scripts/basmallah.sh`: run by hand when the
+  film, the fonts or the app's Basmallah change; their output is committed.
 
 ## Delivery
 
@@ -52,8 +75,14 @@ is a placeholder. The design comes next, from GUIDELINES.md.
   "never"`), so Cloudflare serves `/about` from `about.html` with no redirect.
 - `wrangler.jsonc`: assets only, `not_found_handling: "404-page"`, workers.dev on,
   per-version preview URLs off.
-- `public/_headers`: `X-Robots-Tag: noindex` until launch, `nosniff`, `no-referrer`, and
-  `/_astro/*` (content-hashed) cached for a year, `immutable`.
+- `public/_headers`: `X-Robots-Tag: noindex` until launch, `nosniff`, `no-referrer`, a
+  same-origin `Content-Security-Policy` (no inline script or style, so Astro writes
+  stylesheets as files: `inlineStylesheets: "never"`), and `/_astro/*` and `/media/*`
+  cached for a year, `immutable`.
+- **Video and Range:** static assets ignore `Range` and answer 200 with the whole file,
+  and Safari won't play an MP4 that way, and no file may exceed 25 MiB. So the film is
+  HLS (Safari, Chrome 142+) with one progressive AV1 file under 24 MiB for Firefox and
+  Zen, and each loop has a one-segment HLS before its MP4s.
 - **At launch**, when the address is chosen: remove the `noindex` header, and change
   the URL in `astro.config.mjs` (`site`) and `scripts/ship.sh` (`URL`).
 - The site builds from `web/` alone; nothing reads from `../`. If it ever must (the

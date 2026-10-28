@@ -1,32 +1,29 @@
 ---
+// The night opens, her page explains, the dawn closes, and the page ends it
+// (GUIDELINES.md): the film, her screen, the manifesto, a second document, the close.
+import Close from "../components/Close.astro";
+import Document from "../components/Document.astro";
+import Film from "../components/Film.astro";
+import Screen from "../components/Screen.astro";
+import { Content as Manifesto } from "../content/manifesto.md";
+import { copy } from "../copy";
 import Base from "../layouts/Base.astro";
 ---
 
 <Base>
   <main>
-    <h1>bismillah</h1>
-    <p>These words are mine.<span class="caret" aria-hidden="true"></span></p>
+    <Film />
+    <Screen />
+    <Document caret>
+      <Manifesto />
+    </Document>
+    <Document>
+      <p>{copy.editor}</p>
+    </Document>
+    <Close />
   </main>
 </Base>
 
-<style>
-  h1 {
-    margin: 0;
-    font-size: 2rem;
-    font-weight: normal;
-  }
-
-  p {
-    margin: 0.5rem 0 0;
-  }
-
-  /* The editor's caret, still: nothing on the page moves for show. */
-  .caret {
-    display: inline-block;
-    width: 2px;
-    height: 1.2em;
-    margin-inline-start: 2px;
-    vertical-align: text-bottom;
-    background: var(--caret);
-  }
-</style>
+<script>
+  import "../scripts/site.ts";
+</script>

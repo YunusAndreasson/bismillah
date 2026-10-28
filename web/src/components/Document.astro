@@ -1,0 +1,111 @@
+---
+// A document on the page, set exactly as the editor sets one in its default profile
+// (DESIGN.md §8, §11): the Basmallah opening, Bismillah Duo at the writing size with a
+// 1.6 line height, the 66ch measure, and the heading scale of §8.4. With the script,
+// Zuhd mode follows the reader: the paragraph at the typewriter line (42% from the top)
+// is in ink, the rest in text-secondary.
+import Basmallah from "./Basmallah.astro";
+
+interface Props {
+  /** Ends the document with the editor's caret, where the writer stopped. */
+  caret?: boolean;
+}
+
+const { caret = false } = Astro.props;
+---
+
+<article class="document page" lang="en" data-zuhd data-caret={caret ? "" : undefined}>
+  <div class="sheet">
+    <Basmallah />
+    <div class="text">
+      <slot />
+    </div>
+  </div>
+</article>
+
+<style>
+  .document {
+    /* One line of the document: the unit of its vertical rhythm. */
+    --L: calc(var(--size-page) * 1.6);
+    padding-inline: var(--gutter);
+  }
+
+  .sheet {
+    max-inline-size: 66ch;
+    margin-inline: auto;
+    padding-block: var(--L) calc(3 * var(--L));
+    font-size: var(--size-page);
+    line-height: 1.6;
+    font-variant-ligatures: common-ligatures contextual;
+  }
+
+  /* A blank line between paragraphs, as Markdown writes them. */
+  .text :global(:where(p, ul, ol, blockquote)) {
+    margin-block: 0 var(--L);
+  }
+
+  .text :global(:where(h1, h2, h3)) {
+    margin-block: 0 var(--L);
+    line-height: 1.3em;
+    font-weight: 700;
+  }
+
+  .text :global(h1) {
+    font-size: 1.4em;
+    margin-block-start: calc(2 * var(--L));
+  }
+
+  .text :global(h2) {
+    font-size: 1.22em;
+    margin-block-start: calc(1.5 * var(--L));
+  }
+
+  .text :global(h3) {
+    font-size: 1.08em;
+    margin-block-start: calc(1.25 * var(--L));
+  }
+
+  /* The first line of a document has no blank line above it. */
+  .text > :global(:first-child) {
+    margin-block-start: var(--L);
+  }
+
+  .text > :global(p:first-child) {
+    margin-block-start: 0;
+  }
+
+  /* Zuhd mode (§11.1), once the script has marked the current paragraph. */
+  [data-zuhd-on] .text > :global(*) {
+    color: var(--page-secondary);
+    transition: color 200ms ease-out;
+  }
+
+  [data-zuhd-on] .text > :global(.current) {
+    color: var(--ink);
+  }
+
+  /* The caret: 2px, green, after the last character. */
+  [data-caret] .text > :global(:last-child)::after {
+    content: "";
+    display: inline-block;
+    inline-size: 2px;
+    block-size: 1.15em;
+    margin-inline-start: 1px;
+    vertical-align: -0.2em;
+    background: var(--caret);
+  }
+
+  [data-caret][data-awake] .text > :global(:last-child)::after {
+    animation: caret-blink 1.2s steps(1, end) 4;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-zuhd-on] .text > :global(*) {
+      transition: none;
+    }
+
+    [data-caret][data-awake] .text > :global(:last-child)::after {
+      animation: none;
+    }
+  }
+</style>
