@@ -1,0 +1,30 @@
+{
+  "name": "bismillah-web",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro build && wrangler dev",
+    "astro": "astro",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "typecheck": "astro check",
+    "verify": "pnpm check && pnpm typecheck && pnpm build",
+    "ship": "scripts/ship.sh"
+  },
+  "dependencies": {
+    "astro": "7.4.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.12",
+    "@biomejs/biome": "2.6.3",
+    "typescript": "6.0.3",
+    "wrangler": "4.154.0"
+  }
+}

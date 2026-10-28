@@ -1,0 +1,13 @@
+# Cloudflare applies these to every static response, which is every response here.
+#
+# X-Robots-Tag keeps the workers.dev address out of search results until the site
+# has its own address, so that address is the one that gets indexed. Remove it at
+# launch. Referrer-Policy: the site sends no one its visitors' paths.
+/*
+  X-Robots-Tag: noindex
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+
+# Astro content-hashes everything under /_astro/, so a file there never changes.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable

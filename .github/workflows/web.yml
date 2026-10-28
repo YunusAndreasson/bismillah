@@ -1,0 +1,56 @@
+# Verify the website (web/) on every push and pull request that touches it, with the
+# same `pnpm verify` as locally, so "it passed on my machine" and "CI is green" mean
+# the same thing. web/ is its own pnpm root with its own lockfile, so every step runs
+# inside it.
+#
+# Deliberately not here:
+# - Deploys. The site ships from the author's machine with `pnpm ship` (logged-in
+#   wrangler), so no Cloudflare credential lives in GitHub (web/AGENTS.md).
+# - The app. Its gate is `pnpm verify` at the root, run locally (AGENTS.md).
+name: Web
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/web.yml"]
+  pull_request:
+    paths: ["web/**", ".github/workflows/web.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: web
+
+env:
+  ASTRO_TELEMETRY_DISABLED: "1"
+  WRANGLER_SEND_METRICS: "false"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # pnpm before setup-node: `cache: pnpm` asks pnpm where its store is. The
+      # version comes from web/package.json `packageManager`.
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      # Biome, astro check, astro build.
+      - run: pnpm verify

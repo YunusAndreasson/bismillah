@@ -1,0 +1,61 @@
+---
+interface Props {
+  title?: string;
+}
+
+const { title = "bismillah" } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  /* The palette in GUIDELINES.md. Each colour has one place in the story, so use
+     it there and nowhere else. */
+  :root {
+    --night: #0a0d0c;
+    --kitchen: #0c1714;
+    --cold-screen: #bcd5ca;
+    --shawl: #56625d;
+    --her-light: #a6733a;
+    --dawn-paper: #aab4a7;
+    --page: #f7f6f2;
+    --ink: #1e1e1e;
+    --caret: #1e6b4a;
+    --end-card: #151515;
+
+    /* The page is her world, and it is always light. */
+    color-scheme: light;
+  }
+
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    /* Until the editor's own Bismillah Duo is served as a web font. */
+    font-family: ui-monospace, monospace;
+    line-height: 1.6;
+  }
+
+  main {
+    box-sizing: border-box;
+    min-height: 100svh;
+    display: grid;
+    place-content: center;
+    padding: 1rem;
+  }
+
+  a {
+    color: inherit;
+  }
+</style>

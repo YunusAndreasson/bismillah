@@ -1,0 +1,18 @@
+# web/ is its own pnpm root with its own lockfile, apart from the app's
+# (../pnpm-workspace.yaml): the site and the app never share a dependency.
+packages: []
+
+# workerd must run its postinstall or `wrangler dev` (`pnpm preview`) cannot boot
+# the local Workers runtime. sharp is Astro's build-time image service.
+allowBuilds:
+  esbuild: true
+  sharp: true
+  workerd: true
+
+# pnpm holds back releases younger than a day. Exclude a fresh version only when
+# we need it now, by exact version, and drop the entry once it has aged.
+minimumReleaseAgeExclude:
+  - astro@7.4.3
+  - "@astrojs/markdown-satteri@0.4.6"
+  - "@astrojs/prism@4.1.2"
+  - "@astrojs/telemetry@3.4.2"

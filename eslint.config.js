@@ -23,6 +23,8 @@ export default defineConfig(
       "packaging/arch/src/",
       "packaging/arch/pkg/",
       "packaging/arch/bismillah/",
+      // The website has its own root, tools and gate (web/AGENTS.md).
+      "web/",
     ],
   },
   { linterOptions: { reportUnusedDisableDirectives: "error" } },

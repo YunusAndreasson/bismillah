@@ -11,3 +11,4 @@ src-tauri/icons/
 target/
 tests/fixtures/
 tests/visual/baselines/
+web/

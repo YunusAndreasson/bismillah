@@ -1,0 +1,56 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  // .jsonc, not .json: Biome reads `biome.json` as strict JSON, and a comment in
+  // it fails silently, so the whole config is dropped and every default applies.
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    // Markdown is prose, left as written, as in the app (../.prettierignore).
+    "includes": [
+      "**",
+      "!dist",
+      "!.astro",
+      "!.wrangler",
+      "!.claude",
+      "!.agents",
+      "!public",
+      "!**/*.md"
+    ]
+  },
+  // Formatted as the app is by Prettier (../.prettierrc), so the repo reads alike.
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": { "preset": "recommended" }
+  },
+  "assist": {
+    "actions": { "source": { "organizeImports": "on" } }
+  },
+  "overrides": [
+    {
+      // Biome reads only an .astro file's frontmatter, never the template, so
+      // anything used only in markup looks unused. `astro check` reads both and
+      // covers the same ground.
+      "includes": ["**/*.astro"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "off",
+            "noUnusedVariables": "off"
+          }
+        }
+      }
+    }
+  ]
+}

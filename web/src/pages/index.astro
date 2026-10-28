@@ -1,0 +1,32 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base>
+  <main>
+    <h1>bismillah</h1>
+    <p>These words are mine.<span class="caret" aria-hidden="true"></span></p>
+  </main>
+</Base>
+
+<style>
+  h1 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: normal;
+  }
+
+  p {
+    margin: 0.5rem 0 0;
+  }
+
+  /* The editor's caret, still: nothing on the page moves for show. */
+  .caret {
+    display: inline-block;
+    width: 2px;
+    height: 1.2em;
+    margin-inline-start: 2px;
+    vertical-align: text-bottom;
+    background: var(--caret);
+  }
+</style>

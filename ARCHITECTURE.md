@@ -398,7 +398,7 @@ Search feedback extends CodeMirror's existing panel with a polite status region 
 ### 12.3 Platforms
 - **For now bismillah runs only on the author's Linux machine.** It is installed with a local Arch `PKGBUILD` (`makepkg -si`), so it appears in the launcher and opens `.md` files from the file manager. The package holds the binary (fonts, the dictionary and the guide compiled in), the desktop entry (`text/markdown`, `text/x-markdown`; its name, the Wayland app id and `StartupWMClass` are all `bismillah`), the icon from 32 px to scalable, the guide, README and PRIVACY under `/usr/share/doc/bismillah/`, and the licences. `packaging/check.sh` checks a built package: its files, the entry, *Open with* opening a file (launched from the entry under the harness), `--version`, and that every linked library belongs to a declared dependency.
 - Public packaging (AppImage, .deb, .rpm, AUR, Flatpak) and macOS (WKWebView) / Windows (WebView2) builds come later. Until then, portability is protected by discipline (`platform.rs`, Tauri path APIs, `Mod-` shortcuts), not by CI.
-- **Checks run locally.** `pnpm verify` runs every suite: tests, clippy, fmt, check, lint, `cargo deny`. CI arrives when the repo gets a remote.
+- **Checks run locally.** `pnpm verify` runs every suite: tests, clippy, fmt, check, lint, `cargo deny`. The repo has a private GitHub remote, but hosted CI so far covers only the website (`web/`).
 - All platform code lives in `platform.rs`. Paths go through Tauri and `dirs`. Shortcuts use `Mod-`.
 - Font rendering and CSS support differ between engines, so typography is checked in the real webviews.
 - **Linux specifics:**
@@ -423,7 +423,7 @@ The stick runs this app with `--appliance` under cage, as its only program (os/P
 
 ### Code-quality gate
 
-`pnpm verify` is the local gate (there is no remote or hosted CI). It fails on
+`pnpm verify` is the local gate (the app has no hosted CI; the repo's one workflow checks the website in `web/`). It fails on
 TypeScript/Svelte diagnostics, formatting differences, ESLint warnings, failing
 unit tests, Rust formatting differences, Clippy warnings, cargo-deny policy violations,
 build failures, and real-app e2e or visual regressions. `--fast` skips only the

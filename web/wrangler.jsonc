@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  // A static site: no Worker script, only assets. Every request is a file from
+  // ./dist, which costs no Worker invocation and has no request-time code to
+  // break. Ship with `pnpm ship`, never a bare `wrangler deploy` (AGENTS.md).
+  "name": "bismillah",
+
+  // At or before the installed workerd's build date, so `wrangler dev` runs it.
+  "compatibility_date": "2026-10-23",
+
+  "assets": {
+    "directory": "./dist",
+    // Astro writes a real 404.html. This is the static-site mode, NOT
+    // "single-page-application", which would answer 200 to every unknown path.
+    "not_found_handling": "404-page"
+  },
+
+  // workers.dev is the only public URL until the site has its own address.
+  // Per-version preview URLs stay off: nothing uses them, and each would be
+  // another public copy of the site.
+  "workers_dev": true,
+  "preview_urls": false
+}

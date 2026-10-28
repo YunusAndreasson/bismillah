@@ -1,0 +1,14 @@
+# dist/ and node_modules/ are ignored by the repo's root .gitignore.
+.astro/
+.wrangler/
+
+# Personal Claude Code settings (shared ones live in .claude/settings.json).
+.claude/settings.local.json
+
+# Third-party agent skills are a cache: skills-lock.json is tracked and restores
+# them (`npx skills experimental_install`). The CLI installs to .claude/skills/
+# for Claude Code, but a lockfile restore lands in .agents/skills/. `/*` rather
+# than `/` so the skills we write ourselves can be re-included below.
+.claude/skills/*
+!.claude/skills/see-site/
+.agents/
