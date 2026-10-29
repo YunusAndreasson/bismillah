@@ -3,18 +3,29 @@
 // (DESIGN.md §8, §11): the Basmallah opening, Bismillah Duo at the writing size with a
 // 1.6 line height, the 66ch measure, and the heading scale of §8.4. With the script,
 // Zuhd mode follows the reader: the paragraph at the typewriter line (42% from the top)
-// is in ink, the rest in text-secondary.
+// is in ink, the rest in text-secondary. A document that is `written` is written as it
+// is read: each paragraph arrives when it reaches the typewriter line, where the caret
+// (Base.astro) waits after it, and the page below it is empty until then (site.ts).
+// Without the script, or under reduced motion, all of it is there.
 import Basmallah from "./Basmallah.astro";
 
 interface Props {
   /** Ends the document with the editor's caret, where the writer stopped. */
   caret?: boolean;
+  /** Writes the document as it is read, one paragraph at a time. */
+  written?: boolean;
 }
 
-const { caret = false } = Astro.props;
+const { caret = false, written = false } = Astro.props;
 ---
 
-<article class="document page" lang="en" data-zuhd data-caret={caret ? "" : undefined}>
+<article
+  class="document page"
+  lang="en"
+  data-zuhd
+  data-caret={caret ? "" : undefined}
+  data-written={written ? "" : undefined}
+>
   <div class="sheet">
     <Basmallah />
     <div class="text">
@@ -25,8 +36,6 @@ const { caret = false } = Astro.props;
 
 <style>
   .document {
-    /* One line of the document: the unit of its vertical rhythm. */
-    --L: calc(var(--size-page) * 1.6);
     padding-inline: var(--gutter);
   }
 
@@ -34,8 +43,6 @@ const { caret = false } = Astro.props;
     max-inline-size: 66ch;
     margin-inline: auto;
     padding-block: var(--L) calc(3 * var(--L));
-    font-size: var(--size-page);
-    line-height: 1.6;
     font-variant-ligatures: common-ligatures contextual;
   }
 
@@ -84,28 +91,49 @@ const { caret = false } = Astro.props;
     color: var(--ink);
   }
 
-  /* The caret: 2px, green, after the last character. */
-  [data-caret] .text > :global(:last-child)::after {
-    content: "";
-    display: inline-block;
-    inline-size: 2px;
-    block-size: 1.15em;
-    margin-inline-start: 1px;
-    vertical-align: -0.2em;
-    background: var(--caret);
-  }
-
-  [data-caret][data-awake] .text > :global(:last-child)::after {
-    animation: caret-blink 1.2s steps(1, end) 4;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    [data-zuhd-on] .text > :global(*) {
-      transition: none;
+  /* A heading's Markdown mark, hanging in the margin in text-secondary, as the editor
+     shows it while the caret is on the heading's line, and only then; only where the
+     margin has room for it (the 66ch sheet and the gutters fit from about 860px), as
+     on a phone it would be cut off or push the heading aside. */
+  @media (width >= 880px) {
+    [data-caret][data-writing] .text > :global(:is(h1, h2, h3).end)::before {
+      --mark: 2ch;
+      display: inline-block;
+      inline-size: var(--mark);
+      margin-inline-start: calc(-1 * var(--mark));
+      color: var(--page-secondary);
     }
 
-    [data-caret][data-awake] .text > :global(:last-child)::after {
-      animation: none;
+    [data-caret][data-writing] .text > :global(h1.end)::before {
+      content: "#";
     }
+
+    [data-caret][data-writing] .text > :global(h2.end)::before {
+      --mark: 3ch;
+      content: "##";
+    }
+
+    [data-caret][data-writing] .text > :global(h3.end)::before {
+      --mark: 4ch;
+      content: "###";
+    }
+  }
+
+  /* Written as it is read: a paragraph not yet written is not there to see, though a
+     screen reader still reads it, and arrives as a line does in the editor, at once
+     but softly. The page below the caret stays empty until the last line is written,
+     so what follows never shows before it. */
+  [data-writing] .text > :global(*) {
+    transition:
+      opacity 500ms ease-out,
+      color 200ms ease-out;
+  }
+
+  [data-writing] .text > :global(:not(.written)) {
+    opacity: 0;
+  }
+
+  [data-writing] .sheet {
+    padding-block-end: calc(58svh - 3 * var(--L));
   }
 </style>

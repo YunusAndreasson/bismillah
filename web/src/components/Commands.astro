@@ -13,14 +13,15 @@ interface Props {
 }
 const { where } = Astro.props;
 const s = copy.stick;
-const site = Astro.site ?? new URL("https://bismillah.jonas-268.workers.dev");
+const site = Astro.site;
+if (!site) throw new Error("Commands.astro: the commands need `site` in astro.config.mjs");
 const commands = [
   { os: "unix", ...s.commands.unix, text: `curl -fsSL ${new URL("install.sh", site)} | sh` },
   { os: "windows", ...s.commands.windows, text: `irm ${new URL("install.ps1", site)} | iex` },
 ].map((c) => ({ ...c, parts: c.text.split(/(?<=\/)(?!\/)/) }));
 ---
 
-<div class="commands" data-commands>
+<div class="commands">
   {
     commands.map((c) => (
       <div class="for" data-os={c.os}>
@@ -48,10 +49,6 @@ const commands = [
 </div>
 
 <style>
-  .commands {
-    --L: calc(var(--size-page) * 1.6);
-  }
-
   /* Each command under the name of the computers it is for, when both show. */
   .for + .for {
     margin-block-start: calc(0.75 * var(--L));
@@ -64,9 +61,8 @@ const commands = [
   }
 
   /* The command, in the machine's dark: what to paste into the terminal. One click
-     selects all of it; with the script, a button copies it. */
-  /* In a narrow column the button goes under the command, so the address keeps its
-     words whole. */
+     selects all of it; with the script, a button copies it. In a narrow column the
+     button goes under the command, so the address keeps its words whole. */
   .command {
     display: flex;
     flex-wrap: wrap;
@@ -105,10 +101,6 @@ const commands = [
     cursor: pointer;
   }
 
-  .command button[hidden] {
-    display: none;
-  }
-
   .command button:focus-visible {
     outline-color: var(--page);
     outline-offset: -5px;
@@ -120,7 +112,7 @@ const commands = [
     font-size: var(--size-small);
   }
 
-  .for:last-of-type + .details {
+  .for + .details {
     margin-block-start: calc(0.5 * var(--L));
   }
 </style>

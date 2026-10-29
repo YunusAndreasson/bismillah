@@ -1,7 +1,7 @@
 ---
 import { getImage } from "astro:assets";
 import duoRegular from "../assets/fonts/BismillahDuo-Regular.woff2?url";
-import tower from "../assets/stills/01-tower-night.jpg";
+import notebook from "../assets/stills/22-bismillah.jpg";
 import { copy } from "../copy";
 
 interface Props {
@@ -10,9 +10,11 @@ interface Props {
 
 const { title = "bismillah" } = Astro.props;
 
-// The link preview: the tower at night, cropped to the 1.91:1 that previews use.
+// The link preview: the boy's notebook, the film's poster, which says "writing" even
+// as a thumbnail (2026-10-29; until then the tower at night), cropped to the 1.91:1
+// that previews use.
 const preview = await getImage({
-  src: tower,
+  src: notebook,
   width: 1200,
   height: 630,
   fit: "cover",
@@ -62,20 +64,15 @@ const previewUrl = new URL(preview.src, Astro.site).href;
     font-display: swap;
   }
 
-  /* The palette in GUIDELINES.md. Each colour has one place in the story, so use it
-     there and nowhere else. The night and the page are the story's two worlds, not a
-     theme: the site ignores the system's light or dark preference. */
+  /* The colours of the palette in GUIDELINES.md that the site uses. Each has one place in
+     the story, so use it there and nowhere else. The night and the page are the story's
+     two worlds, not a theme: the site ignores the system's light or dark preference. */
   :root {
     --night: #0a0d0c;
-    --kitchen: #0c1714;
-    --cold-screen: #bcd5ca;
     --shawl: #56625d;
-    --her-light: #a6733a;
-    --dawn-paper: #aab4a7;
     --page: #f7f6f2;
     --ink: #1e1e1e;
     --caret: #1e6b4a;
-    --end-card: #151515;
 
     /* Her shawl, lit: the same grey raised to 4.5:1 or more on every dark ground, for
        small quiet text. The shawl itself (3.07:1 on the night) is for 24px and up. */
@@ -93,6 +90,11 @@ const previewUrl = new URL(preview.src, Astro.site).href;
     --size-ui: 16px;
     --size-page: 20px;
     --gutter: 16px;
+    /* Titles are one step above the writing: the film's, the editor's, the stick's and her
+       last line (GUIDELINES.md, Type). */
+    --size-title: calc(1.4 * var(--size-page));
+    /* One line of writing: the unit of the page's vertical rhythm. */
+    --L: calc(1.6 * var(--size-page));
 
     background: var(--night);
   }
@@ -117,7 +119,6 @@ const previewUrl = new URL(preview.src, Astro.site).href;
 
   body {
     margin: 0;
-    background: var(--night);
     color: var(--page);
     font-family: var(--font);
     font-size: var(--size-ui);
@@ -134,10 +135,12 @@ const previewUrl = new URL(preview.src, Astro.site).href;
     color-scheme: dark;
   }
 
+  /* The page is writing, so it is set at the writing size. */
   .page {
     background: var(--page);
     color: var(--ink);
     color-scheme: light;
+    font-size: var(--size-page);
   }
 
   a {
@@ -162,11 +165,45 @@ const previewUrl = new URL(preview.src, Astro.site).href;
     white-space: nowrap;
   }
 
-  /* The editor's caret (DESIGN.md §11): 2px, green. It blinks on the app's 1.2 s cycle
-     four times, under WCAG's five seconds, and then rests, visible. */
+  /* A component that gives an element a `display` would show it while hidden. */
+  [hidden] {
+    display: none !important;
+  }
+
+  /* The editor's caret (DESIGN.md §11): 2px, green, after the last character of a text
+     with `data-caret` (her page, and her last line), or, while her page is being written,
+     after the last paragraph written so far. It blinks on the app's 1.2 s cycle four
+     times once it is in view (site.ts), under WCAG's five seconds, and then rests,
+     visible. */
   @keyframes caret-blink {
     50% {
       opacity: 0;
+    }
+  }
+
+  [data-caret]:not([data-writing]) .text > :last-child::after,
+  [data-caret][data-writing] .text > .end::after {
+    content: "";
+    display: inline-block;
+    inline-size: 2px;
+    block-size: 1.15em;
+    margin-inline-start: 1px;
+    vertical-align: -0.2em;
+    background: var(--caret);
+  }
+
+  [data-caret][data-awake] .text > :last-child::after {
+    animation: caret-blink 1.2s steps(1, end) 4;
+  }
+
+  /* Under reduced motion nothing moves or fades: the loops and the push are stills
+     (site.ts), and every transition and blink here ends where it would have. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      transition: none !important;
+      animation: none !important;
     }
   }
 </style>

@@ -22,7 +22,7 @@ export default defineConfig({
   // the site's own (`style-src 'self'`).
   build: { format: "file", inlineStylesheets: "never" },
   markdown: {
-    // The manifesto shows exactly as its author typed it: no smart quotes, dashes or
+    // Her page shows exactly as it was typed: no smart quotes, dashes or
     // ellipses added (AGENTS.md: save, and show, exactly what the writer typed).
     processor: satteri({ features: { smartPunctuation: false } }),
   },

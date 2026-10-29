@@ -70,11 +70,12 @@ film() {
 
 loops() {
   local name out
-  for name in night dawn; do
+  # The dawn loop is no longer on the page (2026-10-29: the notebook closes it).
+  for name in night; do
     local src="media/loop-tower-$name.mp4"
     out="public/media/loops/v1/$name"
     rm -rf "$out" && mkdir -p "$out"
-    # HLS, one segment: the source's own H.264, tagged BT.709 (the dawn loop wasn't).
+    # HLS, one segment: the source's own H.264, tagged BT.709.
     ffmpeg -hide_banner -loglevel error -i "$src" -map 0:v -c:v copy \
       -bsf:v h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1 \
       -f hls -hls_time 10 -hls_playlist_type vod -hls_segment_type fmp4 \

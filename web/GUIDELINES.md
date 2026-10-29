@@ -74,9 +74,11 @@ No gradients, glows or neon. Light in the film always comes from a real source: 
 - **Bismillah Duo** (in [`../fonts/build/`](../fonts/build/)) for everything that is writing: the questions, the answers, the lines
   from the film. It is the editor's own typeface, so the site and the app speak in one voice.
 - **Amiri** (in [`../fonts/source/amiri/`](../fonts/source/amiri/)) for the basmala and any Arabic.
-- The name is always lowercase: **bismillah**, as on the end card.
+- The name is always lowercase: **bismillah**, as on the film's end card. In running text it is set
+  plain, like any other word: no bold, italics or capitals (only the boy's notebook, the link
+  preview, writes it _Bismillah_, as the phrase).
 - The scale grows from the writing size (20px, 17px on a phone). Titles are one step, 1.4 times it: the
-  film's title, the name on the end card and the stick's heading. The steps' titles are the editor's
+  film's title, her last line and the stick's heading. The steps' titles are the editor's
   third heading size, and only the steps' numbers are larger than the titles. The name in the
   masthead is at the writing size, and quiet lines are 15px.
 - Space shows what belongs together: half a line inside a group, two and a half or three lines between
@@ -95,9 +97,14 @@ No gradients, glows or neon. Light in the film always comes from a real source: 
   - I remember. I attend. I think.
   - These words are mine.
   - A thought I do not write is a thought I never had.
-- The [manifesto](../MANIFESTO.md) is where these words came from. Its closing
-  lines belong on the site: _The book won for memory but we still remember. The word processor won for
-  attention but we still attend. How will we think?_
+- The [manifesto](../MANIFESTO.md) is where these words came from. The site says it as the film
+  does, in the film's lines, as she writes them (2026-10-29): they are the manifesto, so the site
+  carries no longer text and no link to one. The one exception is the editor's screens, as her
+  library: its sections, exactly as written, are her files there. The Zuhd screen shows the
+  first, _Attention_, because Zuhd keeps a whole paragraph in ink and her page's lines are each
+  one line, and the Files screen finds _Memory_ by four letters (the author, 2026-10-29). Its closing lines (_The book won for memory but we
+  still remember. The word processor won for attention but we still attend. How will we think?_)
+  stay in MANIFESTO.md.
 - Short sentences. No marketing voice, no superlatives, no "revolutionary", no "AI-powered".
 
 ## Pictures
@@ -141,13 +148,23 @@ The site should keep the promises the editor keeps:
   the first and third steps' details come from the stick's README (2026-10-29: _The bismillah
   stick_, the stick's size and the erasing, the boot menu); the steps' titles are still to write,
   and so are the command, the second step's words and the download's size and checksum, which
-  wait for a published image (os/PLAN.md, "Open questions"). The one line under "bismillah" on the end card is decided (2026-10-28): _Nothing writes
-  for you._ (from the README). The tagline beside the name on the first screen is _These words are
-  mine._, and the film's title is _Prompting is not thinking, writing is._ (the author, 2026-10-28),
-  so a visitor knows what the site and the film are before anything plays. Before the film plays,
+  wait for a published image (os/PLAN.md, "Open questions"). Beside the name on the first screen is what it is, in plain words: _A writing app that
+  never writes for you._ (2026-10-29, from the README; until then _These words are mine._, which
+  now ends the page). The film's title
+  is _Prompting is not thinking, writing is._ (the author, 2026-10-28), so a visitor knows what
+  the site and the film are before anything plays. Before the film plays,
   a small label (what it is and how long; never "promo"), the title and the play button sit together
   on the picture, on the play button's translucent night, and leave together when it plays: the one
   place words sit on a picture.
+- What it is, in plain words (the author's request for a storytelling pass, 2026-10-29): a
+  writing app, beside the name; the README's _A typewriter, with only the best of the
+  computer_ over the laptop, answering her page's _How will we think?_, and opening the
+  link preview, before _Nothing writes for you._; and the stick said as what it does: the
+  laptop started from it becomes that typewriter. The page ends on the page, after the stick:
+  _These words are mine._ in the editor's type with its caret after it, the page's last words,
+  and nothing below, no picture and no footer (the author, 2026-10-29). The dawn loop and then the
+  boy's notebook were tried there first; both needed the film to mean anything, and the site never
+  introduces the boy.
 - ~~A short, honest note that the film's pictures, voices and sound were made with AI tools.~~ Decided
   2026-10-28: the site carries no such note.
 

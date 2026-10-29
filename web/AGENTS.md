@@ -8,15 +8,22 @@ https://bismillah.jonas-268.workers.dev.
 **Status:** the design is built (2026-10-28) and waits for the author's review, with
 its words in `src/copy.ts` (drafted 2026-10-29 for the author to review). One page, in six
 scenes: the film (our own player, the tower loop as its picture, under the name and
-its tagline, with a label, the film's title and the play button as one group on the
+what it is, a writing app that never writes for you, with a label, the film's title and the play button as one group on the
 picture, so the first screen says what this is), her screen (the
-camera pushes into her laptop and its light becomes the page), the manifesto set as
-the editor sets a document (Zuhd mode follows the reader), her laptop with the
-editor's real screens (four words change what it shows), the dawn, and the close: the
+camera pushes into her laptop and its light becomes the page), her page: the film's own
+lines set as the editor sets a document and written as they are read, one at a time at
+the typewriter line with the caret after them (Zuhd mode follows the reader); they are
+the manifesto, said as the film says it, so the site links to no other; her laptop with
+the editor's real
+screens under the README's line that names it, the answer to her page's first question
+(five words change what it shows), and the close: the
 stick, which is the call to action (three numbered steps, side by side on a wide screen,
 each with a picture: a USB stick, one command that puts bismillah on it, the laptop
-started from it), then the film's end card, the page's one ending (2026-10-29: the
-story, then what it is, then how to get it, then its name).
+started from it), and last the page's one ending: "These words are mine." in the
+editor's type with its caret after it, and nothing below (2026-10-29: the story, then
+what it is, then how to get it; the same day the close moved after the stick, so
+nothing dark stands between seeing the editor and getting it, and the dawn loop, then
+the boy's notebook, left the ending, as both needed the film to mean anything).
 "Get the bismillah editor" stays pinned in the top corner over every scene (the
 author's request, 2026-10-28), so the way to the stick is always in reach, and steps
 aside while the stick itself is on the screen.
@@ -41,39 +48,52 @@ aside while the stick itself is on the screen.
   live runs in the browser. Adding `@astrojs/cloudflare` or a `main` script is a
   decision: say why first.
 - `.astro` first. Client JavaScript only where a page truly needs it: today one module,
-  `src/scripts/site.ts` (the player, the push, Zuhd mode, the caret, the dawn, and the
-  commands' copy buttons and the choice of the visitor's own).
+  `src/scripts/site.ts` (the player, the push, her page written as it is read, Zuhd
+  mode, the caret, the corner button's ground, and the commands' copy buttons and the
+  choice of the visitor's own).
   Everything reads and plays without it.
 - **Every other word lives in `src/copy.ts`**, each line with its source when it has
   one, so the author can review and change the words in one place.
 - **Motion is slow and one thing at a time** (GUIDELINES.md): the loops play once and
   rest (WCAG 2.2.2's five seconds), the caret blinks four times, and
-  `prefers-reduced-motion` turns the loops and the push into stills.
-- Colours come from the tokens in `src/layouts/Base.astro`, which hold the palette in
-  GUIDELINES.md. Never a literal colour in a component.
+  `prefers-reduced-motion` turns the loops and the push into stills; one rule in
+  `Base.astro` ends every transition and blink, so components don't repeat it (a
+  range slider's parts escape it, so the playhead blinks only under `no-preference`).
+- Colours come from the tokens in `src/layouts/Base.astro`, which hold the colours of
+  the palette in GUIDELINES.md that the site uses (add one there when a scene needs
+  it). Never a literal colour in a component. The sizes are tokens too: the writing
+  size, the title step (`--size-title`) and one line of writing (`--L`), the unit of
+  every vertical space.
+- Shared pieces live once in `Base.astro`: the two worlds (`.night`, `.page`, which
+  sets the writing size), the editor's caret on any `[data-caret]` text, and a
+  `[hidden]` that wins over a component's `display`.
 - Prefer retrieval over memory for Astro and Cloudflare APIs, because both move fast
   (the `docs-lookup` skill and the `astro-docs` MCP; the global `wrangler` and
   `cloudflare` skills).
 
 ## Layout
 
-- `src/layouts/Base.astro`: the document shell, the palette tokens, the fonts and base
-  type, and the link preview.
+- `src/layouts/Base.astro`: the document shell, the palette and size tokens, the fonts
+  and base type, the caret, the reduced-motion rule, and the link preview.
 - `src/pages/index.astro`: the page, built from `src/components/`: `Film` (the player),
   `Screen` (her screen), `Document` and `Basmallah` (a document as the editor sets it),
-  `Screens` (her laptop with the editor's real screens, and the four words that change
-  them), `Close` (the dawn, the end card, the footer) and
+  `Screens` (her laptop with the editor's real screens, and the five words that change
+  them), `Close` (the stick, and her last line with the caret; no footer) and
   `Stick` (the three steps) with `Commands` (the install command, inside step 2 when the
   steps stand one under another, and on one line under all three when they stand side
-  by side). `404.astro` is served with
-  status 404 for any unknown path.
-- `src/content/manifesto.md`: the site's cut of `../MANIFESTO.md` (2026-10-29, the
-  author's request: 704 words to 256, its own sentences, the closing lines kept). The
-  full text stays in `../MANIFESTO.md`; change both together. Markdown is rendered by
-  Sätteri with smart punctuation off, so it shows exactly as typed.
+  by side). `404.astro` is served with status 404 for any unknown path.
+- `src/content/her-page.md`: the film's own lines (GUIDELINES.md, Words), as she writes
+  them in the film, without "These words are mine.", which ends the page. They took the
+  place of the site's 256-word cut of `../MANIFESTO.md` on 2026-10-29 (in git history);
+  the full text stays in `../MANIFESTO.md`. Markdown is rendered by Sätteri with smart
+  punctuation off, so it shows exactly as typed.
 - `src/assets/`: the stills (Astro makes AVIF and WebP), the fonts (`scripts/fonts.sh`)
   and the Basmallah outline (`scripts/basmallah.sh`, copied from the app).
   `src/assets/screens/`: the stick's real screens, taken in a VM by `../os/scripts/shots.ts`
+  (her page, `src/content/her-page.md`, is the document they show first; the manifesto,
+  `../MANIFESTO.md`, fills her library one section to a file: Zuhd mode is shown on
+  its first section, whose paragraphs run for lines, and Files finds its Memory by
+  four letters)
   (`pnpm os:shots`) and copied by `scripts/screens.sh`, with a legible detail of each
   for phones. `src/assets/laptop/`: those screens laid into step 3's laptop by
   `scripts/laptop.py`, at twice the photograph's size. Every picture of the app on the

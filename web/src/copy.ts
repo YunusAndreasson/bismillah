@@ -1,13 +1,18 @@
-// Every word on the site that isn't fixed in GUIDELINES.md (the film's lines, the
-// manifesto), in one place, so the author can review and change it here. Lines with a
+// Every word on the site that isn't fixed in GUIDELINES.md (the film's lines, which
+// her page carries), in one place, so the author can review and change it here. Lines with a
 // source say where they come from; the rest were drafted for the author's review
 // (2026-10-29: "fix all, I review").
 
 export const copy = {
-  /** For search results and link previews. From the README. */
-  description: "Nothing writes for you.",
+  /** For search results and link previews: what it is, then what it promises. Both
+   * from the README. */
+  description: "A typewriter, with only the best of the computer. Nothing writes for you.",
 
   header: {
+    /** Beside the name on the first screen: what it is, then what it promises. The README
+     * calls it a writing app, and promises that nothing writes for you (2026-10-29; until
+     * then the film's "These words are mine.", which the end card keeps). */
+    what: "A writing app that never writes for you.",
     /** The author's words ("get bismillah editor", 2026-10-28), with "the" added. */
     stick: "Get the bismillah editor",
   },
@@ -34,23 +39,26 @@ export const copy = {
   },
 
   /** The editor, shown: the stick's real screens on her laptop (Screens.astro), and
-   * the words that change them. The heading is the README's own. */
+   * the words that change them. The heading is the README's own, shown over the laptop
+   * as the answer to her page's question (2026-10-29). */
   screens: {
     heading: "A typewriter, with only the best of the computer",
-    /** The accessible name of the four words. */
+    /** The accessible name of the five words. */
     label: "What the screen shows",
     states: [
       {
         picture: "page",
         label: "Write",
         line: "The page, and nothing else.",
-        alt: "Her laptop on the table, the editor open on it: an essay's title, a heading and paragraphs on a plain page, a quiet status line below.",
+        alt: "Her laptop on the table, the editor open on it: her page, How will we think? and the six lines under it on a plain page, a quiet status line below.",
       },
       {
         picture: "zuhd",
         label: "Zuhd",
         line: "The paragraph you are writing. The rest falls quiet.",
-        alt: "The laptop in Zuhd mode: the paragraph with the caret in dark ink, the headings and the next paragraph in grey.",
+        /** The manifesto's first section (os/scripts/shots.ts), as her page's one-line
+         * paragraphs can't show a whole paragraph kept in ink (2026-10-29). */
+        alt: "The laptop in Zuhd mode on a longer text of hers, Attention: the paragraph with the caret, Fast forward into the digital era and everything became fluid, in dark ink, the paragraphs above and below it in grey.",
       },
       {
         picture: "arabic",
@@ -64,33 +72,35 @@ export const copy = {
         line: "Spelling and grammar, checked on your own computer.",
         alt: "The laptop showing a misspelled word, teh, with its suggestions open: the, tea, tech, tee and tel.",
       },
+      {
+        picture: "files",
+        label: "Files",
+        /** Files (ADR-0016) finds a text by letters of its name; the screen types "memo"
+         * among the manifesto's sections (os/scripts/shots.ts). Drafted 2026-10-29. */
+        line: "Any text, found by a few letters of its name.",
+        alt: "The laptop with Files open over her page: memo typed in its search, and the one text it finds, Memory.md, in her Manifesto folder.",
+      },
     ],
-  },
-
-  close: {
-    /** The line under bismillah that says what it is. From the README. */
-    what: "Nothing writes for you.",
   },
 
   stick: {
     /** The stick README's title (os/README.md). */
     heading: "The bismillah stick",
-    /** The stick's README (os/README.md), its opening paragraph split into what it is
-     * and its promises. */
-    about: "A USB stick that starts a laptop straight into bismillah and nothing else.",
-    claims: [
-      "No network, no shell and no other program.",
-      "Your texts are encrypted on it.",
-      "The laptop it boots on is left untouched.",
-      "Secure Boot stays on.",
+    /** The stick's README (os/README.md), its opening paragraph said as what happens to
+     * the laptop, which becomes the typewriter the editor's heading promises (2026-10-29,
+     * drafted for review), and that it costs nothing (README.md: "a free, open-source
+     * writing app"); Secure Boot stays in the README. */
+    about: [
+      "Start a laptop from it, and the laptop becomes a typewriter: bismillah, with no internet and no other apps.",
+      "It's free. Your texts are kept encrypted on the stick, and when you take it out, the laptop is as it was.",
     ],
     /** Three steps, plain enough for someone who has never opened a terminal. Each
      * has a picture beside it (src/assets/steps/), so its words can stay short. */
     steps: [
       {
         title: "Get a USB stick",
-        /** os/README.md, on the stick and on the first flash. */
-        detail: "Any USB stick of 2 GB or more will do. Everything on it will be erased.",
+        /** os/README.md, on the stick and on the first flash, shortened. */
+        detail: "2 GB or more. Everything on it is erased.",
       },
       {
         title: "Put bismillah on it with one command",
@@ -99,9 +109,11 @@ export const copy = {
       },
       {
         title: "Start your laptop from the stick",
-        /** os/README.md, "When a laptop won't boot it". */
+        /** os/README.md, "When a laptop won't boot it", shortened to the usual keys. "A PC
+         * laptop": the stick is made and tested for PCs, never for a Mac, although a Mac
+         * can make one (drafted 2026-10-29, for the author to confirm). */
         detail:
-          "Turn the laptop on while tapping its boot-menu key (F12 on a Dell; on others F9, F10, F11, F12 or Esc), and pick the stick.",
+          "On a PC laptop, tap its boot-menu key as it starts (F12 on most, Esc or F9 on others) and pick the stick.",
       },
     ],
     /** One command for each kind of computer, which downloads bismillah and puts it on
@@ -111,30 +123,21 @@ export const copy = {
     commands: {
       unix: {
         label: "macOS and Linux",
-        paste:
-          "Open Terminal (on a Mac, it is in Applications › Utilities), paste the command and press Enter.",
+        paste: "Open Terminal (Applications › Utilities on a Mac), paste it and press Enter.",
       },
       windows: {
         label: "Windows",
-        paste: "Open PowerShell from the Start menu, paste the command and press Enter.",
+        paste: "Open PowerShell from the Start menu, paste it and press Enter.",
       },
     },
     /** That the same command updates a stick and keeps its texts. os/README.md,
      * "Updating a stick, keeping its texts". */
-    update: "Run it again on a bismillah stick to update it. Your texts stay.",
+    update: "Run it again to update a stick; your texts stay.",
     /** The copy button's word, and the word it shows once the command is copied. */
     copy: "Copy",
     copied: "Copied",
-    /** The published image's size (os/scripts/publish.ts prints it): set it again when
-     * a new image is published. */
-    details: "About 350 MB to download, all of it checked before anything is written to the stick.",
-  },
-
-  footer: {
-    /** From PRIVACY.md. */
-    privacy: "bismillah is built so that your writing stays yours.",
-    /** The site's one typeface (Base.astro), as DESIGN.md §8 describes it. */
-    colophon:
-      "Set in Bismillah Duo, the editor's own typeface: iA Writer Duo with the IJMES letters added.",
+    /** The published image's size (os/scripts/publish.ts prints it): set it again when a new
+     * image is published. */
+    details: "About 350 MB, all checked before anything is written.",
   },
 } as const;

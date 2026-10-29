@@ -11,7 +11,7 @@ SCALE = 2
 # The laptop's screen in src/assets/steps/step-3.jpg (1536×1024), as scripts/screen.py
 # found it: top left, top right, bottom right, bottom left.
 QUAD = [(504, 141), (1321, 139), (1333, 616), (493, 616)]
-STATES = ["page", "zuhd", "arabic", "suggestion"]
+STATES = ["page", "zuhd", "arabic", "suggestion", "files"]
 
 still = Image.open("src/assets/steps/step-3.jpg").convert("RGB")
 still = still.resize((still.width * SCALE, still.height * SCALE), Image.Resampling.LANCZOS)

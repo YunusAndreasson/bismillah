@@ -17,7 +17,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
 <section class="film night" aria-label={copy.film.label}>
   <header class="masthead">
     <h1 class="wordmark">bismillah</h1>
-    <p class="what">These words are mine.</p>
+    <p class="what">{copy.header.what}</p>
     <a class="to-stick" href="#stick">{copy.header.stick}</a>
   </header>
 
@@ -122,6 +122,8 @@ const moving = "(prefers-reduced-motion: no-preference)";
     /* Everything around the picture: the masthead, the title, the controls and a margin
        below. */
     --chrome: 184px;
+    /* The play button's size: it sits on her window, and the title half a line above it. */
+    --disc: 88px;
     box-sizing: border-box;
     min-block-size: 100svh;
     display: grid;
@@ -130,16 +132,33 @@ const moving = "(prefers-reduced-motion: no-preference)";
     padding-block-end: 16px;
   }
 
-  /* The first screen says what this is before anything plays: the name and its tagline
-     (the author, 2026-10-28), the way to get it in the corner, and the film's title. */
+  /* The picture is 16:9, as large as the room around it allows, and everything above
+     and below it takes its width: the masthead, the title and the controls. A cinema
+     in full screen has more room, so it works the width out again. */
+  .film,
+  .cinema:fullscreen {
+    --picture: min(100%, calc((100svh - var(--chrome)) * 16 / 9));
+  }
+
+  /* The first screen says what this is before anything plays: the name and what it is
+     (2026-10-29), the way to get it in the corner, and the film's title. The masthead
+     spans the picture, so the name stands over its left edge and the corner button
+     over its right, however wide the window. */
   .masthead {
     display: flex;
-    /* One line, centred in the bar, with the name and its line on one baseline. */
+    /* One line in the bar, the name and its line on one baseline. The line sits above
+       the bar's centre, by 0.4 of how much larger the name is than the corner button's
+       words (2px at 20px), so that baseline is also the button's: its smaller words,
+       centred in it, would otherwise sit higher than the name. */
     flex-wrap: wrap;
     align-content: center;
     align-items: baseline;
     column-gap: 2ch;
+    justify-self: center;
+    inline-size: var(--picture);
     block-size: 56px;
+    box-sizing: border-box;
+    padding-block-end: calc(0.8 * (var(--size-page) - var(--size-small)));
   }
 
   /* The name at the writing size, a step above its line, so it reads as the name. */
@@ -158,13 +177,13 @@ const moving = "(prefers-reduced-motion: no-preference)";
   }
 
   /* A phone has no room beside the corner button: the line goes under the name. The
-     name keeps the corner button's centre line (28px down: 8px, then half of 40px), as
-     on a wide screen, and its line starts 8px below the button, whose left end it
-     passes under, so the two never touch. */
+     name shares the button's baseline, as on a wide screen (a pixel above the button's
+     centre line, 28px down: 8px, then half of 40px), and its line starts 8px below the
+     button, whose left end it passes under, so the two never touch. */
   @media (width <= 640px) {
     .film {
-      /* The taller masthead, and a title on two lines. */
-      --chrome: 248px;
+      /* The taller masthead, its line on two, and a title on two lines. */
+      --chrome: 264px;
     }
 
     .masthead {
@@ -173,53 +192,83 @@ const moving = "(prefers-reduced-motion: no-preference)";
       align-items: flex-start;
       justify-content: flex-start;
       gap: calc(28px - var(--size-page) / 2);
-      box-sizing: border-box;
-      padding-block-start: calc(28px - var(--size-page) / 2);
-      block-size: 96px;
+      padding-block: calc(27px - var(--size-page) / 2) 0;
+      block-size: 112px;
+    }
+
+    /* What it is, on two even lines rather than one long and one word. */
+    .what {
+      line-height: 1.35;
+      text-wrap: balance;
     }
   }
 
   /* The way to the editor, always in reach: it starts in the masthead and stays in the
-     corner over every scene below. Green means something to press, and it reads on
-     both the night and the page. */
+     corner over every scene below. Quiet, as the five words under the laptop are: its
+     words with the green underline that means something to press, on a translucent
+     ground of whichever world it is over (site.ts marks it), so it reads on both and
+     never outshouts the film (2026-10-29; until then a solid green block). */
   .to-stick {
     position: fixed;
     inset-block-start: 8px;
-    inset-inline-end: var(--gutter);
+    /* Over the picture's right edge: the gutter, or, where the window is wider than the
+       picture, half of what is left beside it (100% here is the window). */
+    inset-inline-end: max(var(--gutter), (100% - (100svh - var(--chrome)) * 16 / 9) / 2);
     z-index: 2;
     display: inline-flex;
     align-items: center;
-    /* Never over the name: on the narrowest phones the words wrap instead. */
-    max-inline-size: calc(100% - 2 * var(--gutter) - 11ch);
+    /* Never at the name: room is left for its nine letters (5.7 of its size) and a
+       little more, and on a screen narrower than any phone's the words go on two lines
+       instead, against the picture's edge. */
+    max-inline-size: calc(100% - 2 * var(--gutter) - 5.7 * var(--size-page) - 4px);
     min-block-size: 40px;
     box-sizing: border-box;
     padding: 4px 14px;
-    background: var(--caret);
+    background: color-mix(in srgb, var(--night) 72%, transparent);
     color: var(--page);
     font-size: var(--size-small);
     line-height: 1.2;
-    text-decoration: none;
-  }
-
-  /* Beside the name on a 360px phone, the label gives up a pixel and some padding. */
-  @media (width <= 400px) {
-    .to-stick {
-      padding-inline: 10px;
-      font-size: calc(var(--size-small) - 1px);
-    }
-  }
-
-  .to-stick:hover {
-    background: color-mix(in srgb, var(--caret) 85%, var(--night));
-  }
-
-  /* Where it leads, it isn't needed: it steps aside while the stick is on the screen. */
-  .to-stick {
+    text-align: end;
+    text-wrap: balance;
+    text-decoration: underline 2px var(--caret);
+    text-underline-offset: 6px;
     transition:
       opacity 400ms ease,
       visibility 0s;
   }
 
+  :global(html[data-under="page"]) .to-stick {
+    background: color-mix(in srgb, var(--page) 88%, transparent);
+    color: var(--ink);
+  }
+
+  /* Beside the name on a 360px phone, the label gives up a pixel and some padding, so
+     it keeps one line, its words as far from the name's as the tagline's are on a wide
+     screen. */
+  @media (width <= 400px) {
+    .to-stick {
+      padding-inline: 8px;
+      font-size: calc(var(--size-small) - 1px);
+    }
+  }
+
+  /* Narrower still, on two lines: spaced so each line's underline clears the next. */
+  @media (width < 350px) {
+    .to-stick {
+      line-height: 1.7;
+      text-underline-offset: 4px;
+    }
+
+    .what {
+      margin-block-start: 12px;
+    }
+  }
+
+  .to-stick:hover {
+    text-decoration-color: currentColor;
+  }
+
+  /* Where it leads, it isn't needed: it steps aside while the stick is on the screen. */
   :global(html[data-at-stick]) .to-stick {
     opacity: 0;
     visibility: hidden;
@@ -228,18 +277,16 @@ const moving = "(prefers-reduced-motion: no-preference)";
       visibility 0s 400ms;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .to-stick,
-    :global(html[data-at-stick]) .to-stick {
-      transition: none;
-    }
-  }
-
   /* A ring of each world, so focus shows over the film and over the page alike. */
   .to-stick:focus-visible {
     outline: 2px solid var(--page);
     outline-offset: 2px;
     box-shadow: 0 0 0 4px var(--night);
+  }
+
+  :global(html[data-under="page"]) .to-stick:focus-visible {
+    outline-color: var(--ink);
+    box-shadow: 0 0 0 4px var(--page);
   }
 
   .cinema {
@@ -254,7 +301,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
     display: grid;
     justify-items: center;
     gap: 4px;
-    inline-size: min(100%, calc((100svh - var(--chrome)) * 16 / 9));
+    inline-size: var(--picture);
     margin: 0 auto 16px;
     box-sizing: border-box;
     text-align: center;
@@ -267,7 +314,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
   }
 
   .title {
-    font-size: calc(1.4 * var(--size-page));
+    font-size: var(--size-title);
     line-height: 1.3;
     text-wrap: balance;
   }
@@ -305,8 +352,9 @@ const moving = "(prefers-reduced-motion: no-preference)";
       background: color-mix(in srgb, var(--night) 70%, transparent);
       opacity: 0;
       pointer-events: none;
-      /* Above the disc: half its own height, the disc's radius, and a gap. */
-      translate: 0 calc(-50% - 44px - 20px);
+      /* Above the disc, as one group: half its own height, the disc's radius, and half
+         a line, the space inside a group (GUIDELINES.md, Type). */
+      translate: 0 calc(-50% - var(--disc) / 2 - 0.5 * var(--L));
       transition: opacity 400ms ease-out;
     }
 
@@ -323,14 +371,12 @@ const moving = "(prefers-reduced-motion: no-preference)";
 
     .caption {
       max-inline-size: 100%;
-      translate: 0 calc(-50% - 36px - 16px);
     }
   }
 
-  /* The picture: 16:9, as large as the room allows. */
   .screen {
     position: relative;
-    inline-size: min(100%, calc((100svh - var(--chrome)) * 16 / 9));
+    inline-size: var(--picture);
     aspect-ratio: 16 / 9;
     margin-inline: auto;
     background: var(--night);
@@ -375,18 +421,14 @@ const moving = "(prefers-reduced-motion: no-preference)";
     cursor: pointer;
   }
 
-  .hit[hidden] {
-    display: none;
-  }
-
   /* So no one misses that this is a film: a large play button at the centre of the
      picture until it plays, and again when it ends. A thin ring on a translucent night,
      so the tower, and her window under it, still show through. */
   .big-play {
     display: grid;
     place-items: center;
-    inline-size: 88px;
-    block-size: 88px;
+    inline-size: var(--disc);
+    block-size: var(--disc);
     border: 1.5px solid var(--page);
     border-radius: 50%;
     background: color-mix(in srgb, var(--night) 55%, transparent);
@@ -397,8 +439,8 @@ const moving = "(prefers-reduced-motion: no-preference)";
   }
 
   .big-play svg {
-    inline-size: 30px;
-    block-size: 30px;
+    inline-size: calc(var(--disc) / 3);
+    block-size: calc(var(--disc) / 3);
     /* The triangle's weight sits left of its box, so nudge it to look centred. */
     margin-inline-start: 4px;
     fill: currentColor;
@@ -414,14 +456,8 @@ const moving = "(prefers-reduced-motion: no-preference)";
   }
 
   @media (width <= 640px) {
-    .big-play {
-      inline-size: 72px;
-      block-size: 72px;
-    }
-
-    .big-play svg {
-      inline-size: 24px;
-      block-size: 24px;
+    .film {
+      --disc: 72px;
     }
   }
 
@@ -429,11 +465,19 @@ const moving = "(prefers-reduced-motion: no-preference)";
     cursor: none;
   }
 
-  /* On an upright phone the tower fills the room, cropped to her window; the film
-     itself is always shown whole. */
+  /* On an upright phone the tower fills the room, cropped to her window, and the
+     masthead and the controls take the whole width with it; the film itself is always
+     shown whole. */
   @media (aspect-ratio <= 4 / 5) {
+    .film {
+      --picture: 100%;
+    }
+
+    .to-stick {
+      inset-inline-end: var(--gutter);
+    }
+
     .screen {
-      inline-size: 100%;
       aspect-ratio: auto;
       block-size: calc(100svh - var(--chrome));
     }
@@ -443,21 +487,11 @@ const moving = "(prefers-reduced-motion: no-preference)";
     display: flex;
     align-items: center;
     gap: 12px;
-    inline-size: min(100%, calc((100svh - var(--chrome)) * 16 / 9));
+    inline-size: var(--picture);
     block-size: 56px;
     margin-inline: auto;
     color: var(--shawl-light);
     transition: opacity 180ms ease-out;
-  }
-
-  .controls[hidden] {
-    display: none;
-  }
-
-  @media (aspect-ratio <= 4 / 5) {
-    .controls {
-      inline-size: 100%;
-    }
   }
 
   [data-state="playing"][data-idle] .controls {
@@ -569,13 +603,17 @@ const moving = "(prefers-reduced-motion: no-preference)";
     background: var(--caret);
   }
 
-  /* Paused, the playhead waits like the caret on a page. */
-  [data-state="paused"] .position::-webkit-slider-thumb {
-    animation: caret-blink 1.2s steps(1, end) 4;
-  }
+  /* Paused, the playhead waits like the caret on a page. Only where motion is allowed:
+     the reduced-motion rule in Base.astro never reaches a slider's parts. Two rules: a
+     selector one engine doesn't know would drop the other's. */
+  @media (prefers-reduced-motion: no-preference) {
+    [data-state="paused"] .position::-webkit-slider-thumb {
+      animation: caret-blink 1.2s steps(1, end) 4;
+    }
 
-  [data-state="paused"] .position::-moz-range-thumb {
-    animation: caret-blink 1.2s steps(1, end) 4;
+    [data-state="paused"] .position::-moz-range-thumb {
+      animation: caret-blink 1.2s steps(1, end) 4;
+    }
   }
 
   .position:focus-visible {
@@ -590,6 +628,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
 
   /* Full screen: the room is the whole screen, the controls still below the picture. */
   .cinema:fullscreen {
+    --chrome: 56px;
     display: grid;
     grid-template-rows: 1fr auto;
     align-items: center;
@@ -598,12 +637,12 @@ const moving = "(prefers-reduced-motion: no-preference)";
     background: var(--night);
   }
 
-  .cinema:fullscreen .screen,
   .cinema:fullscreen .controls {
-    inline-size: min(100%, calc((100svh - 56px) * 16 / 9));
+    inline-size: var(--picture);
   }
 
   .cinema:fullscreen .screen {
+    inline-size: var(--picture);
     aspect-ratio: 16 / 9;
     block-size: auto;
   }
@@ -616,23 +655,5 @@ const moving = "(prefers-reduced-motion: no-preference)";
     font-family: var(--font);
     color: var(--page);
     background: var(--night);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    [data-ready] .feature,
-    .controls,
-    .caption,
-    .big-play {
-      transition: none;
-    }
-
-    /* Two rules: a selector one engine doesn't know would drop the other's. */
-    [data-state="paused"] .position::-webkit-slider-thumb {
-      animation: none;
-    }
-
-    [data-state="paused"] .position::-moz-range-thumb {
-      animation: none;
-    }
   }
 </style>

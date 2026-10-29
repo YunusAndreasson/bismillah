@@ -1,12 +1,14 @@
 ---
-// The night opens, her page explains, the dawn closes, and the page ends it
-// (GUIDELINES.md): the film, her screen, the manifesto, the editor's real screens, the close.
+// The night opens, her page (the film's own lines, written as they are read) asks and
+// answers, the editor shows itself and how to get it, and the page ends on the page, her
+// last line with the caret after it (GUIDELINES.md): the film, her screen, her page,
+// the editor's real screens, the close.
 import Close from "../components/Close.astro";
 import Document from "../components/Document.astro";
 import Film from "../components/Film.astro";
 import Screen from "../components/Screen.astro";
 import Screens from "../components/Screens.astro";
-import { Content as Manifesto } from "../content/manifesto.md";
+import { Content as HerPage } from "../content/her-page.md";
 import Base from "../layouts/Base.astro";
 ---
 
@@ -14,8 +16,8 @@ import Base from "../layouts/Base.astro";
   <main>
     <Film />
     <Screen />
-    <Document caret>
-      <Manifesto />
+    <Document caret written>
+      <HerPage />
     </Document>
     <Screens />
     <Close />

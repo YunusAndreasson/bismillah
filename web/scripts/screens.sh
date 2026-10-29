@@ -7,16 +7,21 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 shots=../os/out/shots
 mkdir -p src/assets/screens
-for name in page-light zuhd-light arabic-light suggestion-light setup-passphrase; do
+for name in page-light zuhd-light arabic-light suggestion-light files-light setup-passphrase; do
   [ -f "$shots/$name.png" ] || { echo "no $shots/$name.png: run pnpm os:shots first" >&2; exit 1; }
   cp "$shots/$name.png" "src/assets/screens/$name.png"
 done
 # For phones, where a whole laptop screen is too small to read: a detail of the part
-# that matters, about 1000 pixels wide so its text stays legible, all one shape so the
-# words under them never move (WIDTHxHEIGHT+X+Y on the 2880×1800 capture).
+# that matters, 1300 pixels wide, as narrow as her page's longest line allows from its
+# heading's # to its end, so its text stays legible and no line is cut, all one shape so
+# the words under them never move (WIDTHxHEIGHT+X+Y on the 2880×1800 capture).
 crop() { magick "src/assets/screens/$1.png" -crop "$2" +repage "src/assets/screens/$1-crop.png"; }
-crop page-light 1040x750+540+240
-crop zuhd-light 1040x750+580+700
-crop arabic-light 1040x750+1200+220
-crop suggestion-light 1040x750+1340+360
+crop page-light 1300x938+560+230
+# Zuhd: the paragraph in ink with the caret, and the grey ones above and below it.
+crop zuhd-light 1300x938+600+500
+crop arabic-light 1300x938+940+380
+crop suggestion-light 1300x938+1100+300
+# Files: what was typed, and the one text it finds, closer, as the panel's type is smaller
+# than the page's (the same shape, so it is shown larger).
+crop files-light 832x600+0+100
 echo "copied $(ls src/assets/screens | wc -l) screens to src/assets/screens/"
