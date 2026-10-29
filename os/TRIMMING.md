@@ -4,6 +4,78 @@ Reviewed 2026-10-25. This inventory distinguishes files removed from the image,
 services disabled, and libraries that still have to ship. It applies to the release
 stick; the debug image deliberately adds a serial command line and diagnostic tools.
 
+## Second review (2026-10-29)
+
+The stick is a typewriter: no sound, microphone or network. A second pass measured
+what the release root still holds. The erofs root shrank from 356.4 MiB to 347.6 MiB,
+and the unpacked tree from 774 MiB to 737 MiB.
+
+**Removed or turned off:**
+
+- **The webview's sound, media, speech, microphone, WebRTC and WebGL** (commit
+  `d65d615`, desktop and stick). wry turned WebAudio and WebGL on, and WebKit allows
+  HTML media by default. Rust now turns all of them off before the page runs, and an
+  e2e test checks each one is absent. The libraries stay; the page just can't reach
+  them.
+- **Most of udev's hardware database** (`mkosi/hwdb.finalize`). Kept: keyboards and
+  hotkeys, touchpads, mice and pointing sticks, sensors, seats, autosuspend, tablets,
+  and the PCI and USB classes udev's rules match on. Dropped: vendor and model names,
+  the network's MAC vendors, sound cards, cameras, radios and the other device classes
+  the stick has no driver for, plus the 9.5 MiB of sources.
+  - `hwdb.bin` went from 13 MiB to 373 KiB, and "systemd and udev" from 33.2 MiB to
+    11.5 MiB.
+  - `systemd-hwdb-update.service` is masked, so nothing rebuilds it from the missing
+    sources.
+  - The test Dell's answers didn't change: all 31 keyboard, touchpad and hotkey
+    properties, and every device's answers apart from names.
+- **Firmware for AMD's datacenter accelerators** (MI100, MI200, MI300: aldebaran,
+  arcturus, gc 9.4.3/9.4.4 and their PSP, SDMA and VCN parts). These are compute cards
+  with no display, never in a laptop. 6.0 MiB unpacked.
+- **The release binaries' symbol tables** (`[profile.release] strip`). The app went
+  from 45.5 MiB to 36.3 MiB. Release logs record error kinds only, so no backtrace
+  needs them.
+
+The contents audit checks each one: no datacenter firmware; a small compiled hwdb
+without names that still maps the Dell's hotkeys and names GPU classes; stripped
+binaries.
+
+**Kept, measured:**
+
+| Block | Unpacked | Why it stays |
+|---|---|---|
+| Mesa, LLVM and z3 | 191 MiB | GPU acceleration for every family plus the software fallback (a decision). z3 is LLVM's dependency. |
+| WebKitGTK and JavaScriptCore | 131 MiB | The editor |
+| GPU firmware | 157 MiB | NVIDIA's 60 MiB of GSP images let nouveau power down a hybrid's dGPU |
+| Flite speech voices | 26 MiB | Linked by libwebkit2gtk |
+| AV1 and JPEG XL codecs, including three AV1 encoders | 23 MiB | Linked through libavif |
+| GStreamer, the ALSA client, libsoup, krb5 and TLS | 10 MiB | Linked by libwebkit2gtk |
+| ICU data | 31 MiB | Arabic, line breaking, time zones |
+
+Every library in the last three rows is a DT_NEEDED dependency of Debian's WebKit, so
+deleting any of them stops the editor from starting. Stub libraries could stand in
+for them, but they would break silently whenever WebKit changes what it calls. The
+WebKitGTK build that PLAN.md schedules after the stick's 1.0 removes them properly,
+together with the code that uses them.
+
+**Considered and left alone:**
+
+- The animated busy cursors: 9 MiB unpacked, but 0.2 MiB compressed.
+- The sound and network udev rules: bytes, and inert without drivers.
+- The legacy fbdev drivers: 0.6 MiB, a display fallback.
+- NVIDIA's GSP images: nouveau needs them for runtime power management on hybrids,
+  and no hybrid other than the Dell is available to test without them.
+
+**Verification:** `pnpm verify` passed for the webview change, and `os/scripts/verify.sh`
+passed for the stick (log in `os/out/trim2-verify.log`):
+
+- both images were built offline from `08e4d29`;
+- the contents audit passed, including the new checks;
+- every VM scenario passed, with zero frames on all three NIC types;
+- the boot timings and sizes showed no regressions.
+
+Writer RAM (695 MiB) matches the previous review's figure, so this change didn't move
+it.
+
 ## Changes in this review
 
 The broad input-driver selection also included hardware with no writing purpose.
