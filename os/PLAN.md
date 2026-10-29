@@ -910,7 +910,7 @@ quiet-host timing rerun remain pending; no performance baseline was changed.
 
 - The phone side of the QR export (platform, app choice, integrity check).
 - Laptop install: dedicated or dual boot.
-- Whether other writers get pre-made sticks, or a published image plus `flash.sh`.
+- ~~Whether other writers get pre-made sticks, or a published image plus `flash.sh`.~~ A published image and one command per OS (ADR-0017, 2026-10-29); see *The published install* below.
 ## Daily writing polish (2026-10-25)
 
 The author authorized six refinements: opening proportions, Arabic/Latin balance,
@@ -1109,3 +1109,21 @@ unmounted states. `scripts/verify.sh` runs them with the other OS regressions.
 Validation: all 28 OS regression tests, `pnpm verify --fast`, the shell syntax
 checks and `git diff --check` pass. This changes the host flashing checks only;
 no stick was flashed or mounted, and no image rebuild or VM boot is claimed.
+
+## The published install (2026-10-29)
+
+The author decided that writers get a published image and one command, pasted into a terminal, that installs bismillah on a stick from macOS, Linux or Windows, or updates a bismillah stick and keeps its texts ([ADR-0017](../docs/decisions/0017-published-stick.md)). Hosting is decided later (R2 is likely). Until then the site serves a `stick/current` that reads `none`.
+
+- `web/public/install.sh` (POSIX sh, macOS and Linux) and `install.ps1` (Windows PowerShell 5.1) download the bundle, check every part's sha256 and check the disk. They mirror `flash.sh`'s rules: USB, removable or ejectable, not the system's disk, unmounted (Windows: volumes locked and dismounted), and the stick's name typed back. They then run `bismillah-install`.
+- `crates/bismillah-install` checks the whole image before writing. A first flash gives the stick its own disk, ESP and home GUIDs and stick-id, a protective MBR over the whole stick, and the backup GPT at its last sector. That is the same result `stick.ts prepare` and `sfdisk --relocate` give, and `sfdisk --verify` finds no errors and no PMBR mismatch. An update writes root and verity, then the ESP, and keeps home. Everything written is read back, uncached.
+- `os/scripts/publish.ts` makes the bundle. The release image (1.75 GB raw) becomes 15 gzip parts of up to 24 MiB, 354 MB in all, in 48 s. `os/scripts/installer.sh` builds the five installers; `--native` builds this machine's for the tests.
+- Evidence:
+  - `crates/bismillah-install/tests/install.rs`
+  - `os/tests/install.test.ts`: the command end to end over a local server, checked with `stick.ts`, and updating a stick `stick.ts` made
+  - the VM scenario `published`
+  - the real release bundle installed onto a 4 GB file, which `sfdisk --verify` and `stick.ts identify` accept
+- Open:
+  - the cross-built macOS and Windows installers (this machine has no rustup, zig or cargo-zigbuild)
+  - `dash` and `shellcheck` runs of `install.sh`
+  - the author's first real runs on a Mac and a Windows PC, a stick booted on the Dell, and an update from the other OS with the texts kept
+

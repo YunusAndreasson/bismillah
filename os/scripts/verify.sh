@@ -27,6 +27,8 @@ if [ -n "$build" ]; then
 fi
 step "the reflash tool (made-up sticks)"
 node --test "$root/os/tests/stick.test.ts"
+step "the published install (made-up images, the command end to end)"
+node --test "$root/os/tests/install.test.ts"
 step "flash inspection failures (no devices)"
 node --test "$root/os/tests/flash-safety.test.ts"
 step "boot timing measurements"

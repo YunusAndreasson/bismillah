@@ -61,6 +61,8 @@ pnpm verify                      # all checks incl. build, e2e and visual; the g
 pnpm verify --online             # also require fresh Rust advisories + pnpm audit; accepts --fast
 pnpm os:fetch && pnpm os:verify  # the bismillah stick (os/PLAN.md): fetch inputs once, then build offline and test in VMs
 pnpm os:perf                     # the stick's boot stages, sizes and RAM against os/perf-baseline.json (--sizes, --update)
+pnpm os:shots                    # the stick's real screens from a VM (2880×1800 at 2×) into os/out/shots, for the website (web/scripts/screens.sh)
+pnpm os:installer && pnpm os:publish  # bismillah-install for each OS (--native: this machine's), then the downloadable bundle in os/out/publish (ADR-0017)
 os/scripts/trace.sh              # re-record the stick's allowlist (os/mkosi/allowlist.txt) from a traced VM run
 cd packaging/arch && makepkg -si # build the committed HEAD and install it on this machine
 ```
@@ -148,7 +150,7 @@ session tests cover the explicit conflict hold, and the real-app reload suite
 checks rescue after exceeding the recovery size cap without filling a disk.
 Recovery metadata also retains precise write timestamps; same-millisecond restore,
 file-age, legacy-entry and pruning regressions live in `src-tauri/src/recovery.rs`.
-The current gate covers 450 frontend and 201 Rust tests, all 32
+The current gate covers 450 frontend and 210 Rust tests, all 32
 real-app suites and 17 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.

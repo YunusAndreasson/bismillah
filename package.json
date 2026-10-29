@@ -30,7 +30,10 @@
     "os:vm": "node os/scripts/vm.ts",
     "os:test": "node os/scripts/test.ts",
     "os:perf": "node os/scripts/perf.ts",
-    "os:verify": "os/scripts/verify.sh"
+    "os:verify": "os/scripts/verify.sh",
+    "os:installer": "os/scripts/installer.sh",
+    "os:publish": "node os/scripts/publish.ts",
+    "os:shots": "node os/scripts/shots.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

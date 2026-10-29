@@ -67,7 +67,7 @@ export function idFile(id: Identity): Buffer {
   return Buffer.from(text.padEnd(ID_BYTES - 1, "#") + "\n", "latin1");
 }
 
-function parseId(block: Buffer): Identity | "unflashed" | null {
+export function parseId(block: Buffer): Identity | "unflashed" | null {
   const text = block.toString("latin1");
   if (!text.startsWith(ID_HEAD)) return null;
   if (text.startsWith(`${ID_HEAD}unflashed\n`)) return "unflashed";
@@ -79,7 +79,7 @@ function parseId(block: Buffer): Identity | "unflashed" | null {
 }
 
 /** Every 512-byte block in `part` that starts with the stick-id head: its offset and content. */
-function idBlocks(path: string, part: Entry): { offset: number; block: Buffer }[] {
+export function idBlocks(path: string, part: Entry): { offset: number; block: Buffer }[] {
   const found: { offset: number; block: Buffer }[] = [];
   const fd = openSync(path, "r");
   try {
@@ -131,7 +131,7 @@ function layout(path: string): {
 export class Refusal extends Error {}
 
 /** Check source images before copying them or replacing any part of a stick. */
-function completeImage(path: string): ReturnType<typeof layout> {
+export function completeImage(path: string): ReturnType<typeof layout> {
   const parts = layout(path);
   const st = statSync(path);
   for (const part of [parts.esp, parts.root, parts.verity, parts.home])

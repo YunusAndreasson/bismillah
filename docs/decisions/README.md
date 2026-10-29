@@ -25,6 +25,7 @@ Short records of decisions with lasting consequences. Each one says what was dec
 | [0014](0014-stick-stays-on-debian.md) | The stick stays on Debian | Accepted |
 | [0015](0015-nothing-handed-on.md) | Nothing is handed to other apps | Accepted |
 | [0016](0016-three-panels.md) | Files, Commands and Settings: three panels in place of the tree and the dialog | Accepted |
+| [0017](0017-published-stick.md) | A published stick image, and one command that installs or updates a stick | Accepted; hosting pending |
 
 ## Template
 

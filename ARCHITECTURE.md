@@ -38,6 +38,7 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | `harper-core` | English spelling and grammar, offline. Embeds a small chunking model via `burn` (allowed by ADR-0004's AI policy); build without the thesaurus feature. Its `zip` and `burn` dependencies carry advisories that can't apply here (`deny.toml` gives the reason for each ignore; drop them when Harper updates) |
 | `spellbook` | Arabic spelling behind the `ArabicSpeller` adapter (ADR-0004; chosen in Phase 0). The Ayaspell dictionary (`dictionaries/ar/`, 7 MB) is compiled into the binary and parsed on the first Arabic word that needs checking |
 | `notify` | File watching |
+| `flate2`, `sha2`, `crc32fast`, `getrandom` | `bismillah-install` only (ADR-0017): inflating the published image, checking it and its parts, the GPT's CRCs, and each stick's random GUIDs. All were already in the tree |
 | `trash` | Move to the system trash instead of deleting, and restore from it for Undo (freedesktop.org trash on Linux) |
 | `icu_normalizer` (already in Tauri's tree, through URL handling) | Canonical decomposition for the library's sort order, on a copy of each name (§6) |
 | `libc` (Linux only, already in the tree) | `renameat2(RENAME_NOREPLACE)`, so a rename can never replace a file (`platform.rs`) |

@@ -276,6 +276,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bismillah-install"
+version = "1.0.0"
+dependencies = [
+ "crc32fast",
+ "flate2",
+ "getrandom 0.3.4",
+ "sha2",
+]
+
+[[package]]
 name = "bismillah-lint"
 version = "1.0.0"
 dependencies = [

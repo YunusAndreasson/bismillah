@@ -71,6 +71,8 @@ export interface BootOptions {
   host?: string;
   /** Show the VM in a window (the author only). */
   window?: boolean;
+  /** The screen's size in pixels (virtio-gpu's preferred mode); 1280×800 otherwise. */
+  resolution?: [number, number];
   /**
    * S3 sleep (`system_wakeup` wakes it). virtio-gpu doesn't come back from S3 in QEMU,
    * so these VMs use the standard VGA (docs/spikes/os-suspend-lock.md).
@@ -273,7 +275,12 @@ export class Vm {
       ]),
       ...(options.s3
         ? ["-global", "ICH9-LPC.disable_s3=0", "-device", "VGA"]
-        : ["-device", "virtio-vga"]),
+        : [
+            "-device",
+            options.resolution
+              ? `virtio-vga,xres=${options.resolution[0]},yres=${options.resolution[1]}`
+              : "virtio-vga",
+          ]),
       ...(options.window ? [] : ["-display", "none"]),
       ...(options.host
         ? [

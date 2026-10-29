@@ -22,6 +22,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { gpt, HOME } from "./image.ts";
+import { publish, toolFile } from "./publish.ts";
 import { identify, prepare, record, update } from "./stick.ts";
 import {
   changed,
@@ -1595,6 +1596,137 @@ async function reflash(): Promise<void> {
   }
 }
 
+// ---- ADR-0017: the published install -------------------------------------------
+
+/** Publishes `profile`'s image into the scenario's folder; returns the bundle. */
+async function bundle(dir: string, profile: "release" | "debug"): Promise<string> {
+  const site = join(dir, `site-${profile}`);
+  const version = await publish(imageFor(profile), site, true);
+  return join(site, version);
+}
+
+/** bismillah-install on a 2 GB file standing in for the stick. */
+function installer(...args: string[]): string {
+  const tool = join(root, "os/out/installer", toolFile("linux-x86_64"));
+  return execFileSync(tool, [...args, "--file"], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "inherit"],
+  });
+}
+
+function blankStick(path: string): string {
+  rmSync(path, { force: true });
+  execFileSync("truncate", ["-s", "2G", path]);
+  return path;
+}
+
+/**
+ * The published install (web/public/install.sh and install.ps1 run bismillah-install
+ * on the downloaded bundle): a stick installed from the published release image boots
+ * with each set of Secure Boot keys and answers typing. A stick installed from the
+ * published debug image is set up and given a text, updated to the published release,
+ * which unlocks it, and updated back, which finds the text intact. os/tests/
+ * install.test.ts runs the scripts themselves on made-up images.
+ */
+async function published(): Promise<void> {
+  const name = "published";
+  const dir = join(out, name);
+  mkdirSync(dir, { recursive: true });
+  execFileSync(join(root, "os/scripts/installer.sh"), ["--native"], { stdio: "ignore" });
+  const release = await bundle(dir, "release");
+  const debug = await bundle(dir, "debug");
+  const disk = join(dir, "stick.raw");
+
+  for (const vars of ["both", "ca2011", "ca2023"] as const) {
+    installer("install", release, blankStick(disk));
+    const verify = execFileSync("sfdisk", ["--verify", disk], { encoding: "utf8" });
+    check(/No errors detected/.test(verify), `${name}: the installed GPT verifies (${vars})`);
+    const vm = await Vm.boot({
+      image: imageFor("release"),
+      out: join(dir, `boot-${vars}`),
+      vars,
+      disk,
+    });
+    try {
+      await vm.settled(240);
+      await vm.key("tab");
+      await vm.key("tab");
+      await vm.key("ret");
+      await sleep(3000);
+      const before = await vm.settled(60);
+      await vm.type("Bismillah, the published stick boots.");
+      await sleep(1500);
+      const typed = changed(before, await vm.screen("typed"));
+      check(
+        typed > 0.0005 && typed < 0.2,
+        `${name}: the installed stick boots (${vars} keys) and answers typing (${(typed * 100).toFixed(2)}%)`,
+      );
+    } finally {
+      await vm.powerdown();
+      vm.pngs();
+    }
+  }
+
+  installer("install", debug, blankStick(disk));
+  const id = identify(disk).gpt;
+  let vm = await boot(name, "1-debug", { disk });
+  try {
+    await setUpQuickly(vm);
+    await mark(vm, "page-editable", 60);
+    await openNote(vm, "Written before the update.");
+    await vm.type(" Kept through it.");
+    await vm.key("ctrl", "s");
+    check(await saved(vm, "Kept through it."), `${name}: a text saved on the first system`);
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+  const journal = join(dir, "journal");
+  const homeBefore = homeHead(disk);
+  installer("update", release, disk, "--journal", journal);
+  check(homeHead(disk) === homeBefore, `${name}: home's bytes unchanged by the update to release`);
+  const seen = identify(disk);
+  check(
+    JSON.stringify(seen.gpt) === JSON.stringify(id) &&
+      JSON.stringify(seen.file) === JSON.stringify(id),
+    `${name}: the stick keeps its own GUIDs and stick-id`,
+  );
+  vm = await Vm.boot({ image: imageFor("release"), out: join(dir, "2-release"), disk });
+  try {
+    const locked = await vm.settled(240);
+    await vm.type(PLAIN);
+    await vm.key("ret");
+    await sleep(6000);
+    const after = await vm.settled(60);
+    await vm.screen("unlocked");
+    check(changed(locked, after) > 0.005, `${name}: the updated system unlocks the home`);
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+  installer("update", debug, disk, "--journal", journal);
+  vm = await boot(name, "3-debug", { disk });
+  try {
+    await mark(vm, "page-gate-shown", 240);
+    await sleep(1500);
+    const from = here(vm);
+    await vm.type(PLAIN);
+    await vm.key("ret");
+    await mark(vm, "helper-unlocked", 60, from);
+    const text = await noteText(vm);
+    check(
+      text.includes("Written before the update.") && text.includes("Kept through it."),
+      `${name}: the text is intact after two updates`,
+    );
+    const verity = await vm.run("veritysetup status root | grep -E '^ +status:' | tr -s ' '");
+    check(/verified/.test(verity), `${name}: the new root is verified (${verity.trim()})`);
+  } finally {
+    await vm.powerdown();
+    vm.pngs();
+  }
+  rmSync(disk, { force: true });
+}
+
 /** Real touchpad events must become clicks through the compositor, not a direct
  * QMP mouse click (which would bypass libinput tapping entirely).
  */
@@ -1727,6 +1859,7 @@ const scenarios: Record<string, () => Promise<void>> = {
   "ways-out": waysOut,
   "helper-socket": helperSocket,
   reflash,
+  published,
   touchpad,
   startup,
 };
