@@ -156,9 +156,9 @@
     flex-shrink: 0;
   }
   .count {
+    /* The room kept for another digit falls at the window's edge, not after the dot. */
     min-inline-size: 11ch;
     flex-shrink: 0;
-    text-align: end;
   }
   /* Quiet text buttons. Their hover boundary is drawn inside them, so the status line
      keeps the height of one line of text. The panel's tabs sit exactly over them. */

@@ -110,9 +110,15 @@
 
   const zones = Intl.supportedValuesOf("timeZone");
 
-  /** A stepper: ← and → step, Backspace resets. */
+  /** A stepper: ← and → step, Backspace resets, Enter closes the row (a focused − or +
+   * button still presses). */
   function stepperKeys(event: KeyboardEvent) {
     if (entry.kind !== "stepper") return;
+    if (event.key === "Enter" && event.target === event.currentTarget) {
+      event.preventDefault();
+      done();
+      return;
+    }
     const direction = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
     if (direction !== 0) {
       event.preventDefault();
@@ -334,6 +340,11 @@
   }
   .field label {
     color: var(--text-secondary);
+  }
+  /* Its sentence, its button and its problems, spaced as the other opened rows. */
+  #settings-shortcuts {
+    display: grid;
+    gap: var(--space-3);
   }
   .problems {
     margin: 0;

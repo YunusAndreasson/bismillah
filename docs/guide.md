@@ -159,7 +159,7 @@ The panel shows these examples. If a position cannot be understood, it stays ope
 **Settings** (`Ctrl+,`) lists every setting in four parts: Appearance, Writing, Language & checking, and Files & privacy. Type to find one by its name or by other words for it (“leading” finds *Line height*). Every change applies at once and is saved.
 
 - A switch, such as *Smart punctuation*, says *On* or *Off*; `Enter` changes it.
-- A choice, such as *Line length*, or a size, such as *Text size*, changes with `←` and `→`. `Enter` opens it in place to show every choice; `Enter` or `Esc` closes it again.
+- A choice, such as *Line length*, or a size, such as *Text size*, changes with `←` and `→`. `Enter` opens it in place to show every choice, or a size's − and + buttons (`Backspace` returns a size to its default); `Enter` or `Esc` closes it again.
 - Sizes stop at their limits. A line height marked *font default* follows your writing font, and *Reset* returns to it.
 - *Library folder* opens another folder; *Keyboard shortcuts*, *Your settings*, *Unsaved text* and *Privacy* say where things are kept.
 - If settings cannot be saved, the panel says why and offers *Try again* for your current choices.

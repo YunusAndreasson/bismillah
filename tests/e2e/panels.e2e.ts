@@ -247,6 +247,53 @@ describe("The panels", () => {
     await browser.waitUntil(async () => (await panel()) === null);
   });
 
+  it("steps an opened size, resets it with Backspace and closes it with Enter", async () => {
+    await browser.execute(() => window.__bismillah?.changeSettings({ text_scale: 1 }));
+    await browser.keys(["Control", ","]);
+    await browser.keys(["Control"]);
+    await search("text size", "setting:size");
+    expect((await panel())?.keys).toBe("← → change · Enter open");
+    await browser.keys("Enter");
+    await browser.waitUntil(async () => (await panel())?.opened === "setting:size");
+    await browser.waitUntil(async () => (await panel())?.focus === "opened");
+    expect((await panel())?.keys).toBe("← → change · Backspace reset · Enter or Esc done");
+    // The stepper shows the size; the row's end doesn't repeat it.
+    expect(
+      await browser.execute(() => {
+        const value = document.querySelector(".panel-row.open .value");
+        return value ? getComputedStyle(value).visibility : null;
+      }),
+    ).toBe("hidden");
+    await browser.keys("ArrowRight");
+    await browser.waitUntil(async () => /110%/.test((await panel())?.rows[0]?.text ?? ""));
+    await browser.keys("Backspace");
+    await browser.waitUntil(async () => /100%/.test((await panel())?.rows[0]?.text ?? ""));
+    await browser.keys("Enter");
+    await browser.waitUntil(async () => (await panel())?.opened === null, {
+      timeoutMsg: "Enter never closed the size",
+    });
+    expect(await activeIs(".panel-input")).toBe(true);
+    await browser.keys("Escape");
+    await browser.waitUntil(async () => (await panel()) === null);
+  });
+
+  it("says what an opened choice's keys do, and opens only rows that hold something", async () => {
+    await browser.execute(() => window.__bismillah?.openSettings({ row: "measure", open: true }));
+    await browser.waitUntil(async () => (await panel())?.opened === "setting:measure");
+    expect((await panel())?.keys).toBe("← → change · Enter or Esc done");
+    await browser.keys("Escape");
+    await browser.waitUntil(async () => (await panel())?.opened === null);
+    await browser.keys("Escape");
+    await browser.waitUntil(async () => (await panel()) === null);
+    // A sentence to read has nothing to open: it is highlighted, not opened.
+    await browser.execute(() => window.__bismillah?.openSettings({ row: "recovery", open: true }));
+    await browser.waitUntil(async () => (await panel())?.selected === "setting:recovery");
+    expect((await panel())?.opened).toBe(null);
+    expect((await panel())?.keys).toBe("");
+    await browser.keys("Escape");
+    await browser.waitUntil(async () => (await panel()) === null);
+  });
+
   it("switches panels with their shortcuts and closes on the open one's", async () => {
     await browser.keys(["Control", "p"]);
     await browser.keys(["Control"]);

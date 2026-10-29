@@ -150,7 +150,7 @@ session tests cover the explicit conflict hold, and the real-app reload suite
 checks rescue after exceeding the recovery size cap without filling a disk.
 Recovery metadata also retains precise write timestamps; same-millisecond restore,
 file-age, legacy-entry and pruning regressions live in `src-tauri/src/recovery.rs`.
-The current gate covers 450 frontend and 210 Rust tests, all 32
+The current gate covers 452 frontend and 210 Rust tests, all 32
 real-app suites and 17 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.

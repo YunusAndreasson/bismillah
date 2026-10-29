@@ -22,6 +22,7 @@
   import {
     adjust,
     adjustable,
+    opensInPlace,
     settingEntries,
     shownValue,
     type SettingEntry,
@@ -162,9 +163,12 @@
       const fresh = now !== lastKind || q !== lastQuery;
       lastKind = now;
       lastQuery = q;
-      if (wanted && list.some((i) => i.value === wanted.value)) {
+      const asked = wanted ? list.find((i) => i.value === wanted.value) : undefined;
+      if (wanted && asked) {
         selected = wanted.value;
-        opened = wanted.open ? wanted.value : null;
+        // Only a row with something under it opens.
+        const opens = asked.kind === "setting" && opensInPlace(asked.entry);
+        opened = wanted.open && opens ? wanted.value : null;
         focused();
         if (opened) void focusOpened();
         return;
@@ -406,7 +410,20 @@
     const k = t.keys;
     const item = current;
     if (!item) return "";
-    if (opened !== null) return k.opened;
+    if (opened !== null) {
+      const open = items.find((i) => i.value === opened);
+      if (open?.kind !== "setting") return k.openedOther;
+      switch (open.entry.kind) {
+        case "choice":
+          return k.openedChoice;
+        case "stepper":
+          return k.openedStep;
+        case "fontName":
+          return k.openedName;
+        default:
+          return k.openedOther;
+      }
+    }
     switch (item.kind) {
       case "file":
       case "folder": {
@@ -534,11 +551,13 @@
               {@const index = items.indexOf(item)}
               {@const isCurrent = item.value === selected}
               {@const description = isCurrent ? describe(item) : null}
+              {@const isOpen = opened === item.value}
               <div
                 id="panel-row-{index}"
                 class="panel-row"
                 class:current={isCurrent}
-                class:open={opened === item.value}
+                class:open={isOpen}
+                class:sub={!searching && item.kind === "setting" && item.entry.under !== undefined}
                 data-value={item.value}
                 role="option"
                 tabindex="-1"
@@ -579,7 +598,8 @@
                   <span class="primary" id="panel-label-{item.entry.id}" title={item.entry.label}
                     >{item.entry.label}</span
                   >
-                  <span class="value"
+                  <!-- An opened choice or size shows its value in its control. -->
+                  <span class="value" class:repeated={isOpen && adjustable(item.entry)}
                     ><bdi>{shownValue(item.entry, values, settingsContext)}</bdi></span
                   >
                 {:else}
@@ -592,6 +612,7 @@
               {#if item.kind === "setting" && opened === item.value}
                 <div
                   class="panel-opened"
+                  class:sub={!searching && item.entry.under !== undefined}
                   data-value={item.value}
                   onkeydowncapture={openedKeys}
                   onfocusout={openedFocusOut}
@@ -792,11 +813,21 @@
     grid-template-columns: minmax(0, 1fr) auto;
     column-gap: var(--space-6);
     align-items: baseline;
+    /* Less the edge, so the text shares the field's and the headings' start. */
     padding: var(--space-2) var(--space-3);
+    padding-inline-start: calc(var(--space-3) - 3px);
     border-inline-start: 3px solid transparent;
     border-radius: 4px;
     cursor: default;
     outline: none;
+  }
+  /* A row that depends on the one above it (Zuhd mode's, Another font's). */
+  .panel-row.sub .primary,
+  .panel-row.sub .description {
+    padding-inline-start: var(--space-4);
+  }
+  .panel-opened.sub {
+    padding-inline-start: calc(var(--space-3) - 3px + var(--space-4));
   }
   .panel-row.current {
     background: var(--surface-panel);
@@ -810,6 +841,9 @@
   /* The open document, as the tree marked it. */
   .primary.active {
     font-weight: 600;
+  }
+  .value.repeated {
+    visibility: hidden;
   }
   .value {
     display: flex;
@@ -846,6 +880,7 @@
     gap: var(--space-3);
     margin-block-end: var(--space-2);
     padding: var(--space-1) var(--space-3) var(--space-4);
+    padding-inline-start: calc(var(--space-3) - 3px);
     background: var(--surface-panel);
     border-inline-start: 3px solid var(--accent);
     border-end-start-radius: 4px;

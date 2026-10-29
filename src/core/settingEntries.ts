@@ -60,6 +60,8 @@ interface Base {
   /** One sentence shown under the row while it is highlighted. */
   hint?: (s: Settings, c: SettingsContext) => string | null;
   place?: "desktop" | "stick";
+  /** The row this one depends on, which it is listed (and indented) under. */
+  under?: string;
   /** Listed only while this holds (Font name, while Another font is chosen). */
   when?: (s: Settings, c: SettingsContext) => boolean;
 }
@@ -181,6 +183,7 @@ const ENTRIES: readonly SettingEntry[] = [
     aliases: ["typeface", "family", "another font"],
     section: "appearance",
     place: "desktop",
+    under: "font",
     when: (s) => s.writing_profile === "custom",
   },
   {
@@ -285,6 +288,7 @@ const ENTRIES: readonly SettingEntry[] = [
     label: t.focusOn,
     aliases: ["zuhd", "sentence", "paragraph", "focus"],
     section: "writing",
+    under: "zuhd",
     options: choice(["sentence", "paragraph"], t.granularities),
     get: (s) => s.focus_granularity,
     set: (v) => ({ focus_granularity: v as Settings["focus_granularity"] }),
@@ -295,6 +299,7 @@ const ENTRIES: readonly SettingEntry[] = [
     label: t.focusDimming,
     aliases: ["zuhd", "faint", "quiet", "focus"],
     section: "writing",
+    under: "zuhd",
     options: choice(["quiet", "faint"], t.dimmings),
     get: (s) => s.focus_dimming,
     set: (v) => ({ focus_dimming: v as Settings["focus_dimming"] }),
@@ -466,6 +471,15 @@ export function adjust(
   const next = options[at + direction];
   return next ? entry.set(next.value) : null;
 }
+
+/** Whether Enter opens the row in place, under it. */
+export const opensInPlace = (entry: SettingEntry): boolean =>
+  entry.kind === "choice" ||
+  entry.kind === "stepper" ||
+  entry.kind === "fontName" ||
+  entry.kind === "zone" ||
+  entry.kind === "keyboard" ||
+  entry.kind === "shortcuts";
 
 /** Whether ← and → change the row. */
 export const adjustable = (entry: SettingEntry): boolean =>

@@ -5,6 +5,7 @@ import {
   adjust,
   ALL_SETTING_ENTRIES,
   colourThemeName,
+  opensInPlace,
   settingEntries,
   shownValue,
   type SettingEntry,
@@ -110,6 +111,28 @@ describe("the Settings panel's rows", () => {
     expect(rank("dark")).toBe("theme");
     expect(rank("keybindings")).toBe("shortcuts");
     expect(rank("zoom")).toBe("size");
+  });
+
+  it("lists a dependent row right after the row it depends on, or its siblings", () => {
+    const ids = ALL_SETTING_ENTRIES.map((e) => e.id);
+    const dependent = ALL_SETTING_ENTRIES.filter((e) => e.under !== undefined);
+    expect(dependent.map((e) => e.id)).toEqual(["fontName", "focusOn", "dimming"]);
+    for (const e of dependent) {
+      const above = ALL_SETTING_ENTRIES[ids.indexOf(e.id) - 1];
+      expect([e.under, ...dependent.filter((d) => d.under === e.under).map((d) => d.id)]).toContain(
+        above?.id,
+      );
+      expect(above?.section).toBe(e.section);
+    }
+  });
+
+  it("opens in place only the rows that hold something to show", () => {
+    const opening = ALL_SETTING_ENTRIES.filter(opensInPlace).map((e) => e.kind);
+    expect(new Set(opening)).toEqual(
+      new Set(["choice", "stepper", "fontName", "zone", "keyboard", "shortcuts"]),
+    );
+    for (const id of ["smart", "library", "recovery", "privacy", "about"])
+      expect(opensInPlace(entry(id))).toBe(false);
   });
 
   it("names colour themes as Settings does", () => {
