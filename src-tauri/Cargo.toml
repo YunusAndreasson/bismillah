@@ -38,3 +38,5 @@ bismillah-appliance = { path = "../crates/bismillah-appliance", version = "1.0.0
 gtk = "0.18"
 # Already in the tree; renameat2(RENAME_NOREPLACE) for renames that never replace (platform.rs).
 libc = "0.2"
+# Already in Tauri's tree (wry pins it); turns off the webview's media, audio and WebGL (platform.rs).
+webkit2gtk = { version = "=2.0.2", features = ["v2_38"] }

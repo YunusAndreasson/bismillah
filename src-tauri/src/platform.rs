@@ -6,8 +6,13 @@ use std::path::Path;
 
 use crate::library::{LibraryError, Trash};
 
-/// Per-platform window setup after the main window is created.
-pub fn configure_main_window(_window: &tauri::WebviewWindow) {}
+/// Per-platform window setup after the main window is created, before its page runs.
+pub fn configure_main_window(window: &tauri::WebviewWindow) {
+    #[cfg(target_os = "linux")]
+    let _ = window.with_webview(|webview| linux::quiet_webview(&webview.inner()));
+    #[cfg(not(target_os = "linux"))]
+    let _ = window;
+}
 
 /// Shows the menu bar and puts keyboard focus on its first menu (Alt / F10 on Linux and
 /// Windows). It hides itself again when it closes.
@@ -447,6 +452,23 @@ mod linux {
         if let Some(map) = gdk::Display::default().and_then(|d| gdk::Keymap::for_display(&d)) {
             map.connect_state_changed(move |_| changed(state(group.get())));
         }
+    }
+
+    /// A typewriter's webview: no sound, media, microphone or camera, real-time
+    /// connections or WebGL. The editor uses none of them; wry turns WebAudio and WebGL
+    /// on, and WebKit allows HTML media by default.
+    pub fn quiet_webview(webview: &webkit2gtk::WebView) {
+        use webkit2gtk::{SettingsExt, WebViewExt};
+        let Some(settings) = WebViewExt::settings(webview) else {
+            return;
+        };
+        settings.set_enable_webaudio(false);
+        settings.set_enable_media(false);
+        settings.set_enable_mediasource(false);
+        settings.set_enable_media_stream(false);
+        settings.set_enable_encrypted_media(false);
+        settings.set_enable_webrtc(false);
+        settings.set_enable_webgl(false);
     }
 
     pub fn steady_native_caret() {

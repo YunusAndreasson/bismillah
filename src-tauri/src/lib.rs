@@ -280,6 +280,9 @@ pub fn run() {
             appliance::appliance_battery
         ])
         .setup(move |app| {
+            if let Some(window) = app.get_webview_window("main") {
+                platform::configure_main_window(&window);
+            }
             if appliance {
                 appliance::scale_outputs();
                 platform::steady_native_caret();
@@ -296,7 +299,6 @@ pub fn run() {
                 let startup = startup.or_else(|| appliance.then(appliance::library).flatten());
                 let state = AppState::new(app.clone(), &config_dir, &data_dir, startup);
                 if let Some(window) = app.get_webview_window("main") {
-                    platform::configure_main_window(&window);
                     // cage keeps the stick's window fullscreen: no size to restore.
                     if !appliance {
                         restore_window(&window, &state);
@@ -324,7 +326,6 @@ pub fn run() {
             };
             if appliance {
                 if let Some(window) = app.get_webview_window("main") {
-                    platform::configure_main_window(&window);
                     // Map the dark window first, so the page has its final viewport
                     // before revealing the gate contents.
                     let _ = window.set_fullscreen(true);

@@ -75,6 +75,12 @@ export const SOFTWARE: readonly Credit[] = [
     packages: ["gtk"],
   },
   {
+    name: "webkit2gtk-rs",
+    role: "a webview without sound or media",
+    licence: "MIT",
+    packages: ["webkit2gtk"],
+  },
+  {
     name: "CodeMirror and Lezer",
     role: "the editor",
     licence: "MIT",

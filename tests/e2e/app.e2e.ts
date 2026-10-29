@@ -29,6 +29,26 @@ describe("the app", () => {
     expect(violations).toEqual([]);
   });
 
+  it("offers the page no sound, media, speech, microphone, real-time connections or WebGL", async () => {
+    const offered = await browser.execute(() => ({
+      webAudio: typeof AudioContext !== "undefined",
+      // With media off, <audio> and <video> are inert unknown elements.
+      media: document.createElement("audio") instanceof HTMLMediaElement,
+      speech: typeof speechSynthesis !== "undefined",
+      microphone: typeof navigator.mediaDevices !== "undefined",
+      webrtc: typeof RTCPeerConnection !== "undefined",
+      webgl: document.createElement("canvas").getContext("webgl") !== null,
+    }));
+    expect(offered).toEqual({
+      webAudio: false,
+      media: false,
+      speech: false,
+      microphone: false,
+      webrtc: false,
+      webgl: false,
+    });
+  });
+
   it("names the document in the window title", async () => {
     expect(await browser.getTitle()).toBe("specimen.md — bismillah");
   });
