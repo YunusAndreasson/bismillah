@@ -452,7 +452,6 @@ impl Walk<'_> {
                 continue;
             }
             if let Some(node) = self.node(&entry, name, rel, depth) {
-                self.left -= 1;
                 nodes.push(node);
             }
         }
@@ -491,6 +490,9 @@ impl Walk<'_> {
         } else {
             NodeKind::File
         };
+        // Counted before its folder is walked, so the folder's own entries can't spend
+        // the budget out from under it (`folder` stops at zero before asking).
+        self.left -= 1;
         let outside = linked && !self.library.contains(&real);
         let looped = is_dir && self.ancestors.contains(&real);
         let mut node = Node {
@@ -895,5 +897,18 @@ mod tests {
         }
         fs::create_dir_all(lib.root().join(&deep)).unwrap();
         assert!(lib.tree().unwrap().truncated);
+    }
+
+    #[test]
+    fn bounds_a_listing_whose_folder_fills_it() {
+        let scratch = Scratch::new();
+        let lib = library(&scratch);
+        fs::create_dir(lib.root().join("notes")).unwrap();
+        for i in 0..MAX_ENTRIES {
+            fs::File::create(lib.root().join(format!("notes/{i}.md"))).unwrap();
+        }
+        let tree = lib.tree().unwrap();
+        assert!(tree.truncated);
+        assert_eq!(tree.nodes[0].children.len(), MAX_ENTRIES - 1);
     }
 }
