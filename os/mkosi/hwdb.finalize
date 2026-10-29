@@ -1,0 +1,20 @@
+#!/bin/sh
+# The hardware database udev reads (os/TRIMMING.md, 2026-10-29): only the parts that set
+# hardware up are kept. Those are keyboards and their hotkeys, touchpads, mice and
+# pointing sticks, sensors, seats, autosuspend, pen tablets, and the PCI and USB classes
+# udev's rules match on (71-seat.rules hands a hybrid's second GPU to the seat by its
+# class). Vendor and model names, the network's MAC vendors, and the sound, camera,
+# radio and other devices the stick has no driver for go, along with any database a
+# later systemd adds. mkosi compiles hwdb before the finalize scripts run, so it is
+# compiled again here; then the sources go, since udev reads only hwdb.bin.
+set -e
+hwdb=$BUILDROOT/usr/lib/udev/hwdb.d
+for f in "$hwdb"/*.hwdb; do
+  case ${f##*/} in
+    20-dmi-id.hwdb | 20-pci-classes.hwdb | 20-usb-classes.hwdb | 60-*.hwdb | \
+      65-libwacom.hwdb | 70-mouse.hwdb | 70-pointingstick.hwdb | 70-touchpad.hwdb) ;;
+    *) rm "$f" ;;
+  esac
+done
+systemd-hwdb --root="$BUILDROOT" --usr --strict update
+rm -r "$hwdb"

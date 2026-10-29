@@ -21,6 +21,11 @@ dbg_macro = "warn"
 todo = "warn"
 unimplemented = "warn"
 
+[profile.release]
+# Release logs record error kinds only, so no backtrace needs the symbol tables
+# (about 8 MiB of the app); the stick ships every byte (os/TRIMMING.md).
+strip = "symbols"
+
 [profile.dev]
 # Tauri apps compile many crates; keep debug builds reasonably fast to run.
 opt-level = 1

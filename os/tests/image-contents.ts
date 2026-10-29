@@ -240,6 +240,49 @@ function checkImage(profile: Profile): void {
     radios.length === 0,
     `${profile}: no network firmware files (${radios.slice(0, 3).join(" ") || "none"})`,
   );
+  // AMD's datacenter accelerators have no display (mkosi.conf, RemoveFiles=).
+  const compute = matching(
+    /\/usr\/lib\/firmware\/amdgpu\/(aldebaran|arcturus|gc_9_4_[34]|psp_13_0_(6|14)_|sdma_4_4_[25]|vcn_4_0_3)/,
+  );
+  check(compute.length === 0, `${profile}: no firmware for AMD's datacenter accelerators`);
+
+  // udev's hardware database: compiled, without its sources, names or networks, and
+  // still with the laptop keys and touchpads (hwdb.finalize).
+  const hwdb = (key: string) =>
+    execFileSync("systemd-hwdb", ["--root", tree, "query", key], { encoding: "utf8" });
+  check(
+    !existsSync(join(tree, "usr/lib/udev/hwdb.d")) &&
+      lstatSync(join(tree, "usr/lib/udev/hwdb.bin")).size < 2 * MIB,
+    `${profile}: only a small compiled hwdb`,
+  );
+  check(
+    hwdb("OUI:001B21") === "" && hwdb("usb:v046Dp0000*") === "",
+    `${profile}: hwdb has no MAC or USB vendor names`,
+  );
+  check(
+    /KEYBOARD_KEY_/.test(
+      hwdb(
+        // The test Dell's keyboard (os/README.md), as udev asks for it.
+        "evdev:atkbd:dmi:bvnDellInc.:bvr1.40.0:bd09/03/2024:br1.40:svnDellInc.:pnPrecision5520:pvr:rvnDellInc.:rn0R6JFH:rvrA00:cvnDellInc.:ct10:cvr:sku07BF:pfaPrecision:",
+      ),
+    ),
+    `${profile}: hwdb still maps a laptop's hotkeys`,
+  );
+  check(
+    /ID_PCI_CLASS_FROM_DATABASE=Display controller/.test(
+      hwdb("pci:v000010DEd00001234sv0000sd0000bc03sc80i00"),
+    ),
+    `${profile}: hwdb still names GPU classes (71-seat.rules)`,
+  );
+
+  // The binaries carry no symbol tables (Cargo.toml, [profile.release]).
+  for (const binary of ["/usr/bin/bismillah", "/usr/libexec/bismillah-helper"])
+    check(
+      !/\.symtab/.test(
+        execFileSync("readelf", ["-S", "-W", join(tree, binary)], { encoding: "utf8" }),
+      ),
+      `${profile}: ${binary} is stripped`,
+    );
 
   // The units: no getty anywhere; release logs nothing and has no debug pieces.
   for (const unit of [
