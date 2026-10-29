@@ -388,13 +388,31 @@
     return shortcuts.label(c.id) || (c.gesture ?? "");
   }
 
+  /** Its complete text on hover, only while it is cut short (DESIGN.md §6). */
+  function fullText(node: HTMLElement, text: string) {
+    let full = text;
+    const show = () => {
+      if (node.scrollWidth > node.clientWidth) node.title = full;
+      else node.removeAttribute("title");
+    };
+    node.addEventListener("mouseenter", show);
+    return {
+      update(next: string) {
+        full = next;
+      },
+      destroy() {
+        node.removeEventListener("mouseenter", show);
+      },
+    };
+  }
+
   function split(name: string): [string, string] {
     const match = /\.(md|markdown)$/i.exec(name);
     return match ? [name.slice(0, match.index), match[0]] : [name, ""];
   }
 
-  /** The line under the highlighted row: a command's description, a setting's hint or
-   * a note's text. */
+  /** What the highlighted row is: a command's description, a setting's hint or a
+   * note's text. */
   function describe(item: Item): string | null {
     if (item.kind === "command") return item.command.description ?? null;
     if (item.kind !== "setting") return null;
@@ -463,7 +481,9 @@
     }
   });
 
-  const describedId = (index: number) => `panel-row-${String(index)}-description`;
+  /** The highlighted row's description, in its own line above the keys, so no row
+   * changes height as the highlight moves. */
+  const about = $derived(current ? describe(current) : null);
 </script>
 
 <Dialog.Root
@@ -550,7 +570,6 @@
             {#each group.items as item (item.value)}
               {@const index = items.indexOf(item)}
               {@const isCurrent = item.value === selected}
-              {@const description = isCurrent ? describe(item) : null}
               {@const isOpen = opened === item.value}
               <div
                 id="panel-row-{index}"
@@ -562,7 +581,7 @@
                 role="option"
                 tabindex="-1"
                 aria-selected={isCurrent}
-                aria-describedby={description ? describedId(index) : undefined}
+                aria-describedby={isCurrent && about ? "panel-about" : undefined}
                 onmousemove={() => select(item.value)}
                 onmousedown={(event) => event.preventDefault()}
                 onclick={() => {
@@ -577,26 +596,31 @@
                   <span
                     class="primary"
                     class:active={item.path === library.active}
-                    title={item.name}
+                    use:fullText={item.name}
                     ><bdi>{stem}</bdi>{#if ext}<span class="quiet">{ext}</span>{/if}</span
                   >
-                  <span class="value" title={item.path}><bdi>{parentOf(item.path)}</bdi></span>
+                  <span class="value" use:fullText={parentOf(item.path)}
+                    ><bdi>{parentOf(item.path)}</bdi></span
+                  >
                 {:else if item.kind === "folder"}
-                  <span class="primary" title={item.path}
+                  <span class="primary" use:fullText={item.path}
                     ><bdi>{item.name}</bdi><span class="quiet">/</span></span
                   >
                   <span class="value"><bdi>{parentOf(item.path)}</bdi></span>
                 {:else if item.kind === "command"}
                   {@const on = item.command.toggle?.(context)}
-                  <span class="primary" title={item.command.label}>{item.command.label}</span>
+                  <span class="primary" use:fullText={item.command.label}>{item.command.label}</span
+                  >
                   <span class="value"
                     >{#if on !== undefined}<span class="state">{on ? t.on : t.off}</span>{/if}<kbd
                       >{shortcut(item.command)}</kbd
                     ></span
                   >
                 {:else if item.kind === "setting"}
-                  <span class="primary" id="panel-label-{item.entry.id}" title={item.entry.label}
-                    >{item.entry.label}</span
+                  <span
+                    class="primary"
+                    id="panel-label-{item.entry.id}"
+                    use:fullText={item.entry.label}>{item.entry.label}</span
                   >
                   <!-- An opened choice or size shows its value in its control. -->
                   <span class="value" class:repeated={isOpen && adjustable(item.entry)}
@@ -604,9 +628,6 @@
                   >
                 {:else}
                   <span class="primary">{item.label}</span>
-                {/if}
-                {#if description}
-                  <span class="description" id={describedId(index)}>{description}</span>
                 {/if}
               </div>
               {#if item.kind === "setting" && opened === item.value}
@@ -676,6 +697,9 @@
           <p class="panel-note" role="presentation">{copy.library.truncated}</p>
         {/if}
       </div>
+      {#if kind === "commands" || kind === "settings"}
+        <p class="panel-about" id="panel-about">{about ?? ""}</p>
+      {/if}
       <p class="panel-keys">
         <span class="now">{keys}</span>
         <span class="always">{t.keys.next}</span>
@@ -822,8 +846,7 @@
     outline: none;
   }
   /* A row that depends on the one above it (Zuhd mode's, Another font's). */
-  .panel-row.sub .primary,
-  .panel-row.sub .description {
+  .panel-row.sub .primary {
     padding-inline-start: var(--space-4);
   }
   .panel-opened.sub {
@@ -864,12 +887,6 @@
   kbd {
     font: inherit;
   }
-  .description {
-    grid-column: 1 / -1;
-    margin-block-start: var(--space-1);
-    color: var(--text-secondary);
-    max-width: 40rem;
-  }
   /* An opened row continues the highlighted one, under the same edge. */
   .panel-row.open {
     border-end-start-radius: 0;
@@ -889,6 +906,22 @@
   .panel-note {
     margin: var(--space-2) var(--space-3);
     color: var(--text-secondary);
+  }
+  /* Room for two lines, so a short hint and none leave the list where it is. */
+  .panel-about {
+    flex-shrink: 0;
+    box-sizing: border-box;
+    min-block-size: calc(2 * 1.4em + 2 * var(--space-3));
+    margin: 0;
+    padding: var(--space-3) var(--space-6);
+    border-block-start: 1px solid var(--border-control);
+    line-height: 1.4;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+  }
+  .panel-about + .panel-keys {
+    border-block-start: none;
+    padding-block-start: 0;
   }
   .panel-keys {
     flex-shrink: 0;

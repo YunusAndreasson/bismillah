@@ -80,11 +80,13 @@
     inset-block-start: 50%;
     inset-inline-start: 50%;
     transform: translate(-50%, -50%);
-    width: min(32rem, calc(100vw - 2 * var(--space-4)));
+    /* Wide enough for a comfortable line and one line per credit. */
+    width: min(56rem, calc(100vw - 2 * var(--space-4)));
     max-height: calc(100vh - 2 * var(--space-6));
     overflow: auto;
     box-sizing: border-box;
-    padding: var(--space-6);
+    padding: var(--space-6) var(--space-8);
+    container-type: inline-size;
     background: var(--surface-editor);
     color: var(--text-primary);
     border: 1px solid var(--border-control);
@@ -98,6 +100,7 @@
   }
   p {
     margin: var(--space-2) 0 0;
+    max-inline-size: 44rem;
   }
   .tagline {
     margin-block-start: var(--space-1);
@@ -125,6 +128,17 @@
   li {
     display: grid;
   }
+  /* With room, each credit is one line: its name, then its role and licence, aligned. */
+  @container (min-width: 32rem) {
+    ul {
+      /* One name column for every group, so the three lists align. */
+      grid-template-columns: 17rem minmax(0, 1fr);
+      column-gap: var(--space-4);
+    }
+    li {
+      display: contents;
+    }
+  }
   .name {
     font-weight: 500;
   }
@@ -137,8 +151,8 @@
     margin-block-start: var(--space-6);
     position: sticky;
     inset-block-end: calc(-1 * var(--space-6));
-    margin-inline: calc(-1 * var(--space-6));
-    padding-inline: var(--space-6);
+    margin-inline: calc(-1 * var(--space-8));
+    padding-inline: var(--space-8);
     padding-block-end: var(--space-6);
     padding-block-start: var(--space-3);
     background: var(--surface-editor);

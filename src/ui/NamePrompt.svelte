@@ -121,7 +121,7 @@
     inset-block-start: 20vh;
     inset-inline-start: 50%;
     transform: translateX(-50%);
-    width: min(28rem, calc(100vw - 2 * var(--space-4)));
+    width: min(34rem, calc(100vw - 2 * var(--space-4)));
     /* Leave room below the 20vh top offset, including when a long name or an
        inline error makes the form taller than the minimum desktop window. */
     max-block-size: calc(80vh - var(--space-4));

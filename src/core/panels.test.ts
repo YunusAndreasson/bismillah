@@ -9,6 +9,7 @@ import {
   itemsOf,
   move,
   PANELS,
+  RECENT,
   splitQuery,
   type Panel,
 } from "./panels.ts";
@@ -66,6 +67,15 @@ describe("the Files panel", () => {
     expect(l[1]?.items).toHaveLength(4);
     // Without recent files there is one list.
     expect(listed("files", "").map((g) => g.label)).toEqual(["All files"]);
+  });
+
+  it("lists the seven most recently opened files, most recent first", () => {
+    const paths = Array.from({ length: 9 }, (_, i) => `Draft ${String(i + 1)}.md`);
+    const files = paths.map((path) => ({ path, name: path }));
+    const recent = [...paths].reverse();
+    const l = groups("files", "", { ...input(recent), files, nodes: paths.map((p) => node(p)) });
+    expect(RECENT).toBe(7);
+    expect(l[0]?.items.map((i) => i.value)).toEqual(recent.slice(0, 7).map((p) => `recent:${p}`));
   });
 
   it("finds files, then folders, by name", () => {

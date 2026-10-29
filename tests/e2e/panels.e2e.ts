@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { browser, expect } from "@wdio/globals";
 import { settle, setViewport, waitForApp } from "../app.ts";
@@ -290,6 +290,28 @@ describe("The panels", () => {
     await browser.waitUntil(async () => (await panel())?.selected === "setting:recovery");
     expect((await panel())?.opened).toBe(null);
     expect((await panel())?.keys).toBe("");
+    await browser.keys("Escape");
+    await browser.waitUntil(async () => (await panel()) === null);
+  });
+
+  it("shows a file's full name on hover only when it is cut short", async () => {
+    const long = `${"A long letter about patience ".repeat(5).trim()}.md`;
+    writeFileSync(join(root, long), "Text\n");
+    await browser.execute(() => window.__bismillah?.openPanel("files", "letter"));
+    const name = (value: string) => browser.$(`.panel-row[data-value="${value}"] .primary`);
+    await name(`file:${long}`).waitForExist({ timeoutMsg: "the long file was never listed" });
+    const hovered = async (value: string) => {
+      await name(value).moveTo();
+      // WebKitWebDriver reads a missing attribute as "".
+      return browser.execute(
+        (v: string) =>
+          document.querySelector(`.panel-row[data-value="${v}"] .primary`)?.getAttribute("title") ??
+          null,
+        value,
+      );
+    };
+    expect(await hovered("file:Essays/2026/Letter to Ḥasan.md")).toBe(null);
+    expect(await hovered(`file:${long}`)).toBe(long);
     await browser.keys("Escape");
     await browser.waitUntil(async () => (await panel()) === null);
   });

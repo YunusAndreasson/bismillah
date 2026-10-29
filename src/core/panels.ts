@@ -48,7 +48,7 @@ export interface Input<F extends FileCandidate> {
 }
 
 /** Recent files listed before the others with nothing typed. */
-const RECENT = 6;
+export const RECENT = 7;
 /** How many files and folders a query lists; the files with nothing typed. */
 const FILES = 50;
 const FOLDERS = 8;
