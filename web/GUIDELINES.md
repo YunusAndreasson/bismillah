@@ -75,12 +75,18 @@ No gradients, glows or neon. Light in the film always comes from a real source: 
   from the film. It is the editor's own typeface, so the site and the app speak in one voice.
 - **Amiri** (in [`../fonts/source/amiri/`](../fonts/source/amiri/)) for the basmala and any Arabic.
 - The name is always lowercase: **bismillah**, as on the end card.
+- The scale grows from the writing size (20px, 17px on a phone). Titles are one step, 1.4 times it: the
+  film's title, the name on the end card and the stick's heading. The steps' titles are the editor's
+  third heading size, and only the steps' numbers are larger than the titles. The name in the
+  masthead is at the writing size, and quiet lines are 15px.
+- Space shows what belongs together: half a line inside a group, two and a half or three lines between
+  groups, so a picture is plainly part of its step and the stick's promises sit with what it is.
 - Few sizes, generous space, one thought per line. Let lines arrive as if written, one at a time; never
   animate letters for show.
 
 ## Words
 
-- Every word on the site is written by a person. The film's lines are already approved; reuse them as they are:
+- The film's lines are fixed; reuse them exactly as they are:
   - How will we think?
   - Who remembers, when the page remembers for us?
   - Who attends, when the screen holds our eyes?
@@ -97,6 +103,11 @@ No gradients, glows or neon. Light in the film always comes from a real source: 
 ## Pictures
 
 - Use frames from the film (`media/stills/`), not new imagery. They already share one light and one world.
+- **Except for instructions** (the author, 2026-10-28): where the site must show how to do something,
+  like the stick's three steps, new pictures are generated in the film's world (her hands, the kitchen
+  table, the lamp) but lit and framed for clarity: the object large, sharp and centred, one idea per
+  picture. The film's rules still hold: no generated lettering (a screen shows the real app, laid on
+  afterwards), no logos, modest dress. How they were made is in `src/assets/steps/PROMPTS.md`.
 - People are always dressed modestly; the women wear niqab or hijab. Faces are rarely seen; hands, eyes and
   silhouettes carry the story.
 - Never use the usual "AI" imagery: brains, circuits, robots, sparkles, glowing particles.
@@ -124,8 +135,19 @@ The site should keep the promises the editor keeps:
 
 ## Still to decide
 
-- The web address, and where to get it (the stick, its download and steps). The one line under "bismillah"
-  is decided (2026-10-28): _Nothing writes for you._ (from the README).
+- The web address. Where to get it is decided in shape (the author, 2026-10-28): three numbered steps,
+  each with a picture, a USB stick, one command from this site that puts bismillah on it, and the
+  laptop started from it, with "Get the bismillah editor" always in reach. The section's heading and
+  the first and third steps' details come from the stick's README (2026-10-29: _The bismillah
+  stick_, the stick's size and the erasing, the boot menu); the steps' titles are still to write,
+  and so are the command, the second step's words and the download's size and checksum, which
+  wait for a published image (os/PLAN.md, "Open questions"). The one line under "bismillah" on the end card is decided (2026-10-28): _Nothing writes
+  for you._ (from the README). The tagline beside the name on the first screen is _These words are
+  mine._, and the film's title is _Prompting is not thinking, writing is._ (the author, 2026-10-28),
+  so a visitor knows what the site and the film are before anything plays. Before the film plays,
+  a small label (what it is and how long; never "promo"), the title and the play button sit together
+  on the picture, on the play button's translucent night, and leave together when it plays: the one
+  place words sit on a picture.
 - ~~A short, honest note that the film's pictures, voices and sound were made with AI tools.~~ Decided
   2026-10-28: the site carries no such note.
 

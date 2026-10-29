@@ -1,0 +1,126 @@
+---
+// The command for each kind of computer (web/public/install.sh and install.ps1,
+// ADR-0017), on this site's own address (astro.config.mjs `site`), so the address
+// changes in one place at launch. Both are written here; with the script, a visitor
+// sees only their own computer's (site.ts). Without it, or on a phone or tablet, which
+// can't make a stick, both stay. Stick.astro places it twice, inside step 2 when the
+// steps stand one under another and under all three when they stand side by side;
+// CSS shows one, so `where` keeps the ids apart.
+import { copy } from "../copy";
+
+interface Props {
+  where: string;
+}
+const { where } = Astro.props;
+const s = copy.stick;
+const site = Astro.site ?? new URL("https://bismillah.jonas-268.workers.dev");
+const commands = [
+  { os: "unix", ...s.commands.unix, text: `curl -fsSL ${new URL("install.sh", site)} | sh` },
+  { os: "windows", ...s.commands.windows, text: `irm ${new URL("install.ps1", site)} | iex` },
+].map((c) => ({ ...c, parts: c.text.split(/(?<=\/)(?!\/)/) }));
+---
+
+<div class="commands" data-commands>
+  {
+    commands.map((c) => (
+      <div class="for" data-os={c.os}>
+        <p class="label" id={`command-${c.os}-${where}`}>
+          {c.label}
+        </p>
+        <div class="command" data-command>
+          <code>{c.parts.map((part, i) => (i === 0 ? part : [<wbr />, part]))}</code>
+          <button
+            type="button"
+            hidden
+            data-copy
+            data-copied={s.copied}
+            aria-describedby={`command-${c.os}-${where}`}
+          >
+            {s.copy}
+          </button>
+          <span class="visually-hidden" role="status" data-copy-status />
+        </div>
+      </div>
+    ))
+  }
+  <p class="details">{s.update}</p>
+  <p class="details">{s.details}</p>
+</div>
+
+<style>
+  .commands {
+    --L: calc(var(--size-page) * 1.6);
+  }
+
+  /* Each command under the name of the computers it is for, when both show. */
+  .for + .for {
+    margin-block-start: calc(0.75 * var(--L));
+  }
+
+  .label {
+    margin: 0 0 calc(0.25 * var(--L));
+    color: var(--page-secondary);
+    font-size: var(--size-small);
+  }
+
+  /* The command, in the machine's dark: what to paste into the terminal. One click
+     selects all of it; with the script, a button copies it. */
+  /* In a narrow column the button goes under the command, so the address keeps its
+     words whole. */
+  .command {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 4px 12px;
+    padding: 8px 8px 8px 16px;
+    background: var(--night);
+    color: var(--page);
+    font-size: var(--size-ui);
+  }
+
+  /* An address breaks after a slash (the <wbr>s) or at a space, and inside a word only
+     when a column is too narrow for anything else, so it never pushes the page wider. */
+  .command code {
+    /* Room for the address's longest part, bismillah.jonas-268.workers.dev/. */
+    flex: 1 1 33ch;
+    min-inline-size: 0;
+    padding-block: 10px;
+    font: inherit;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    user-select: all;
+  }
+
+  /* Green means something to press, as in the editor. */
+  .command button {
+    flex: none;
+    min-inline-size: 8ch;
+    block-size: 44px;
+    padding-inline: 16px;
+    border: 0;
+    background: var(--caret);
+    color: var(--page);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .command button[hidden] {
+    display: none;
+  }
+
+  .command button:focus-visible {
+    outline-color: var(--page);
+    outline-offset: -5px;
+  }
+
+  .details {
+    margin: calc(0.25 * var(--L)) 0 0;
+    color: var(--page-secondary);
+    font-size: var(--size-small);
+  }
+
+  .for:last-of-type + .details {
+    margin-block-start: calc(0.5 * var(--L));
+  }
+</style>

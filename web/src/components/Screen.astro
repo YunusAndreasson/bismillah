@@ -79,7 +79,22 @@ import still from "../assets/stills/03-her-screen.jpg";
     pointer-events: none;
   }
 
-  /* With the script and motion allowed, the stage holds for one viewport of scrolling. */
+  /* With the script and motion allowed, the stage holds for one viewport of scrolling.
+     Where the browser knows `scripting`, that length is there from the first layout,
+     before the script runs, so a link to a later scene (/#stick) lands where it points
+     instead of a viewport short. Older browsers take it from the script's [data-live]. */
+  @media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+    .her-screen {
+      block-size: 200svh;
+    }
+
+    .stage {
+      position: sticky;
+      inset-block-start: 0;
+      block-size: 100svh;
+    }
+  }
+
   @media (prefers-reduced-motion: no-preference) {
     [data-live].her-screen {
       block-size: 200svh;

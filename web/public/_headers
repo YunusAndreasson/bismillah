@@ -3,15 +3,19 @@
 # X-Robots-Tag keeps the workers.dev address out of search results until the site
 # has its own address, so that address is the one that gets indexed. Remove it at
 # launch. Referrer-Policy: the site sends no one its visitors' paths.
+# Cross-Origin-Opener-Policy: a page that opens the site gets no handle on its window.
 #
 # The Content-Security-Policy makes the site's promise mechanical: a page may load
 # nothing from anywhere but this site, run no inline script or style, and be framed by
 # no one. Astro writes every stylesheet and script as a file (astro.config.mjs).
+# Trusted Types close the DOM's HTML and script sinks (innerHTML, eval and the rest)
+# to strings: the site's script only sets text and attributes, so it needs none.
 /*
   X-Robots-Tag: noindex
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
-  Content-Security-Policy: default-src 'self'; img-src 'self'; media-src 'self'; font-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
+  Cross-Origin-Opener-Policy: same-origin
+  Content-Security-Policy: default-src 'self'; img-src 'self'; media-src 'self'; font-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types 'none'
 
 # Astro content-hashes everything under /_astro/, so a file there never changes.
 /_astro/*
@@ -21,4 +25,22 @@
 # re-encode gets a new folder, so a file there never changes either. Static assets
 # ignore Range (they answer 200 with the whole file), which is why the film is HLS.
 /media/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The install commands (ADR-0017): `curl … | sh` and `irm … | iex`, which needs text to
+# run. Never cached, so a fixed script reaches the next writer at once.
+/install.sh
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: no-cache
+/install.ps1
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: no-cache
+
+# The published stick: `current` names the version to download ("none" until one is
+# published), so it is never cached; each version's folder never changes. Overlapping
+# rules join their values, so the folders' pattern must not match `current`.
+/stick/current
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: no-cache
+/stick/:version/*
   Cache-Control: public, max-age=31536000, immutable

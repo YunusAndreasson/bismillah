@@ -1,0 +1,283 @@
+---
+// How to get bismillah, in three steps that someone who has never opened a terminal can
+// follow: a USB stick, one command that puts bismillah on it, and the laptop started
+// from it. Each step has a picture from the film's world, lit and framed as an
+// instruction (src/assets/steps/PROMPTS.md), so its words can stay short.
+import { Picture } from "astro:assets";
+import step1 from "../assets/steps/step-1.jpg";
+import step2 from "../assets/steps/step-2.jpg";
+import step3 from "../assets/steps/step-3.jpg";
+import { copy } from "../copy";
+import Commands from "./Commands.astro";
+
+const s = copy.stick;
+// Where to paste the command, for each kind of computer; with the script, only the
+// visitor's own shows (site.ts).
+const paste = [
+  { os: "unix", text: s.commands.unix.paste },
+  { os: "windows", text: s.commands.windows.paste },
+];
+const steps = [
+  { ...s.steps[0], picture: step1, command: false },
+  { ...s.steps[1], picture: step2, command: true },
+  { ...s.steps[2], picture: step3, command: false },
+];
+---
+
+<section class="stick page" id="stick" aria-labelledby="stick-heading">
+  <!-- What the stick is, and what it promises: one paragraph in the stick's README, so
+       one group here, before the steps. -->
+  <div class="intro">
+    <h2 id="stick-heading">{s.heading}</h2>
+    <p>{s.about}</p>
+    <ul class="claims">
+      {s.claims.map((claim) => <li>{claim}</li>)}
+    </ul>
+  </div>
+
+  <!-- role="list": Safari drops the list's semantics once its markers are hidden. -->
+  <ol class="steps" role="list">
+    {
+      steps.map((step, i) => (
+        <li class="step">
+          <div class="head">
+            <span class="number" aria-hidden="true">
+              {i + 1}
+            </span>
+            <h3>{step.title}</h3>
+          </div>
+          <Picture
+            src={step.picture}
+            formats={["avif", "webp"]}
+            widths={[480, 720, 960, 1440]}
+            sizes="(min-width: 1072px) 360px, (min-width: 792px) 54vw, 100vw"
+            quality={80}
+            alt=""
+            class="picture"
+          />
+          <div class="body">
+            {step.detail && <p>{step.detail}</p>}
+            {step.command && (
+              <div class="paste">
+                {paste.map((p) => (
+                  <p data-os={p.os}>{p.text}</p>
+                ))}
+              </div>
+              <div class="in-step">
+                <Commands where="step" />
+              </div>
+            )}
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+
+  <!-- Side by side, the steps leave the command no room inside the second: it stands
+       under all three instead, on one line, the one thing left to do. -->
+  <div class="under-steps">
+    <Commands where="row" />
+  </div>
+</section>
+
+<style>
+  .stick {
+    --L: calc(var(--size-page) * 1.6);
+    /* Out of the dawn: three blank lines, as the editor opens a page. */
+    padding: calc(3 * var(--L)) var(--gutter) 0;
+    /* Arriving from the corner button, the heading lands below it, not under it. */
+    scroll-margin-block-start: 64px;
+    container-type: inline-size;
+    font-size: var(--size-page);
+    line-height: 1.6;
+  }
+
+  /* One column for the whole section, so the words above the steps start where the
+     pictures do. */
+  .intro,
+  .steps {
+    max-inline-size: 1120px;
+    margin-inline: auto;
+  }
+
+  /* The space between groups says what belongs together: half a line inside the
+     intro and inside a step, two and a half (three on a wide screen) between them. */
+  .intro {
+    margin-block-end: calc(2.5 * var(--L));
+  }
+
+  /* Text keeps the editor's measure, however wide the column. */
+  .intro > * {
+    max-inline-size: 66ch;
+  }
+
+  /* The section's title, at the size of the film's title: the page's two titles, the
+     film and the stick, are one step of the scale, above the steps' own. */
+  .intro h2 {
+    margin: 0 0 calc(0.5 * var(--L));
+    font-size: 1.4em;
+    line-height: 1.3em;
+    font-weight: 700;
+  }
+
+  .intro p {
+    margin: 0 0 calc(0.5 * var(--L));
+  }
+
+  .claims {
+    margin: 0;
+    padding-inline-start: 2ch;
+  }
+
+  /* The editor draws list markers in text-secondary. */
+  .claims li::marker {
+    color: var(--page-secondary);
+  }
+
+  /* Every column is 0 at its smallest, so no word or address widens the page. */
+  .steps {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: calc(2.5 * var(--L));
+    margin-block: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Each step reads in order: its number and what to do, the picture, then how. */
+  .step {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: calc(0.5 * var(--L));
+  }
+
+  /* When the column has room for both, the picture stands beside the words, which sit
+     at its middle. */
+  @container (760px <= width < 1040px) {
+    .intro {
+      margin-block-end: calc(3 * var(--L));
+    }
+
+    .steps {
+      gap: calc(3 * var(--L));
+    }
+
+    .step {
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+      grid-template-rows: 1fr auto auto 1fr;
+      grid-template-areas:
+        "picture ."
+        "picture head"
+        "picture body"
+        "picture .";
+      column-gap: calc(1.25 * var(--L));
+      row-gap: calc(0.25 * var(--L));
+    }
+
+    .step > :global(picture) {
+      grid-area: picture;
+      align-self: center;
+    }
+
+    .head {
+      grid-area: head;
+    }
+
+    .body {
+      grid-area: body;
+    }
+  }
+
+  /* A wide column takes all three steps side by side, so what to do, and the command,
+     are seen at once: each its picture, then its number and words. */
+  @container (width >= 1040px) {
+    .intro {
+      margin-block-end: calc(2 * var(--L));
+    }
+
+    .steps {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: calc(1.25 * var(--L));
+      align-items: start;
+    }
+
+    .step {
+      grid-template-rows: auto auto 1fr;
+      grid-template-areas:
+        "picture"
+        "head"
+        "body";
+      row-gap: calc(0.5 * var(--L));
+    }
+
+    .step > :global(picture) {
+      grid-area: picture;
+    }
+
+    .head {
+      grid-area: head;
+    }
+
+    .body {
+      grid-area: body;
+      font-size: 0.9em;
+    }
+  }
+
+  .picture {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+    background: var(--night);
+  }
+
+  /* The steps' numbers are the largest type in the section: 1, 2, 3 is what a visitor
+     should see first. */
+  .number {
+    display: block;
+    margin-block-end: calc(0.25 * var(--L));
+    font-size: 2.4em;
+    line-height: 1;
+  }
+
+  /* The editor's third heading size, so the section's title stays above it. */
+  .head h3 {
+    margin: 0;
+    font-size: 1.08em;
+    line-height: 1.3em;
+    font-weight: 700;
+  }
+
+  .body p {
+    margin: 0;
+    color: var(--page-secondary);
+  }
+
+  /* With both shown, each computer's line is a paragraph of its own. */
+  .paste p + p {
+    margin-block-start: calc(0.5 * var(--L));
+  }
+
+  .in-step {
+    margin-block-start: calc(0.75 * var(--L));
+  }
+
+  .under-steps {
+    display: none;
+  }
+
+  /* Side by side: the command under all three steps, on one line. */
+  @container (width >= 1040px) {
+    .in-step {
+      display: none;
+    }
+
+    .under-steps {
+      display: block;
+      max-inline-size: 800px;
+      margin: calc(2 * var(--L)) auto 0;
+    }
+  }
+</style>

@@ -1,0 +1,212 @@
+---
+// What the editor looks like, shown rather than told: one laptop on her table, its
+// screen the stick's real screens (taken in a VM by os/scripts/shots.ts, laid into the
+// photograph by scripts/laptop.py), right after the manifesto, whose opening is what
+// the screen first shows. Four quiet words below it change what the screen
+// shows, as the status line's words open panels in the app. A phone, where a whole
+// screen is too small to read, gets a detail of each instead. Without the script the
+// four stand one under another, each with its line.
+import { getImage } from "astro:assets";
+import arabic from "../assets/laptop/arabic.jpg";
+import page from "../assets/laptop/page.jpg";
+import suggestion from "../assets/laptop/suggestion.jpg";
+import zuhd from "../assets/laptop/zuhd.jpg";
+import arabicCrop from "../assets/screens/arabic-light-crop.png";
+import pageCrop from "../assets/screens/page-light-crop.png";
+import suggestionCrop from "../assets/screens/suggestion-light-crop.png";
+import zuhdCrop from "../assets/screens/zuhd-light-crop.png";
+import { copy } from "../copy";
+
+const pictures = {
+  page: [page, pageCrop],
+  zuhd: [zuhd, zuhdCrop],
+  arabic: [arabic, arabicCrop],
+  suggestion: [suggestion, suggestionCrop],
+} as const;
+const s = copy.screens;
+// The editor's text inside the photograph needs a high quality to stay sharp.
+const image = (src: ImageMetadata, widths: number[]) =>
+  getImage({ src, format: "webp", quality: 88, widths });
+const states = await Promise.all(
+  s.states.map(async (state) => {
+    const [laptop, crop] = pictures[state.picture];
+    return {
+      ...state,
+      laptop: await image(laptop, [960, 1440, 2160, 3072]),
+      crop: await image(crop, [480, 720, 1040]),
+    };
+  }),
+);
+---
+
+<section class="screens page" aria-labelledby="screens-heading" data-screens>
+  <!-- The manifesto ends on its question; the laptop is the answer, with no title
+       between them. The title stays for the page's outline. -->
+  <h2 id="screens-heading" class="visually-hidden">{s.heading}</h2>
+  <div class="stack">
+    {
+      states.map((state, i) => (
+        <figure class="state" data-state data-current={i === 0 ? "" : undefined}>
+          <picture>
+            <source
+              media="(max-width: 700px)"
+              type="image/webp"
+              srcset={state.crop.srcSet.attribute}
+              sizes="calc(100vw - 32px)"
+              width={state.crop.attributes.width}
+              height={state.crop.attributes.height}
+            />
+            <img
+              src={state.laptop.src}
+              srcset={state.laptop.srcSet.attribute}
+              sizes="(min-width: 1440px) 1360px, 100vw"
+              width={state.laptop.attributes.width}
+              height={state.laptop.attributes.height}
+              alt={state.alt}
+              loading={i === 0 ? "eager" : "lazy"}
+              decoding="async"
+              class="shot"
+            />
+          </picture>
+          <figcaption>
+            <span class="name">{state.label}</span>
+            {state.line}
+          </figcaption>
+        </figure>
+      ))
+    }
+  </div>
+  <div class="words" role="group" aria-label={s.label} hidden data-words>
+    {
+      states.map((state, i) => (
+        <button type="button" aria-pressed={i === 0 ? "true" : "false"} data-show={i}>
+          {state.label}
+        </button>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  .screens {
+    --L: calc(var(--size-page) * 1.6);
+    /* Straight out of the manifesto, whose last line keeps three blank lines below it. */
+    padding: 0 0 calc(3 * var(--L));
+    font-size: var(--size-page);
+    line-height: 1.6;
+  }
+
+  /* The laptop, its line and the words fit one window together, so what a word
+     changes is seen as it changes. The photograph is 1536:820. */
+  .stack {
+    max-inline-size: min(1360px, calc((100svh - 12rem) * 1.873));
+    margin-inline: auto;
+  }
+
+  .state {
+    margin: 0 0 calc(2 * var(--L));
+  }
+
+  .shot {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+  }
+
+  figcaption {
+    max-inline-size: 66ch;
+    margin: calc(0.5 * var(--L)) auto 0;
+    padding-inline: var(--gutter);
+    color: var(--page-secondary);
+    text-align: center;
+  }
+
+  .name {
+    display: block;
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  /* With the script: one screen at a time, its line under it, and the four words that
+     change it. Every state shares one grid cell, so the page never moves. */
+  [data-live] .stack {
+    display: grid;
+  }
+
+  [data-live] .state {
+    grid-area: 1 / 1;
+    margin: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 600ms ease,
+      visibility 0s 600ms;
+  }
+
+  [data-live] .state[data-current] {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 600ms ease;
+  }
+
+  [data-live] .shot {
+    cursor: pointer;
+  }
+
+  [data-live] .name {
+    display: none;
+  }
+
+  /* The words, as the app's status line sets its own: small, quiet, the current one
+     underlined in the green that means something to press. */
+  .words {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-block-start: calc(0.5 * var(--L));
+    font-size: var(--size-ui);
+  }
+
+  .words[hidden] {
+    display: none;
+  }
+
+  .words button {
+    min-block-size: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-block-end: 2px solid transparent;
+    background: none;
+    color: var(--page-secondary);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .words button[aria-pressed="true"] {
+    border-block-end-color: var(--caret);
+    color: var(--ink);
+  }
+
+  .words button:hover {
+    color: var(--ink);
+  }
+
+  /* A phone gets a detail of the screen, framed as one. */
+  @media (max-width: 700px) {
+    .stack {
+      padding-inline: var(--gutter);
+    }
+
+    .shot {
+      border: 6px solid var(--night);
+      border-radius: 10px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-live] .state,
+    [data-live] .state[data-current] {
+      transition: none;
+    }
+  }
+</style>

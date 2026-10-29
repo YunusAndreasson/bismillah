@@ -1,7 +1,8 @@
 // The site's one script. Everything reads and plays without it: the film has the
-// browser's own controls, her screen is a still, the page is all in ink. With it, the
-// film gets the quiet player, the camera pushes into her screen, Zuhd mode follows the
-// reader, and the caret and the dawn wake when they come into view.
+// browser's own controls, her screen is a still, the page is all in ink, and the stick's
+// command is selected with one click. With it, the film gets the quiet player, the
+// camera pushes into her screen, Zuhd mode follows the reader, the caret and the dawn
+// wake when they come into view, and the command has a copy button.
 
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -22,19 +23,15 @@ function film(root: HTMLElement): void {
   const now = root.querySelector<HTMLElement>("[data-now]");
   const total = root.querySelector<HTMLElement>("[data-total]");
   const position = root.querySelector<HTMLInputElement>("[data-position]");
-  const captions = root.querySelector<HTMLButtonElement>("[data-captions]");
   const mute = root.querySelector<HTMLButtonElement>("[data-mute]");
   const full = root.querySelector<HTMLButtonElement>("[data-full]");
   if (!video || !controls || !hit || !play || !now || !total || !position) return;
-  if (!captions || !mute || !full) return;
+  if (!mute || !full) return;
 
   video.controls = false;
   controls.hidden = false;
   hit.hidden = false;
   root.toggleAttribute("data-ready", true);
-
-  const track = video.textTracks[0];
-  if (track) track.mode = "hidden";
 
   const state = (name: "idle" | "playing" | "paused" | "ended") => {
     root.setAttribute("data-state", name);
@@ -123,12 +120,6 @@ function film(root: HTMLElement): void {
     now.textContent = clock(video.currentTime);
   });
 
-  captions.addEventListener("click", () => {
-    if (!track) return;
-    track.mode = track.mode === "showing" ? "hidden" : "showing";
-    captions.setAttribute("aria-pressed", String(track.mode === "showing"));
-  });
-
   mute.addEventListener("click", () => {
     video.muted = !video.muted;
     root.toggleAttribute("data-muted", video.muted);
@@ -174,9 +165,6 @@ function film(root: HTMLElement): void {
         break;
       case "m":
         mute.click();
-        break;
-      case "c":
-        captions.click();
         break;
       case "f":
         full.click();
@@ -281,6 +269,35 @@ function zuhd(article: HTMLElement): void {
   for (const block of blocks) observer.observe(block);
 }
 
+/** Each of the stick's commands: one press copies it, and the button says so for two seconds. */
+function command(box: HTMLElement): void {
+  const code = box.querySelector("code");
+  const button = box.querySelector<HTMLButtonElement>("[data-copy]");
+  const status = box.querySelector<HTMLElement>("[data-copy-status]");
+  if (!code || !button || !status || !navigator.clipboard) return;
+  const label = button.textContent;
+  const copied = button.dataset.copied ?? label;
+  button.hidden = false;
+
+  let rest = 0;
+  button.addEventListener("click", () => {
+    navigator.clipboard.writeText((code.textContent ?? "").trim()).then(
+      () => {
+        button.textContent = copied;
+        status.textContent = copied;
+        clearTimeout(rest);
+        rest = window.setTimeout(() => {
+          button.textContent = label;
+          status.textContent = "";
+        }, 2000);
+      },
+      // Refused (no permission, or the page lost focus): the command is still there to
+      // select by hand, and one click on it selects all of it.
+      () => {},
+    );
+  });
+}
+
 /** Runs `wake` once, when the element is well into view. */
 function onceInView(element: Element, wake: () => void): void {
   const observer = new IntersectionObserver(
@@ -297,6 +314,35 @@ function onceInView(element: Element, wake: () => void): void {
 for (const root of document.querySelectorAll<HTMLElement>("[data-film]")) film(root);
 for (const section of document.querySelectorAll<HTMLElement>("[data-push]")) push(section);
 for (const article of document.querySelectorAll<HTMLElement>("[data-zuhd]")) zuhd(article);
+for (const box of document.querySelectorAll<HTMLElement>("[data-command]")) command(box);
+
+/**
+ * Which command this computer runs: "windows", "unix" (macOS and Linux), or null for a
+ * phone, a tablet or a Chromebook, which can't make a stick, or a platform not read.
+ */
+function computer(): string | null {
+  const hints = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
+  const platform = hints?.platform || navigator.platform || "";
+  if (/android|cros|chrome os|iphone|ipad/i.test(`${platform} ${navigator.userAgent}`)) return null;
+  if (/^win/i.test(platform)) return "windows";
+  // An iPad asks for the desktop site as a Mac; only it has a touch screen.
+  if (/^mac/i.test(platform)) return navigator.maxTouchPoints > 1 ? null : "unix";
+  if (/^linux/i.test(platform)) return "unix";
+  return null;
+}
+
+// Only this computer's command and where to paste it, without the label that tells the
+// commands apart. Without the script, or on a computer that can't make a stick, both
+// stay.
+const own = computer();
+if (own && document.querySelector(`#stick [data-os="${own}"]`)) {
+  for (const box of document.querySelectorAll<HTMLElement>("#stick [data-os]")) {
+    if (box.dataset.os === own) {
+      const label = box.querySelector<HTMLElement>(".label");
+      if (label) label.hidden = true;
+    } else box.hidden = true;
+  }
+}
 for (const article of document.querySelectorAll<HTMLElement>("[data-caret]")) {
   const last = article.querySelector(".text > :last-child");
   if (last) onceInView(last, () => article.toggleAttribute("data-awake", true));
@@ -304,3 +350,43 @@ for (const article of document.querySelectorAll<HTMLElement>("[data-caret]")) {
 for (const video of document.querySelectorAll<HTMLVideoElement>("[data-dawn]")) {
   if (!reduceMotion.matches) onceInView(video, () => void video.play().catch(() => {}));
 }
+
+// The editor's screens on her laptop: one at a time, changed by the four words under
+// it, or by a click on the screen itself, which shows the next. Nothing changes on
+// its own.
+const screens = document.querySelector<HTMLElement>("[data-screens]");
+if (screens) {
+  const states = [...screens.querySelectorAll<HTMLElement>("[data-state]")];
+  const words = screens.querySelector<HTMLElement>("[data-words]");
+  const buttons = [...screens.querySelectorAll<HTMLButtonElement>("[data-show]")];
+  let current = 0;
+  const show = (next: number): void => {
+    current = next;
+    states.forEach((state, i) => {
+      state.toggleAttribute("data-current", i === next);
+      state.setAttribute("aria-hidden", String(i !== next));
+    });
+    buttons.forEach((button, i) => {
+      button.setAttribute("aria-pressed", String(i === next));
+    });
+  };
+  if (words && states.length > 1) {
+    screens.dataset["live"] = "";
+    words.hidden = false;
+    buttons.forEach((button, i) => {
+      button.addEventListener("click", () => show(i));
+    });
+    for (const state of states)
+      state
+        .querySelector("img")
+        ?.addEventListener("click", () => show((current + 1) % states.length));
+    show(0);
+  }
+}
+
+// The corner button leads to the stick; while the stick is on the screen it steps aside.
+const stick = document.querySelector("#stick");
+if (stick)
+  new IntersectionObserver(([entry]) => {
+    document.documentElement.toggleAttribute("data-at-stick", entry?.isIntersecting ?? false);
+  }).observe(stick);

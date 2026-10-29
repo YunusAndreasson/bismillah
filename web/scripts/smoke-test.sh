@@ -47,3 +47,20 @@ for check in \
   fi
   echo "ok  $base/$path ($type)"
 done
+
+# The install commands' scripts, as text (`irm … | iex` runs only text), whole (their
+# last line calls what they define), and the stick's `current`, never cached.
+for check in "install.sh main \"\$@\"" "install.ps1 }" "stick/current"; do
+  read -r path last <<<"$check"
+  head="$(curl "${opts[@]}" --fail --head "$base/$path" | tr -d '\r')"
+  if [[ "$head" != *[Cc]ontent-[Tt]ype:\ text/plain* || "$head" != *[Cc]ache-[Cc]ontrol:\ no-cache* ]]; then
+    echo "$base/$path isn't served as uncached text" >&2
+    exit 1
+  fi
+  body="$(curl "${opts[@]}" --fail "$base/$path")"
+  if [[ -n "$last" && "$(tail -n 1 <<<"$body")" != "$last" ]]; then
+    echo "$base/$path doesn't end as the script does" >&2
+    exit 1
+  fi
+  echo "ok  $base/$path"
+done

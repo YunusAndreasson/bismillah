@@ -6,11 +6,20 @@ static assets only, no Worker script. Until the site has its own address it live
 https://bismillah.jonas-268.workers.dev.
 
 **Status:** the design is built (2026-10-28) and waits for the author's review, with
-every unwritten word as a visible ⟨placeholder⟩ in `src/copy.ts`. One page, in five
-scenes: the film (our own player, the tower loop as its picture), her screen (the
+its words in `src/copy.ts` (drafted 2026-10-29 for the author to review). One page, in six
+scenes: the film (our own player, the tower loop as its picture, under the name and
+its tagline, with a label, the film's title and the play button as one group on the
+picture, so the first screen says what this is), her screen (the
 camera pushes into her laptop and its light becomes the page), the manifesto set as
-the editor sets a document (Zuhd mode follows the reader), the dawn, and the close
-with the stick, which is the call to action.
+the editor sets a document (Zuhd mode follows the reader), her laptop with the
+editor's real screens (four words change what it shows), the dawn, and the close: the
+stick, which is the call to action (three numbered steps, side by side on a wide screen,
+each with a picture: a USB stick, one command that puts bismillah on it, the laptop
+started from it), then the film's end card, the page's one ending (2026-10-29: the
+story, then what it is, then how to get it, then its name).
+"Get the bismillah editor" stays pinned in the top corner over every scene (the
+author's request, 2026-10-28), so the way to the stick is always in reach, and steps
+aside while the stick itself is on the screen.
 
 ## Read first
 
@@ -24,17 +33,19 @@ with the stick, which is the call to action.
 - **The site keeps the editor's promises.** No trackers, analytics, ads, pop-ups,
   cookie walls, chat, or requests to third parties: fonts, images and scripts are
   served from this site.
-- **Every word on the site is written by a person.** Reuse the approved lines in
-  GUIDELINES.md exactly. Never write copy yourself: leave a visible placeholder and ask.
+- **The film's lines and the manifesto are fixed.** Reuse the lines in GUIDELINES.md
+  exactly. Other words may be drafted, plainly and in the site's voice (GUIDELINES.md,
+  Words), for the author to review.
 - The name is always lowercase: **bismillah**.
 - **Static by default.** No adapter, no Worker script, no request-time code. Anything
   live runs in the browser. Adding `@astrojs/cloudflare` or a `main` script is a
   decision: say why first.
 - `.astro` first. Client JavaScript only where a page truly needs it: today one module,
-  `src/scripts/site.ts` (the player, the push, Zuhd mode, the caret and the dawn).
+  `src/scripts/site.ts` (the player, the push, Zuhd mode, the caret, the dawn, and the
+  commands' copy buttons and the choice of the visitor's own).
   Everything reads and plays without it.
-- **Words that aren't approved live in `src/copy.ts`**, as ⟨placeholders⟩ until the
-  author writes them. Accessible names there are proposals awaiting approval.
+- **Every other word lives in `src/copy.ts`**, each line with its source when it has
+  one, so the author can review and change the words in one place.
 - **Motion is slow and one thing at a time** (GUIDELINES.md): the loops play once and
   rest (WCAG 2.2.2's five seconds), the caret blinks four times, and
   `prefers-reduced-motion` turns the loops and the push into stills.
@@ -50,17 +61,39 @@ with the stick, which is the call to action.
   type, and the link preview.
 - `src/pages/index.astro`: the page, built from `src/components/`: `Film` (the player),
   `Screen` (her screen), `Document` and `Basmallah` (a document as the editor sets it),
-  `Close` (the dawn, the close, the stick, the footer). `404.astro` is served with
+  `Screens` (her laptop with the editor's real screens, and the four words that change
+  them), `Close` (the dawn, the end card, the footer) and
+  `Stick` (the three steps) with `Commands` (the install command, inside step 2 when the
+  steps stand one under another, and on one line under all three when they stand side
+  by side). `404.astro` is served with
   status 404 for any unknown path.
-- `src/content/manifesto.md`: a byte-for-byte copy of `../MANIFESTO.md`. Markdown is
-  rendered by Sätteri with smart punctuation off, so it shows exactly as typed.
+- `src/content/manifesto.md`: the site's cut of `../MANIFESTO.md` (2026-10-29, the
+  author's request: 704 words to 256, its own sentences, the closing lines kept). The
+  full text stays in `../MANIFESTO.md`; change both together. Markdown is rendered by
+  Sätteri with smart punctuation off, so it shows exactly as typed.
 - `src/assets/`: the stills (Astro makes AVIF and WebP), the fonts (`scripts/fonts.sh`)
   and the Basmallah outline (`scripts/basmallah.sh`, copied from the app).
+  `src/assets/screens/`: the stick's real screens, taken in a VM by `../os/scripts/shots.ts`
+  (`pnpm os:shots`) and copied by `scripts/screens.sh`, with a legible detail of each
+  for phones. `src/assets/laptop/`: those screens laid into step 3's laptop by
+  `scripts/laptop.py`, at twice the photograph's size. Every picture of the app on the
+  site is one of these, never a mock-up.
+  `src/assets/steps/`: the three step pictures, generated with Codex, and
+  `PROMPTS.md`, how they were made; step 3's screen is the stick's real setup screen
+  (`src/assets/screens/setup-passphrase.png`), laid on with `scripts/screen.py`.
 - `public/media/`: the film as HLS and one AV1 file, the loops, and the captions, in
   versioned folders (`scripts/media.sh`). Encoded from the director project's master;
   committed, so a build needs nothing outside `web/`.
 - `public/favicon.svg`: the app's bāʾ icon, copied from `../src-tauri/icons/source.svg`.
   Copy it again when the icon changes.
+- `public/install.sh`, `public/install.ps1`: the stick's install commands (macOS and
+  Linux; Windows), served as text and run by `curl … | sh` and `irm … | iex`
+  (../docs/decisions/0017-published-stick.md). `Stick.astro` writes the commands on the
+  `site` address; with the script only the visitor's own computer's shows (both
+  without it, or on a phone or tablet). They download from
+  `/stick/<version>/`, named by `public/stick/current`, which reads `none` until an image
+  is published (hosting, likely R2, is decided later). The app's
+  `os/tests/install.test.ts` runs `install.sh` end to end.
 - `public/_headers`: response headers (see Delivery).
 - `GUIDELINES.md`, `moodboard.jpg`, `palette.jpg`, `media/`: the design brief and the
   film's frames and loops. These are inputs: move what a page uses into `src/assets/`
@@ -75,16 +108,30 @@ with the stick, which is the call to action.
   "never"`), so Cloudflare serves `/about` from `about.html` with no redirect.
 - `wrangler.jsonc`: assets only, `not_found_handling: "404-page"`, workers.dev on,
   per-version preview URLs off.
-- `public/_headers`: `X-Robots-Tag: noindex` until launch, `nosniff`, `no-referrer`, a
-  same-origin `Content-Security-Policy` (no inline script or style, so Astro writes
-  stylesheets as files: `inlineStylesheets: "never"`), and `/_astro/*` and `/media/*`
-  cached for a year, `immutable`.
+- **Browsers:** Baseline Widely Available, set as `browsers` in `astro.config.mjs`
+  (Chrome and Edge 111, Firefox 114, Safari 16.4), because Astro alone builds for
+  `esnext`. Lightning CSS lowers and prefixes the CSS for them, so write standard,
+  unprefixed CSS; only the range slider's `::-webkit-`/`::-moz-` parts stay by hand.
+  Astro's `<Font />` and responsive image layouts write inline styles, which the CSP
+  refuses, so the fonts are `@font-face` in `Base.astro` and images list their widths.
+  The push stays in `site.ts` until Gecko has scroll-driven animations (Firefox 159;
+  Zen was on 157 on 2026-10-28).
+- `public/_headers`: `X-Robots-Tag: noindex` until launch, `nosniff`, `no-referrer`,
+  a `same-origin` opener policy, a same-origin `Content-Security-Policy` (no inline
+  script or style, so Astro writes stylesheets as files: `inlineStylesheets: "never"`;
+  Trusted Types, so no string reaches `innerHTML`, `eval` or another sink), and
+  `/_astro/*` and `/media/*` cached for a year, `immutable`. The install scripts and
+  `stick/current` are `text/plain` and `no-cache`; each `/stick/:version/*` folder is
+  `immutable` (overlapping rules join their values, so that pattern must not match
+  `current`).
 - **Video and Range:** static assets ignore `Range` and answer 200 with the whole file,
   and Safari won't play an MP4 that way, and no file may exceed 25 MiB. So the film is
   HLS (Safari, Chrome 142+) with one progressive AV1 file under 24 MiB for Firefox and
   Zen, and each loop has a one-segment HLS before its MP4s.
 - **At launch**, when the address is chosen: remove the `noindex` header, and change
-  the URL in `astro.config.mjs` (`site`) and `scripts/ship.sh` (`URL`).
+  the URL in `astro.config.mjs` (`site`), `scripts/ship.sh` (`URL`), and `BASE` and
+  the usage line in `public/install.sh` and `public/install.ps1` (and in
+  `../os/README.md`).
 - The site builds from `web/` alone; nothing reads from `../`. If it ever must (the
   editor's fonts in `../fonts/`), copy what it needs in, or widen `ship.sh`'s
   clean-tree check to that path.

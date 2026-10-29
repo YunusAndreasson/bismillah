@@ -1,15 +1,16 @@
 ---
 // The close. Dawn first: the same tower, every window dark but hers, the one warm
-// light, as at the end of the film. Then the page: bismillah, her line, and how to get
-// the editor, which comes on a USB stick.
+// light, as at the end of the film. Then how to get the editor, which comes on a USB
+// stick (Stick.astro), and last the film's end card in the light: bismillah, her line,
+// and what it is. The page opens with that line and ends with it, once.
 import { getImage } from "astro:assets";
 import loopDawn from "../assets/stills/loop-dawn.jpg";
 import { copy } from "../copy";
+import Stick from "./Stick.astro";
 
 const loop = "/media/loops/v1/dawn";
 const poster = await getImage({ src: loopDawn, format: "webp", width: 1600, quality: 82 });
 const moving = "(prefers-reduced-motion: no-preference)";
-const s = copy.stick;
 ---
 
 <section class="dawn night" aria-hidden="true">
@@ -30,27 +31,13 @@ const s = copy.stick;
   </video>
 </section>
 
-<section class="close page" id="stick" aria-labelledby="stick-heading">
+<Stick />
+
+<section class="close page">
   <div class="card">
     <p class="name">bismillah</p>
     <p class="mine">These words are mine.</p>
     <p class="what">{copy.close.what}</p>
-  </div>
-
-  <div class="stick">
-    <h2 id="stick-heading">{s.heading}</h2>
-    <p>{s.about}</p>
-    <ul class="claims">
-      {s.claims.map((claim) => <li>{claim}</li>)}
-    </ul>
-    <ol class="steps">
-      {s.steps.map((step) => <li>{step}</li>)}
-    </ol>
-    <p class="get">
-      <a href="#stick">{s.download}</a>
-      <span class="details">{s.details}</span>
-    </p>
-    <p class="needs">{s.needs}</p>
   </div>
 </section>
 
@@ -84,7 +71,7 @@ const s = copy.stick;
   /* The film's end card, in the light: the name, her line, and what it is. */
   .card {
     box-sizing: border-box;
-    min-block-size: 70svh;
+    min-block-size: 50svh;
     display: grid;
     place-content: center;
     gap: calc(0.25 * var(--L));
@@ -96,8 +83,9 @@ const s = copy.stick;
     margin: 0;
   }
 
+  /* The titles' size: the film's title and the stick's heading are the same step. */
   .name {
-    font-size: 28px;
+    font-size: 1.4em;
     line-height: 1.3;
   }
 
@@ -109,54 +97,6 @@ const s = copy.stick;
     margin-block-start: var(--L);
     font-size: var(--size-ui);
     color: var(--page-secondary);
-  }
-
-  /* The stick, in the reading column. */
-  .stick {
-    max-inline-size: 66ch;
-    margin-inline: auto;
-    padding-block: 0 calc(3 * var(--L));
-    font-size: var(--size-page);
-    line-height: 1.6;
-  }
-
-  .stick h2 {
-    margin: 0 0 var(--L);
-    font-size: 1.22em;
-    line-height: 1.3em;
-    font-weight: 700;
-  }
-
-  .stick p,
-  .stick ul,
-  .stick ol {
-    margin-block: 0 var(--L);
-  }
-
-  .stick ul,
-  .stick ol {
-    padding-inline-start: 2ch;
-  }
-
-  /* The editor draws list markers in text-secondary. */
-  .stick li::marker {
-    color: var(--page-secondary);
-  }
-
-  /* Green means something to press, as in the editor. */
-  .get a {
-    color: var(--caret);
-    text-decoration-thickness: 1px;
-    text-underline-offset: 0.2em;
-  }
-
-  .details,
-  .needs {
-    color: var(--page-secondary);
-  }
-
-  .details {
-    margin-inline-start: 2ch;
   }
 
   .footer {

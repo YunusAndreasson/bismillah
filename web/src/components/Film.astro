@@ -17,10 +17,15 @@ const moving = "(prefers-reduced-motion: no-preference)";
 <section class="film night" aria-label={copy.film.label}>
   <header class="masthead">
     <h1 class="wordmark">bismillah</h1>
+    <p class="what">These words are mine.</p>
     <a class="to-stick" href="#stick">{copy.header.stick}</a>
   </header>
 
   <figure class="cinema" data-film data-state="idle">
+    <figcaption class="caption">
+      <span class="kicker">{copy.film.kicker}</span>
+      <span class="title">Prompting is not thinking, writing is.</span>
+    </figcaption>
     <div class="screen">
       <video
         class="loop"
@@ -89,9 +94,6 @@ const moving = "(prefers-reduced-motion: no-preference)";
         data-position
       />
       <span class="time total" data-total>2:15</span>
-      <button class="cc" type="button" aria-label={c.captions} aria-pressed="false" data-captions>
-        CC
-      </button>
       <button
         class="sound"
         type="button"
@@ -117,8 +119,9 @@ const moving = "(prefers-reduced-motion: no-preference)";
 
 <style>
   .film {
-    /* Everything around the picture: the masthead, the controls and a margin below. */
-    --chrome: 128px;
+    /* Everything around the picture: the masthead, the title, the controls and a margin
+       below. */
+    --chrome: 184px;
     box-sizing: border-box;
     min-block-size: 100svh;
     display: grid;
@@ -127,38 +130,201 @@ const moving = "(prefers-reduced-motion: no-preference)";
     padding-block-end: 16px;
   }
 
+  /* The first screen says what this is before anything plays: the name and its tagline
+     (the author, 2026-10-28), the way to get it in the corner, and the film's title. */
   .masthead {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--gutter);
+    /* One line, centred in the bar, with the name and its line on one baseline. */
+    flex-wrap: wrap;
+    align-content: center;
+    align-items: baseline;
+    column-gap: 2ch;
     block-size: 56px;
   }
 
+  /* The name at the writing size, a step above its line, so it reads as the name. */
   .wordmark {
     margin: 0;
-    font-size: var(--size-ui);
+    font-size: var(--size-page);
     font-weight: 400;
     line-height: 1;
   }
 
-  .to-stick {
+  .what {
+    margin: 0;
     color: var(--shawl-light);
     font-size: var(--size-small);
+    line-height: 1;
   }
 
+  /* A phone has no room beside the corner button: the line goes under the name. The
+     name keeps the corner button's centre line (28px down: 8px, then half of 40px), as
+     on a wide screen, and its line starts 8px below the button, whose left end it
+     passes under, so the two never touch. */
+  @media (width <= 640px) {
+    .film {
+      /* The taller masthead, and a title on two lines. */
+      --chrome: 248px;
+    }
+
+    .masthead {
+      flex-direction: column;
+      flex-wrap: nowrap;
+      align-items: flex-start;
+      justify-content: flex-start;
+      gap: calc(28px - var(--size-page) / 2);
+      box-sizing: border-box;
+      padding-block-start: calc(28px - var(--size-page) / 2);
+      block-size: 96px;
+    }
+  }
+
+  /* The way to the editor, always in reach: it starts in the masthead and stays in the
+     corner over every scene below. Green means something to press, and it reads on
+     both the night and the page. */
   .to-stick {
+    position: fixed;
+    inset-block-start: 8px;
+    inset-inline-end: var(--gutter);
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    /* Never over the name: on the narrowest phones the words wrap instead. */
+    max-inline-size: calc(100% - 2 * var(--gutter) - 11ch);
+    min-block-size: 40px;
+    box-sizing: border-box;
+    padding: 4px 14px;
+    background: var(--caret);
+    color: var(--page);
+    font-size: var(--size-small);
+    line-height: 1.2;
     text-decoration: none;
   }
 
-  .to-stick:hover,
+  /* Beside the name on a 360px phone, the label gives up a pixel and some padding. */
+  @media (width <= 400px) {
+    .to-stick {
+      padding-inline: 10px;
+      font-size: calc(var(--size-small) - 1px);
+    }
+  }
+
+  .to-stick:hover {
+    background: color-mix(in srgb, var(--caret) 85%, var(--night));
+  }
+
+  /* Where it leads, it isn't needed: it steps aside while the stick is on the screen. */
+  .to-stick {
+    transition:
+      opacity 400ms ease,
+      visibility 0s;
+  }
+
+  :global(html[data-at-stick]) .to-stick {
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 400ms ease,
+      visibility 0s 400ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .to-stick,
+    :global(html[data-at-stick]) .to-stick {
+      transition: none;
+    }
+  }
+
+  /* A ring of each world, so focus shows over the film and over the page alike. */
   .to-stick:focus-visible {
-    color: var(--page);
+    outline: 2px solid var(--page);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px var(--night);
   }
 
   .cinema {
     margin: 0;
     align-self: center;
+  }
+
+  /* What the film is and what it says, so a visitor knows before pressing play: a small
+     label, then the title at the size of the editor's first heading, in the regular
+     weight of the film's own title cards. Without the script it sits above the picture. */
+  .caption {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    inline-size: min(100%, calc((100svh - var(--chrome)) * 16 / 9));
+    margin: 0 auto 16px;
+    box-sizing: border-box;
+    text-align: center;
+  }
+
+  .kicker {
+    color: var(--shawl-light);
+    font-size: var(--size-small);
+    line-height: 1.3;
+  }
+
+  .title {
+    font-size: calc(1.4 * var(--size-page));
+    line-height: 1.3;
+    text-wrap: balance;
+  }
+
+  /* With the script, the caption and the play button are one thing: the label, the
+     title and the disc, centred on the picture, on the disc's own translucent night (a
+     little deeper, for the lit windows behind). They leave together when the film plays
+     and come back when it ends. The layout is there from the first paint (`scripting`),
+     so nothing moves when the script arrives; only the caption fades in. */
+  @media (scripting: enabled) {
+    .film {
+      --chrome: 128px;
+    }
+
+    .cinema {
+      display: grid;
+    }
+
+    .caption,
+    .screen {
+      grid-area: 1 / 1;
+    }
+
+    .controls {
+      grid-area: 2 / 1;
+    }
+
+    .caption {
+      z-index: 1;
+      place-self: center;
+      inline-size: auto;
+      max-inline-size: calc(100% - 2 * var(--gutter));
+      margin: 0;
+      padding: 8px 16px;
+      background: color-mix(in srgb, var(--night) 70%, transparent);
+      opacity: 0;
+      pointer-events: none;
+      /* Above the disc: half its own height, the disc's radius, and a gap. */
+      translate: 0 calc(-50% - 44px - 20px);
+      transition: opacity 400ms ease-out;
+    }
+
+    [data-ready][data-state="idle"] .caption,
+    [data-ready][data-state="ended"] .caption {
+      opacity: 1;
+    }
+  }
+
+  @media (scripting: enabled) and (width <= 640px) {
+    .film {
+      --chrome: 168px;
+    }
+
+    .caption {
+      max-inline-size: 100%;
+      translate: 0 calc(-50% - 36px - 16px);
+    }
   }
 
   /* The picture: 16:9, as large as the room allows. */
@@ -247,7 +413,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
     opacity: 0;
   }
 
-  @media (max-width: 640px) {
+  @media (width <= 640px) {
     .big-play {
       inline-size: 72px;
       block-size: 72px;
@@ -265,7 +431,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
 
   /* On an upright phone the tower fills the room, cropped to her window; the film
      itself is always shown whole. */
-  @media (max-aspect-ratio: 4 / 5) {
+  @media (aspect-ratio <= 4 / 5) {
     .screen {
       inline-size: 100%;
       aspect-ratio: auto;
@@ -288,7 +454,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
     display: none;
   }
 
-  @media (max-aspect-ratio: 4 / 5) {
+  @media (aspect-ratio <= 4 / 5) {
     .controls {
       inline-size: 100%;
     }
@@ -299,7 +465,15 @@ const moving = "(prefers-reduced-motion: no-preference)";
     transition-duration: 400ms;
   }
 
-  /* Before the film plays, only its length: ▶ 2:15. */
+  /* Before the film plays and after it ends, the play button on the picture is the only
+     one. The row below waits in its place, unseen, and shows when the keyboard reaches
+     it: then only the film's length, ▶ 2:15. */
+  [data-state="idle"] .controls:not(:focus-within),
+  [data-state="ended"] .controls:not(:focus-within) {
+    opacity: 0;
+    pointer-events: none;
+  }
+
   [data-state="idle"] .controls > :not(.play, .total) {
     display: none;
   }
@@ -320,8 +494,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
   }
 
   .controls button:hover,
-  .controls button:focus-visible,
-  .controls button[aria-pressed="true"] {
+  .controls button:focus-visible {
     color: var(--page);
   }
 
@@ -409,7 +582,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
     outline-offset: -8px;
   }
 
-  @media (max-width: 480px) {
+  @media (width <= 480px) {
     .now {
       display: none;
     }
@@ -435,6 +608,10 @@ const moving = "(prefers-reduced-motion: no-preference)";
     block-size: auto;
   }
 
+  .cinema:fullscreen .caption {
+    display: none;
+  }
+
   video::cue {
     font-family: var(--font);
     color: var(--page);
@@ -444,6 +621,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
   @media (prefers-reduced-motion: reduce) {
     [data-ready] .feature,
     .controls,
+    .caption,
     .big-play {
       transition: none;
     }

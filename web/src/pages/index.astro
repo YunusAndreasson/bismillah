@@ -1,12 +1,12 @@
 ---
 // The night opens, her page explains, the dawn closes, and the page ends it
-// (GUIDELINES.md): the film, her screen, the manifesto, a second document, the close.
+// (GUIDELINES.md): the film, her screen, the manifesto, the editor's real screens, the close.
 import Close from "../components/Close.astro";
 import Document from "../components/Document.astro";
 import Film from "../components/Film.astro";
 import Screen from "../components/Screen.astro";
+import Screens from "../components/Screens.astro";
 import { Content as Manifesto } from "../content/manifesto.md";
-import { copy } from "../copy";
 import Base from "../layouts/Base.astro";
 ---
 
@@ -17,9 +17,7 @@ import Base from "../layouts/Base.astro";
     <Document caret>
       <Manifesto />
     </Document>
-    <Document>
-      <p>{copy.editor}</p>
-    </Document>
+    <Screens />
     <Close />
   </main>
 </Base>

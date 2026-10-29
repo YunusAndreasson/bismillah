@@ -2,6 +2,14 @@
 import { satteri } from "@astrojs/markdown-satteri";
 import { defineConfig } from "astro/config";
 
+// The browsers the site is built for: Baseline Widely Available, the versions Vite 8
+// targets by default, with features every major browser has shipped for at least 30
+// months. Lightning CSS lowers newer CSS and adds the vendor prefixes these need, and
+// the script is lowered to them. Astro builds for `esnext` instead, which lowers and
+// prefixes nothing, so the floor is set here. Older browsers still get the page:
+// the film with the browser's own controls, her screen as a still, the text in ink.
+const browsers = ["chrome111", "edge111", "firefox114", "safari16.4", "ios16.4"];
+
 export default defineConfig({
   // The workers.dev address until the site's own is chosen (GUIDELINES.md,
   // "Still to decide"). Canonical URLs and a future sitemap come from it.
@@ -20,7 +28,24 @@ export default defineConfig({
   },
   // The dev toolbar would sit over the film in every local preview.
   devToolbar: { enabled: false },
+  integrations: [
+    {
+      // The script is built by Vite's client environment, whose target Astro sets to
+      // `esnext` over any in `vite`. This hook, after Astro's config, is the place to
+      // change it (Astro's v6 upgrade guide). Fail rather than lose the floor quietly.
+      name: "browsers",
+      hooks: {
+        "astro:build:setup": ({ vite }) => {
+          const client = vite.environments?.client?.build;
+          if (!client) throw new Error("astro.config.mjs: no client build to target");
+          client.target = browsers;
+        },
+      },
+    },
+  ],
   vite: {
+    // The stylesheets are built by the prerender environment, which takes this.
+    build: { cssTarget: browsers },
     // Without a named tsconfig, Vite looks up the one that governs each file, and for
     // a file web/tsconfig.json doesn't include (anything in node_modules) it climbs
     // out of web/ to the app's root tsconfig. That extends @tsconfig/svelte, which

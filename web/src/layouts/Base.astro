@@ -97,19 +97,19 @@ const previewUrl = new URL(preview.src, Astro.site).href;
     background: var(--night);
   }
 
-  @media (max-width: 640px) {
+  @media (width <= 640px) {
     :root {
       --size-page: 17px;
     }
   }
 
-  @media (min-width: 768px) {
+  @media (width >= 768px) {
     :root {
       --gutter: 32px;
     }
   }
 
-  @media (min-width: 1920px) {
+  @media (width >= 1920px) {
     :root {
       --size-page: 22px;
     }
@@ -124,7 +124,6 @@ const previewUrl = new URL(preview.src, Astro.site).href;
     line-height: 1.6;
     font-kerning: normal;
     font-synthesis: none;
-    -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
   }
 
