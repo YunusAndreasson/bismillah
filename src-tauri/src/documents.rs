@@ -8,6 +8,7 @@
 use serde::Serialize;
 use std::fs::{self, File, OpenOptions, Permissions};
 use std::io::{self, ErrorKind, Write};
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
@@ -427,10 +428,14 @@ pub fn write_atomic(
         COUNTER.fetch_add(1, Ordering::Relaxed)
     ));
     faults(Step::Create)?;
-    let file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&temp)?;
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    if permissions.is_some() {
+        // Private until the original's permissions are applied: the umask's mode
+        // would let other users read a private document's text in the meantime.
+        options.mode(0o600);
+    }
+    let file = options.open(&temp)?;
     let written = (|| {
         let mut file = file;
         faults(Step::Write)?;
@@ -581,6 +586,30 @@ mod tests {
         save(&mut doc, "still secret\n", 1, false, NO_FAULTS).unwrap();
         let mode = fs::metadata(&doc.path).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o640);
+    }
+
+    #[test]
+    fn keeps_the_text_private_until_the_permissions_are_applied() {
+        use std::os::unix::fs::PermissionsExt;
+        let scratch = Scratch::new();
+        let (mut doc, _) = open_text(&scratch, "diary.md", b"secret\n");
+        fs::set_permissions(&doc.path, Permissions::from_mode(0o600)).unwrap();
+        doc.disk = DiskState::of(&fs::metadata(&doc.path).unwrap(), b"secret\n");
+        let dir = doc.path.parent().unwrap().to_path_buf();
+        let target = doc.path.clone();
+        let temp_mode = |step: Step| {
+            if step == Step::Write {
+                let temp = fs::read_dir(&dir)
+                    .unwrap()
+                    .map(|entry| entry.unwrap().path())
+                    .find(|path| *path != target)
+                    .unwrap();
+                let mode = fs::metadata(temp).unwrap().permissions().mode() & 0o777;
+                assert_eq!(mode, 0o600);
+            }
+            Ok(())
+        };
+        save(&mut doc, "still secret\n", 1, false, &temp_mode).unwrap();
     }
 
     #[test]

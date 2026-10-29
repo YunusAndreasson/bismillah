@@ -23,14 +23,27 @@ RUN rm -f /etc/apt/sources.list.d/* \
  && rm -rf /var/lib/apt/lists/*
 
 # trixie's rustc is 1.85; the workspace needs >= 1.90 (Cargo.toml rust-version).
+# The installers are checked against the hashes in os/inputs.lock before they run:
+# this container compiles the helper that runs as root on the stick.
 ARG RUST_VERSION
+ARG RUSTUP_VERSION
+ARG RUSTUP_INIT_SHA256
 ENV RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:/opt/node/bin:$PATH
-RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain "$RUST_VERSION"
+RUN curl -sSfL -o /tmp/rustup-init \
+      "https://static.rust-lang.org/rustup/archive/$RUSTUP_VERSION/x86_64-unknown-linux-gnu/rustup-init" \
+ && echo "$RUSTUP_INIT_SHA256  /tmp/rustup-init" | sha256sum -c - \
+ && chmod +x /tmp/rustup-init \
+ && /tmp/rustup-init -y --profile minimal --default-toolchain "$RUST_VERSION" \
+ && rm /tmp/rustup-init
 
 ARG NODE_VERSION
+ARG NODE_SHA256
 ARG PNPM_VERSION
-RUN curl -sSfL "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-x64.tar.xz" \
-      | tar -xJ -C /opt && mv "/opt/node-v$NODE_VERSION-linux-x64" /opt/node \
+RUN curl -sSfL -o /tmp/node.tar.xz \
+      "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-x64.tar.xz" \
+ && echo "$NODE_SHA256  /tmp/node.tar.xz" | sha256sum -c - \
+ && tar -xJf /tmp/node.tar.xz -C /opt && rm /tmp/node.tar.xz \
+ && mv "/opt/node-v$NODE_VERSION-linux-x64" /opt/node \
  && npm install -g "pnpm@$PNPM_VERSION"
 
 WORKDIR /src

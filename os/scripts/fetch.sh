@@ -17,7 +17,10 @@ docker build -q -t "$tag" \
   --build-arg CONTAINER_BASE="$CONTAINER_BASE" \
   --build-arg DEBIAN_SNAPSHOT="$DEBIAN_SNAPSHOT" \
   --build-arg RUST_VERSION="$RUST_VERSION" \
+  --build-arg RUSTUP_VERSION="$RUSTUP_VERSION" \
+  --build-arg RUSTUP_INIT_SHA256="$RUSTUP_INIT_SHA256" \
   --build-arg NODE_VERSION="$NODE_VERSION" \
+  --build-arg NODE_SHA256="$NODE_SHA256" \
   --build-arg PNPM_VERSION="$PNPM_VERSION" \
   -f "$root/os/build/Containerfile" "$root/os/build"
 docker save "$tag" -o "$cache/container.tar"

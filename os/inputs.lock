@@ -10,7 +10,12 @@ DEBIAN_SNAPSHOT=20261021T083704Z
 CONTAINER_BASE=docker.io/library/debian@sha256:913f6706df59a68922d1dd08f78c2476560a8d367897200a6005b00e5f67c2d5
 # trixie's rustc is 1.85; the workspace needs >= 1.90 (Cargo.toml rust-version).
 RUST_VERSION=1.99.0
+# The installers the container runs, checked by hash (static.rust-lang.org's
+# rustup-init.sha256; nodejs.org's SHASUMS256.txt for the linux-x64 tarball).
+RUSTUP_VERSION=1.29.2
+RUSTUP_INIT_SHA256=5be191e8c70a5007074254cb74d78dbfdd25cd5a61c27de7b8e5410122ec24f4
 NODE_VERSION=26.12.0
+NODE_SHA256=fd47865ecd6391ebb431fc815e01b9135bf83ded5cf373247e9331e196b7aded
 PNPM_VERSION=11.2.2
 # The host's mkosi; build.sh refuses another version.
 MKOSI_VERSION=27.1

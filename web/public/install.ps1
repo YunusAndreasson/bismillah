@@ -42,6 +42,10 @@
 
   # Downloads $Name from this version's folder unless it is there and matches $Hash.
   function Get-Part([string]$Dir, [string]$Version, [string]$Name, [string]$Hash) {
+    # Only plain names, so a damaged manifest can't write outside this folder.
+    if ($Name -cnotmatch '^[A-Za-z0-9_-][A-Za-z0-9._-]*$') {
+      Stop-Install "The manifest names an unexpected file ($Name)."
+    }
     $file = Join-Path $Dir $Name
     if ((Test-Path -LiteralPath $file) -and ((Get-Sha256 $file) -eq $Hash)) { return }
     Remove-Item -LiteralPath $file -ErrorAction SilentlyContinue

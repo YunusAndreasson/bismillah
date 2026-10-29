@@ -38,7 +38,7 @@ import {
   writeFileSync,
   writeSync,
 } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
@@ -170,6 +170,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const partial = args.includes("--partial");
   const image =
     args.find((a) => !a.startsWith("--")) ?? join(root, "os/out/image/bismillah-release.raw");
+  // The debug and power images run a root shell on the second serial port.
+  if (basename(image) !== "bismillah-release.raw")
+    throw new Error(`${image}: publish only the release image (bismillah-release.raw)`);
   const version = await publish(image, undefined, partial);
   const dir = join(root, "os/out/publish", version);
   const manifest = readFileSync(join(dir, "manifest"), "utf8");

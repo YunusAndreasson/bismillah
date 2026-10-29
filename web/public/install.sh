@@ -51,6 +51,8 @@ sha256() {
 
 # Downloads $1 from this version's folder to $dir, unless it is there and matches $2.
 fetch() {
+  # Only plain names, so a damaged manifest can't write outside this folder.
+  case $1 in "" | .* | *[!A-Za-z0-9._-]*) die "The manifest names an unexpected file ($1)." ;; esac
   file=$dir/$1
   if [ -f "$file" ] && [ "$(sha256 "$file")" = "$2" ]; then
     return 0

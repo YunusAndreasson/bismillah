@@ -21,6 +21,8 @@ coverage/
 # Local env
 .env
 .env.*
+# wrangler's local secrets
+.dev.vars*
 *.log
 
 # Personal Claude Code files (shared config lives in .claude/settings.json)
