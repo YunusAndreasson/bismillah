@@ -1,6 +1,6 @@
 # 0016 — Files, Commands and Settings: three panels in place of the tree and the dialog
 
-- **Status:** Accepted
+- **Status:** Superseded by [0018](0018-one-palette.md) (2026-10-29): one palette, *Search*, in place of the three panels and their tabs
 - **Date:** 2026-10-26 (the author's decision)
 - **Supersedes:** the library tree, the docked library and its overlay (Phase 2, DESIGN.md §6–7), the four-section Settings dialog (Phase 5), and *Find anything*'s one panel (2026-10-23)
 

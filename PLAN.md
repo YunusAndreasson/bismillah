@@ -404,6 +404,27 @@ anywhere (ADR-0016). Built 2026-10-26; evidence in
    `Esc` twice; *Show in Settings* from a broken keybindings.toml.
 5. On the stick: Settings › This stick (keyboard and time zone) by keyboard.
 
+## One palette: Search (2026-10-29)
+
+The author found the three bottom-left tabs non-standard and asked for one palette on
+`Ctrl+K`, as in Notion, Linear and VS Code, keeping `Ctrl+P`, `Ctrl+Shift+P` and
+`Ctrl+,` as ways into it (ADR-0018, superseding ADR-0016's panels). Built 2026-10-29;
+evidence in [the Search audit](docs/audits/2026-10-29-search.md). This replaces the
+three panels' acceptance check above.
+
+**Acceptance check (the author):**
+1. `Ctrl+K`, `Shift Shift` and *Search* in the status line open Search near the top;
+   with nothing typed it lists recent files without the open one, and `Enter` goes
+   back to the previous file.
+2. Type "spelling", then "theme": Commands and Settings in their own sections, no
+   stray files; `Tab` narrows to files, commands and settings with the query kept.
+3. `Ctrl+P`, `Ctrl+Shift+P`, `Ctrl+,`: the scope shows in the field; its × or
+   `Backspace` in an empty field widens it; its own key closes Search.
+4. Search never changes size as you type or move the highlight.
+5. Files keys on a highlighted file (`F2`, `Delete` and *Undo*, `Ctrl+Shift+N`), and
+   Settings' `←` `→` and rows opened in place, as before.
+6. On the stick: Settings › This stick by keyboard.
+
 ## Recovery failure follow-up (2026-10-27)
 
 Fixed and verified: a failed document save no longer implies that recovery succeeded.

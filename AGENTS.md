@@ -119,14 +119,14 @@ The [stick QA pass](docs/audits/2026-10-22-stick-qa.md) drove the editor in the
 stick's VM by keyboard: pickers that died after the library had focus, focus left in
 the tree after quick open, dialogs that scrolled long texts to the top, and frames
 shown late on software rendering.
-Files, Commands and Settings (ADR-0016) are three panels opened from the status
-line, replacing Find anything, the library tree and the Settings dialog: what they
-list is unit-tested in `src/core/panels.test.ts` and `src/core/settingEntries.test.ts`,
-the panels in `tests/e2e/panels.e2e.ts` and `tests/e2e/library.e2e.ts`, and their
-look in `tests/visual/panels.visual.ts` ([the panels audit](docs/audits/2026-10-26-panels.md)).
-`Shift Shift` (unit-tested in `src/core/doubleShift.test.ts`) reopens the last panel.
-Tests must not tap Shift on its own twice: that opens a panel. WebKitGTK sends
-Shift+Tab as `Unidentified` with code `Tab`.
+Search (ADR-0018, superseding ADR-0016's three panels) is one palette on `Ctrl+K`
+for files, commands and settings, narrowed by `Ctrl+P`, `Ctrl+Shift+P` and `Ctrl+,`:
+what each scope lists is unit-tested in `src/core/panels.test.ts`, `fuzzy.test.ts`
+and `settingEntries.test.ts`, Search in `tests/e2e/panels.e2e.ts` and
+`tests/e2e/library.e2e.ts`, and its look in `tests/visual/panels.visual.ts`
+([the Search audit](docs/audits/2026-10-29-search.md)). `Shift Shift` (unit-tested in
+`src/core/doubleShift.test.ts`) opens Search. Tests must not tap Shift on its own
+twice: that opens Search. WebKitGTK sends Shift+Tab as `Unidentified` with code `Tab`.
 The daily-polish follow-up tightens opening spacing, balances ordinary Arabic in Latin profiles, refines diagnostic strokes and appliance controls, and keeps panel/save transitions still. Evidence and design review: [the daily-polish audit](docs/audits/2026-10-25-daily-polish.md). Its five real-app regressions are in `tests/e2e/polish.e2e.ts`.
 The recovery-failure follow-up reports whether a failed save actually reached
 durable recovery and keeps unprotected edits open. Tests cover blocked navigation,
@@ -150,8 +150,8 @@ session tests cover the explicit conflict hold, and the real-app reload suite
 checks rescue after exceeding the recovery size cap without filling a disk.
 Recovery metadata also retains precise write timestamps; same-millisecond restore,
 file-age, legacy-entry and pruning regressions live in `src-tauri/src/recovery.rs`.
-The current gate covers 453 frontend and 210 Rust tests, all 32
-real-app suites and 17 visual checks.
+The current gate covers 461 frontend and 210 Rust tests, all 32
+real-app suites and 18 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.
 - File-handling changes include a failure-path test (disk full, read-only, conflict, killed process).
