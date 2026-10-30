@@ -6,25 +6,34 @@ static assets only, no Worker script. Until the site has its own address it live
 https://bismillah.jonas-268.workers.dev.
 
 **Status:** the design is built (2026-10-28) and waits for the author's review, with
-its words in `src/copy.ts` (drafted 2026-10-29 for the author to review). One page, in six
-scenes: the film (our own player, the tower loop as its picture, under the name and
-what it is, a writing app that never writes for you, with a label, the film's title and the play button as one group on the
-picture, so the first screen says what this is), her screen (the
-camera pushes into her laptop and its light becomes the page), her page: the film's own
-lines set as the editor sets a document and written as they are read, one at a time at
-the typewriter line with the caret after them (Zuhd mode follows the reader); they are
-the manifesto, said as the film says it, so the site links to no other; her laptop with
-the editor's real
-screens under the README's line that names it, the answer to her page's first question
-(five words change what it shows), and the close: the
-stick, which is the call to action (three numbered steps, side by side on a wide screen,
-each with a picture: a USB stick, one command that puts bismillah on it, the laptop
-started from it), and last the page's one ending: "These words are mine." in the
-editor's type with its caret after it, and nothing below (2026-10-29: the story, then
-what it is, then how to get it; the same day the close moved after the stick, so
-nothing dark stands between seeing the editor and getting it, and the dawn loop, then
-the boy's notebook, left the ending, as both needed the film to mean anything).
-"Get the bismillah editor" stays pinned in the top corner over every scene (the
+its words in `src/copy.ts` (drafted 2026-10-29 for the author to review). One page, one
+story, in six scenes (the opening's camera move and the last two beats below came with the
+storytelling pass of 2026-10-30): the film (our own player, the tower loop as its picture,
+under the name and what it is, a writing app that never writes for you, with a label, the
+film's title and the play button as one group on the picture, so the first screen says what
+this is), the opening shot (scrolling holds the first screen: the name, title and play button
+leave, which uncovers her in the window they were on, the tower's lights go out until hers is
+the only one, the camera goes to it), her room and her screen (the film's second and third
+shots; the camera pushes into her laptop and its light becomes the page, with nothing
+blank in between), her page: the film's own lines set as the editor sets a document and
+written as they are read, in the editor's typewriter mode, one line or sentence to a stretch
+of scrolling with the page held still and the caret after them (Zuhd mode follows); they are
+the manifesto, said as the film says it, so the site links to no other. At
+"Prompting is not thinking," the machine offers to finish her line, in the film's own words
+and the machine's dark, and at the next stretch it is gone and she writes "writing is.".
+Then her laptop with the app's real screens under the README's line that names it, the
+answer to her page's first question (scrolling changes what it shows, the laptop held
+still), and the close: the stick, which is the call to action (three numbered steps, side by
+side on a wide screen, each with a picture: a USB stick, one command that puts bismillah on
+it, the laptop started from it), and last the page's one ending: "These words are mine." in
+the editor's type with its caret after it, on a page of its own, and the caret is real: the
+visitor can write there (click, or just start typing), left to right or right to left, and
+nothing is kept or sent. Two quiet lines say what the name means and that, and go at the first
+word, so the page's last words are the visitor's. No footer. (2026-10-29: the story, then what
+it is, then how to get it; the same day the close moved after the stick, so nothing dark
+stands between seeing the editor and getting it, and the dawn loop, then the boy's notebook,
+left the ending, as both needed the film to mean anything.)
+"Get the bismillah app" stays pinned in the top corner over every scene (the
 author's request, 2026-10-28), so the way to the stick is always in reach, and steps
 aside while the stick itself is on the screen.
 
@@ -48,15 +57,16 @@ aside while the stick itself is on the screen.
   live runs in the browser. Adding `@astrojs/cloudflare` or a `main` script is a
   decision: say why first.
 - `.astro` first. Client JavaScript only where a page truly needs it: today one module,
-  `src/scripts/site.ts` (the player, the push, her page written as it is read, Zuhd
-  mode, the caret, the corner button's ground, and the commands' copy buttons and the
-  choice of the visitor's own).
+  `src/scripts/site.ts` (the player, the opening shot, the push, her page written as it is
+  read, Zuhd mode, the caret, the visitor's line, the corner button's ground, and the
+  commands' copy buttons and the choice of the visitor's own).
   Everything reads and plays without it.
 - **Every other word lives in `src/copy.ts`**, each line with its source when it has
   one, so the author can review and change the words in one place.
 - **Motion is slow and one thing at a time** (GUIDELINES.md): the loops play once and
   rest (WCAG 2.2.2's five seconds), the caret blinks four times, and
-  `prefers-reduced-motion` turns the loops and the push into stills; one rule in
+  `prefers-reduced-motion` turns the loops, the opening shot and the push into stills
+  and her page into plain text; one rule in
   `Base.astro` ends every transition and blink, so components don't repeat it (a
   range slider's parts escape it, so the playhead blinks only under `no-preference`).
 - Colours come from the tokens in `src/layouts/Base.astro`, which hold the colours of
@@ -65,8 +75,9 @@ aside while the stick itself is on the screen.
   size, the title step (`--size-title`) and one line of writing (`--L`), the unit of
   every vertical space.
 - Shared pieces live once in `Base.astro`: the two worlds (`.night`, `.page`, which
-  sets the writing size), the editor's caret on any `[data-caret]` text, and a
-  `[hidden]` that wins over a component's `display`.
+  sets the writing size), the editor's caret on any `[data-caret]` text and, at rest,
+  after the name (`[data-wordmark]`, the logo), and a `[hidden]` that wins over a
+  component's `display`.
 - Prefer retrieval over memory for Astro and Cloudflare APIs, because both move fast
   (the `docs-lookup` skill and the `astro-docs` MCP; the global `wrangler` and
   `cloudflare` skills).
@@ -77,8 +88,8 @@ aside while the stick itself is on the screen.
   and base type, the caret, the reduced-motion rule, and the link preview.
 - `src/pages/index.astro`: the page, built from `src/components/`: `Film` (the player),
   `Screen` (her screen), `Document` and `Basmallah` (a document as the editor sets it),
-  `Screens` (her laptop with the editor's real screens, and the five words that change
-  them), `Close` (the stick, and her last line with the caret; no footer) and
+  `Screens` (her laptop with the editor's real screens, one screen after another as
+  the page scrolls), `Close` (the stick, and her last line with the caret; no footer) and
   `Stick` (the three steps) with `Commands` (the install command, inside step 2 when the
   steps stand one under another, and on one line under all three when they stand side
   by side). `404.astro` is served with status 404 for any unknown path.
@@ -87,17 +98,21 @@ aside while the stick itself is on the screen.
   place of the site's 256-word cut of `../MANIFESTO.md` on 2026-10-29 (in git history);
   the full text stays in `../MANIFESTO.md`. Markdown is rendered by Sätteri with smart
   punctuation off, so it shows exactly as typed.
-- `src/assets/`: the stills (Astro makes AVIF and WebP), the fonts (`scripts/fonts.sh`)
+- `src/assets/`: the stills (Astro makes AVIF and WebP), the fonts (`scripts/fonts.sh`;
+  Amiri only for Arabic a visitor writes, fetched when such a character is drawn)
   and the Basmallah outline (`scripts/basmallah.sh`, copied from the app).
   `src/assets/screens/`: the stick's real screens, taken in a VM by `../os/scripts/shots.ts`
   (her page, `src/content/her-page.md`, is the document they show first; the manifesto,
   `../MANIFESTO.md`, fills her library one section to a file: Zuhd mode is shown on
   its first section, whose paragraphs run for lines, and Files finds its Memory by
   four letters)
-  (`pnpm os:shots`) and copied by `scripts/screens.sh`, with a legible detail of each
-  for phones. `src/assets/laptop/`: those screens laid into step 3's laptop by
-  `scripts/laptop.py`, at twice the photograph's size. Every picture of the app on the
-  site is one of these, never a mock-up.
+  (`pnpm os:shots`) and copied by `scripts/screens.sh`. `src/assets/scenes/`: the
+  moments the laptop scene moves through, one idea each, generated with Codex, and
+  `PROMPTS.md`, how and what the rounds taught.
+  `src/assets/tower.ts`: the tower still's bays and her window, measured by hand, for the
+  lights going out. `src/assets/laptop/`: each moment, the real screens laid on where it shows one, by
+  `scripts/laptop.py`, at twice the photograph's size, as a wide strip and a square
+  for phones. Every picture of the app on the site is one of these, never a mock-up.
   `src/assets/steps/`: the three step pictures, generated with Codex, and
   `PROMPTS.md`, how they were made; step 3's screen is the stick's real setup screen
   (`src/assets/screens/setup-passphrase.png`), laid on with `scripts/screen.py`.

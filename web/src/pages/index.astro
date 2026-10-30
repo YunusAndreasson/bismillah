@@ -9,14 +9,15 @@ import Film from "../components/Film.astro";
 import Screen from "../components/Screen.astro";
 import Screens from "../components/Screens.astro";
 import { Content as HerPage } from "../content/her-page.md";
+import { copy } from "../copy";
 import Base from "../layouts/Base.astro";
 ---
 
-<Base>
+<Base title={copy.title}>
   <main>
     <Film />
     <Screen />
-    <Document caret written>
+    <Document caret written offer={copy.page.offer}>
       <HerPage />
     </Document>
     <Screens />

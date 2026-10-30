@@ -1,43 +1,34 @@
 ---
-// What the editor is, named in one line (the README's), and what it looks like, shown
-// rather than told: one laptop on her table, right after her page, its screen the
-// stick's real screens (taken in a VM by os/scripts/shots.ts, laid into the photograph
-// by scripts/laptop.py), the first of them her page, just written. Five quiet words
-// below it change what the screen shows, as the status line's words open panels in the
-// app. A phone, where a whole
-// screen is too small to read, gets a detail of each instead. Without the script the
-// four stand one under another, each with its line.
+// What the editor is, named in one line (the README's), and what it is for, shown rather
+// than told, right after her page: one idea to a moment, as an Apple commercial shows it,
+// by a plain act of hers or by the app close on her screen (the stick's real screens,
+// taken in a VM by os/scripts/shots.ts and laid into the photograph by
+// scripts/laptop.py), with its name and its line. The picture holds still while the page
+// scrolls, and the next moment fades in (2026-10-29; until then five words under one
+// photograph, like tabs). A phone gets each moment square. Without the script they stand
+// one under another, each with its line.
 import { getImage } from "astro:assets";
-import arabic from "../assets/laptop/arabic.jpg";
-import files from "../assets/laptop/files.jpg";
-import page from "../assets/laptop/page.jpg";
-import suggestion from "../assets/laptop/suggestion.jpg";
-import zuhd from "../assets/laptop/zuhd.jpg";
-import arabicCrop from "../assets/screens/arabic-light-crop.png";
-import filesCrop from "../assets/screens/files-light-crop.png";
-import pageCrop from "../assets/screens/page-light-crop.png";
-import suggestionCrop from "../assets/screens/suggestion-light-crop.png";
-import zuhdCrop from "../assets/screens/zuhd-light-crop.png";
 import { copy } from "../copy";
 
-const pictures = {
-  page: [page, pageCrop],
-  zuhd: [zuhd, zuhdCrop],
-  arabic: [arabic, arabicCrop],
-  suggestion: [suggestion, suggestionCrop],
-  files: [files, filesCrop],
-} as const;
+// Each moment twice (scripts/laptop.py): the wide strip, and a square for a phone.
+const laptops = import.meta.glob<{ default: ImageMetadata }>("../assets/laptop/*.jpg", {
+  eager: true,
+});
+const picture = (name: string) => {
+  const found = laptops[`../assets/laptop/${name}.jpg`];
+  if (!found) throw new Error(`no src/assets/laptop/${name}.jpg: run scripts/laptop.py`);
+  return found.default;
+};
 const s = copy.screens;
 // The editor's text inside the photograph needs a high quality to stay sharp.
 const image = (src: ImageMetadata, widths: number[]) =>
   getImage({ src, format: "webp", quality: 88, widths });
 const states = await Promise.all(
   s.states.map(async (state) => {
-    const [laptop, crop] = pictures[state.picture];
     return {
       ...state,
-      laptop: await image(laptop, [960, 1440, 2160, 3072]),
-      crop: await image(crop, [480, 720, 1040]),
+      laptop: await image(picture(state.picture), [960, 1440, 2160, 3072]),
+      crop: await image(picture(`${state.picture}-phone`), [480, 720, 1040]),
     };
   }),
 );
@@ -47,51 +38,56 @@ const states = await Promise.all(
   <!-- Her page asks how we will think; this line answers it, and the laptop shows the
        answer. -->
   <h2 id="screens-heading" class="heading">{s.heading}</h2>
-  <div class="stack">
-    {
-      states.map((state, i) => (
-        <figure class="state" data-state data-current={i === 0 ? "" : undefined}>
-          <picture>
-            <source
-              media="(width <= 700px)"
-              type="image/webp"
-              srcset={state.crop.srcSet.attribute}
-              sizes="calc(100vw - 32px)"
-              width={state.crop.attributes.width}
-              height={state.crop.attributes.height}
-            />
-            <img
-              src={state.laptop.src}
-              srcset={state.laptop.srcSet.attribute}
-              sizes="(min-width: 1440px) 1360px, 100vw"
-              width={state.laptop.attributes.width}
-              height={state.laptop.attributes.height}
-              alt={state.alt}
-              loading={i === 0 ? "eager" : "lazy"}
-              decoding="async"
-              class="shot"
-            />
-          </picture>
-          <figcaption>
-            <span class="name">{state.label}</span>
-            {state.line}
-          </figcaption>
-        </figure>
-      ))
-    }
-  </div>
-  <div class="words" role="group" aria-label={s.label} hidden data-words>
-    {
-      states.map((state, i) => (
-        <button type="button" aria-pressed={i === 0 ? "true" : "false"} data-show={i}>
-          {state.label}
-        </button>
-      ))
-    }
+  <div class="track" data-track>
+    <div class="stage">
+      <div class="stack">
+        {
+          states.map((state, i) => (
+            <figure class="state" data-state data-current={i === 0 ? "" : undefined}>
+              <picture>
+                <source
+                  media="(width <= 700px)"
+                  type="image/webp"
+                  srcset={state.crop.srcSet.attribute}
+                  sizes="calc(100vw - 32px)"
+                  width={state.crop.attributes.width}
+                  height={state.crop.attributes.height}
+                />
+                <img
+                  src={state.laptop.src}
+                  srcset={state.laptop.srcSet.attribute}
+                  sizes="(min-width: 1440px) 1360px, 100vw"
+                  width={state.laptop.attributes.width}
+                  height={state.laptop.attributes.height}
+                  alt={state.alt}
+                  loading={i === 0 ? "eager" : "lazy"}
+                  decoding="async"
+                  class="shot"
+                />
+              </picture>
+              <figcaption>
+                <span class="name">{state.label}</span>
+                {state.line}
+              </figcaption>
+            </figure>
+          ))
+        }
+      </div>
+      <!-- Where the reader is among the screens: one short line for each, the current in
+           ink. Only with the script, which changes the screens. -->
+      <div class="marks" aria-hidden="true" hidden data-marks>
+        {states.map(() => <span data-mark />)}
+      </div>
+    </div>
   </div>
 </section>
 
 <style>
+  /* Its last margin stays inside, or the night would show between it and the stick. */
+  .screens {
+    display: flow-root;
+  }
+
   /* What the editor is, in the titles' size: the answer to her page's question,
      one blank line above the laptop. */
   .heading {
@@ -128,6 +124,7 @@ const states = await Promise.all(
     padding-inline: var(--gutter);
     color: var(--page-secondary);
     text-align: center;
+    text-wrap: balance;
   }
 
   .name {
@@ -136,88 +133,92 @@ const states = await Promise.all(
     font-weight: 700;
   }
 
-  /* With the script: one screen at a time, its line under it, and the five words that
-     change it. Every state shares one grid cell, so the page never moves. */
-  [data-live] .stack {
-    display: grid;
+  /* With the script, the laptop stays on the table while the page scrolls past it, and
+     each stretch of scrolling (--step) brings the next screen, with its name and its
+     line. The track is that much taller than a window; the stage, a window high,
+     holds still inside it. Every state shares one grid cell, so nothing moves but the
+     screen. */
+  [data-live] .track {
+    --step: 50svh;
+    block-size: calc(100svh + (var(--n) - 1) * var(--step));
   }
 
+  [data-live] .stage {
+    position: sticky;
+    inset-block-start: 0;
+    box-sizing: border-box;
+    block-size: 100svh;
+    display: grid;
+    align-content: center;
+    /* Clear of the corner button above. */
+    padding-block: 56px var(--gutter);
+  }
+
+  /* The laptop, its name and line, and the marks fit the window under the corner
+     button. */
+  [data-live] .stack {
+    display: grid;
+    box-sizing: border-box;
+    inline-size: 100%;
+    max-inline-size: min(1360px, calc((100svh - 15rem) * 1.873));
+  }
+
+  /* The next moment comes in over the last, which stays until it has, so the page's light
+     never shows through the picture. */
   [data-live] .state {
     grid-area: 1 / 1;
     margin: 0;
     opacity: 0;
-    visibility: hidden;
-    transition:
-      opacity 600ms ease,
-      visibility 0s 600ms;
+    transition: opacity 0s linear 600ms;
   }
 
   [data-live] .state[data-current] {
+    z-index: 1;
     opacity: 1;
-    visibility: visible;
     transition: opacity 600ms ease;
   }
 
-  [data-live] .shot {
-    cursor: pointer;
+  /* Its line goes first and the next comes into the quiet, as two lines in one place
+     can't be read through each other. */
+  [data-live] figcaption {
+    opacity: 0;
+    transition: opacity 200ms ease;
   }
 
-  [data-live] .name {
-    display: none;
+  [data-live] [data-current] figcaption {
+    opacity: 1;
+    transition: opacity 400ms ease 200ms;
   }
 
-  /* The words, as the app's status line sets its own: small, quiet, the current one
-     underlined in the green that means something to press. */
-  /* One row: on a phone the five give up their gaps and some padding to keep it, and
-     wrap only on a narrower screen than any phone's. */
-  .words {
+  /* The marks: a short line for each screen, the current one in ink. */
+  .marks {
     display: flex;
-    flex-wrap: wrap;
     justify-content: center;
-    gap: 0 8px;
+    gap: 8px;
     margin-block-start: calc(0.5 * var(--L));
-    font-size: var(--size-ui);
   }
 
-  .words button {
-    min-block-size: 44px;
-    padding: 0 12px;
-    border: 0;
-    border-block-end: 2px solid transparent;
-    background: none;
-    color: var(--page-secondary);
-    font: inherit;
-    cursor: pointer;
+  .marks span {
+    inline-size: 24px;
+    block-size: 2px;
+    background: var(--page-faint);
+    transition: background-color 600ms ease;
   }
 
-  .words button[aria-pressed="true"] {
-    border-block-end-color: var(--caret);
-    color: var(--ink);
+  .marks span[data-current] {
+    background: var(--ink);
   }
 
-  .words button:hover {
-    color: var(--ink);
-  }
-
-  @media (width <= 480px) {
-    .words {
-      gap: 0;
-    }
-
-    .words button {
-      padding-inline: 8px;
-    }
-  }
-
-  /* A phone gets a detail of the screen, framed as one. */
+  /* A phone gets each moment square, no taller than the window leaves room for under
+     the corner button and above its line. */
   @media (width <= 700px) {
     .stack {
       padding-inline: var(--gutter);
     }
 
-    .shot {
-      border: 6px solid var(--night);
-      border-radius: 10px;
+    [data-live] .shot {
+      max-block-size: calc(100svh - 17rem);
+      object-fit: cover;
     }
   }
 </style>

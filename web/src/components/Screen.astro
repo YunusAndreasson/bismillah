@@ -1,12 +1,14 @@
 ---
-// Her screen: the film's second and third shots at the visitor's pace. She types at her
-// laptop in the dark (still 03); scrolling pushes the camera into her screen, and its
-// light becomes the page that follows. Her screen already shows the real editor, the
-// Basmallah and "How will we t…", so the page continues it.
+// Her room and her screen: the film's second and third shots at the visitor's pace. From
+// her window in the tower, the camera is in the room: her at the table against the rain
+// (still 02). It dissolves to her hands at the laptop (still 03), and scrolling pushes it
+// into her screen, whose light becomes the page that follows. Her screen already shows the
+// real editor, the Basmallah and "How will we t…", so the page continues it.
 //
-// The site's one pinned sequence: native scrolling, one viewport long, one move. Without
-// the script, or under reduced motion, it is a still.
+// Native scrolling, one move at a time. Without the script, or under reduced motion, it
+// is one still.
 import { Picture } from "astro:assets";
+import room from "../assets/stills/02-her-window.jpg";
 import still from "../assets/stills/03-her-screen.jpg";
 ---
 
@@ -23,6 +25,17 @@ import still from "../assets/stills/03-her-screen.jpg";
         class="still"
       />
       <div class="light" data-light></div>
+    </div>
+    <div class="camera in-the-room" data-room>
+      <Picture
+        src={room}
+        formats={["avif", "webp"]}
+        widths={[640, 960, 1280, 1920]}
+        sizes="100vw"
+        quality={80}
+        alt=""
+        class="still"
+      />
     </div>
     <div class="veil" data-veil></div>
   </div>
@@ -44,6 +57,14 @@ import still from "../assets/stills/03-her-screen.jpg";
     inset: 0;
     /* The centre of her laptop's screen in the still, so the camera pushes into it. */
     transform-origin: 74.4% 58.3%;
+  }
+
+  /* The wide shot of her room comes before it, and only with the script, which moves it. */
+  .in-the-room {
+    display: none;
+    /* Her laptop on the table, a little towards her, so a phone's crop keeps both. */
+    transform-origin: 46% 59%;
+    opacity: 0;
   }
 
   .camera :global(picture),
@@ -79,25 +100,18 @@ import still from "../assets/stills/03-her-screen.jpg";
     pointer-events: none;
   }
 
-  /* With the script and motion allowed, the stage holds for one viewport of scrolling.
-     Where the browser knows `scripting`, that length is there from the first layout,
-     before the script runs, so a link to a later scene (/#stick) lands where it points
-     instead of a viewport short. Older browsers take it from the script's [data-live]. */
-  @media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
-    .her-screen {
-      block-size: 200svh;
-    }
-
-    .stage {
-      position: sticky;
-      inset-block-start: 0;
-      block-size: 100svh;
-    }
-  }
-
+  /* With the script and motion allowed, the stage holds while the camera moves. It starts
+     under the tower's last screen, in the dark, so the shot changes without the page
+     sliding. A film that has played has no such shot, and the stage just comes after it. */
   @media (prefers-reduced-motion: no-preference) {
     [data-live].her-screen {
-      block-size: 200svh;
+      --travel: 220svh;
+      block-size: calc(100svh + var(--travel));
+      margin-block-start: -100svh;
+    }
+
+    :global(.film[data-seen]) + [data-live].her-screen {
+      margin-block-start: 0;
     }
 
     [data-live] .stage {
@@ -109,6 +123,10 @@ import still from "../assets/stills/03-her-screen.jpg";
     [data-live] .camera {
       inset: auto;
       will-change: transform;
+    }
+
+    [data-live] .in-the-room {
+      display: block;
     }
   }
 </style>

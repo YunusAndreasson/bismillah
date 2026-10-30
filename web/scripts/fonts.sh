@@ -27,4 +27,12 @@ for style in Regular Italic; do
     --unicodes="$unicodes" --layout-features='*' --name-IDs='*' --no-hinting
 done
 cp "$src/LICENSE.md" "$out/LICENSE.md"
+
+# Amiri, for Arabic a visitor writes on the page, the app's own Arabic face. The Arabic
+# blocks, with its ligatures and marks; loaded only when such a character is drawn.
+pyftsubset ../fonts/source/amiri/Amiri-Regular.ttf --flavor=woff2 \
+  --output-file="$out/Amiri-Regular.woff2" \
+  --unicodes="U+0020,U+00A0,U+0600-06FF,U+0750-077F,U+08A0-08FF,U+200C-200F,U+FB50-FDFF,U+FE70-FEFF" \
+  --layout-features='*' --name-IDs='*' --no-hinting
+cp ../fonts/source/amiri/OFL.txt "$out/Amiri-OFL.txt"
 ls -l "$out"

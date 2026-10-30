@@ -64,6 +64,20 @@ const previewUrl = new URL(preview.src, Astro.site).href;
     font-display: swap;
   }
 
+  /* Arabic, wherever a visitor writes it (Close.astro), in the app's Arabic face. Only
+     then: a browser fetches this file when a character in its range has to be drawn. */
+  @font-face {
+    font-family: "Amiri";
+    src: url("../assets/fonts/Amiri-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    /* Amiri's letters are small on their body: this is the size at which they sit with
+       the writing beside them. */
+    size-adjust: 125%;
+    unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+  }
+
   /* The colours of the palette in GUIDELINES.md that the site uses. Each has one place in
      the story, so use it there and nowhere else. The night and the page are the story's
      two worlds, not a theme: the site ignores the system's light or dark preference. */
@@ -73,10 +87,19 @@ const previewUrl = new URL(preview.src, Astro.site).href;
     --page: #f7f6f2;
     --ink: #1e1e1e;
     --caret: #1e6b4a;
+    /* The caret as the app draws it on a dark theme (DESIGN.md §9, accent), for the
+       logo on the night only (the author's choice, 2026-10-29). */
+    --caret-night: #6fbf95;
+
+    /* The machine's light, on the machine's dark. Never for her words. */
+    --cold-screen: #bcd5ca;
 
     /* Her shawl, lit: the same grey raised to 4.5:1 or more on every dark ground, for
        small quiet text. The shawl itself (3.07:1 on the night) is for 24px and up. */
     --shawl-light: #72827c;
+    /* Dawn paper: small quiet words over the lit picture, where the shawl's grey falls to
+       2.7:1 against a window (5:1 or more here). */
+    --dawn: #aab4a7;
 
     /* The editor's own quiet tones on the page (DESIGN.md §9.2), so the page looks as
        the app does: text-secondary (5.66:1) and text-faint (the Basmallah wordmark). */
@@ -172,9 +195,10 @@ const previewUrl = new URL(preview.src, Astro.site).href;
 
   /* The editor's caret (DESIGN.md §11): 2px, green, after the last character of a text
      with `data-caret` (her page, and her last line), or, while her page is being written,
-     after the last paragraph written so far. It blinks on the app's 1.2 s cycle four
+     after the last line or sentence written so far. It blinks on the app's 1.2 s cycle four
      times once it is in view (site.ts), under WCAG's five seconds, and then rests,
-     visible. */
+     visible. After the name (`data-wordmark`) it is the logo: the same caret, always at
+     rest, so the only one that blinks is where something is being written. */
   @keyframes caret-blink {
     50% {
       opacity: 0;
@@ -182,7 +206,8 @@ const previewUrl = new URL(preview.src, Astro.site).href;
   }
 
   [data-caret]:not([data-writing]) .text > :last-child::after,
-  [data-caret][data-writing] .text > .end::after {
+  [data-caret][data-writing] .text .piece.end::after,
+  [data-wordmark]::after {
     content: "";
     display: inline-block;
     inline-size: 2px;
@@ -192,7 +217,21 @@ const previewUrl = new URL(preview.src, Astro.site).href;
     background: var(--caret);
   }
 
-  [data-caret][data-awake] .text > :last-child::after {
+  /* The logo stands on the night: a little apart from the name, so it reads as a mark,
+     and in the app's dark-theme green. */
+  [data-wordmark]::after {
+    margin-inline-start: 0.2em;
+    background: var(--caret-night);
+  }
+
+  /* While a line is being written the caret takes no room, so the words after it, still
+     unseen, stay where they will be. */
+  [data-caret][data-writing] .text .piece.end::after {
+    margin-inline-end: -3px;
+  }
+
+  [data-caret][data-awake]:not([data-writing]) .text > :last-child::after,
+  [data-caret][data-awake][data-writing] .text .piece.end::after {
     animation: caret-blink 1.2s steps(1, end) 4;
   }
 

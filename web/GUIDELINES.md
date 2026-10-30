@@ -58,13 +58,16 @@ See `palette.jpg`. Each colour has a place in the story:
 
 - **The night** `#0A0D0C` and **the kitchen at night** `#0C1714`: the grounds of every dark section.
 - **Cold screen** `#BCD5CA`: only for the machine's light. Use sparingly, never for her words.
+  On the site, once: the machine's offer on her page, on the night.
 - **Her shawl** `#56625D`: the quiet grey for secondary text in the dark.
   It is 3.07:1 on the night, so it is for text of 24px and up; small quiet text in the dark
   uses the same grey lit, `#72827C` (4.5:1 or more on every dark ground; the author's choice, 2026-10-28).
 - **Her light** `#A6733A`: the one warm window. Use it once or twice on the whole site, never as decoration.
-- **Dawn paper** `#AAB4A7`: the morning, the passing on.
+- **Dawn paper** `#AAB4A7`: the morning, the passing on. On the site, the film's small label over
+  the lit tower, where the shawl's grey can't be read against a window.
 - **The page** `#F7F6F2`, **ink** `#1E1E1E` and **the caret** `#1E6B4A`: her world, the product's own colours.
-  The green caret is the only colour on the page, as in the app.
+  The green caret is the only colour on the page, as in the app. After the name on the night,
+  the logo's caret is the app's dark-theme green `#6FBF95` (the author's choice, 2026-10-29).
 - **End card** `#151515`: where the film closes.
 
 No gradients, glows or neon. Light in the film always comes from a real source: a lamp, a screen, a window.
@@ -75,8 +78,8 @@ No gradients, glows or neon. Light in the film always comes from a real source: 
   from the film. It is the editor's own typeface, so the site and the app speak in one voice.
 - **Amiri** (in [`../fonts/source/amiri/`](../fonts/source/amiri/)) for the basmala and any Arabic.
 - The name is always lowercase: **bismillah**, as on the film's end card. In running text it is set
-  plain, like any other word: no bold, italics or capitals (only the boy's notebook, the link
-  preview, writes it _Bismillah_, as the phrase).
+  plain, like any other word: no bold, italics or capitals (only where it is the phrase is it
+  _Bismillah_: the boy's notebook, the link preview, and the close's line that says what it means).
 - The scale grows from the writing size (20px, 17px on a phone). Titles are one step, 1.4 times it: the
   film's title, her last line and the stick's heading. The steps' titles are the editor's
   third heading size, and only the steps' numbers are larger than the titles. The name in the
@@ -84,7 +87,8 @@ No gradients, glows or neon. Light in the film always comes from a real source: 
 - Space shows what belongs together: half a line inside a group, two and a half or three lines between
   groups, so a picture is plainly part of its step and the stick's promises sit with what it is.
 - Few sizes, generous space, one thought per line. Let lines arrive as if written, one at a time; never
-  animate letters for show.
+  animate letters for show. On her page a line can arrive in two parts where the words turn:
+  the three sentences that answer the three questions, and the line the machine offers to finish.
 
 ## Words
 
@@ -97,6 +101,13 @@ No gradients, glows or neon. Light in the film always comes from a real source: 
   - I remember. I attend. I think.
   - These words are mine.
   - A thought I do not write is a thought I never had.
+- **One intrusion, from the film** (the author kept it, 2026-10-30): at _Prompting is not
+  thinking,_ the machine offers to finish her line with its first words back in the film (still
+  `10-the-offer`): _but it can be a powerful starting point for deeper reflection._ In the
+  machine's dark and cold light, on her page, for one stretch of scrolling. Then it is gone
+  and she writes _writing is._ It is the only place the site shows what it refuses, and it says it
+  in the film's words, so it needs no argument of its own. Only with the script; a screen reader
+  and a visitor without the script read her line whole.
 - The [manifesto](../MANIFESTO.md) is where these words came from. The site says it as the film
   does, in the film's lines, as she writes them (2026-10-29): they are the manifesto, so the site
   carries no longer text and no link to one. The one exception is the editor's screens, as her
@@ -106,6 +117,9 @@ No gradients, glows or neon. Light in the film always comes from a real source: 
   still remember. The word processor won for attention but we still attend. How will we think?_)
   stay in MANIFESTO.md.
 - Short sentences. No marketing voice, no superlatives, no "revolutionary", no "AI-powered".
+- In what a visitor reads, bismillah is an **app**, never "the editor" (2026-10-29): a writer
+  reads an editor as a person who changes their text, and the README calls it a writing app.
+  "The editor" stays in the code and these notes.
 
 ## Pictures
 
@@ -115,6 +129,17 @@ No gradients, glows or neon. Light in the film always comes from a real source: 
   table, the lamp) but lit and framed for clarity: the object large, sharp and centred, one idea per
   picture. The film's rules still hold: no generated lettering (a screen shows the real app, laid on
   afterwards), no logos, modest dress. How they were made is in `src/assets/steps/PROMPTS.md`.
+- **And for the laptop scene** (the author, 2026-10-29: "think Apple", authentic enough for
+  Nolan, "viewed by humans"): what the app is for is shown one idea to a moment, as an Apple
+  commercial would, never as a row of screenshots: her, the film's protagonist, in a real
+  place, with one plain act of hers or the app's real screen at its own size, close enough
+  to read. Physically right (the screen faces her), readable at a glance on a phone, no
+  metaphor to decode, the film's grade lightened for the page. How they were made, and what
+  the rounds taught, is in `src/assets/scenes/PROMPTS.md`.
+- **The opening shot** (2026-10-30, for the author's review) is the film's own first shots at the
+  visitor's pace: the tower's lights going out over the real still (only dimmed, no new picture),
+  her in the one left lit, her room, her hands. The picture on the first screen holds still under the
+  scroll; nothing is drawn on it but the dark.
 - People are always dressed modestly; the women wear niqab or hijab. Faces are rarely seen; hands, eyes and
   silhouettes carry the story.
 - Never use the usual "AI" imagery: brains, circuits, robots, sparkles, glowing particles.
@@ -131,6 +156,15 @@ No gradients, glows or neon. Light in the film always comes from a real source: 
 - The film carries a hymn of male voices. Never play sound on its own; let the visitor choose it.
 - Silence is better than a bad sound.
 
+## The visitor's line
+
+The intention above is a wish to write something themselves, so the page ends by letting them
+(the author kept it, 2026-10-30; it had been left open since 2026-10-28). The caret after
+_These words are mine._ is real, on a page of its own, in the app's type and measure, either
+direction, Arabic in Amiri. Nothing is kept, sent, spell-checked or suggested to, and the page says
+so. It is not a demo, has no save or share, and asks for nothing back. If it ever keeps a word, or
+sends one, it breaks the promise it is there to show.
+
 ## What the site must never do
 
 The site should keep the promises the editor keeps:
@@ -144,7 +178,7 @@ The site should keep the promises the editor keeps:
 
 - The web address. Where to get it is decided in shape (the author, 2026-10-28): three numbered steps,
   each with a picture, a USB stick, one command from this site that puts bismillah on it, and the
-  laptop started from it, with "Get the bismillah editor" always in reach. The section's heading and
+  laptop started from it, with "Get the bismillah app" always in reach. The section's heading and
   the first and third steps' details come from the stick's README (2026-10-29: _The bismillah
   stick_, the stick's size and the erasing, the boot menu); the steps' titles are still to write,
   and so are the command, the second step's words and the download's size and checksum, which
@@ -161,8 +195,8 @@ The site should keep the promises the editor keeps:
   computer_ over the laptop, answering her page's _How will we think?_, and opening the
   link preview, before _Nothing writes for you._; and the stick said as what it does: the
   laptop started from it becomes that typewriter. The page ends on the page, after the stick:
-  _These words are mine._ in the editor's type with its caret after it, the page's last words,
-  and nothing below, no picture and no footer (the author, 2026-10-29). The dawn loop and then the
+  _These words are mine._ in the editor's type with its caret after it, and no picture and no
+  footer below (the author, 2026-10-29), the visitor's own words being the last (2026-10-30). The dawn loop and then the
   boy's notebook were tried there first; both needed the film to mean anything, and the site never
   introduces the boy.
 - ~~A short, honest note that the film's pictures, voices and sound were made with AI tools.~~ Decided

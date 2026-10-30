@@ -4,19 +4,24 @@
 // 1.6 line height, the 66ch measure, and the heading scale of §8.4. With the script,
 // Zuhd mode follows the reader: the paragraph at the typewriter line (42% from the top)
 // is in ink, the rest in text-secondary. A document that is `written` is written as it
-// is read: each paragraph arrives when it reaches the typewriter line, where the caret
-// (Base.astro) waits after it, and the page below it is empty until then (site.ts).
-// Without the script, or under reduced motion, all of it is there.
+// is read, in the editor's typewriter mode: the page holds still while the visitor
+// scrolls, each stretch of scrolling writes the next line or sentence at the typewriter
+// line, with the caret (Base.astro) after it, and the lines above it rise, as they do in
+// the app. Scrolling back takes them back. With an `offer`, the machine offers to finish
+// one line, as it does in the film, and she writes on without it (site.ts). Without the
+// script, or under reduced motion, all of it is there, and no offer.
 import Basmallah from "./Basmallah.astro";
 
 interface Props {
   /** Ends the document with the editor's caret, where the writer stopped. */
   caret?: boolean;
-  /** Writes the document as it is read, one paragraph at a time. */
+  /** Writes the document as it is read, one line or sentence at a time. */
   written?: boolean;
+  /** Where in a written document the machine offers to finish the line, and with what. */
+  offer?: { after: string; words: string };
 }
 
-const { caret = false, written = false } = Astro.props;
+const { caret = false, written = false, offer } = Astro.props;
 ---
 
 <article
@@ -25,11 +30,15 @@ const { caret = false, written = false } = Astro.props;
   data-zuhd
   data-caret={caret ? "" : undefined}
   data-written={written ? "" : undefined}
+  data-offer-after={offer?.after}
+  data-offer-words={offer?.words}
 >
-  <div class="sheet">
-    <Basmallah />
-    <div class="text">
-      <slot />
+  <div class="stage">
+    <div class="sheet">
+      <Basmallah />
+      <div class="text">
+        <slot />
+      </div>
     </div>
   </div>
 </article>
@@ -49,6 +58,7 @@ const { caret = false, written = false } = Astro.props;
   /* A blank line between paragraphs, as Markdown writes them. */
   .text :global(:where(p, ul, ol, blockquote)) {
     margin-block: 0 var(--L);
+    text-wrap: pretty;
   }
 
   .text :global(:where(h1, h2, h3)) {
@@ -119,21 +129,86 @@ const { caret = false, written = false } = Astro.props;
     }
   }
 
-  /* Written as it is read: a paragraph not yet written is not there to see, though a
-     screen reader still reads it, and arrives as a line does in the editor, at once
-     but softly. The page below the caret stays empty until the last line is written,
-     so what follows never shows before it. */
-  [data-writing] .text > :global(*) {
-    transition:
-      opacity 500ms ease-out,
-      color 200ms ease-out;
+  /* Written as it is read. The page holds still, a window high, and the sheet moves so the
+     line being written stays on the typewriter line. It starts under her screen, unseen,
+     and arrives when the light of her screen has become the page, so nothing slides and
+     nothing is blank. */
+  [data-live].document {
+    position: relative;
+    block-size: calc(100svh + var(--beats) * 28svh);
+    margin-block-start: -100svh;
+    padding-inline: 0;
+    background: none;
+    pointer-events: none;
   }
 
-  [data-writing] .text > :global(:not(.written)) {
+  [data-live][data-arrived].document {
+    pointer-events: auto;
+  }
+
+  [data-live] .stage {
+    position: sticky;
+    inset-block-start: 0;
+    box-sizing: border-box;
+    block-size: 100svh;
+    padding-inline: var(--gutter);
+    overflow: clip;
+  }
+
+  [data-live][data-arrived] .stage {
+    background: var(--page);
+  }
+
+  /* On a phone her lines reach the corner button, so as they rise they go under a strip of
+     the page, as under an editor's bar, and never rest behind its words. */
+  @media (width <= 700px) {
+    [data-live][data-arrived] .stage::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      z-index: 1;
+      block-size: 56px;
+      background: var(--page);
+    }
+  }
+
+  [data-live] .sheet {
+    position: relative;
+    padding-block: 0;
+    opacity: 0;
+    transition:
+      transform 600ms ease-out,
+      opacity 600ms ease-out;
+    will-change: transform;
+  }
+
+  [data-live][data-arrived] .sheet {
+    opacity: 1;
+  }
+
+  /* A line not yet written is not there to see, though a screen reader still reads it, and
+     arrives as a line does in the editor, at once but softly. */
+  [data-writing] .text :global(.piece) {
+    transition: opacity 500ms ease-out;
+  }
+
+  [data-writing] .text :global(.piece:not(.written)) {
     opacity: 0;
   }
 
-  [data-writing] .sheet {
-    padding-block-end: calc(58svh - 3 * var(--L));
+  /* The machine's offer: the film's own words, in the machine's dark and cold light, cut
+     into her line. The one thing on her page that isn't hers; she writes on, and it goes. */
+  .text :global(.offer) {
+    padding: 0.15em 0.4em;
+    background: var(--night);
+    color: var(--cold-screen);
+    box-decoration-break: clone;
+    animation: offer-in 350ms ease-out;
+  }
+
+  @keyframes offer-in {
+    from {
+      opacity: 0;
+    }
   }
 </style>

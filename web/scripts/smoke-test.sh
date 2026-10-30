@@ -11,7 +11,7 @@ base="${base%/}"
 opts=(--silent --show-error --max-time 20 --retry 6 --retry-delay 5 --retry-all-errors)
 
 home="$(curl "${opts[@]}" --fail "$base/")"
-if [[ "$home" != *"<title>bismillah</title>"* ]]; then
+if [[ "$home" != *"<title>bismillah"* ]]; then
   echo "$base/ served something other than the site" >&2
   exit 1
 fi
