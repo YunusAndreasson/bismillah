@@ -211,22 +211,20 @@ describe("UI review: small windows and command feedback", () => {
     }
   });
 
-  it("reveals the full filename and follows customised panel shortcuts", async () => {
+  it("reveals the full filename and follows a customised Search shortcut", async () => {
     await setViewport(browser, 480, 360);
     await open(folder.file(LONG_NAME, TEXT));
     expect(await browser.$(".status .name").getAttribute("title")).toBe(LONG_NAME);
     const keybindings = join(process.env.XDG_CONFIG_HOME ?? "", "bismillah", "keybindings.toml");
     const previous = existsSync(keybindings) ? readFileSync(keybindings) : null;
-    const files = () => browser.$("//footer//button[normalize-space()='Files']");
+    const search = () => browser.$("//footer//button[@aria-label='Search']");
     const panel = () => browser.execute(() => window.__bismillah?.panel() ?? null);
     try {
-      writeFileSync(keybindings, '"file.quickOpen" = "Ctrl+Shift+B"\n');
-      await browser.waitUntil(
-        async () => (await files().getAttribute("title")) === "Files (Ctrl+Shift+B)",
-      );
-      expect(await files().getAttribute("aria-keyshortcuts")).toBe("Control+Shift+B");
+      writeFileSync(keybindings, '"app.findAnything" = "Ctrl+Shift+B"\n');
+      await browser.waitUntil(async () => (await search().getText()).includes("Ctrl+Shift+B"));
+      expect(await search().getAttribute("aria-keyshortcuts")).toBe("Control+Shift+B");
       await press("Control", "Shift", "B");
-      await browser.waitUntil(async () => (await panel())?.kind === "files");
+      await browser.waitUntil(async () => (await panel())?.kind === "all");
       await browser.keys("F2");
       await browser.$(".prompt").waitForDisplayed();
       await browser.keys("Escape");
@@ -236,20 +234,20 @@ describe("UI review: small windows and command feedback", () => {
       );
       await press("Control", "Shift", "B");
       await browser.waitUntil(async () => (await panel()) === null);
-      writeFileSync(keybindings, '"file.quickOpen" = ""\n');
+      writeFileSync(keybindings, '"app.findAnything" = ""\n');
       await browser.waitUntil(
-        async () => (await files().getAttribute("aria-keyshortcuts")) === null,
+        async () => (await search().getAttribute("aria-keyshortcuts")) === null,
       );
     } finally {
       if (previous) writeFileSync(keybindings, previous);
       else rmSync(keybindings, { force: true });
       await browser.waitUntil(() =>
-        browser.execute(() => window.__bismillah?.shortcuts().keys["file.quickOpen"] === "Mod-p"),
+        browser.execute(() => window.__bismillah?.shortcuts().keys["app.findAnything"] === "Mod-k"),
       );
     }
   });
 
-  it("returns to writing after opening or creating a file from the Files panel", async () => {
+  it("returns to writing after opening or creating a file from Search", async () => {
     await setViewport(browser, 480, 360);
     await open(folder.file("before-panel.md", TEXT));
     const windowId = execFileSync(
@@ -269,7 +267,7 @@ describe("UI review: small windows and command feedback", () => {
       if (how === "open") {
         folder.file(name, initial);
         await browser.execute(() => window.__bismillah?.regainFocus());
-        await browser.$("//footer//button[normalize-space()='Files']").click();
+        await browser.$("//footer//button[@aria-label='Search']").click();
         await browser.$(".panel-input").waitForDisplayed();
         await browser.$(".panel-input").setValue("opened-from");
         await browser.waitUntil(() =>

@@ -22,7 +22,8 @@
  *   --config <dir>        copy <dir> into the private config folder before launch
  *                         (themes/, keybindings.toml)
  *   --open <what>         shoot with a panel open: files[:query], commands[:query],
- *                         settings[:row] (that row opened in place), or about
+ *                         settings[:row] (that row opened in place), all[:query]
+ *                         (Search over everything), or about
  *   --out <dir>           output directory (default: <repo>/target/shots)
  *
  * Needs `pnpm app:build` first. Prints the paths of the PNGs it wrote.
@@ -120,7 +121,8 @@ async function shootFull(): Promise<PNG> {
 const scratch = values.library ? mkdtempSync(join(tmpdir(), "bismillah-shot-")) : null;
 if (scratch && values.library) cpSync(resolve(values.library), scratch, { recursive: true });
 
-/** Opens a panel (with a query, or Settings at a row opened in place) or About, and
+/** Opens Search at a scope (with a query, or Settings at a row opened in place) or
+ * About, and
  * waits for it to show. */
 async function openDialog(what: string): Promise<void> {
   const [kind, rest] = what.split(/:(.*)/s);
@@ -129,7 +131,7 @@ async function openDialog(what: string): Promise<void> {
       const hooks = window.__bismillah;
       if (k === "about") hooks?.run("app.about");
       else if (k === "settings" && r) hooks?.openSettings({ row: r, open: true });
-      else await hooks?.openPanel(k as "files", r ?? undefined);
+      else await hooks?.openPanel(k as "all", r ?? undefined);
     },
     kind ?? "files",
     rest ?? null,

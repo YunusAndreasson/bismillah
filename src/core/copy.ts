@@ -263,21 +263,40 @@ export const copy = {
     createAction: "Create",
     cancel: "Cancel",
   },
+  /** Search: one palette for files, commands and settings (DESIGN.md §6, ADR-0018). */
   panels: {
-    tabs: { files: "Files", commands: "Commands", settings: "Settings" },
-    tabsLabel: "Panels",
-    close: "Close",
+    /** The palette and its field, by scope, as screen readers name them. */
+    names: {
+      all: "Search",
+      files: "Search files",
+      commands: "Search commands",
+      settings: "Search settings",
+    },
+    /** A scope as the chip in the field, the key line and the menu name it. */
+    scopes: { all: "Everything", files: "Files", commands: "Commands", settings: "Settings" },
+    widen: (scope: string) => `${scope}: search everything instead`,
     placeholders: {
+      all: "Search files, commands and settings",
       files: "Find a file or folder",
       commands: "Find a command",
       settings: "Find a setting — changes apply immediately",
     },
     empty: {
+      all: "Nothing matches.",
       files: "No file or folder matches.",
       commands: "No command matches.",
       settings: "No setting matches.",
     },
-    groups: { recent: "Recent", all: "All files", files: "Files", folders: "Folders" },
+    groups: {
+      recent: "Recent",
+      all: "All files",
+      files: "Files",
+      folders: "Folders",
+      commands: "Commands",
+      settings: "Settings",
+    },
+    /** A file's or folder's place, under the list. */
+    inFolder: (folder: string) => `In ${quote(folder)}`,
     sections: { File: "File", Edit: "Edit", View: "View", Help: "Help" },
     on: "On",
     off: "Off",
@@ -309,7 +328,7 @@ export const copy = {
       openedOther: "Esc done",
       rename: (key: string) => `${key} rename`,
       trash: (key: string) => `${key} move to the trash`,
-      next: "Tab next panel · Esc close",
+      next: (scope: string) => `Tab ${scope} · Esc close`,
     },
   },
   search: {

@@ -1,25 +1,33 @@
 import type { Command, CommandContext, MenuSection } from "./commands.ts";
 import { copy } from "./copy.ts";
-import { fold, rankCommands, rankFiles, type FileCandidate } from "./fuzzy.ts";
+import {
+  commandTier,
+  countFiles,
+  fileTier,
+  fold,
+  rankCommands,
+  rankFiles,
+  type FileCandidate,
+} from "./fuzzy.ts";
 import type { LibraryNode } from "./ipc.ts";
 import type { SettingEntry, SettingsSection } from "./settingEntries.ts";
 import { parentOf } from "./tree.ts";
 
 /**
- * What the three panels list (DESIGN.md §6, ADR-0016), apart from the component so it
- * can be tested: Files, Commands and Settings, each opened from the status line, with
- * Tab moving between them and the query carried along.
+ * What Search lists (DESIGN.md §6, ADR-0018), apart from the component so it can be
+ * tested: everything, or narrowed to files, commands or settings, with Tab moving
+ * between them and the query carried along.
  */
 
-export type Panel = "files" | "commands" | "settings";
+export type Scope = "all" | "files" | "commands" | "settings";
 
-/** In the order Tab moves through them, as the tabs show them. */
-export const PANELS: readonly Panel[] = ["files", "commands", "settings"];
+/** In the order Tab moves through them. */
+export const SCOPES: readonly Scope[] = ["all", "files", "commands", "settings"];
 
-/** The panel after (1) or before (−1) this one, round the end. */
-export function adjacent(panel: Panel, direction: 1 | -1): Panel {
-  const at = PANELS.indexOf(panel);
-  return PANELS[(at + direction + PANELS.length) % PANELS.length] ?? "files";
+/** The scope after (1) or before (−1) this one, round the end. */
+export function adjacent(scope: Scope, direction: 1 | -1): Scope {
+  const at = SCOPES.indexOf(scope);
+  return SCOPES[(at + direction + SCOPES.length) % SCOPES.length] ?? "all";
 }
 
 export type Item =
@@ -35,6 +43,8 @@ export interface Group {
   /** Shown above the group; none for a single ranked list. */
   label: string | null;
   items: Item[];
+  /** In everything, a group cut short: how many its scope finds, and that scope. */
+  more?: { total: number; scope: Scope };
 }
 
 export interface Input<F extends FileCandidate> {
@@ -42,6 +52,8 @@ export interface Input<F extends FileCandidate> {
   /** The library's tree, for its folders. */
   nodes: readonly LibraryNode[];
   recent: readonly string[];
+  /** The open document, which everything's Recent leaves out (the status line names it). */
+  active?: string | null;
   commands: readonly Command[];
   context: CommandContext;
   settings: readonly SettingEntry[];
@@ -53,6 +65,8 @@ export const RECENT = 7;
 const FILES = 50;
 const FOLDERS = 8;
 export const ALL_FILES = 500;
+/** How many of each kind everything lists for a query. */
+const CAPS = { files: 5, folders: 2, commands: 4, settings: 4 } as const;
 
 /** A recent file is listed again under All files: its row there has its own value, so
  * only one of the two is highlighted. */
@@ -67,6 +81,16 @@ const folderItem = (f: FileCandidate): Item => ({
   value: `folder:${f.path}`,
   path: f.path,
   name: f.name,
+});
+const commandItem = (command: Command): Item => ({
+  kind: "command",
+  value: `command:${command.id}`,
+  command,
+});
+const settingItem = (entry: SettingEntry): Item => ({
+  kind: "setting",
+  value: `setting:${entry.id}`,
+  entry,
 });
 
 /** Every folder in the library that can be shown, in tree order. */
@@ -154,39 +178,36 @@ function filesGroups<F extends FileCandidate>(query: string, input: Input<F>): G
   return listed;
 }
 
-/** The panels open themselves: they aren't listed among the commands. */
+/** Search opens itself: those commands aren't listed among the results. */
 const NOT_LISTED = new Set(["app.commandPalette", "app.findAnything"]);
 const SECTION_ORDER: readonly MenuSection[] = ["File", "Edit", "View", "Help"];
 
-function commandGroups(query: string, input: Input<FileCandidate>): Group[] {
-  const usable = input.commands.filter(
+const usableCommands = (input: Input<FileCandidate>) =>
+  input.commands.filter(
     (c) => !NOT_LISTED.has(c.id) && (!c.available || c.available(input.context)),
   );
-  const item = (command: Command): Item => ({
-    kind: "command",
-    value: `command:${command.id}`,
-    command,
-  });
+
+function commandGroups(query: string, input: Input<FileCandidate>): Group[] {
+  const usable = usableCommands(input);
   if (query.trim() !== "")
-    return [{ id: "commands", label: null, items: rankCommands(query, usable).map(item) }].filter(
-      (g) => g.items.length > 0,
-    );
+    return [
+      { id: "commands", label: null, items: rankCommands(query, usable).map(commandItem) },
+    ].filter((g) => g.items.length > 0);
   return SECTION_ORDER.map((section) => ({
     id: section,
     label: copy.panels.sections[section],
-    items: usable.filter((c) => c.section === section).map(item),
+    items: usable.filter((c) => c.section === section).map(commandItem),
   })).filter((g) => g.items.length > 0);
 }
 
 function settingGroups(query: string, input: Input<FileCandidate>): Group[] {
-  const item = (entry: SettingEntry): Item => ({
-    kind: "setting",
-    value: `setting:${entry.id}`,
-    entry,
-  });
   if (query.trim() !== "")
     return [
-      { id: "settings", label: null, items: rankCommands(query, input.settings).map(item) },
+      {
+        id: "settings",
+        label: null,
+        items: rankCommands(query, input.settings).map(settingItem),
+      },
     ].filter((g) => g.items.length > 0);
   const sections: SettingsSection[] = [];
   for (const entry of input.settings)
@@ -194,17 +215,96 @@ function settingGroups(query: string, input: Input<FileCandidate>): Group[] {
   return sections.map((section) => ({
     id: section,
     label: copy.settings.sectionNames[section],
-    items: input.settings.filter((e) => e.section === section).map(item),
+    items: input.settings.filter((e) => e.section === section).map(settingItem),
   }));
 }
 
-/** What `panel` lists for `query`, in groups, best first. */
+/**
+ * Everything: with nothing typed, only recent files (not the open one). With a query,
+ * Files, Commands and Settings in that order, a few of each, and scattered-letter
+ * matches left out whenever anything matches as a run of letters.
+ */
+function allGroups<F extends FileCandidate>(query: string, input: Input<F>): Group[] {
+  if (query.trim() === "") {
+    const recent = new Set(input.recent.filter((p) => p !== input.active));
+    const recentFiles = rankFiles("", input.files, input.recent, RECENT + 1)
+      .filter((f) => recent.has(f.path))
+      .slice(0, RECENT);
+    if (recentFiles.length > 0)
+      return [
+        {
+          id: "recent",
+          label: copy.panels.groups.recent,
+          items: recentFiles.map((f) => fileItem(f, true)),
+        },
+      ];
+    const first = input.files
+      .filter((f) => f.path !== input.active)
+      .slice(0, RECENT)
+      .map((f) => fileItem(f));
+    return first.length > 0 ? [{ id: "all", label: copy.panels.groups.all, items: first }] : [];
+  }
+  // A folder typed: that folder's own listing, as Files gives it.
+  if (query.includes("/")) return filesGroups(query, input);
+
+  const usable = usableCommands(input);
+  const shown = new Set(usable.map((c) => c.id));
+  // A setting that is also a command is listed once, as the command, with its shortcut.
+  const settings = input.settings.filter((e) => !(e.command && shown.has(e.command)));
+  let files = rankFiles(query, input.files, input.recent, FILES);
+  let folders = rankFiles(query, allFolders(input.nodes), [], FOLDERS);
+  let commands = rankCommands(query, usable);
+  let entries = rankCommands(query, settings);
+
+  // The ranked lists put runs of letters first, so their first rows tell.
+  const runs =
+    [...files.slice(0, 1), ...folders.slice(0, 1)].some((f) => (fileTier(query, f) ?? 0) > 0) ||
+    [...commands.slice(0, 1), ...entries.slice(0, 1)].some((c) => (commandTier(query, c) ?? 0) > 0);
+  const least = runs ? 1 : 0;
+  if (runs) {
+    files = files.filter((f) => (fileTier(query, f) ?? -1) >= least);
+    folders = folders.filter((f) => (fileTier(query, f) ?? -1) >= least);
+    commands = commands.filter((c) => (commandTier(query, c) ?? -1) >= least);
+    entries = entries.filter((e) => (commandTier(query, e) ?? -1) >= least);
+  }
+
+  const fileTotal = countFiles(query, input.files, least) + folders.length;
+  const fileItems = [
+    ...files.slice(0, CAPS.files).map((f) => fileItem(f)),
+    ...folders.slice(0, CAPS.folders).map(folderItem),
+  ];
+  const group = (id: Scope, label: string, items: Item[], total: number): Group => ({
+    id,
+    label,
+    items,
+    ...(total > items.length ? { more: { total, scope: id } } : {}),
+  });
+  return [
+    group("files", copy.panels.groups.files, fileItems, fileTotal),
+    group(
+      "commands",
+      copy.panels.groups.commands,
+      commands.slice(0, CAPS.commands).map(commandItem),
+      commands.length,
+    ),
+    group(
+      "settings",
+      copy.panels.groups.settings,
+      entries.slice(0, CAPS.settings).map(settingItem),
+      entries.length,
+    ),
+  ].filter((g) => g.items.length > 0);
+}
+
+/** What `scope` lists for `query`, in groups, best first. */
 export function groups<F extends FileCandidate>(
-  panel: Panel,
+  scope: Scope,
   query: string,
   input: Input<F>,
 ): Group[] {
-  switch (panel) {
+  switch (scope) {
+    case "all":
+      return allGroups(query, input);
     case "files":
       return filesGroups(query, input);
     case "commands":
@@ -215,15 +315,6 @@ export function groups<F extends FileCandidate>(
 }
 
 export const itemsOf = (list: readonly Group[]): Item[] => list.flatMap((g) => g.items);
-
-/** How many items each panel finds for `query` (shown on the tabs while searching). */
-export function counts<F extends FileCandidate>(
-  query: string,
-  input: Input<F>,
-): Record<Panel, number> {
-  const count = (panel: Panel) => itemsOf(groups(panel, query, input)).length;
-  return { files: count("files"), commands: count("commands"), settings: count("settings") };
-}
 
 /** The item `steps` away from `value`, stopping at either end, or the first. */
 export function move(items: readonly Item[], value: string, steps: number): string {

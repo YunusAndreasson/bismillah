@@ -73,7 +73,7 @@ export interface Command {
    * has now (keybindings.svelte.ts). */
   key?: string;
   /** A fixed gesture that isn't a shortcut, shown where its shortcut would be ("Shift
-   * Shift" for Last panel). It can't be changed; a shortcut can be added. */
+   * Shift" for Search). It can't be changed; the shortcut can. */
   gesture?: string;
   /** Keeps the desktop's standard key whatever keybindings.toml says (Undo, Redo,
    * Select all: the text field's own keys everywhere). */
@@ -197,7 +197,7 @@ const ALL: readonly Command[] = [
     section: "File",
     key: "Mod-p",
     aliases: ["quick open", "find file", "go to file", "switch", "library", "folder"],
-    description: "Find, open, rename and move your files.",
+    description: "Search your files: find, open, rename and move them.",
     run: (c) => c.quickOpen(),
   },
   {
@@ -236,7 +236,7 @@ const ALL: readonly Command[] = [
     key: "Mod-,",
     separatorBefore: true,
     aliases: ["preferences", "options"],
-    description: "Every setting, changed in place.",
+    description: "Search the settings; each changes in place.",
     run: (c) => c.openSettings(),
   },
   {
@@ -439,15 +439,17 @@ const ALL: readonly Command[] = [
     section: "View",
     key: "Mod-Shift-p",
     aliases: ["command palette", "actions"],
+    description: "Search the commands.",
     run: (c) => c.commandPalette(),
   },
   {
     id: "app.findAnything",
-    label: "Last panel",
+    label: "Search",
     section: "View",
+    key: "Mod-k",
     gesture: "Shift Shift",
-    aliases: ["find anything", "search", "panel", "shift shift"],
-    description: "Files, Commands or Settings, whichever you used last. Tap Shift twice.",
+    aliases: ["find anything", "palette", "go to", "shift shift"],
+    description: "Files, commands and settings in one place. Or tap Shift twice.",
     run: (c) => c.findAnything(),
   },
   {

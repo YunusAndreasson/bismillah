@@ -19,7 +19,7 @@ import {
   testOpen,
   type MenuState,
 } from "./ipc.ts";
-import type { Panel } from "./panels.ts";
+import type { Scope } from "./panels.ts";
 import type { SettingsTarget } from "./settingEntries.ts";
 import type { SaveState } from "./session.svelte.ts";
 import { copy } from "./copy.ts";
@@ -85,11 +85,11 @@ export interface TestHooks {
   /** The next native file dialog answers `path` (null: cancelled) without showing. */
   nextDialog(path: string | null): Promise<void>;
   library(): LibraryProbe;
-  /** The open panel: its kind, query, rows (as read), the highlighted row, the row
-   * opened in place, and each tab's count while searching. */
+  /** Search, open: its scope, query, rows (as read), the highlighted row, the row
+   * opened in place, its groups with their totals, and the lines under the list. */
   panel(): PanelProbe | null;
-  /** Opens a panel afresh, with `query` typed if given. */
-  openPanel(kind: Panel, query?: string): Promise<void>;
+  /** Opens Search afresh at `kind`, with `query` typed if given. */
+  openPanel(kind: Scope, query?: string): Promise<void>;
   /** The open name prompt; `ready` once its field has focus. `problem`, not `error`:
    * WebDriver reads a result with an `error` key as a failure of its own. */
   prompt(): { title: string; value: string; problem: string | null; ready: boolean } | null;
@@ -132,7 +132,7 @@ export interface LibraryProbe {
 }
 
 export interface PanelProbe {
-  kind: Panel;
+  kind: Scope;
   query: string;
   /** Each row's text, with its value ("file:notes.md", "setting:measure"). */
   rows: { value: string; text: string }[];
@@ -141,7 +141,12 @@ export interface PanelProbe {
   /** The element with keyboard focus: "field", "opened" (a control in the opened
    * row) or "other". */
   focus: "field" | "opened" | "other";
-  counts: Record<Panel, number> | null;
+  /** The group headings as read ("Files · 23"). */
+  groups: string[];
+  /** The scope shown in the field ("Files"), or null for everything. */
+  chip: string | null;
+  /** The line under the list: the highlighted row's description. */
+  description: string;
   keys: string;
 }
 
@@ -306,9 +311,7 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
       const current = box.querySelector(".panel-row.current");
       const opened = box.querySelector(".panel-opened");
       const active = document.activeElement;
-      const counts = [...box.querySelectorAll(".panel-tab .count")].map((el) =>
-        Number(text(el).replace(/\D/g, "")),
-      );
+      const chip = box.querySelector(".panel-scope");
       return {
         kind,
         query: workspace.panelQuery,
@@ -320,10 +323,9 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
           : opened?.contains(active)
             ? "opened"
             : "other",
-        counts:
-          counts.length === 3
-            ? { files: counts[0] ?? 0, commands: counts[1] ?? 0, settings: counts[2] ?? 0 }
-            : null,
+        groups: [...box.querySelectorAll(".panel-group")].map(text),
+        chip: chip ? text(chip).replace(/\s*×$/u, "") : null,
+        description: text(box.querySelector(".panel-about")),
         keys: text(box.querySelector(".panel-keys .now")),
       };
     },

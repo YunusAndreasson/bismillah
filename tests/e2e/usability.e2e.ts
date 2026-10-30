@@ -33,7 +33,7 @@ describe("usability: feedback, discovery and escape routes", () => {
     expect(await browser.$(".status").getText()).toContain("changes aren't saved");
   });
 
-  it("starts the Commands panel in its field, shows both toggle states and restores keyboard focus", async () => {
+  it("starts Search for commands in its field, shows both toggle states and restores keyboard focus", async () => {
     await open(folder.file("specimen.md", readFileSync("docs/specimen.md", "utf8")));
     await browser.execute(async () => {
       await window.__bismillah?.changeSettings({ focus_mode: false });
@@ -48,13 +48,13 @@ describe("usability: feedback, discovery and escape routes", () => {
     await browser.waitUntil(async () =>
       (await browser.$(".panel-row.current").getText()).includes("Off"),
     );
-    // A switch changes in place: the panel stays, showing the new state.
+    // A switch changes in place: Search stays, showing the new state.
     await browser.keys("Enter");
     await browser.waitUntil(async () =>
       (await browser.$(".panel-row.current").getText()).includes("On"),
     );
     await browser.saveScreenshot(`${shots}/after-commands.png`);
-    await browser.$(".panel-close").click();
+    await browser.keys("Escape");
     await browser.$(".panel").waitForDisplayed({ reverse: true });
     await browser.waitUntil(() =>
       browser.execute(() => document.activeElement === window.__bismillah?.view.contentDOM),
@@ -177,13 +177,14 @@ describe("usability: feedback, discovery and escape routes", () => {
     }
   });
 
-  it("closes a panel with a visible button and returns to writing", async () => {
+  it("closes Search with a click outside it and returns to writing", async () => {
     await setViewport(browser, 640, 700);
     await open(folder.file("panel-close.md", "Arabic العربية"));
-    await browser.$("//footer//button[normalize-space()='Files']").click();
+    await browser.$("//footer//button[@aria-label='Search']").click();
     await browser.$(".panel").waitForDisplayed();
     await browser.saveScreenshot(`${shots}/after-files.png`);
-    await browser.$(".panel-close").click();
+    // Below the palette, over the text.
+    await browser.action("pointer").move({ x: 320, y: 660 }).down().up().perform();
     await browser.$(".panel").waitForDisplayed({ reverse: true });
     await browser.waitUntil(() =>
       browser.execute(() => document.activeElement === window.__bismillah?.view.contentDOM),

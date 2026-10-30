@@ -1145,7 +1145,8 @@ async function tour(): Promise<void> {
     await step("settings", async () => {
       await vm.key("ctrl", "comma");
       await sleep(1000);
-      for (let i = 0; i < 60; i++) await vm.key("tab");
+      // Down the settings (Tab would move Search to its next scope).
+      for (let i = 0; i < 60; i++) await vm.key("down");
     });
     await vm.key("esc");
     await sleep(800);

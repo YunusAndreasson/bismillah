@@ -38,6 +38,13 @@ describe("command registry", () => {
     }
   });
 
+  it("opens Search with Ctrl+K and two taps of Shift (DESIGN.md §13)", () => {
+    const search = COMMANDS.find((c) => c.id === "app.findAnything");
+    expect(search?.label).toBe("Search");
+    expect(search?.key).toBe("Mod-k");
+    expect(search?.gesture).toBe("Shift Shift");
+  });
+
   it("has the checking commands of DESIGN.md §13", () => {
     const key = (id: string) => COMMANDS.find((c) => c.id === id)?.key;
     expect(key("check.suggestions")).toBe("Mod-.");

@@ -10,14 +10,12 @@
   import {
     adjacent,
     ALL_FILES,
-    counts,
     groups,
     itemsOf,
     move,
-    PANELS,
     splitQuery,
     type Item,
-    type Panel,
+    type Scope,
   } from "../core/panels.ts";
   import {
     adjust,
@@ -33,14 +31,14 @@
   import SettingControls from "./SettingControls.svelte";
 
   /**
-   * Files, Commands and Settings (DESIGN.md §6, ADR-0016): one panel that rises from
-   * the status line's start, where its three tabs sit over the status line's own. Focus
-   * stays in the search field: ↑ ↓ move the highlight, Enter acts on it, Tab moves to
-   * the next panel with the query kept, and ← → change a highlighted choice. Bits UI
-   * provides the dialog's focus trap, Esc and focus return.
+   * Search (DESIGN.md §6, ADR-0018): one palette, centred near the top and always the
+   * same size, that finds files, commands and settings, or only one of them. Focus stays
+   * in the search field: ↑ ↓ move the highlight, Enter acts on it, Tab narrows to the
+   * next scope with the query kept, and in Settings ← → change a highlighted choice.
+   * Bits UI provides the dialog's focus trap, Esc and focus return.
    */
   interface Props {
-    kind: Panel | null;
+    kind: Scope | null;
     query: string;
     /** A row to highlight, and open, once it is listed; `focused` takes it. */
     focus: { value: string; open: boolean } | null;
@@ -55,7 +53,7 @@
       close: () => void;
       /** Puts the caret back in the text. */
       focusText: () => void;
-      setPanel: (kind: Panel) => void;
+      setPanel: (kind: Scope) => void;
       openFile: (path: string) => void;
       runCommand: (id: CommandId) => void;
       change: (patch: Partial<Settings>) => void;
@@ -85,11 +83,13 @@
   }: Props = $props();
 
   const t = copy.panels;
-  /** The separator before a switch's state or a count, outside any isolate. */
+  /** The separator between keys in the key line, outside any isolate. */
   const SEP = " · ";
+  /** Right-to-left letters, which make ← and → mean the other way round in the field. */
+  const RTL = /[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufeff]/u;
   /** How far PgUp and PgDn move. */
   const PAGE = 8;
-  /** Commands that move between panels, which stay open to do it. */
+  /** Commands that narrow Search, which stays open to do it. */
   const PANEL_COMMANDS = new Set<CommandId>(["file.quickOpen", "app.settings"]);
 
   /** The highlighted row's value, which Enter acts on. */
@@ -107,18 +107,21 @@
     files: library.files,
     nodes: library.nodes,
     recent: library.recent,
+    active: library.active,
     commands: COMMANDS,
     context,
     settings: entries,
   });
   const listed = $derived(kind === null ? [] : groups(kind, query, input));
   const searching = $derived(query.trim() !== "");
-  const tally = $derived(kind !== null && searching ? counts(query, input) : null);
   const prefix = $derived(splitQuery(query).folder);
 
-  // What the Files panel offers when the library has nothing to list.
+  /** Lists files: Files, or everything. */
+  const findsFiles = $derived(kind === "files" || kind === "all");
+
+  // What Search offers when the library has nothing to list.
   const offers = $derived.by((): Item[] => {
-    if (kind !== "files" || searching) return [];
+    if (!findsFiles || searching) return [];
     const action = (id: string, label: string, run: () => void): Item => ({
       kind: "action",
       value: `action:${id}`,
@@ -144,9 +147,10 @@
     listed.reduce((n, g) => n + g.items.filter((i) => i.kind === "file").length, 0),
   );
 
-  // A new panel or query starts on its first row; a row that is gone moves the
-  // highlight there too. A row asked for (Show in Settings, a renamed file) wins.
-  let lastKind: Panel | null = null;
+  // A new query starts on its first row, and so does a new scope that doesn't list the
+  // highlighted row; a row that is gone moves the highlight there too. A row asked for
+  // (Show in Settings, a renamed file) wins.
+  let lastKind: Scope | null = null;
   let lastQuery = "";
   $effect(() => {
     const now = kind;
@@ -160,7 +164,8 @@
         if (wanted) focused();
         return;
       }
-      const fresh = now !== lastKind || q !== lastQuery;
+      const kept = list.some((i) => i.value === selected);
+      const fresh = q !== lastQuery || (now !== lastKind && !kept);
       lastKind = now;
       lastQuery = q;
       const asked = wanted ? list.find((i) => i.value === wanted.value) : undefined;
@@ -204,7 +209,7 @@
     opened = null;
   }
 
-  function switchTo(next: Panel) {
+  function switchTo(next: Scope) {
     actions.setPanel(next);
     focusField();
   }
@@ -214,18 +219,18 @@
     return key !== undefined && key !== "" && normalise(key) === keyOf(event);
   };
 
-  /** Each panel's own shortcut opens it, or closes it when it's the one open; Shift
-   * Shift's shortcut closes the panel. True when the key was one of them. */
+  /** Each scope's shortcut narrows (or widens) Search to it, or closes Search when it
+   * is the scope open. True when the key was one of them. */
   function panelKey(event: KeyboardEvent): boolean {
-    let next: Panel | null | undefined;
-    if (bound("file.quickOpen", event)) next = "files";
+    let next: Scope;
+    if (bound("app.findAnything", event)) next = "all";
+    else if (bound("file.quickOpen", event)) next = "files";
     else if (bound("app.commandPalette", event)) next = "commands";
     else if (bound("app.settings", event)) next = "settings";
-    else if (bound("app.findAnything", event)) next = null;
     else return false;
     event.preventDefault();
     event.stopPropagation();
-    if (next === null || next === kind) actions.close();
+    if (next === kind) actions.close();
     else switchTo(next);
     return true;
   }
@@ -266,7 +271,17 @@
       switchTo(adjacent(kind, event.shiftKey ? -1 : 1));
       return;
     }
+    // Backspace in an empty field widens to everything; holding it to clear the query
+    // doesn't.
+    if (event.key === "Backspace" && !event.repeat && query === "" && kind !== "all") {
+      event.preventDefault();
+      switchTo("all");
+      return;
+    }
+    // ← → change a setting only where the writer chose Settings; elsewhere, and with
+    // right-to-left text in the query, they move the caret.
     if ((event.key === "ArrowLeft" || event.key === "ArrowRight") && plain && !event.shiftKey) {
+      if (kind !== "settings" || RTL.test(query)) return;
       if (current?.kind !== "setting" || !adjustable(current.entry) || !caretAtEnd()) return;
       event.preventDefault();
       const patch = adjust(
@@ -278,8 +293,9 @@
       if (patch) actions.change(patch);
       return;
     }
-    const target = entry(current);
-    if (kind !== "files" || library.view.kind !== "ready") return;
+    // File keys act on the highlighted file or folder, in any scope; without one, New
+    // file… and New folder… act as they do anywhere.
+    const target = library.view.kind === "ready" ? entry(current) : null;
     const folder = target ? (target.kind === "folder" ? target.path : parentOf(target.path)) : "";
     if (bound("file.rename", event)) {
       if (!target) return;
@@ -292,10 +308,12 @@
       choose(() => actions.trash(target.path), false);
     } else if (bound("file.new", event)) {
       event.preventDefault();
-      choose(() => actions.newFile(folder), false);
+      if (target) choose(() => actions.newFile(folder), false);
+      else choose(() => actions.runCommand("file.new"), false);
     } else if (bound("library.newFolder", event)) {
       event.preventDefault();
-      actions.newFolder(folder);
+      if (target) actions.newFolder(folder);
+      else actions.runCommand("library.newFolder");
     }
   }
 
@@ -320,8 +338,9 @@
     }
   }
 
-  /** Switches change in place, and a command that moves to a panel moves there;
-   * anything else closes the panel first and runs where focus was. */
+  /** Switches change in place, and a command that narrows Search narrows it; anything
+   * else closes Search first and runs where focus was (the text, when Search was opened
+   * from the status line). */
   function runListed(command: Command) {
     if (command.toggle || PANEL_COMMANDS.has(command.id)) actions.runCommand(command.id);
     else choose(() => actions.runCommand(command.id), false);
@@ -411,9 +430,11 @@
     return match ? [name.slice(0, match.index), match[0]] : [name, ""];
   }
 
-  /** What the highlighted row is: a command's description, a setting's hint or a
-   * note's text. */
+  /** What the highlighted row is: a file's or folder's folder, a command's description,
+   * a setting's hint or a note's text. */
   function describe(item: Item): string | null {
+    if (item.kind === "file" || item.kind === "folder")
+      return t.inFolder(parentOf(item.path) || (library.name ?? ""));
     if (item.kind === "command") return item.command.description ?? null;
     if (item.kind !== "setting") return null;
     const e = item.entry;
@@ -423,7 +444,7 @@
     return e.hint?.(values, settingsContext) ?? null;
   }
 
-  /** What the keys do now, for the line above the tabs. */
+  /** What the keys do now, for the key line. */
   const keys = $derived.by((): string => {
     const k = t.keys;
     const item = current;
@@ -484,6 +505,11 @@
   /** The highlighted row's description, in its own line above the keys, so no row
    * changes height as the highlight moves. */
   const about = $derived(current ? describe(current) : null);
+
+  /** Said to screen readers: the scope, as it changes, and that nothing matches. */
+  const announced = $derived(
+    kind === null ? "" : searching && items.length === 0 ? t.empty[kind] : t.names[kind],
+  );
 </script>
 
 <Dialog.Root
@@ -496,7 +522,7 @@
     <Dialog.Overlay class="panel-overlay" />
     <Dialog.Content
       class="panel"
-      aria-labelledby={kind ? `panel-tab-${kind}` : undefined}
+      aria-label={kind ? t.names[kind] : undefined}
       aria-describedby={undefined}
       onkeydown={panelKey}
       onEscapeKeydown={(event) => {
@@ -520,12 +546,21 @@
           }
           return;
         }
-        // Opening a file puts the caret in it; a command runs where focus was.
+        // Opening a file puts the caret in it; a command runs where focus was, which is
+        // the text when Search was opened from the status line.
         if (next.ownFocus) event.preventDefault();
+        else if (fromStatus) {
+          event.preventDefault();
+          setTimeout(() => {
+            actions.focusText();
+            next.run();
+          }, 0);
+          return;
+        }
         setTimeout(next.run, 0);
       }}
     >
-      {#if kind === "settings" && saveError}
+      {#if saveError}
         <div class="panel-save-error" role="alert">
           <p>{copy.settingsNotSaved(saveError)}</p>
           <button
@@ -538,33 +573,63 @@
           >
         </div>
       {/if}
-      <input
-        bind:this={field}
-        bind:value={query}
-        class="panel-input"
-        role="combobox"
-        aria-expanded="true"
-        aria-controls="panel-list"
-        aria-autocomplete="list"
-        aria-activedescendant={currentIndex >= 0 ? `panel-row-${String(currentIndex)}` : undefined}
-        aria-label={kind ? t.tabs[kind] : undefined}
-        placeholder={kind ? t.placeholders[kind] : ""}
-        dir="auto"
-        spellcheck="false"
-        autocomplete="off"
-        onkeydown={fieldKeys}
-      />
+      <div class="panel-field">
+        {#if kind && kind !== "all"}
+          <!-- Narrowed: the scope, which a click (or Backspace in an empty field) widens to
+               everything. Focus stays in the field. -->
+          <button
+            type="button"
+            class="panel-scope"
+            tabindex="-1"
+            aria-label={t.widen(t.scopes[kind])}
+            onmousedown={(event) => event.preventDefault()}
+            onclick={() => switchTo("all")}
+            >{t.scopes[kind]}<span class="quiet" aria-hidden="true">×</span></button
+          >
+        {/if}
+        <input
+          bind:this={field}
+          bind:value={query}
+          class="panel-input"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="panel-list"
+          aria-autocomplete="list"
+          aria-activedescendant={currentIndex >= 0
+            ? `panel-row-${String(currentIndex)}`
+            : undefined}
+          aria-label={kind ? t.names[kind] : undefined}
+          placeholder={kind ? t.placeholders[kind] : ""}
+          dir="auto"
+          spellcheck="false"
+          autocomplete="off"
+          onkeydown={fieldKeys}
+        />
+      </div>
       <div
         id="panel-list"
         class="panel-list"
         role="listbox"
-        aria-label={kind ? t.tabs[kind] : undefined}
+        aria-label={kind ? t.names[kind] : undefined}
       >
         {#each listed as group (group.id)}
           <div role="group" aria-labelledby={group.label ? `panel-group-${group.id}` : undefined}>
             {#if group.label}
-              <div class="panel-group" id="panel-group-{group.id}" role="presentation">
-                {group.label}
+              <div class="panel-group" role="presentation">
+                <span id="panel-group-{group.id}">{group.label}</span>
+                {#if group.more}
+                  {@const more = group.more}
+                  <!-- With the pointer, the total narrows to its scope; Tab does it by
+                       keyboard. -->
+                  <span
+                    class="panel-more"
+                    role="presentation"
+                    aria-hidden="true"
+                    title={t.scopes[more.scope]}
+                    onmousedown={(event) => event.preventDefault()}
+                    onclick={() => switchTo(more.scope)}>{SEP}{more.total}</span
+                  >
+                {/if}
               </div>
             {/if}
             {#each group.items as item (item.value)}
@@ -611,10 +676,10 @@
                   {@const on = item.command.toggle?.(context)}
                   <span class="primary" use:fullText={item.command.label}>{item.command.label}</span
                   >
+                  {@const key = shortcut(item.command)}
                   <span class="value"
-                    >{#if on !== undefined}<span class="state">{on ? t.on : t.off}</span>{/if}<kbd
-                      >{shortcut(item.command)}</kbd
-                    ></span
+                    >{#if on !== undefined}<span class="state">{on ? t.on : t.off}</span
+                      >{/if}{#if key}<kbd>{key}</kbd>{/if}</span
                   >
                 {:else if item.kind === "setting"}
                   <span
@@ -687,7 +752,7 @@
         {:else if items.length === 0}
           <p class="panel-note" role="presentation">{kind ? t.empty[kind] : ""}</p>
         {/if}
-        {#if kind === "files" && prefix && fileCount === 0 && items.length > 0}
+        {#if findsFiles && prefix && fileCount === 0 && items.length > 0}
           <p class="panel-note" role="presentation">{t.emptyFolder(prefix)}</p>
         {/if}
         {#if kind === "files" && !searching && library.files.length > ALL_FILES}
@@ -697,90 +762,93 @@
           <p class="panel-note" role="presentation">{copy.library.truncated}</p>
         {/if}
       </div>
-      {#if kind === "commands" || kind === "settings"}
-        <p class="panel-about" id="panel-about">{about ?? ""}</p>
-      {/if}
+      <!-- Always two lines tall, so nothing moves as the highlight does. -->
+      <p class="panel-about" id="panel-about">{about ?? ""}</p>
       <p class="panel-keys">
         <span class="now">{keys}</span>
-        <span class="always">{t.keys.next}</span>
+        {#if kind}<span class="always">{t.keys.next(t.scopes[adjacent(kind, 1)])}</span>{/if}
       </p>
-      <div class="panel-tabs" role="tablist" aria-label={t.tabsLabel}>
-        {#each PANELS as each (each)}
-          {@const id =
-            each === "files"
-              ? "file.quickOpen"
-              : each === "commands"
-                ? "app.commandPalette"
-                : "app.settings"}
-          {@const key = shortcuts.label(id)}
-          <button
-            type="button"
-            role="tab"
-            id="panel-tab-{each}"
-            class="panel-tab"
-            tabindex="-1"
-            aria-selected={kind === each}
-            aria-controls="panel-list"
-            title={key ? `${t.tabs[each]} (${key})` : undefined}
-            onmousedown={(event) => event.preventDefault()}
-            onclick={() => (kind === each ? actions.close() : switchTo(each))}
-            >{t.tabs[each]}{#if tally}<span class="count">{SEP}{tally[each]}</span>{/if}</button
-          >
-        {/each}
-        <!-- A visible way out, beside Esc. -->
-        <button
-          type="button"
-          class="panel-close"
-          tabindex="-1"
-          onmousedown={(event) => event.preventDefault()}
-          onclick={actions.close}>{t.close}</button
-        >
-      </div>
+      <p class="visually-hidden" role="status">{announced}</p>
     </Dialog.Content>
   </Dialog.Portal>
 </Dialog.Root>
 
 <style>
+  /* The text behind steps back, as it does behind the other dialogs. */
   :global(.panel-overlay) {
     position: fixed;
     z-index: var(--layer-popover);
     inset: 0;
+    background: color-mix(in srgb, var(--surface-editor) 60%, transparent);
   }
-  /* It rises from the window's bottom-start corner; its tabs sit exactly where the
-     status line's are (StatusLine), so the status line seems to lift it. */
+  /* Centred near the top, and always the same size whatever it lists, so neither the
+     field nor the footer moves as the results change. */
   :global(.panel) {
+    --panel-top: clamp(var(--space-2), 12vh, 6rem);
     position: fixed;
     z-index: var(--layer-popover);
-    inset-block-end: 0;
-    inset-inline-start: 0;
-    width: min(46rem, 100vw);
-    /* As tall as the window allows, so long lists show many rows at once. */
-    height: min(60rem, calc(100vh - var(--space-12)));
+    inset-block-start: var(--panel-top);
+    inset-inline: 0;
+    margin-inline: auto;
+    width: min(42rem, calc(100vw - 2 * var(--space-4)));
+    height: min(32rem, calc(100vh - var(--panel-top) - var(--space-4)));
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    container-type: size;
     background: var(--surface-editor);
     color: var(--text-primary);
-    border-block-start: 1px solid var(--border-control);
-    border-inline-end: 1px solid var(--border-control);
-    border-start-end-radius: 8px;
+    border: 1px solid var(--border-control);
+    border-radius: 8px;
     box-shadow: 0 8px 32px color-mix(in srgb, var(--text-primary) 14%, transparent);
     overflow: hidden;
     outline: none;
   }
-  .panel-input {
+  @media (max-width: 30rem) {
+    :global(.panel) {
+      width: calc(100vw - 2 * var(--space-2));
+    }
+  }
+  .panel-field {
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    /* The field's padding sits here: an Arabic query turns the input's own padding
+       round, which would open a gap beside the scope. */
+    padding-inline: var(--space-6);
+    border-block-end: 1px solid var(--border-control);
+  }
+  .panel-field:focus-within {
+    box-shadow: inset 0 -2px 0 var(--focus-ring);
+  }
+  /* The scope Search is narrowed to; a click widens it to everything. */
+  .panel-scope {
+    flex-shrink: 0;
+    display: inline-flex;
+    gap: var(--space-1);
+    font: inherit;
+    font-size: 0.9em;
+    color: var(--text-primary);
+    background: var(--surface-panel);
+    border: 1px solid var(--border-control);
+    border-radius: 4px;
+    padding: 0 var(--space-2);
+    cursor: pointer;
+  }
+  .panel-input {
+    flex: 1;
+    min-width: 0;
     font: inherit;
     font-size: 1.1em;
     color: var(--text-primary);
     background: transparent;
     border: none;
-    border-block-end: 1px solid var(--border-control);
-    padding: var(--space-4) var(--space-6);
+    padding: var(--space-4) 0;
     outline: none;
-  }
-  .panel-input:focus-visible {
-    box-shadow: inset 0 -2px 0 var(--focus-ring);
+    /* Arabic keeps its own order but stays beside the scope, at the interface's start. */
+    text-align: left;
+    text-align: match-parent;
   }
   .panel-input::placeholder {
     color: var(--text-secondary);
@@ -823,6 +891,12 @@
     overflow: auto;
     padding: var(--space-2) var(--space-3);
   }
+  .panel-more {
+    cursor: pointer;
+  }
+  .panel-more:hover {
+    color: var(--text-primary);
+  }
   .panel-group {
     padding: var(--space-4) var(--space-3) var(--space-1);
     color: var(--text-secondary);
@@ -834,7 +908,8 @@
   }
   .panel-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    /* A deep folder never squeezes the name: the value takes at most 40%. */
+    grid-template-columns: minmax(0, 1fr) fit-content(40%);
     column-gap: var(--space-6);
     align-items: baseline;
     /* Less the edge, so the text shares the field's and the headings' start. */
@@ -907,17 +982,36 @@
     margin: var(--space-2) var(--space-3);
     color: var(--text-secondary);
   }
-  /* Room for two lines, so a short hint and none leave the list where it is. */
+  /* Two lines tall always, so nothing below the list moves. */
   .panel-about {
     flex-shrink: 0;
     box-sizing: border-box;
-    min-block-size: calc(2 * 1.4em + 2 * var(--space-3));
+    block-size: calc(2 * 1.4em + 2 * var(--space-3));
     margin: 0;
     padding: var(--space-3) var(--space-6);
     border-block-start: 1px solid var(--border-control);
     line-height: 1.4;
     color: var(--text-secondary);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow-wrap: anywhere;
+  }
+  /* A short palette keeps rows for the list: one line, and the key line's own keys. */
+  @container (max-height: 24rem) {
+    .panel-about {
+      block-size: calc(1.4em + 2 * var(--space-2));
+      padding-block: var(--space-2);
+      -webkit-line-clamp: 1;
+      line-clamp: 1;
+    }
+  }
+  @container (max-height: 24rem) or (max-width: 30rem) {
+    .panel-keys .always {
+      display: none;
+    }
   }
   .panel-about + .panel-keys {
     border-block-start: none;
@@ -943,56 +1037,5 @@
   .panel-keys .always {
     margin-inline-start: auto;
     white-space: nowrap;
-  }
-  /* As the status line's own items: the same padding, gap and type, so they stay put. */
-  .panel-tabs {
-    flex-shrink: 0;
-    display: flex;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-4);
-    background: var(--surface-editor);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  .panel-tab {
-    font: inherit;
-    color: var(--text-secondary);
-    background: none;
-    border: none;
-    border-radius: 4px;
-    margin-inline-start: calc(-1 * var(--space-2));
-    padding: 0 var(--space-2);
-    cursor: pointer;
-    box-shadow: inset 0 -2px 0 transparent;
-  }
-  .panel-tab + .panel-tab {
-    margin-inline-start: 0;
-  }
-  .panel-tab:hover {
-    color: var(--text-primary);
-  }
-  /* Colour and an underline, not weight, so no tab changes width. */
-  .panel-tab[aria-selected="true"] {
-    color: var(--text-primary);
-    box-shadow: inset 0 -2px 0 var(--accent);
-    border-end-start-radius: 0;
-    border-end-end-radius: 0;
-  }
-  .panel-close {
-    margin-inline-start: auto;
-    font: inherit;
-    color: var(--text-secondary);
-    background: none;
-    border: none;
-    border-radius: 4px;
-    padding: 0 var(--space-2);
-    cursor: pointer;
-  }
-  .panel-close:hover {
-    color: var(--text-primary);
-    box-shadow: inset 0 0 0 1px var(--border-control);
-  }
-  .count {
-    color: var(--text-secondary);
   }
 </style>

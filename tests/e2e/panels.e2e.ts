@@ -6,10 +6,11 @@ import { REPO } from "../driver.ts";
 import { act, Folder, notices, open } from "./files.ts";
 
 /**
- * Files, Commands and Settings (DESIGN.md §6, §13, ADR-0016): three panels that rise
- * from the status line. Shift Shift opens the last one; Tab moves between them with the
- * query kept; ↑ ↓ and Enter act on the highlighted row, ← → change a setting; typing
- * capitals never opens one; Esc closes an opened row, then the panel.
+ * Search (DESIGN.md §6, §13, ADR-0018): one palette for files, commands and settings,
+ * opened by Ctrl+K and Shift Shift, or narrowed by Ctrl+P, Ctrl+Shift+P and Ctrl+,.
+ * Tab narrows with the query kept; ↑ ↓ and Enter act on the highlighted row, ← → change
+ * a setting in Settings; typing capitals never opens it; Esc closes an opened row, then
+ * Search.
  */
 
 const FIXTURE = resolve(REPO, "tests/fixtures/library");
@@ -88,16 +89,18 @@ describe("The panels", () => {
     folder.remove();
   });
 
-  it("opens the last panel on Shift Shift, and closes on it again", async () => {
-    await browser.keys(["Control", ","]);
+  it("opens Search over everything on Ctrl+K and on Shift Shift, and closes on them", async () => {
+    await browser.keys(["Control", "k"]);
     await browser.keys(["Control"]);
-    await browser.waitUntil(async () => (await panel())?.kind === "settings");
-    await browser.keys("Escape");
+    await browser.waitUntil(async () => (await panel())?.kind === "all");
+    expect((await panel())?.chip).toBe(null);
+    await browser.keys(["Control", "k"]);
+    await browser.keys(["Control"]);
     await browser.waitUntil(async () => (await panel()) === null);
     await browser.waitUntil(inText, { timeoutMsg: "focus never came back to the text" });
     await shiftShift();
-    await browser.waitUntil(async () => (await panel())?.kind === "settings", {
-      timeoutMsg: "Shift Shift didn't reopen the last panel",
+    await browser.waitUntil(async () => (await panel())?.kind === "all", {
+      timeoutMsg: "Shift Shift didn't open Search",
     });
     expect(await activeIs(".panel-input")).toBe(true);
     await shiftShift();
@@ -124,25 +127,89 @@ describe("The panels", () => {
     await browser.waitUntil(inText, { timeoutMsg: "the caret never reached the opened file" });
   });
 
-  it("carries the query to the next panel with Tab, and counts what each finds", async () => {
-    await browser.keys(["Control", "p"]);
+  it("narrows with Tab, keeping the query and the highlighted row", async () => {
+    await browser.keys(["Control", "k"]);
     await browser.keys(["Control"]);
-    await browser.waitUntil(async () => (await panel())?.kind === "files");
-    await browser.$(".panel-input").setValue("notes");
-    await browser.waitUntil(async () => (await panel())?.counts !== null);
-    const counts = (await panel())?.counts;
-    expect(counts?.files).toBeGreaterThan(1);
+    await search("notes", "file:Notes/notes.md");
+    await browser.keys("ArrowDown");
+    const second = (await panel())?.rows[1]?.value;
+    await browser.waitUntil(async () => (await selected()) === second);
     await browser.keys("Tab");
-    await browser.waitUntil(async () => (await panel())?.kind === "commands");
+    await browser.waitUntil(async () => (await panel())?.kind === "files");
+    // The same row, still highlighted; the scope shows in the field.
+    expect(await selected()).toBe(second);
+    expect((await panel())?.chip).toBe("Files");
     expect((await panel())?.query).toBe("notes");
     expect(await activeIs(".panel-input")).toBe(true);
     await browser.keys("Tab");
-    await browser.waitUntil(async () => (await panel())?.kind === "settings");
-    await browser.action("key").down(SHIFT).down(TAB).up(TAB).up(SHIFT).perform();
     await browser.waitUntil(async () => (await panel())?.kind === "commands");
-    // Each panel starts on its first row.
-    const p = await panel();
-    expect(p?.selected).toBe(p?.rows[0]?.value ?? null);
+    await browser.keys("Tab");
+    await browser.waitUntil(async () => (await panel())?.kind === "settings");
+    await browser.keys("Tab");
+    await browser.waitUntil(async () => (await panel())?.kind === "all");
+    await browser.action("key").down(SHIFT).down(TAB).up(TAB).up(SHIFT).perform();
+    await browser.waitUntil(async () => (await panel())?.kind === "settings");
+    expect((await panel())?.query).toBe("notes");
+  });
+
+  it("widens to everything from its scope's ×, or Backspace in an empty field", async () => {
+    await browser.keys(["Control", ","]);
+    await browser.keys(["Control"]);
+    await browser.waitUntil(async () => (await panel())?.chip === "Settings");
+    await browser.keys("Backspace");
+    await browser.waitUntil(async () => (await panel())?.kind === "all");
+    await browser.keys(["Control", "p"]);
+    await browser.keys(["Control"]);
+    await browser.waitUntil(async () => (await panel())?.kind === "files");
+    await browser.$(".panel-scope").click();
+    await browser.waitUntil(async () => (await panel())?.kind === "all");
+    expect(await activeIs(".panel-input")).toBe(true);
+  });
+
+  it("lists files, commands and settings together, a few of each, at one height", async () => {
+    await browser.keys(["Control", "k"]);
+    await browser.keys(["Control"]);
+    await browser.waitUntil(async () => (await panel())?.kind === "all");
+    const height = () =>
+      browser.execute(() => document.querySelector(".panel")?.getBoundingClientRect().height);
+    const empty = await height();
+    await search("spelling", "command:check.toggleSpelling");
+    expect((await panel())?.groups).toEqual(["Commands", "Settings"]);
+    expect(await height()).toBe(empty);
+    await search("zzzz", "");
+    expect(await height()).toBe(empty);
+    await browser.saveScreenshot(`${shots}/search-1280.png`);
+  });
+
+  it("acts on a file in everything, and keeps ← → for the caret there", async () => {
+    await browser.keys(["Control", "k"]);
+    await browser.keys(["Control"]);
+    await search("line length", "setting:measure");
+    await browser.keys("ArrowRight");
+    await frames();
+    expect((await panel())?.rows[0]?.text).toMatch(/Standard/);
+    await search("chapter 10", "file:Chapter 10.md");
+    expect((await panel())?.description).toContain("In");
+    await browser.keys("F2");
+    await browser.waitUntil(async () =>
+      Boolean(await browser.execute(() => window.__bismillah?.prompt()?.ready)),
+    );
+    await browser.keys("Escape");
+    await browser.waitUntil(() => activeIs(".panel-input"));
+    expect((await panel())?.kind).toBe("all");
+  });
+
+  it("runs a command opened from the status line in the text", async () => {
+    await browser.$("//footer//button[@aria-label='Search']").click();
+    await browser.waitUntil(async () => (await panel())?.kind === "all");
+    await search("go to line", "command:edit.goToLine");
+    await browser.keys("Enter");
+    await browser.waitUntil(async () => (await panel()) === null);
+    await browser.waitUntil(
+      () => browser.execute(() => document.activeElement?.closest(".cm-goto-line") !== null),
+      { timeoutMsg: "Go to line… never took focus" },
+    );
+    await browser.keys("Escape");
   });
 
   it("moves round the list with the arrows and narrows to a folder with Enter", async () => {
@@ -316,10 +383,13 @@ describe("The panels", () => {
     await browser.waitUntil(async () => (await panel()) === null);
   });
 
-  it("switches panels with their shortcuts and closes on the open one's", async () => {
+  it("narrows with each scope's shortcut and closes on the open one's", async () => {
     await browser.keys(["Control", "p"]);
     await browser.keys(["Control"]);
     await browser.waitUntil(async () => (await panel())?.kind === "files");
+    await browser.keys(["Control", "k"]);
+    await browser.keys(["Control"]);
+    await browser.waitUntil(async () => (await panel())?.kind === "all");
     await browser.keys(["Control", "Shift", "P"]);
     await browser.keys(["Control", "Shift"]);
     await browser.waitUntil(async () => (await panel())?.kind === "commands");
@@ -331,7 +401,7 @@ describe("The panels", () => {
     await browser.waitUntil(async () => (await panel()) === null);
   });
 
-  it("keeps the window's shortcuts from acting behind the panel", async () => {
+  it("keeps the window's shortcuts from acting behind Search", async () => {
     await browser.keys(["Control", "p"]);
     await browser.keys(["Control"]);
     await browser.waitUntil(async () => (await panel())?.kind === "files");
@@ -341,21 +411,11 @@ describe("The panels", () => {
     expect(await browser.getTitle()).toMatch(/^Chapter 2/);
   });
 
-  it("opens from the status line, with its tabs where the status line's items are", async () => {
-    await browser.$("//footer//button[normalize-space()='Commands']").click();
-    await browser.waitUntil(async () => (await panel())?.kind === "commands");
-    const offsets = await browser.execute(() => {
-      const a = [...document.querySelectorAll(".status .panel-toggle")];
-      const b = [...document.querySelectorAll(".panel-tab")];
-      return a.map((el, i) => {
-        const x = el.getBoundingClientRect();
-        const y = b[i]?.getBoundingClientRect();
-        return y ? Math.abs(x.left - y.left) + Math.abs(x.bottom - y.bottom) : 99;
-      });
-    });
-    for (const offset of offsets) expect(offset).toBeLessThan(1.5);
-    await browser.$("//*[@role='tab'][normalize-space()='Files']").click();
-    await browser.waitUntil(async () => (await panel())?.kind === "files");
+  it("opens from the status line's Search, named as its shortcut says", async () => {
+    const button = browser.$("//footer//button[@aria-label='Search']");
+    expect(await button.getAttribute("aria-keyshortcuts")).toBe("Control+K");
+    await button.click();
+    await browser.waitUntil(async () => (await panel())?.kind === "all");
     expect(await activeIs(".panel-input")).toBe(true);
   });
 

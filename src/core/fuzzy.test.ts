@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { fold, rankCommands, rankFiles, score } from "./fuzzy.ts";
+import {
+  commandTier,
+  countFiles,
+  fileTier,
+  fold,
+  rankCommands,
+  rankFiles,
+  score,
+} from "./fuzzy.ts";
 
 const files = [
   { path: "notes.md", name: "notes.md" },
@@ -137,5 +145,26 @@ describe("matching", () => {
     expect(labels("زهد")).toEqual(["Zuhd mode"]);
     expect(labels("distraction")).toEqual(["Zuhd mode"]);
     expect(labels("type")[0]).toBe("Typewriter scrolling");
+  });
+});
+
+describe("match tiers, which compare files with commands and settings", () => {
+  it("ranks a start over a word's start over the middle over scattered letters", () => {
+    const file = { path: "essays/to Hasan.md", name: "to Hasan.md" };
+    expect(fileTier("to", file)).toBe(3);
+    expect(fileTier("hasan", file)).toBe(2);
+    expect(fileTier("asan", file)).toBe(1);
+    expect(fileTier("thn", file)).toBe(0);
+    expect(fileTier("xyz", file)).toBe(null);
+    // Every word must match; the worst one counts.
+    expect(fileTier("to asan", file)).toBe(1);
+    expect(commandTier("dark", { label: "Theme", aliases: ["dark"] })).toBe(3);
+    expect(commandTier("ḥadīth", { label: "Hadith notes" })).toBe(3);
+  });
+
+  it("counts the files that match at a tier or better", () => {
+    expect(countFiles("notes", files)).toBe(2);
+    expect(countFiles("nts", files, 1)).toBe(0);
+    expect(countFiles("nts", files, 0)).toBe(2);
   });
 });

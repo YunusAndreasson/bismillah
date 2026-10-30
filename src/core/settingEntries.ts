@@ -1,3 +1,4 @@
+import type { CommandId } from "./commands.ts";
 import { copy } from "./copy.ts";
 import type { ColourTheme } from "./ipc.ts";
 import {
@@ -60,6 +61,8 @@ interface Base {
   /** One sentence shown under the row while it is highlighted. */
   hint?: (s: Settings, c: SettingsContext) => string | null;
   place?: "desktop" | "stick";
+  /** The command that does the same, which everything in Search lists instead. */
+  command?: CommandId;
   /** The row this one depends on, which it is listed (and indented) under. */
   under?: string;
   /** Listed only while this holds (Font name, while Another font is chosen). */
@@ -262,6 +265,7 @@ const ENTRIES: readonly SettingEntry[] = [
     aliases: ["centre", "center", "scroll"],
     section: "writing",
     key: "typewriter_scrolling",
+    command: "editor.toggleTypewriter",
     hint: () => t.typewriterHint,
   },
   {
@@ -271,6 +275,7 @@ const ENTRIES: readonly SettingEntry[] = [
     aliases: ["markup", "source", "live preview", "rendered", "marks", "syntax"],
     section: "writing",
     key: "always_show_markdown",
+    command: "view.toggleMarkdown",
     hint: () => t.alwaysShowMarkdownHint,
   },
   {
@@ -280,6 +285,7 @@ const ENTRIES: readonly SettingEntry[] = [
     aliases: ["focus", "distraction-free", "زهد"],
     section: "writing",
     key: "focus_mode",
+    command: "editor.toggleFocus",
     hint: () => t.zuhdHint,
   },
   {
@@ -313,6 +319,7 @@ const ENTRIES: readonly SettingEntry[] = [
     aliases: ["dictionary", "mistakes", "arabic"],
     section: "checking",
     key: "check_spelling",
+    command: "check.toggleSpelling",
     hint: () => t.spellingHint,
   },
   {
@@ -322,6 +329,7 @@ const ENTRIES: readonly SettingEntry[] = [
     aliases: ["harper", "underline"],
     section: "checking",
     key: "check_grammar",
+    command: "check.toggleGrammar",
     hint: () => t.grammarHint,
   },
   {
@@ -379,6 +387,7 @@ const ENTRIES: readonly SettingEntry[] = [
   {
     id: "about",
     kind: "about",
+    command: "app.about",
     label: t.about,
     aliases: ["version", "licence", "license", "credits", "inspiration"],
     section: "files",

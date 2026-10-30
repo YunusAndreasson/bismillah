@@ -9,10 +9,11 @@ import { compareWithBaseline } from "./compare.ts";
 /** Anti-aliasing noise only; a real layout change moves far more pixels. */
 const TOLERANCE = 0.001;
 
-/** The panels (DESIGN.md §6, ADR-0016), rising from the status line: Files in a wide and
- * an Arabic-named folder, Commands in a narrow window, and Settings with a row opened.
- * A copy of tests/fixtures/library named "Writing", with a file open. */
-describe("panel screenshots", () => {
+/** Search (DESIGN.md §6, ADR-0018), centred near the top: everything with nothing
+ * typed and with a query, files in an Arabic-named folder, commands in a narrow window,
+ * and settings with a row opened. A copy of tests/fixtures/library named "Writing", with
+ * a file open. */
+describe("search screenshots", () => {
   const scratch = mkdtempSync(join(tmpdir(), "bismillah-visual-"));
   const root = join(scratch, "Writing");
 
@@ -56,10 +57,19 @@ describe("panel screenshots", () => {
     rmSync(scratch, { recursive: true, force: true });
   });
 
-  it("lists recent and all files, light theme", async () => {
+  it("lists recent files with nothing typed, light theme", async () => {
     await shoot(
-      "panel-files-light-1280",
-      () => browser.execute(async () => window.__bismillah?.openPanel("files")),
+      "search-recent-light-1280",
+      () => browser.execute(async () => window.__bismillah?.openPanel("all")),
+      "light",
+      1280,
+    );
+  });
+
+  it("lists commands and settings together for a query, light theme", async () => {
+    await shoot(
+      "search-spelling-light-1280",
+      () => browser.execute(async () => window.__bismillah?.openPanel("all", "spelling")),
       "light",
       1280,
     );
@@ -67,7 +77,7 @@ describe("panel screenshots", () => {
 
   it("lists a folder with an Arabic name, its names isolated", async () => {
     await shoot(
-      "panel-files-arabic-light-1280",
+      "search-files-arabic-light-1280",
       () => browser.execute(async () => window.__bismillah?.openPanel("files", "رسائل/")),
       "light",
       1280,
@@ -76,7 +86,7 @@ describe("panel screenshots", () => {
 
   it("lists the commands in a narrow window, dark theme", async () => {
     await shoot(
-      "panel-commands-dark-640",
+      "search-commands-dark-640",
       () => browser.execute(async () => window.__bismillah?.openPanel("commands")),
       "dark",
       640,
@@ -85,7 +95,7 @@ describe("panel screenshots", () => {
 
   it("opens a setting in place, dark theme", async () => {
     await shoot(
-      "panel-settings-measure-dark-1280",
+      "search-settings-measure-dark-1280",
       () =>
         browser.execute(async () => {
           window.__bismillah?.openSettings({ row: "measure", open: true });

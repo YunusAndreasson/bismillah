@@ -5,12 +5,11 @@
   import type { SaveState } from "../core/session.svelte.ts";
   import { readingMinutes } from "../editor/wordCount.ts";
   import { shortcuts } from "../core/keybindings.svelte.ts";
-  import { PANELS, type Panel } from "../core/panels.ts";
+  import type { Scope } from "../core/panels.ts";
 
   /**
-   * The status line (DESIGN.md §12): Files, Commands and Settings at the start (each
-   * opens its panel, which rises from here: Panel.svelte); file name · save
-   * state · reading time at the end, both in faint text so they stay out of
+   * The status line (DESIGN.md §12): Search at the start (Panel.svelte), with its
+   * shortcut; file name · save state · reading time at the end, both in faint text so they stay out of
    * the writing's way. Quiet parts may fade while the writer types; a failure, anything
    * with focus and the transliteration indicator never do. Routine saves are not
    * announced to screen readers; failures are, by their notice.
@@ -23,9 +22,10 @@
     /** A passing message ("No spelling or grammar issues."). */
     note: string | null;
     faded: boolean;
-    /** The open panel, if any. */
-    panel: Panel | null;
-    openPanel: (panel: Panel) => void;
+    /** Search's scope while it is open. */
+    panel: Scope | null;
+    /** Opens Search, or closes it when it is open. */
+    openSearch: () => void;
     /** The bismillah stick's clock ("15:04") and battery, at the very end; null on the
      * desktop, and without a battery. */
     clock?: string | null;
@@ -39,7 +39,7 @@
     note,
     faded,
     panel,
-    openPanel,
+    openSearch,
     clock = null,
     battery = null,
   }: Props = $props();
@@ -67,27 +67,23 @@
   const match = $derived(name === null ? null : /\.(md|markdown)$/i.exec(name));
   const stem = $derived(name === null || !match ? (name ?? "") : name.slice(0, match.index));
   const ending = $derived(match?.[0] ?? "");
-  const COMMAND = {
-    files: "file.quickOpen",
-    commands: "app.commandPalette",
-    settings: "app.settings",
-  } as const;
+  const key = $derived(shortcuts.label("app.findAnything"));
 </script>
 
 <footer class="status" aria-label={copy.status.region}>
   <div class="quiet start" class:faded={faded && !failed}>
-    {#each PANELS as each (each)}
-      {@const key = shortcuts.label(COMMAND[each])}
-      <button
-        type="button"
-        class="panel-toggle"
-        aria-haspopup="dialog"
-        aria-expanded={panel === each}
-        aria-keyshortcuts={key.replaceAll("Ctrl+", "Control+") || undefined}
-        title={key ? `${copy.panels.tabs[each]} (${key})` : undefined}
-        onclick={() => openPanel(each)}>{copy.panels.tabs[each]}</button
-      >
-    {/each}
+    <!-- Named Search alone; its shortcut follows, quieter, for the eye. -->
+    <button
+      type="button"
+      class="panel-toggle"
+      aria-label={copy.panels.names.all}
+      aria-haspopup="dialog"
+      aria-expanded={panel !== null}
+      aria-keyshortcuts={key.replaceAll("Ctrl+", "Control+") || undefined}
+      onclick={openSearch}
+      >{copy.panels.names.all}{#if key}<span class="key" aria-hidden="true">{key}</span
+        >{/if}</button
+    >
   </div>
   {#if name !== null && state !== null}
     <div class="quiet info" class:faded={faded && !failed}>
@@ -160,8 +156,8 @@
     min-inline-size: 11ch;
     flex-shrink: 0;
   }
-  /* Quiet text buttons. Their hover boundary is drawn inside them, so the status line
-     keeps the height of one line of text. The panel's tabs sit exactly over them. */
+  /* A quiet text button. Its hover boundary is drawn inside it, so the status line
+     keeps the height of one line of text. */
   .panel-toggle {
     font: inherit;
     color: var(--text-faint);
@@ -172,8 +168,8 @@
     padding: 0 var(--space-2);
     cursor: pointer;
   }
-  .panel-toggle + .panel-toggle {
-    margin-inline-start: 0;
+  .panel-toggle .key {
+    margin-inline-start: var(--space-2);
   }
   .panel-toggle:hover {
     color: var(--text-primary);

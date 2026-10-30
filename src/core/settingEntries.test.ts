@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { COMMANDS } from "./commands.ts";
 import { rankCommands } from "./fuzzy.ts";
 import type { ColourTheme } from "./ipc.ts";
 import {
@@ -124,6 +125,20 @@ describe("the Settings panel's rows", () => {
       );
       expect(above?.section).toBe(e.section);
     }
+  });
+
+  it("names, for a setting that is also a command, a command with its label", () => {
+    const linked = ALL_SETTING_ENTRIES.filter((e) => e.command !== undefined);
+    expect(linked.map((e) => e.id)).toEqual([
+      "typewriter",
+      "markdown",
+      "zuhd",
+      "spelling",
+      "grammar",
+      "about",
+    ]);
+    for (const e of linked)
+      expect(COMMANDS.find((c) => c.id === e.command)?.label, e.id).toBe(e.label);
   });
 
   it("opens in place only the rows that hold something to show", () => {

@@ -153,6 +153,59 @@ export function rankFiles<T extends FileCandidate>(
   return scored.map((s) => s.file);
 }
 
+/** How one folded word matches folded text: 3 at its start, 2 at a word's start, 1 inside
+ * it, 0 by scattered letters, or null not at all. */
+function wordTier(word: string, text: string): number | null {
+  let at = text.indexOf(word);
+  if (at === 0) return 3;
+  if (at > 0) {
+    for (; at > 0; at = text.indexOf(word, at + 1)) if (BOUNDARY.test(text[at - 1] ?? "")) return 2;
+    return 1;
+  }
+  return score(word, text) === null ? null : 0;
+}
+
+/** The worst word's tier, each word taking the best of `texts`; 3 with no words. */
+function tierOf(words: readonly string[], texts: readonly string[]): number | null {
+  let worst = 3;
+  for (const word of words) {
+    let best: number | null = null;
+    for (const text of texts) {
+      const t = wordTier(word, text);
+      if (t !== null && (best === null || t > best)) best = t;
+    }
+    if (best === null) return null;
+    worst = Math.min(worst, best);
+  }
+  return worst;
+}
+
+/**
+ * Tiers compare matches of different kinds, whose scores don't: Search lists files,
+ * commands and settings together and drops scattered-letter matches (tier 0) when any
+ * row matches as a run of letters (DESIGN.md §6).
+ */
+export function fileTier(query: string, file: FileCandidate): number | null {
+  const { name, path } = foldedFile(file);
+  return tierOf(tokens(query), [name, path]);
+}
+
+export function commandTier(query: string, command: CommandCandidate): number | null {
+  return tierOf(tokens(query), [command.label, ...(command.aliases ?? [])].map(fold));
+}
+
+/** How many files match `query` at `least` tier or better. */
+export function countFiles(query: string, files: readonly FileCandidate[], least = 0): number {
+  const words = tokens(query);
+  let n = 0;
+  for (const file of files) {
+    const { name, path } = foldedFile(file);
+    const t = tierOf(words, [name, path]);
+    if (t !== null && t >= least) n += 1;
+  }
+  return n;
+}
+
 export interface CommandCandidate {
   label: string;
   aliases?: readonly string[];

@@ -24,7 +24,7 @@ import {
 import { shortcuts } from "./keybindings.svelte.ts";
 import { DoubleShift } from "./doubleShift.ts";
 import { keyOf, normalise } from "./keys.ts";
-import type { Panel } from "./panels.ts";
+import type { Scope } from "./panels.ts";
 import { applyColours, colourThemes, DEFAULT_THEME, onSystemScheme } from "./themes.svelte.ts";
 import { Checking } from "./checking.svelte.ts";
 import { GUIDE_NAME, GUIDE_WORDS } from "./guide.ts";
@@ -130,15 +130,14 @@ export class Workspace {
     checking: () => settings.values.check_spelling || settings.values.check_grammar,
     failed: (message) => this.#notice("add-word-failed", "error", message, []),
   });
-  /** The open panel: Files, Commands or Settings (DESIGN.md §6, ADR-0016). */
-  panel = $state<Panel | null>(null);
-  /** Its search field, kept as Tab moves to another panel. */
+  /** Search, open: everything, or narrowed to files, commands or settings (DESIGN.md
+   * §6, ADR-0018). */
+  panel = $state<Scope | null>(null);
+  /** Its search field, kept as Tab narrows or widens it. */
   panelQuery = $state("");
-  /** A row for the open panel to highlight, and open in place (Show in Settings, a
-   * renamed file); the panel takes it once it lists that row. */
+  /** A row for Search to highlight, and open in place (Show in Settings, a renamed
+   * file); it takes it once it lists that row. */
   panelFocus = $state<{ value: string; open: boolean } | null>(null);
-  /** The panel Shift Shift opens: the one used last. */
-  lastPanel: Panel = "files";
   prompt = $state<NamePrompt | null>(null);
   recovery = $state<ipc.RecoveryEntry | null>(null);
   pending = $state<ipc.PendingRecovery[]>([]);
@@ -283,16 +282,19 @@ export class Workspace {
     return out;
   }
 
-  /** Opens the Settings panel, at a row if given. */
+  /** Opens Search narrowed to settings, at a row if given (with the query cleared, so
+   * the row is listed). */
   openSettings(at: SettingsTarget | null = null): void {
     this.openPanel("settings", {
+      ...(at ? { query: "" } : {}),
       focus: at ? { value: `setting:${at.row}`, open: at.open ?? false } : null,
     });
   }
 
-  /** Opens a panel afresh: an empty search (or `query`), on its first row (or `focus`). */
+  /** Opens Search afresh: an empty query (or `query`), on its first row (or `focus`).
+   * Open already, it changes scope and keeps the query. */
   openPanel(
-    panel: Panel,
+    panel: Scope,
     at: { query?: string; focus?: { value: string; open: boolean } | null } = {},
   ): void {
     if (this.shut) return;
@@ -300,11 +302,11 @@ export class Workspace {
     else if (at.query !== undefined) this.panelQuery = at.query;
     this.panelFocus = at.focus ?? null;
     this.panel = panel;
-    this.lastPanel = panel;
   }
 
-  /** A panel's own shortcut: opens it, switches to it, or closes it when it's open. */
-  #togglePanel(panel: Panel): void {
+  /** A scope's own shortcut: opens Search there, switches to it, or closes Search when
+   * it is the one open. */
+  #togglePanel(panel: Scope): void {
     if (this.panel === panel) this.panel = null;
     else this.openPanel(panel);
   }
@@ -434,7 +436,7 @@ export class Workspace {
         .find((b) => normalise(b.key) === key && b.command.section !== "Edit");
       if (bound && runCommand(bound.command.id, "keymap", this.context)) event.preventDefault();
     });
-    // Shift Shift opens the last panel from anywhere, the editor too (DESIGN.md §13),
+    // Shift Shift opens Search from anywhere, the editor too (DESIGN.md §13),
     // and closes it again. Not behind another dialog or the lock view.
     const doubleShift = new DoubleShift();
     const onShift = (event: KeyboardEvent) => {
@@ -450,7 +452,7 @@ export class Workspace {
       const target = event.target instanceof Element ? event.target : null;
       const dialog = target?.closest('[role="dialog"], [role="alertdialog"]');
       if (this.panel !== null) {
-        // In the panel it closes; not while Rename… or another dialog is over it.
+        // In Search it closes; not while Rename… or another dialog is over it.
         if (dialog && !dialog.classList.contains("panel")) return;
         this.panel = null;
       } else if (!dialog) runCommand("app.findAnything", "keymap", this.context);
@@ -1207,7 +1209,7 @@ export class Workspace {
       newFolder: () => this.newFolder(),
       openFolder: () => void this.openFolder(),
       quickOpen: () => this.#togglePanel("files"),
-      findAnything: () => this.#togglePanel(this.lastPanel),
+      findAnything: () => this.#togglePanel("all"),
       rename: () => void this.rename(),
       trash: () => void this.trash(),
       commandPalette: () => this.#togglePanel("commands"),

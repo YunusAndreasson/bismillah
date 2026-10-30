@@ -10,7 +10,7 @@ const change = (patch: Record<string, unknown>) =>
     await window.__bismillah?.changeSettings(p);
   }, patch);
 
-/** High contrast over the specimen (Phase 5). The Settings panel is in panels.visual.ts. */
+/** High contrast over the specimen (Phase 5). Search, Settings included, is in panels.visual.ts. */
 describe("high contrast", () => {
   before(async () => {
     await waitForApp(browser);

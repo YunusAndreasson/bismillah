@@ -9,8 +9,8 @@
  *
  * Checks, in each state: every control (button, switch, radio, field, list or tree
  * item, menu item, link) has a name; every dialog has a name; and what that state must
- * offer (the Settings sections as headings, the library as a tree with its open file
- * selected, the palette's options, a failure as an alert…). Prints what it found and
+ * offer (Search named by its scope, its rows as options with one selected, an opened
+ * choice as radio buttons, a failure as an alert…). Prints what it found and
  * fails on any problem. What it can't check is what Orca says aloud.
  */
 import { execFileSync, spawn, spawnSync } from "node:child_process";
@@ -280,15 +280,18 @@ const STATES: State[] = [
     expect: (doc) => {
       const out: string[] = [];
       const dialog = find(doc, (n) => n.role === "dialog" && showing(n));
-      if (dialog[0]?.name !== "Settings") out.push(`the panel is named “${dialog[0]?.name ?? ""}”`);
+      // Search, narrowed to settings: the dialog and its field both say so.
+      if (dialog[0]?.name !== "Search settings")
+        out.push(`Search is named “${dialog[0]?.name ?? ""}”`);
+      // The highlighted option reads as focused (aria-activedescendant): find the field.
+      const field = find(doc, (n) => /^(entry|combo box)$/.test(n.role) && showing(n));
+      if (field[0]?.name !== "Search settings")
+        out.push(`the search field is named “${field[0]?.name ?? ""}”`);
       const options = find(doc, (n) => n.role === "list item" && showing(n));
       if (options.length < 8) out.push(`only ${options.length} settings are listed as options`);
       if (!options.some((n) => n.states.includes("selected"))) out.push("no setting is selected");
-      const tabs = find(doc, (n) => /tab$/.test(n.role) && showing(n));
-      if (tabs.map((n) => n.name).join() !== "Files,Commands,Settings")
-        out.push(`its tabs are “${tabs.map((n) => n.name).join()}”`);
-      if (!tabs.some((n) => n.name === "Settings" && n.states.includes("selected")))
-        out.push("the Settings tab isn't selected");
+      if (find(doc, (n) => /tab$/.test(n.role) && showing(n)).length > 0)
+        out.push("Search still has tabs");
       return out;
     },
     leave: escape,
@@ -363,7 +366,7 @@ const STATES: State[] = [
     leave: escape,
   },
   {
-    name: "Files",
+    name: "Search",
     enter: async () => {
       await browser.execute(
         async (folder: string, file: string) => {
@@ -373,16 +376,16 @@ const STATES: State[] = [
         library,
         join(library, "letter.md"),
       );
-      await run("file.quickOpen");
+      await run("app.findAnything");
       await browser.keys([..."let"]);
       await settle();
     },
     expect: (doc) => {
       const out: string[] = [];
       const dialog = find(doc, (n) => n.role === "dialog" && showing(n));
-      if (!dialog[0]?.name?.startsWith("Files")) out.push("Files isn't a named dialog");
-      const field = find(doc, (n) => n.states.includes("focused") && showing(n));
-      if (!field[0]?.name) out.push("the search field has no name");
+      if (dialog[0]?.name !== "Search") out.push("Search isn't a named dialog");
+      const field = find(doc, (n) => /^(entry|combo box)$/.test(n.role) && showing(n));
+      if (field[0]?.name !== "Search") out.push("the search field isn't named Search");
       const options = find(doc, (n) => n.role === "list item" && showing(n));
       if (!options.some((n) => n.name.includes("letter")))
         out.push("no file is listed as an option");

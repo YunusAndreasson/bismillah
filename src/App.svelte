@@ -6,7 +6,7 @@
   import { installMenu } from "./core/menu.ts";
   import { settings, type Settings } from "./core/settings.svelte.ts";
   import { installTestHooks } from "./core/testHooks.ts";
-  import type { Panel as PanelKind } from "./core/panels.ts";
+  import type { Scope } from "./core/panels.ts";
   import type { SettingsContext } from "./core/settingEntries.ts";
   import { shortcuts } from "./core/keybindings.svelte.ts";
   import { workspace, type NamePrompt as Prompt } from "./core/workspace.svelte.ts";
@@ -88,7 +88,7 @@
   const panelActions = {
     close: () => (workspace.panel = null),
     focusText: () => workspace.focusEditor(),
-    setPanel: (kind: PanelKind) => workspace.openPanel(kind),
+    setPanel: (kind: Scope) => workspace.openPanel(kind),
     openFile: (path: string) => void workspace.openFromLibrary(path),
     runCommand: run,
     change: (patch: Partial<Settings>) => void settings.set(patch),
@@ -188,8 +188,8 @@
         note={workspace.checking.note}
         faded={settings.values.fade_chrome && workspace.typing}
         panel={workspace.panel}
-        openPanel={(kind: PanelKind) =>
-          workspace.panel === kind ? (workspace.panel = null) : workspace.openPanel(kind)}
+        openSearch={() =>
+          workspace.panel !== null ? (workspace.panel = null) : workspace.openPanel("all")}
         clock={workspace.clock}
         battery={workspace.battery}
       />
