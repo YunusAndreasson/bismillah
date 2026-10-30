@@ -297,7 +297,7 @@ export const copy = {
     },
     /** A file's or folder's place, under the list. */
     inFolder: (folder: string) => `In ${quote(folder)}`,
-    sections: { File: "File", Edit: "Edit", View: "View", Help: "Help" },
+    sections: { File: "File", Edit: "Edit", Format: "Format", View: "View", Help: "Help" },
     on: "On",
     off: "Off",
     noneYet: "None yet",
@@ -341,6 +341,23 @@ export const copy = {
   navigation: {
     hint: "Enter a line (12), relative move (+10 or -10), percentage (50%), or line:column (12:4; columns start at 0).",
     invalid: "Enter a number, such as 12, +10, 50%, or 12:4. Your position hasn't changed.",
+  },
+  /** The bar over a selection (ADR-0019). */
+  format: {
+    label: "Formatting",
+    marks: { bold: "Bold", italic: "Italic", strike: "Strikethrough", code: "Code" },
+    turnInto: "Turn into",
+    blocks: {
+      text: "Text",
+      h1: "Heading 1",
+      h2: "Heading 2",
+      h3: "Heading 3",
+      quote: "Quote",
+      bullet: "Bulleted list",
+      numbered: "Numbered list",
+    },
+    font: "Writing font",
+    fontHint: "Changes the writing font of every document, not only these words.",
   },
   checking: {
     spelling: "Possible spelling mistake",
@@ -514,6 +531,8 @@ export const copy = {
     smartPunctuation: "Smart punctuation",
     smartPunctuationHint:
       "Typed quotes, dashes and ellipses become “ ” ‘ ’ – — …, and « » in Arabic.",
+    formatBar: "Formatting bar",
+    formatBarHint: "Shows the formatting bar above text you select.",
     typewriter: "Typewriter scrolling",
     typewriterHint: "Keeps the line you're writing near the middle of the window.",
     alwaysShowMarkdown: "Always show Markdown",

@@ -1,4 +1,4 @@
-import { tick } from "svelte";
+import { mount, tick, unmount } from "svelte";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -8,6 +8,7 @@ import { createEditor, type Editor } from "../editor/setup.ts";
 import { remeasure } from "../editor/typography.ts";
 import { toggleTransliteration, transliterationOn } from "../editor/typingAids.ts";
 import { WordCounter } from "../editor/wordCount.ts";
+import FormatBar from "../ui/FormatBar.svelte";
 import { farewell, farewellThen } from "../appliance/farewell.svelte.ts";
 import { batteryLevel, clockText, correctedNow } from "../appliance/power.ts";
 import { runCommand, useStickCommands, type CommandContext, type CommandId } from "./commands.ts";
@@ -802,6 +803,26 @@ export class Workspace {
       onChange: () => this.#onChange?.(),
       lint: { check: (request) => ipc.lintCheck(request) },
       onContextMenu: (pos) => this.checking.contextMenu(pos),
+      formatBar: (view, dom, format) => {
+        let current = $state.raw(format);
+        const bar = mount(FormatBar, {
+          target: dom,
+          props: {
+            view,
+            context: this.context,
+            stick: this.stick !== null,
+            get format() {
+              return current;
+            },
+          },
+        });
+        return {
+          update: (next) => {
+            current = next;
+          },
+          destroy: () => void unmount(bar),
+        };
+      },
       // The open document's id and the destination as written; Rust resolves and checks
       // it against the library (images.rs).
       imageAddress: (src) => {
@@ -823,6 +844,7 @@ export class Workspace {
       livePreview: !s.always_show_markdown,
       spelling: s.check_spelling,
       grammar: s.check_grammar,
+      formatBar: s.format_bar,
     };
   }
 

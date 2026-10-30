@@ -49,6 +49,16 @@ Your document reads as **rendered text**: emphasis without its asterisks, links 
 - `Enter` starts a new paragraph, with the blank line Markdown needs, so one press is enough; `Backspace` straight away takes it back. `Shift+Enter` breaks the line within the paragraph, and in a list `Enter` starts the next item.
 - `Esc` puts the pen down: the caret goes, the paragraph you were in shows its rendered look, and Zuhd mode lights nothing, so you can read the page as a whole. Any key that types or moves the caret, or a click, carries on where you were.
 
+### Formatting
+
+Select some words and a small bar appears above them: bold, italic, strikethrough and code, what the line is (text, a heading, a quote or a list), and the writing font. Everything it writes is ordinary Markdown, so your file reads the same anywhere.
+
+- `F6` moves from the text into the bar, the arrow keys move along it, and `Esc` goes back with your words still selected.
+- A button that is greyed out would not work in Markdown here. A bold mark can’t close between a quotation mark and a letter, for instance.
+- With no selection, a shortcut such as `Ctrl+B` acts on the word the caret is in.
+- The font changes how every document looks, and never changes a file. Markdown has no way to give a few words their own font.
+- Don’t want the bar? Turn off *Formatting bar* in Settings › Writing; the shortcuts and the Format menu stay.
+
 ### Links and images
 
 Hover over a link or an image to see its address. Links never open: bismillah works without a network.
@@ -229,6 +239,18 @@ Changes apply everywhere as soon as you save the file, and an empty shortcut lea
 | Find previous | `Shift+F3` |
 | Go to line… | `Ctrl+Alt+G` |
 | Transliteration mode | `Ctrl+Shift+T` |
+| Bold | `Ctrl+B` |
+| Italic | `Ctrl+I` |
+| Strikethrough | `Ctrl+Shift+X` |
+| Code | `Ctrl+E` |
+| Text | `Ctrl+Alt+0` |
+| Heading 1 | `Ctrl+Alt+1` |
+| Heading 2 | `Ctrl+Alt+2` |
+| Heading 3 | `Ctrl+Alt+3` |
+| Quote | `Ctrl+Shift+.` |
+| Bulleted list | `Ctrl+Shift+8` |
+| Numbered list | `Ctrl+Shift+7` |
+| Go to the formatting bar | `F6` |
 | Show suggestions | `Ctrl+.` |
 | Next issue | `F7` |
 | Previous issue | `Shift+F7` |

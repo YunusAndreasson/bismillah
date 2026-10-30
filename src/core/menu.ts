@@ -26,7 +26,7 @@ export interface NativeMenu {
 }
 
 export async function installMenu(context: CommandContext): Promise<NativeMenu> {
-  const sections: MenuSection[] = ["File", "Edit", "View", "Help"];
+  const sections: MenuSection[] = ["File", "Edit", "Format", "View", "Help"];
   const checks = new Map<CommandId, CheckMenuItem>();
   const items = new Map<CommandId, MenuItem | CheckMenuItem>();
   // A library-only key (Delete) is never a menu accelerator: it would act in text.

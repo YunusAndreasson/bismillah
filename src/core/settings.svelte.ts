@@ -45,6 +45,8 @@ export interface Settings {
   fade_chrome: boolean;
   basmallah_opening: boolean;
   smart_punctuation: boolean;
+  /** The bar over a selection (ADR-0019). */
+  format_bar: boolean;
   typewriter_scrolling: boolean;
   /** Every Markdown mark visible, as in Phase 1 (ADR-0012); off: live preview. */
   always_show_markdown: boolean;
@@ -74,6 +76,7 @@ export const DEFAULTS: Settings = {
   fade_chrome: true,
   basmallah_opening: true,
   smart_punctuation: true,
+  format_bar: true,
   typewriter_scrolling: true,
   always_show_markdown: false,
   focus_mode: false,

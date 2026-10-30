@@ -119,6 +119,13 @@ const choice = <V extends string>(
   return () => options;
 };
 
+/** The fonts on offer, here and in the formatting bar. */
+export const fontChoices = (stick: boolean): Option[] =>
+  (stick
+    ? (["duo", "serif", "amiri"] as const)
+    : (["duo", "serif", "amiri", "custom"] as const)
+  ).map((value) => ({ value, label: t.fonts[value] }));
+
 /** A colour theme's name as Settings lists it ("Night ink (dark only)"). A choice that
  * can't be used reads as bismillah's own colours, which are what apply. */
 export function colourThemeName(id: string, themes: readonly ColourTheme[]): string {
@@ -173,8 +180,7 @@ const ENTRIES: readonly SettingEntry[] = [
     label: t.font,
     aliases: ["typeface", "family", "amiri", "serif"],
     section: "appearance",
-    options: (c) =>
-      choice(c.stick ? ["duo", "serif", "amiri"] : ["duo", "serif", "amiri", "custom"], t.fonts)(c),
+    options: (c) => fontChoices(c.stick),
     get: (s) => s.writing_profile,
     set: (v) => ({ writing_profile: v as Settings["writing_profile"] }),
     hint: () => t.fontHint,
@@ -257,6 +263,15 @@ const ENTRIES: readonly SettingEntry[] = [
     section: "writing",
     key: "smart_punctuation",
     hint: () => t.smartPunctuationHint,
+  },
+  {
+    id: "formatBar",
+    kind: "switch",
+    label: t.formatBar,
+    aliases: ["toolbar", "selection", "bold", "italic"],
+    section: "writing",
+    key: "format_bar",
+    hint: () => t.formatBarHint,
   },
   {
     id: "typewriter",

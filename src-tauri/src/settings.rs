@@ -101,6 +101,11 @@ const SPECS: &[Spec] = &[
         default: || true.into(),
     },
     Spec {
+        key: "format_bar",
+        kind: Kind::Bool,
+        default: || true.into(),
+    },
+    Spec {
         key: "typewriter_scrolling",
         kind: Kind::Bool,
         default: || true.into(),

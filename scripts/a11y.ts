@@ -317,6 +317,43 @@ const STATES: State[] = [
     },
   },
   {
+    name: "the formatting bar",
+    enter: async () => {
+      await browser.execute(() => {
+        const view = window.__bismillah?.view;
+        if (!view) return;
+        const text = view.state.doc.toString();
+        // Past the frontmatter, where the bar stays away.
+        const body = text.indexOf("\n---", 3) + 4;
+        const at = body + text.slice(body).search(/\n[A-Z][a-z]+ [a-z]{4,}/) + 1;
+        view.focus();
+        view.dispatch({ selection: { anchor: at, head: at + 4 }, userEvent: "select" });
+      });
+      await browser.$(".format-bar").waitForExist();
+      await settle();
+    },
+    expect: (doc) => {
+      const out: string[] = [];
+      const bar = find(doc, (n) => n.role === "tool bar" && n.name === "Formatting" && showing(n));
+      if (bar.length !== 1) out.push(`${bar.length} toolbars named Formatting`);
+      const names = find(doc, (n) => /button$/.test(n.role) && showing(n)).map((n) => n.name);
+      for (const name of ["Bold", "Italic", "Strikethrough", "Code"])
+        if (!names.includes(name)) out.push(`no button named ${name}`);
+      // WebKit gives a button that opens a menu the role of a combo box.
+      const menus = find(doc, (n) => n.role === "combo box" && showing(n)).map((n) => n.name);
+      if (!menus.some((name) => name.startsWith("Turn into:"))) out.push("no Turn into menu");
+      if (!menus.some((name) => name.startsWith("Writing font:"))) out.push("no font menu");
+      return out;
+    },
+    leave: async () => {
+      await browser.execute(() => {
+        const view = window.__bismillah?.view;
+        view?.dispatch({ selection: { anchor: view.state.selection.main.head } });
+      });
+      await settle();
+    },
+  },
+  {
     name: "Settings could not be saved",
     enter: async () => {
       await browser.execute(async () => {

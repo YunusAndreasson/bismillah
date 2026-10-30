@@ -180,7 +180,7 @@ function filesGroups<F extends FileCandidate>(query: string, input: Input<F>): G
 
 /** Search opens itself: those commands aren't listed among the results. */
 const NOT_LISTED = new Set(["app.commandPalette", "app.findAnything"]);
-const SECTION_ORDER: readonly MenuSection[] = ["File", "Edit", "View", "Help"];
+const SECTION_ORDER: readonly MenuSection[] = ["File", "Edit", "Format", "View", "Help"];
 
 const usableCommands = (input: Input<FileCandidate>) =>
   input.commands.filter(

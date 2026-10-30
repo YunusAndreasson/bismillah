@@ -150,8 +150,11 @@ session tests cover the explicit conflict hold, and the real-app reload suite
 checks rescue after exceeding the recovery size cap without filling a disk.
 Recovery metadata also retains precise write timestamps; same-millisecond restore,
 file-age, legacy-entry and pruning regressions live in `src-tauri/src/recovery.rs`.
-The current gate covers 461 frontend and 210 Rust tests, all 32
-real-app suites and 18 visual checks.
+The formatting bar (ADR-0019) writes only Markdown, checked with the app's own parser
+before each mark: `src/editor/format.test.ts`, `src/editor/formatBar.test.ts`,
+`tests/e2e/format-bar.e2e.ts` and `tests/visual/format-bar.visual.ts`.
+The current gate covers 549 frontend and 212 Rust tests, all 33
+real-app suites and 21 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.
 - File-handling changes include a failure-path test (disk full, read-only, conflict, killed process).

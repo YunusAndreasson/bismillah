@@ -107,7 +107,7 @@ describe("Search narrowed to files", () => {
 describe("Search narrowed to commands", () => {
   it("groups every usable command by its menu before anything is typed", () => {
     const l = listed("commands", "");
-    expect(l.map((g) => g.label)).toEqual(["File", "Edit", "View", "Help"]);
+    expect(l.map((g) => g.label)).toEqual(["File", "Edit", "Format", "View", "Help"]);
     const ids = itemsOf(l).map((i) => i.value);
     expect(ids).toContain("command:file.save");
     // Search opens itself.

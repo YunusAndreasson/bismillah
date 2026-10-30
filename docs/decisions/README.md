@@ -27,6 +27,7 @@ Short records of decisions with lasting consequences. Each one says what was dec
 | [0016](0016-three-panels.md) | Files, Commands and Settings: three panels in place of the tree and the dialog | Superseded by 0018 |
 | [0017](0017-published-stick.md) | A published stick image, and one command that installs or updates a stick | Accepted; hosting pending |
 | [0018](0018-one-palette.md) | Search: one palette for files, commands and settings | Accepted |
+| [0019](0019-formatting-bar.md) | A formatting bar over the selection | Accepted |
 
 ## Template
 

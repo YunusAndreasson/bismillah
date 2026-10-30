@@ -6,6 +6,7 @@ import { caretBlink } from "./caretBlink.ts";
 import { bidi } from "./bidi.ts";
 import { forgetWord, setDisplay, setIgnored } from "./diagnostics.ts";
 import { focusKeepsScroll } from "./focusScroll.ts";
+import { formatBar, type FormatBarMount } from "./formatBar.ts";
 import { linter, recheck, type LintSource } from "./linter.ts";
 import { paragraphs } from "./paragraphs.ts";
 import { rest } from "./rest.ts";
@@ -34,6 +35,8 @@ export interface EditorConfig {
   /** Which diagnostics are shown (DESIGN.md §11); Rust also stops looking. */
   spelling: boolean;
   grammar: boolean;
+  /** The bar over a selection (ADR-0019); it also needs `formatBar` in the options. */
+  formatBar: boolean;
 }
 
 export const DEFAULT_CONFIG: EditorConfig = {
@@ -45,6 +48,7 @@ export const DEFAULT_CONFIG: EditorConfig = {
   livePreview: true,
   spelling: true,
   grammar: true,
+  formatBar: true,
 };
 
 export interface EditorOptions {
@@ -64,6 +68,8 @@ export interface EditorOptions {
   onContextMenu?: (pos: number) => boolean;
   /** Where live preview loads a local image from (Rust checks it against the library). */
   imageAddress?: ImageAddress;
+  /** The contents of the bar over a selection; without one, there is no bar. */
+  formatBar?: FormatBarMount;
   /** The writing surface's accessible name: the document's file name. */
   label?: string;
 }
@@ -134,6 +140,7 @@ export function createEditor(options: EditorOptions): Editor {
     zuhd: new Compartment(),
     smartPunctuation: new Compartment(),
     livePreview: new Compartment(),
+    formatBar: new Compartment(),
     readOnly: new Compartment(),
     label: new Compartment(),
   };
@@ -145,6 +152,7 @@ export function createEditor(options: EditorOptions): Editor {
     smartPunctuation: () => typingAidsConfig.of({ smartPunctuation: config.smartPunctuation }),
     livePreview: () =>
       config.livePreview ? [livePreview(), previewBlocks(), previewTables()] : [],
+    formatBar: () => (config.formatBar && options.formatBar ? formatBar(options.formatBar) : []),
     readOnly: (on: boolean) => [EditorState.readOnly.of(on), EditorView.editable.of(!on)],
     label: () => EditorView.contentAttributes.of({ "aria-label": label }),
   };
@@ -183,6 +191,7 @@ export function createEditor(options: EditorOptions): Editor {
     options.imageAddress ? imageAddress.of(options.imageAddress) : [],
     slots.smartPunctuation.of(configured.smartPunctuation()),
     slots.livePreview.of(configured.livePreview()),
+    slots.formatBar.of(configured.formatBar()),
     slots.basmallah.of(configured.basmallah()),
     slots.typewriter.of(configured.typewriter()),
     slots.zuhd.of(configured.zuhd()),
@@ -223,6 +232,7 @@ export function createEditor(options: EditorOptions): Editor {
       const zuhdChanged = changed("zuhd") || changed("focusGranularity");
       const smartChanged = changed("smartPunctuation");
       const previewChanged = changed("livePreview");
+      const barChanged = changed("formatBar");
       Object.assign(config, patch);
       const effects = [];
       if (basmallahChanged) effects.push(slots.basmallah.reconfigure(configured.basmallah()));
@@ -231,6 +241,7 @@ export function createEditor(options: EditorOptions): Editor {
       if (smartChanged)
         effects.push(slots.smartPunctuation.reconfigure(configured.smartPunctuation()));
       if (previewChanged) effects.push(slots.livePreview.reconfigure(configured.livePreview()));
+      if (barChanged) effects.push(slots.formatBar.reconfigure(configured.formatBar()));
       if (
         options.lint &&
         (config.spelling !== shown.spelling || config.grammar !== shown.grammar)

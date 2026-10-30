@@ -1,5 +1,7 @@
 import { redo, redoDepth, selectAll, undo, undoDepth } from "@codemirror/commands";
 import { findNext, findPrevious, openSearchPanel } from "@codemirror/search";
+import { setBlock, toggleMark, type Block, type Mark } from "../editor/format.ts";
+import { focusFormatBar } from "../editor/formatBar.ts";
 import { openGoToLine } from "../editor/goToLine.ts";
 import { openReplace } from "../editor/search.ts";
 import type { EditorView } from "@codemirror/view";
@@ -34,6 +36,18 @@ export type CommandId =
   | "edit.findNext"
   | "edit.findPrevious"
   | "edit.goToLine"
+  | "format.bold"
+  | "format.italic"
+  | "format.strike"
+  | "format.code"
+  | "format.text"
+  | "format.heading1"
+  | "format.heading2"
+  | "format.heading3"
+  | "format.quote"
+  | "format.bulletList"
+  | "format.numberedList"
+  | "format.focusBar"
   | "editor.toggleTransliteration"
   | "check.suggestions"
   | "check.next"
@@ -61,7 +75,7 @@ export type ToggleId =
   | "check.toggleGrammar"
   | "view.fullscreen";
 
-export type MenuSection = "File" | "Edit" | "View" | "Help";
+export type MenuSection = "File" | "Edit" | "Format" | "View" | "Help";
 
 export interface Command {
   id: CommandId;
@@ -153,6 +167,22 @@ export interface CommandContext {
 
 const withView = (c: CommandContext, f: (view: EditorView) => unknown) => {
   if (c.view) f(c.view);
+};
+
+const editable = (c: CommandContext) => c.view !== null && !c.view.state.readOnly;
+
+const mark = (c: CommandContext, kind: Mark) => {
+  withView(c, (view) => {
+    const spec = toggleMark(view.state, kind);
+    if (spec) view.dispatch(spec);
+  });
+};
+
+const block = (c: CommandContext, kind: Block) => {
+  withView(c, (view) => {
+    const spec = setBlock(view.state, kind);
+    if (spec) view.dispatch(spec);
+  });
 };
 
 const ALL: readonly Command[] = [
@@ -451,6 +481,120 @@ const ALL: readonly Command[] = [
     aliases: ["find anything", "palette", "go to", "shift shift"],
     description: "Files, commands and settings in one place. Or tap Shift twice.",
     run: (c) => c.findAnything(),
+  },
+  {
+    id: "format.bold",
+    label: "Bold",
+    section: "Format",
+    key: "Mod-b",
+    aliases: ["strong", "emphasis"],
+    description: "Marks the selected words as bold, or takes the mark off.",
+    available: editable,
+    run: (c) => mark(c, "bold"),
+  },
+  {
+    id: "format.italic",
+    label: "Italic",
+    section: "Format",
+    key: "Mod-i",
+    aliases: ["emphasis"],
+    description: "Marks the selected words as italic, or takes the mark off.",
+    available: editable,
+    run: (c) => mark(c, "italic"),
+  },
+  {
+    id: "format.strike",
+    label: "Strikethrough",
+    section: "Format",
+    key: "Mod-Shift-x",
+    aliases: ["cross out", "delete"],
+    description: "Strikes through the selected words, or takes the mark off.",
+    available: editable,
+    run: (c) => mark(c, "strike"),
+  },
+  {
+    id: "format.code",
+    label: "Code",
+    section: "Format",
+    key: "Mod-e",
+    aliases: ["monospace", "inline code"],
+    description: "Sets the selected words as code, or takes the mark off.",
+    available: editable,
+    run: (c) => mark(c, "code"),
+  },
+  {
+    id: "format.text",
+    label: "Text",
+    section: "Format",
+    key: "Mod-Alt-0",
+    separatorBefore: true,
+    aliases: ["paragraph", "plain", "body"],
+    description: "Takes the heading, quote or list mark off the line.",
+    available: editable,
+    run: (c) => block(c, "text"),
+  },
+  {
+    id: "format.heading1",
+    label: "Heading 1",
+    section: "Format",
+    key: "Mod-Alt-1",
+    aliases: ["title"],
+    available: editable,
+    run: (c) => block(c, "h1"),
+  },
+  {
+    id: "format.heading2",
+    label: "Heading 2",
+    section: "Format",
+    key: "Mod-Alt-2",
+    available: editable,
+    run: (c) => block(c, "h2"),
+  },
+  {
+    id: "format.heading3",
+    label: "Heading 3",
+    section: "Format",
+    key: "Mod-Alt-3",
+    available: editable,
+    run: (c) => block(c, "h3"),
+  },
+  {
+    id: "format.quote",
+    label: "Quote",
+    section: "Format",
+    key: "Mod-Shift-.",
+    aliases: ["blockquote"],
+    available: editable,
+    run: (c) => block(c, "quote"),
+  },
+  {
+    id: "format.bulletList",
+    label: "Bulleted list",
+    section: "Format",
+    key: "Mod-Shift-8",
+    aliases: ["unordered"],
+    available: editable,
+    run: (c) => block(c, "bullet"),
+  },
+  {
+    id: "format.numberedList",
+    label: "Numbered list",
+    section: "Format",
+    key: "Mod-Shift-7",
+    aliases: ["ordered"],
+    available: editable,
+    run: (c) => block(c, "numbered"),
+  },
+  {
+    id: "format.focusBar",
+    label: "Go to the formatting bar",
+    section: "Format",
+    key: "F6",
+    separatorBefore: true,
+    aliases: ["toolbar", "selection"],
+    description: "Moves from the selected text into the bar above it.",
+    available: editable,
+    run: (c) => withView(c, focusFormatBar),
   },
   {
     id: "editor.toggleFocus",
