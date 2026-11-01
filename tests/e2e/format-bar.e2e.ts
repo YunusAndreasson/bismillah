@@ -1,4 +1,4 @@
-import { chmodSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { browser, expect } from "@wdio/globals";
 import { setViewport, settle, waitForApp } from "../app.ts";
 import { Folder, open } from "./files.ts";
@@ -180,9 +180,10 @@ describe("the formatting bar", () => {
   });
 
   it("stays away from a read-only file", async () => {
-    const path = folder.file("locked.md", "A plain word here.\n");
-    chmodSync(path, 0o444);
+    // Not UTF-8, which is what opens read-only; file permissions show when saving.
+    const path = folder.file("latin1.md", Buffer.from("A plain word caf\xe9 here.\n", "latin1"));
     await open(path);
+    await browser.waitUntil(() => browser.execute(() => window.__bismillah?.view.state.readOnly));
     await browser.execute(() => {
       window.__bismillah?.view.dispatch({
         selection: { anchor: 2, head: 7 },

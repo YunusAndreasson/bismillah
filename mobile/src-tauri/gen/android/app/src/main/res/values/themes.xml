@@ -1,0 +1,7 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.bismillah_mobile" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- The page's surface-editor (src/styles/tokens.css), behind the system bars. -->
+        <item name="android:windowBackground">#f7f6f2</item>
+    </style>
+</resources>

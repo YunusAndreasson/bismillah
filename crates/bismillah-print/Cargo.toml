@@ -1,0 +1,30 @@
+[package]
+name = "bismillah-print"
+version.workspace = true
+description = "Print to Phone (ADR-0021): a document as fountain-coded QR frames, free of Tauri"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+# BC-UR fountain frames: any frame helps, so a camera's misses only cost time.
+ur = "0.5.2"
+# Reed-Solomon and masking for each frame; no image or SVG output.
+qrcode = { version = "0.14.1", default-features = false }
+minicbor = { version = "2", features = ["alloc"] }
+flate2 = "1"
+sha2 = "0.10"
+thiserror = "2"
+# Sealing (ADR-0023): RFC 9180 public-key encryption, and a key text whose checksum catches
+# a typing slip. `age` would bring 120 crates, with a translation stack, to do the same.
+hpke = { version = "0.13", default-features = false, features = ["alloc", "x25519"] }
+bech32 = "0.11"
+rand_core = { version = "0.9", default-features = false, features = ["os_rng"] }
+
+[dev-dependencies]
+# Reads the frames back as drawn, the way a camera has to.
+rqrr = { version = "0.11", default-features = false }

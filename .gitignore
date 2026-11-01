@@ -51,3 +51,4 @@ os/mkosi/mkosi.tools/
 os/mkosi/mkosi.tools.manifest
 __pycache__/
 /os/sticks.toml
+mobile/dist-shots/

@@ -1,5 +1,5 @@
 [workspace]
-members = ["src-tauri", "crates/bismillah-lint", "crates/bismillah-appliance", "crates/bismillah-install"]
+members = ["src-tauri", "crates/bismillah-lint", "crates/bismillah-appliance", "crates/bismillah-install", "crates/bismillah-print"]
 resolver = "3"
 
 [workspace.package]

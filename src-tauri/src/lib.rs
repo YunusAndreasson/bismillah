@@ -262,6 +262,20 @@ pub fn run() {
             app::test_fault,
             app::test_dialog,
             app::test_library,
+            #[cfg(debug_assertions)]
+            app::print_sizes,
+            #[cfg(debug_assertions)]
+            app::print_start,
+            #[cfg(debug_assertions)]
+            app::print_library_start,
+            #[cfg(debug_assertions)]
+            app::print_go_to,
+            #[cfg(debug_assertions)]
+            app::print_frame,
+            #[cfg(debug_assertions)]
+            app::print_stop,
+            #[cfg(debug_assertions)]
+            app::print_pair,
             menu_reveal,
             menu_hide,
             menu_state,

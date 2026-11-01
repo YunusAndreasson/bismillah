@@ -11,7 +11,15 @@ import { WordCounter } from "../editor/wordCount.ts";
 import FormatBar from "../ui/FormatBar.svelte";
 import { farewell, farewellThen } from "../appliance/farewell.svelte.ts";
 import { batteryLevel, clockText, correctedNow } from "../appliance/power.ts";
-import { runCommand, useStickCommands, type CommandContext, type CommandId } from "./commands.ts";
+import {
+  offerPreviewCommands,
+  runCommand,
+  useStickCommands,
+  type CommandContext,
+  type CommandId,
+} from "./commands.ts";
+import { PrintRun, printIO, type PrintSubject } from "./printer.svelte.ts";
+import { countWords } from "../editor/wordCount.ts";
 import { copy, nameError, when } from "./copy.ts";
 import * as ipc from "./ipc.ts";
 import {
@@ -98,6 +106,8 @@ export class Workspace {
   transliteration = $state(false);
   fullscreen = $state(false);
   aboutOpen = $state(false);
+  /** Print to Phone, open (ADR-0021). */
+  printing = $state.raw<PrintRun | null>(null);
   /** Where bismillah keeps its files and its version (app_info), for Settings and About. */
   info = $state<{ version: string; folders: { config: string; data: string } }>({
     version: "",
@@ -341,6 +351,7 @@ export class Workspace {
     // First: on the stick the command registry changes before anything reads it.
     const info = await ipc.appInfo();
     if (info.stick) useStickCommands();
+    if (info.print_preview) offerPreviewCommands();
     this.stick = info.stick;
     await Promise.all([
       settings.load(),
@@ -514,6 +525,7 @@ export class Workspace {
     this.locked = true;
     this.aboutOpen = false;
     this.panel = null;
+    this.closePrint();
     // Two frames: the lock view has been drawn (docs/spikes/os-suspend-lock.md).
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
@@ -522,6 +534,67 @@ export class Workspace {
       }),
     );
     void this.session?.flush();
+  }
+
+  /** Shows the selection, or else the whole document, as a code (ADR-0021). What the
+   * writer sees is what prints, saved or not; nothing about the document changes. */
+  openPrint(): void {
+    const view = this.editor?.view;
+    const session = this.session;
+    if (!view || !session) return;
+    const { from, to, empty } = view.state.selection.main;
+    const text = empty ? view.state.doc.toString() : view.state.sliceDoc(from, to);
+    const subject: PrintSubject = {
+      id: session.id,
+      name: session.name,
+      text,
+      selection: !empty,
+      words: countWords(text),
+    };
+    this.printing = new PrintRun(subject, printIO);
+  }
+
+  /** Takes the phone's key by typing, the only way into the stick (ADR-0023). A slip is
+   * caught here, with the field still holding what was typed. */
+  pairPhone(): void {
+    const t = copy.pair;
+    this.prompt = {
+      title: t.title,
+      value: "",
+      select: 0,
+      hint: t.hint,
+      action: t.action,
+      returnTo: "editor",
+      submit: async (key) => {
+        try {
+          this.#info("paired", t.done(await ipc.printPair(key)));
+          return null;
+        } catch (error) {
+          return error === "not_a_key" ? t.notAKey : t.notSaved;
+        }
+      },
+    };
+  }
+
+  /** Shows every text in the library, as the disk holds it (ADR-0021). So the open
+   * document's edits are saved first, and the dialog says if they couldn't be. */
+  async openPrintLibrary(): Promise<void> {
+    const saved = (await this.session?.flush()) ?? true;
+    const subject: PrintSubject = {
+      id: 0,
+      name: this.library.name ?? "",
+      text: "",
+      selection: false,
+      words: 0,
+      library: { unsaved: !saved },
+    };
+    this.printing = new PrintRun(subject, printIO);
+  }
+
+  /** Stops the frames and lets go of the text. */
+  closePrint(): void {
+    this.printing?.close();
+    this.printing = null;
   }
 
   /** The passphrase was verified: back to the text. */
@@ -552,6 +625,7 @@ export class Workspace {
     this.panel = null;
     this.aboutOpen = false;
     this.prompt = null;
+    this.closePrint();
     await farewellThen(action, saved, () => {
       if (this.session && !this.session.canLeave)
         return Promise.reject(new Error("Unsaved text has no durable copy"));
@@ -1221,6 +1295,9 @@ export class Workspace {
       save: () => void this.saveNow(),
       openSettings: () => this.#togglePanel("settings"),
       openAbout: () => (this.aboutOpen = true),
+      openPrint: () => this.openPrint(),
+      openPrintLibrary: () => this.openPrintLibrary(),
+      pairPhone: () => this.pairPhone(),
       openGuide: () => void this.#openWith(ipc.openGuide),
       quit: () => void getCurrentWindow().close(),
       lock: () => this.lock(),

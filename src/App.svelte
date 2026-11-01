@@ -12,6 +12,7 @@
   import { workspace, type NamePrompt as Prompt } from "./core/workspace.svelte.ts";
   import { remeasure } from "./editor/typography.ts";
   import AboutDialog from "./ui/AboutDialog.svelte";
+  import PrintDialog from "./ui/PrintDialog.svelte";
   import NamePrompt from "./ui/NamePrompt.svelte";
   import Notices from "./ui/Notices.svelte";
   import Panel from "./ui/Panel.svelte";
@@ -202,6 +203,8 @@
   version={workspace.info.version}
   stick={workspace.stick}
 />
+
+<PrintDialog run={workspace.printing} closed={() => workspace.closePrint()} />
 
 <Panel
   kind={workspace.panel}

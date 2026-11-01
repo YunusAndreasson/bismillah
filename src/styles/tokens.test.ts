@@ -134,6 +134,12 @@ describe.each(Object.entries(THEMES))("%s theme contrast", (_name, token) => {
     );
   });
 
+  it("draws Print to Phone's code black on white, whatever the theme", () => {
+    expect(primitives.get("print-paper")).toBe("#ffffff");
+    expect(primitives.get("print-ink")).toBe("#000000");
+    expect(css.match(/--print-(paper|ink):/g)).toHaveLength(2);
+  });
+
   it("gives prose more than 7:1", () => {
     expect(contrast(token("text-primary"), token("surface-editor"))).toBeGreaterThan(7);
   });

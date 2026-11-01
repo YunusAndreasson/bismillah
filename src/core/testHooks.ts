@@ -9,7 +9,8 @@ import { visibleDiagnostics } from "../editor/diagnostics.ts";
 import { lintIdle } from "../editor/linter.ts";
 import { transliterationOn } from "../editor/typingAids.ts";
 import { geometry, type Geometry } from "./testGeometry.ts";
-import { commandLog, runCommand, type CommandId } from "./commands.ts";
+import { commandLog, offerPreviewCommands, runCommand, type CommandId } from "./commands.ts";
+import { holdPrints } from "./printer.svelte.ts";
 import {
   appInfo,
   menuState,
@@ -62,6 +63,18 @@ export interface TestHooks {
   newFile(): Promise<void>;
   /** Runs a command as the menu would. */
   run(id: CommandId): void;
+  /** Offers the commands releases don't yet have (Print to phone), and holds a print on
+   * its first frame as reduced motion does, for the screenshots. */
+  offerPrint(hold?: boolean): void;
+  /** The print under way; null when none is open. */
+  printProbe(): {
+    status: string;
+    shown: number;
+    density: number | null;
+    still: boolean;
+    texts: number;
+    place: { index: number; count: number; name: string; round: number } | null;
+  } | null;
   /** The open document's save state and revisions. */
   saveState(): { state: SaveState; revision: number; savedRevision: number } | null;
   /** Saves now and resolves true once every edit is on disk. */
@@ -242,6 +255,23 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
     openLibraryFile: (path) => workspace.openFromLibrary(path),
     newFile: () => workspace.newFile(),
     run: (id) => void runCommand(id, "ui", workspace.context),
+    offerPrint(hold = false) {
+      offerPreviewCommands();
+      holdPrints(hold);
+    },
+    printProbe() {
+      const run = workspace.printing;
+      return run
+        ? {
+            status: run.status,
+            shown: run.shown,
+            density: run.density,
+            still: run.job?.still ?? false,
+            texts: run.job?.texts ?? 0,
+            place: run.frame?.place ?? null,
+          }
+        : null;
+    },
     saveState() {
       const s = workspace.session;
       return s ? { state: s.state, revision: s.revision, savedRevision: s.savedRevision } : null;

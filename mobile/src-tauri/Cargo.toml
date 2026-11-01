@@ -1,0 +1,27 @@
+[package]
+name = "bismillah-mobile"
+version = "1.0.0"
+description = "The bismillah phone app"
+edition = "2024"
+license = "GPL-3.0-or-later"
+rust-version = "1.90"
+publish = false
+
+# Its own workspace and lockfile: the phone's dependencies never enter the root Cargo.lock,
+# which the stick's offline build vendors (ADR-0022).
+[workspace]
+
+[lib]
+name = "bismillah_mobile_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+# The reading side of Print to Phone (ADR-0021).
+bismillah-print = { path = "../../crates/bismillah-print" }

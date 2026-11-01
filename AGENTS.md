@@ -4,6 +4,8 @@
 
 **Status:** Phase 6 (personal 1.0) was built on 2026-10-19 and waits for the author's acceptance check ([PLAN.md](PLAN.md)): version 1.0.0, the polished local package (`packaging/check.sh`), the guide inside the app (Help › Guide, `F1`), the bāʾ icon, the accessibility audit (`pnpm a11y`), the measured performance budgets (`pnpm perf`), and the 1.0 audit (docs/audits/2026-10-19-personal-1.0.md). Phases 4 and 5 were built the same day and the author moved on; Phases 2 and 3 were accepted on 2026-10-18; Phase 1 was built that day and the author moved on; the earlier phases' manual checks are still listed in PLAN.md. Phase 0's spikes were accepted on 2026-10-18 ([docs/spikes/](docs/spikes/README.md)). Keep this file accurate as commands and layout change. bismillah is private and runs only on the author's Linux machine for now. The repo is a private GitHub repo (YunusAndreasson/bismillah), and the app has no hosted CI, so `pnpm verify` is its gate. The website that promotes the app lives in `web/`, with its own guide ([web/AGENTS.md](web/AGENTS.md)), tools, CI and deploy.
 
+**The phone app** (ADR-0022) reads the stick's animated QR codes: [mobile/PLAN.md](mobile/PLAN.md) says what's next, under *Where we are*. Read it first when asked to continue that work.
+
 **Working mode:** build each phase end to end (code, tests, specimen screenshots, docs) and stop at the phase's acceptance check for the author's review. Within a phase, proceed without asking about decisions already recorded in DESIGN.md, ARCHITECTURE.md or an ADR.
 
 ## Where things are decided
@@ -28,7 +30,7 @@ These five rules protect the people who write in bismillah. Each one is a promis
 
 ## Standing decisions
 
-- **Desktop only, never web or mobile** (ADR-0009). Write for the Tauri webviews and use Tauri APIs directly: persistence through Rust, no browser fallbacks or `isTauri()` guards, no responsive mobile layouts or touch handling. Follow desktop conventions (native menu, native dialogs, file opening, window state). Mobile, simulator and browser-automation tooling doesn't apply here; run the real app with `pnpm tauri dev` and test it with `tauri-driver`.
+- **The desktop app and the stick are desktop only, never web or mobile** (ADR-0009). The phone app is a separate shell in `mobile/` that shares `src/editor`, the styles and the fonts; phone code stays out of `src-tauri` and the rest of `src/` (ADR-0022). Write for the Tauri webviews and use Tauri APIs directly: persistence through Rust, no browser fallbacks or `isTauri()` guards, no responsive mobile layouts or touch handling. Follow desktop conventions (native menu, native dialogs, file opening, window state). Mobile, simulator and browser-automation tooling doesn't apply here; run the real app with `pnpm tauri dev` and test it with `tauri-driver`.
 - **No generative AI** (ADR-0004, author's decision 2026-10-18): nothing may write, rewrite or summarise the writer's text or do their thinking. Grammar checking smarter than a spell checker, including small local models, is fine when it only flags and suggests and the writer accepts each change.
 - **Extensibility is declarative themes only.** Loading user JavaScript would give it the app's full authority, so executable plugins wait for an ADR on isolation (ADR-0005).
 - **Live preview never renders raw HTML** (it shows as text), so a document can never run script (ADR-0012).
@@ -65,6 +67,11 @@ pnpm os:shots                    # the stick's real screens from a VM (2880×180
 pnpm os:installer && pnpm os:publish  # bismillah-install for each OS (--native: this machine's), then the downloadable bundle in os/out/publish (ADR-0017)
 os/scripts/trace.sh              # re-record the stick's allowlist (os/mkosi/allowlist.txt) from a traced VM run
 cd packaging/arch && makepkg -si # build the committed HEAD and install it on this machine
+pnpm mobile:dev                  # the phone app: debug build, installed and opened on the emulator (mobile/PLAN.md)
+pnpm mobile:show                 # the installed phone app, on an emulator with a window
+pnpm mobile:build                # release APK, refused if it declares INTERNET
+pnpm mobile:shot <dir> <pages>   # the phone app's screens in both themes
+pnpm mobile:test [shots-dir]     # real frames through the debug app on the emulator, compared byte for byte
 ```
 
 TypeScript's strict compiler options and ESLint's type-aware checks cover the app,
@@ -153,8 +160,8 @@ file-age, legacy-entry and pruning regressions live in `src-tauri/src/recovery.r
 The formatting bar (ADR-0019) writes only Markdown, checked with the app's own parser
 before each mark: `src/editor/format.test.ts`, `src/editor/formatBar.test.ts`,
 `tests/e2e/format-bar.e2e.ts` and `tests/visual/format-bar.visual.ts`.
-The current gate covers 549 frontend and 212 Rust tests, all 33
-real-app suites and 21 visual checks.
+The current gate covers 584 frontend and 257 Rust tests, all 34
+real-app suites and 25 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.
 - File-handling changes include a failure-path test (disk full, read-only, conflict, killed process).

@@ -29,6 +29,7 @@
     "scripts/**/*.ts",
     "os/scripts/**/*.ts",
     "os/tests/**/*.ts",
-    "vite.config.ts"
+    "vite.config.ts",
+    "mobile/vite.config.ts"
   ]
 }

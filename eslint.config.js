@@ -11,6 +11,8 @@ export default defineConfig(
       "dist/",
       "target/",
       "src-tauri/",
+      "mobile/src-tauri/",
+      "mobile/dist/",
       "spikes/",
       "os/spikes/",
       "os/out/",

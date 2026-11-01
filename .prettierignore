@@ -1,6 +1,7 @@
 .claude/
 dictionaries/
 dist/
+mobile/src-tauri/
 fonts/
 *.md
 node_modules/

@@ -12,6 +12,9 @@ import type { EditorView } from "@codemirror/view";
  */
 
 export type CommandId =
+  | "file.printToPhone"
+  | "file.printLibrary"
+  | "file.pairPhone"
   | "file.new"
   | "library.newFolder"
   | "file.open"
@@ -111,6 +114,9 @@ export interface Command {
   /** Only on the desktop, or only on the bismillah stick (os/PLAN.md, OS-3); both
    * when absent. The other place's commands are left out of the registry at start. */
   place?: "desktop" | "stick";
+  /** Not offered yet: left out of the registry unless `offerPreviewCommands()` is called
+   * (Print to Phone, until its phone app exists: ADR-0021). */
+  preview?: boolean;
   run(context: CommandContext, source: CommandSource): void;
 }
 
@@ -125,6 +131,12 @@ export interface CommandContext {
   save(): void;
   openSettings(): void;
   openAbout(): void;
+  /** Shows the selection, or else the whole document, as a code a phone can read. */
+  openPrint(): void;
+  /** Shows every text in the library as codes, one after another. */
+  openPrintLibrary(): void | Promise<void>;
+  /** Asks for the key the phone shows, so that prints are sealed to it (ADR-0023). */
+  pairPhone(): void;
   /** Opens the guide as a sample document (Help › Guide). */
   openGuide(): void;
   quit(): void;
@@ -293,6 +305,36 @@ const ALL: readonly Command[] = [
     separatorBefore: true,
     place: "desktop",
     run: (c) => c.quit(),
+  },
+  {
+    id: "file.printToPhone",
+    label: "Print to phone…",
+    section: "File",
+    separatorBefore: true,
+    preview: true,
+    aliases: ["print", "qr", "phone", "export", "send", "share", "mobile", "copy to phone"],
+    description: "Shows your text as a code your phone can read. Nothing uses a network.",
+    available: (c) => c.view !== null && c.view.state.doc.length > 0,
+    run: (c) => c.openPrint(),
+  },
+  {
+    id: "file.printLibrary",
+    label: "Print whole library to phone…",
+    section: "File",
+    preview: true,
+    aliases: ["print", "qr", "phone", "export", "backup", "all", "everything", "library"],
+    description: "Shows every text in the library as codes, for your phone to keep a copy.",
+    available: (c) => c.hasLibrary(),
+    run: (c) => void c.openPrintLibrary(),
+  },
+  {
+    id: "file.pairPhone",
+    label: "Pair with phone…",
+    section: "File",
+    preview: true,
+    aliases: ["seal", "key", "encrypt", "phone", "qr", "print"],
+    description: "Seals what you print so that only your phone can read it.",
+    run: (c) => c.pairPhone(),
   },
   // On the stick, quitting is powering off (os/PLAN.md, OS-3).
   {
@@ -673,14 +715,29 @@ const ALL: readonly Command[] = [
   },
 ];
 
+let place: "desktop" | "stick" = "desktop";
+let previews = false;
+const offered = () =>
+  ALL.filter(
+    (c) => c.place !== (place === "stick" ? "desktop" : "stick") && (previews || !c.preview),
+  );
+
 /** The commands of this place: the desktop's until `useStickCommands()`. */
-export const COMMANDS: readonly Command[] = ALL.filter((c) => c.place !== "stick");
+export const COMMANDS: readonly Command[] = offered();
 
 /** On the bismillah stick: its power and lock commands instead of the desktop's
  * Quit, Open…, Open folder… and Fullscreen. Called once,
  * before anything reads the registry. */
 export function useStickCommands(): void {
-  (COMMANDS as Command[]).splice(0, COMMANDS.length, ...ALL.filter((c) => c.place !== "desktop"));
+  place = "stick";
+  (COMMANDS as Command[]).splice(0, COMMANDS.length, ...offered());
+}
+
+/** Debug builds, and the test harness when it asks: the commands not yet offered to
+ * writers. Called before anything reads the registry, except from a test. */
+export function offerPreviewCommands(): void {
+  previews = true;
+  (COMMANDS as Command[]).splice(0, COMMANDS.length, ...offered());
 }
 
 /** Every command, in both places (for the registry's own tests). */

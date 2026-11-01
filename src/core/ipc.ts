@@ -136,6 +136,8 @@ export interface AppInfo {
   folders: { config: string; data: string };
   /** On the bismillah stick: what it was built from. Null on the desktop. */
   stick: StickInfo | null;
+  /** Print to Phone is offered: debug builds, until its phone app exists (ADR-0021). */
+  print_preview: boolean;
 }
 
 export interface StickInfo {
@@ -150,6 +152,49 @@ export function isError<E extends { kind: string }>(value: unknown): value is E 
 }
 
 export const appInfo = () => invoke<AppInfo>("app_info");
+
+/** Print to Phone (ADR-0021; debug builds only). */
+export interface PrintSizes {
+  /** Modules a side of each QR size, with its quiet zone, densest first. */
+  sides: number[];
+  frames_per_second: number;
+}
+export interface PrintJob {
+  /** One still frame holds it all. */
+  still: boolean;
+  seconds: number;
+  /** How many texts a library run holds; 0 for one text. */
+  texts: number;
+  /** What a library run leaves out, named because it's a backup. */
+  left_out: { name: string; why: "empty" | "unreadable" | "too_long" }[];
+  /** The library is larger than a listing reaches. */
+  truncated: boolean;
+  /** The check words of the key this is sealed to, or null if it isn't sealed. */
+  sealed_words: string | null;
+}
+export interface PrintFrame {
+  size: number;
+  quiet: number;
+  /** `size * size` characters, row by row: `1` is dark. */
+  modules: string;
+  /** Which text of a library run this frame belongs to. */
+  place: { index: number; count: number; name: string; round: number } | null;
+}
+export const printSizes = () => invoke<PrintSizes>("print_sizes");
+export type PairError = "not_a_key" | "not_saved";
+/** Keeps the phone's key and resolves with its check words. */
+export const printPair = (key: string) => invoke<string>("print_pair", { key });
+export const printStart = (id: number, text: string, selection: boolean, density: number) =>
+  invoke<PrintJob>("print_start", { id, text, selection, density });
+export const printLibraryStart = (density: number, from: number) =>
+  invoke<PrintJob>("print_library_start", { density, from });
+export const printGoTo = async (index: number) => {
+  await invoke("print_go_to", { index });
+};
+export const printFrame = () => invoke<PrintFrame | null>("print_frame");
+export const printStop = async () => {
+  await invoke("print_stop");
+};
 export const startup = () => invoke<Startup>("startup");
 export const openDialog = () => invoke<OpenedDocument | null>("doc_open_dialog");
 /** Help › Guide: the bundled guide, as a sample that is never saved. */

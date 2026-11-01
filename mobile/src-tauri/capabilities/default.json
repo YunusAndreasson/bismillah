@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "The phone app's own commands need no permission. These let the back gesture close the sheet.",
+  "windows": ["main"],
+  "permissions": ["core:event:default", "core:app:allow-register-listener", "core:app:allow-remove-listener"]
+}

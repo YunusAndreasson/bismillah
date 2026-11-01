@@ -45,6 +45,11 @@
 
   /* Stacking: the docked library sits over the writing area's margin; menus, the
      library overlay and dialogs sit over everything. */
+  /* Print to Phone's code (ADR-0021): black on white in every theme, or a camera can't
+     read it. Not semantic tokens, so a colour theme can't change them. */
+  --print-paper: #ffffff;
+  --print-ink: #000000;
+
   --layer-dock: 1;
   --layer-popover: 10;
 }
@@ -151,6 +156,22 @@
   --border-control: #ffffff;
   --diagnostic-spelling: #ff8f87;
   --diagnostic-grammar: #f0cc70;
+}
+
+/* Overlays (DESIGN.md §9.2): what lifts a palette or a dialog off the page, worked out
+   from whichever theme is applied. A shadow is dark in every theme: text-primary would
+   glow round a dark one. */
+:root {
+  --surface-selected: color-mix(in srgb, var(--text-primary) 9%, var(--surface-editor));
+  --surface-match: color-mix(in srgb, var(--text-primary) 16%, transparent);
+  --border-subtle: color-mix(in srgb, var(--text-primary) 16%, var(--surface-editor));
+  --scrim: color-mix(in srgb, var(--surface-editor) 80%, transparent);
+  --shadow-overlay: 0 16px 48px light-dark(rgb(0 0 0 / 16%), rgb(0 0 0 / 60%));
+  --shadow-popover: 0 6px 20px light-dark(rgb(0 0 0 / 14%), rgb(0 0 0 / 50%));
+}
+:root[data-contrast="high"] {
+  --surface-selected: var(--surface-panel);
+  --border-subtle: var(--border-control);
 }
 
 /* Faint text: the status line's routine parts and the Basmallah wordmark (DESIGN.md

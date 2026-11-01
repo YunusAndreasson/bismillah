@@ -411,6 +411,55 @@ export const copy = {
     /** Follows a theme file's name, shown in quotes before it. */
     inFolder: "in the themes folder:",
   },
+  pair: {
+    title: "Pair with phone",
+    key: "Key",
+    hint: "On your phone, open Search and choose Pair with a stick, then type the key it shows. Spaces and capitals don't matter.",
+    action: "Pair",
+    notAKey: "That isn't the whole key, or a character is wrong. Check it against your phone.",
+    notSaved: "The key couldn't be saved. Prints stay as they were.",
+    done: (words: string) =>
+      `Paired. Your phone should show the same four words: ${words}. Prints are now sealed so that only it can read them.`,
+  },
+  print: {
+    title: "Print to phone",
+    whole: "whole document",
+    selection: "selection",
+    words: (n: number) => `${n.toLocaleString("en")} ${n === 1 ? "word" : "words"}`,
+    instruction: "Open bismillah Reader on your phone and point it at the code.",
+    time: (seconds: number) => {
+      if (seconds < 60) return `About ${Math.max(5, Math.ceil(seconds / 5) * 5)} seconds.`;
+      const minutes = Math.ceil(seconds / 60);
+      return minutes === 1 ? "About a minute." : `About ${minutes} minutes.`;
+    },
+    until: "Your phone will say when it has the text.",
+    library: "whole library",
+    texts: (n: number) => `${n.toLocaleString("en")} ${n === 1 ? "text" : "texts"}`,
+    round: "For the first round.",
+    untilLibrary:
+      "Your phone counts the texts it has and says which it still lacks. The codes go round again, more slowly, until you press Done, and you can stop and come back: it keeps what it has.",
+    showing: "Now showing text",
+    goTo: "Go to text number",
+    of: (n: number) => `of ${n.toLocaleString("en")}`,
+    unsaved: "The open document's latest edits couldn't be saved, so they aren't in this print.",
+    leftOutTitle: "Left out",
+    leftOut: { empty: "empty", unreadable: "can't be read", too_long: "too long" },
+    truncated: "The library is too large to list in full, so some texts may be missing here.",
+    restedLibrary: "Paused after going round several times, so the computer stays quiet.",
+    nothing: "The library holds nothing to print.",
+    code: (name: string) => `A code holding ${name}, for your phone to read`,
+    sealed: (words: string) => `Sealed to your phone: ${words}.`,
+    unsealed:
+      "Not sealed. Anyone who films this code can read it. To seal it, use Pair with phone first.",
+    pause: "Pause",
+    resume: "Resume",
+    start: "Start",
+    done: "Done",
+    paused: "Paused.",
+    rested: "Paused after 5 minutes, so the computer stays quiet.",
+    tooSmall: "Make the window larger to show the code.",
+    failed: "The code couldn't be made. Your document hasn't changed.",
+  },
   about: {
     title: "About bismillah",
     tagline: "A calm Markdown editor. Just you and your words.",

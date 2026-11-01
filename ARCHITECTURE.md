@@ -51,6 +51,10 @@ A dependency is added only when it replaces difficult correctness, accessibility
 | `zeroize` (the stick only, `crates/bismillah-appliance`) | Clears passphrases from memory once the helper or the app has used them (os/PLAN.md, OS-2) |
 | `dbus` (the stick's helper only; already in Tauri's tree, through tao) | logind's sleep signal and its delay inhibitor, so the helper can lock the app before the system sleeps (os/PLAN.md, OS-3). D-Bus over the system bus's Unix socket |
 | `zxcvbn` (the stick only) | Rates a passphrase at setup, so the stick refuses a guessable one; strength estimation is a hard problem we would otherwise get wrong. The six-word suggestions come from the EFF large word list (CC BY 3.0 US), bundled in the crate |
+| `ur` (`crates/bismillah-print`) | Print to Phone's fountain code (ADR-0021): any frame helps, so a camera's misses cost only time. The format is docs/print-format.md |
+| `qrcode` (`crates/bismillah-print`) | Reed-Solomon and masking for each frame, with no image or SVG output |
+| `minicbor`, `flate2`, `sha2` (`crates/bismillah-print`) | The print's envelope, its compression and the digest behind *Exact* |
+| `hpke`, `bech32`, `rand_core` (`crates/bismillah-print`) | Sealing a print to the phone's key (ADR-0023), a typed key whose checksum catches a slip, and the system's randomness for each seal |
 
 **Development only** (never shipped): WebdriverIO + `tauri-driver` (real-app e2e), `pixelmatch` + `pngjs` (screenshot comparison), Vitest + jsdom, ESLint + Prettier, svelte-check. Spike and font tooling run through `uv`: fontTools (font build), `uharfbuzz` (rendering reference, and the pre-shaped Basmallah outlines in `src/editor/basmallahInk.ts`), `python-xlib` (raw X input and clipboard).
 

@@ -17,7 +17,7 @@ Short records of decisions with lasting consequences. Each one says what was dec
 | [0006](0006-file-safety.md) | File-safety contract (amanah) | Accepted |
 | [0007](0007-typography-foundation.md) | Initial font set and writing profiles | Accepted |
 | [0008](0008-basmallah-opening.md) | Basmallah as a presentation element | Accepted |
-| [0009](0009-desktop-only.md) | Desktop only | Accepted |
+| [0009](0009-desktop-only.md) | Desktop only | Accepted; mobile sentence superseded by 0022 |
 | [0010](0010-typing-aids.md) | Typing aids: smart punctuation and transliteration mode | Accepted |
 | [0011](0011-arabic-mark-rendering.md) | Arabic mark rendering in WebKitGTK | Accepted |
 | [0012](0012-live-preview.md) | Live preview: Markdown shows in the caret's paragraph | Accepted; Copy as rich text superseded by 0015 |
@@ -28,6 +28,9 @@ Short records of decisions with lasting consequences. Each one says what was dec
 | [0017](0017-published-stick.md) | A published stick image, and one command that installs or updates a stick | Accepted; hosting pending |
 | [0018](0018-one-palette.md) | Search: one palette for files, commands and settings | Accepted |
 | [0019](0019-formatting-bar.md) | A formatting bar over the selection | Accepted |
+| [0021](0021-print-to-phone.md) | Print to Phone: the stick's only way out | Accepted |
+| [0022](0022-phone-app.md) | A phone app on Tauri | Accepted |
+| [0023](0023-sealed-prints.md) | Sealed prints | Proposed |
 
 ## Template
 

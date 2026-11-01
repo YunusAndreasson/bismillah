@@ -879,16 +879,19 @@ quiet-host timing rerun remain pending; no performance baseline was changed.
 ## Later (not scheduled; each needs its own short interview first)
 
 - **Animated QR export to the author's phone.** Fountain-coded frames (BC-UR: the `ur` crate for fountain encoding, `qrcode` for frames), from a *Show as QR* command in the Edit menu (`src/core/commands.ts`, `workspace.svelte.ts`). It is one-way and optical, so the offline promise holds. Expected throughput is about 1–3 KB/s; a 50 KB chapter, compressed, takes 10–30 s. A receiver app on the phone decodes and saves Markdown. Stock camera apps can't decode animated QR. Its interview: which phone and OS, whether an existing BC-UR scanner is acceptable, and an integrity check (a hash shown on both sides).
-- **Laptop install** (dedicated or alongside another OS: undecided). The same partitions written to the internal disk by an explicit *Install* action that never runs by itself. TPM2+PIN and the author's own Secure Boot keys become possible on that one machine. Data moves from the stick by copying the LUKS partition.
+- **Laptop install** (dedicated or alongside another OS: undecided). The same partitions written to the internal disk by an explicit *Install* action that never runs by itself. TPM2+PIN and the author's own Secure Boot keys become possible on that one machine. It starts empty: no texts are copied from the stick, because QR is the only way out (*Out of scope*).
 - **Our own WebKitGTK build** (decided; scheduled after the stick's 1.0). Debian's source package rebuilt with GStreamer, WebRTC, enchant, libsecret, geolocation and media disabled and a trimmed ICU data set, and carrying the Arabic-mark patch from ADR-0011, so that the desktop app gains from it too. Its interview: build time and machine, how WebKit security releases are tracked, and whether the Arch desktop package uses the same patch set.
 - **Screen-reader flavour:** Orca, espeak-ng and audio as an optional image profile (about 100 MB, plus boot cost), restoring the app's AT-SPI promise on the stick.
-- **Encrypted backup to a second stick** (allow-listed by the helper), and USBGuard-style rules for other USB devices.
+- **USBGuard-style rules** for other USB devices.
 - **Stronger suspend:** `cryptsetup luksSuspend` so the key leaves RAM while asleep. This needs the unlock path to run from RAM.
 - **Tamper protection** (outside today's threat model): a signed UKI with the author's own keys, enrolled on the author's laptop only.
 
 ## Out of scope (permanently)
 
 - Networking of any kind (Wi-Fi, Ethernet, Bluetooth, USB tethering), update servers, telemetry.
+- Reading QR codes, or any other use of the camera (the author's decision, 2026-10-31). QR is output only: the stick shows codes and never scans them, so the image keeps no camera drivers.
+- Any way out for text other than printing through the QR code (the author's decision, 2026-10-31): no backup or courier stick, no USB gadget modes, no paper printers. The stick's protection against loss is printing the whole library to the phone (mobile/PLAN.md, M3).
+- Any way in for text other than typing it on the stick (the author's decision, 2026-10-31): no import from a second stick, and edits made on the phone never come back except by retyping.
 - A general desktop, terminal, file manager, browser, or any second application.
 - Asking the writer to change the host's firmware settings (Secure Boot off, key enrolment) for the stick.
 - Writing to the host's disks.

@@ -8,6 +8,10 @@
 
 mod library_commands;
 pub use library_commands::*;
+#[cfg(debug_assertions)]
+mod print_commands;
+#[cfg(debug_assertions)]
+pub use print_commands::*;
 
 use serde::Serialize;
 use serde_json::{Map, Value};
@@ -320,6 +324,9 @@ pub struct AppInfo {
     folders: Folders,
     /// On the bismillah stick: what it was built from, for About. Null on the desktop.
     stick: Option<crate::appliance::Stick>,
+    /// Print to Phone is offered (ADR-0021): by debug builds, until its phone app exists.
+    /// The test harness asks for it instead, so the other suites see the shipping menu.
+    print_preview: bool,
 }
 
 #[tauri::command]
@@ -330,6 +337,7 @@ pub fn app_info(state: State<'_, AppState>) -> AppInfo {
         version: env!("CARGO_PKG_VERSION"),
         folders: state.folders.clone(),
         stick: crate::appliance::stick(),
+        print_preview: cfg!(debug_assertions) && !state.test_mode,
     }
 }
 

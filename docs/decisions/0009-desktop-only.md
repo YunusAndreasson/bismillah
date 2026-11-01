@@ -1,6 +1,6 @@
 # 0009 — Desktop only
 
-- **Status:** Accepted
+- **Status:** Accepted; its "never a mobile app" sentence is superseded by [0022](0022-phone-app.md), which leaves the desktop app and the stick as this record says
 - **Date:** 2026-10-18
 - **Amended:** 2026-10-18 (Phase 0). Real-app testing and native menu spikes: go.
 

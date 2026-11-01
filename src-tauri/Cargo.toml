@@ -33,6 +33,10 @@ bismillah-lint = { path = "../crates/bismillah-lint", version = "1.0.0" }
 # The stick's helper protocol and passphrase rules (os/PLAN.md, OS-2); the workspace crate.
 bismillah-appliance = { path = "../crates/bismillah-appliance", version = "1.0.0" }
 
+# Print to Phone (ADR-0021); only debug builds use it until the phone app exists, so it
+# isn't linked into a release or the stick.
+bismillah-print = { path = "../crates/bismillah-print", version = "1.0.0" }
+
 [target.'cfg(target_os = "linux")'.dependencies]
 # Already in Tauri's dependency tree; used only to focus the native menu bar (platform.rs).
 gtk = "0.18"

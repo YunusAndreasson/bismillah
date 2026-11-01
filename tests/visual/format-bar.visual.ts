@@ -21,6 +21,8 @@ describe("formatting bar screenshots", () => {
     }, word);
     await browser.$(".format-bar").waitForExist();
     await settle(browser);
+    // Changing the theme flashes WebKit's overlay scrollbar, which then fades on its own.
+    await browser.pause(1500);
     expect(compareWithBaseline(name, await browser.takeScreenshot())).toBeLessThan(TOLERANCE);
   }
 
