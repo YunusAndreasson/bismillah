@@ -7,7 +7,7 @@ Thank you for wanting to help. bismillah is small on purpose, so the most valuab
 1. Read [DESIGN.md](DESIGN.md). Section 3 lists what bismillah will never have.
 2. Read [ARCHITECTURE.md](ARCHITECTURE.md) for anything touching files, IPC, linting or security.
 3. Check [PLAN.md](PLAN.md) for the current phase. Work outside it will likely wait.
-4. For anything bigger than a fix, open an issue first so we can agree on the approach.
+4. **For anything bigger than a fix, open an issue first so we can agree on the approach.**
 
 ## What we welcome
 
