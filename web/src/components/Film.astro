@@ -25,7 +25,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
   <figure class="cinema" data-film data-state="idle">
     <figcaption class="caption">
       <span class="kicker">{copy.film.kicker}</span>
-      <span class="title">Prompting is not thinking, writing is.</span>
+      <span class="title title-step">{copy.film.label}</span>
     </figcaption>
     <div class="screen" data-screen>
       <div class="tower" data-tower-layer>
@@ -154,17 +154,21 @@ const moving = "(prefers-reduced-motion: no-preference)";
     z-index: 1;
     block-size: calc(100svh + var(--travel));
     background: none;
-  }
 
-  .film[data-live]:not([data-seen]) .room {
-    position: sticky;
-    inset-block-start: 0;
-    block-size: 100svh;
-    overflow: clip;
-  }
+    & .room {
+      position: sticky;
+      inset-block-start: 0;
+      block-size: 100svh;
+      overflow: clip;
+    }
 
-  .film[data-live][data-done]:not([data-seen]) .room {
-    visibility: hidden;
+    &[data-done] .room {
+      visibility: hidden;
+    }
+
+    & .lights {
+      display: block;
+    }
   }
 
   .wordmark,
@@ -172,8 +176,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
     transition: opacity 400ms ease-out;
   }
 
-  .film[data-left] .wordmark,
-  .film[data-left] .what {
+  .film[data-left] :is(.wordmark, .what) {
     opacity: 0;
   }
 
@@ -214,10 +217,14 @@ const moving = "(prefers-reduced-motion: no-preference)";
     line-height: 1;
   }
 
-  .what {
+  .what,
+  .or-scroll {
     margin: 0;
     color: var(--shawl-light);
     font-size: var(--size-small);
+  }
+
+  .what {
     line-height: 1;
   }
 
@@ -318,10 +325,8 @@ const moving = "(prefers-reduced-motion: no-preference)";
     text-decoration-thickness: 2px;
   }
 
-  /* Where it leads, it isn't needed: it steps aside while the stick is on the screen, and
-     while the visitor is writing at the end of the page. */
-  :global(html[data-at-stick]) .to-stick,
-  :global(html[data-writer]) .to-stick {
+  /* Where it leads, it isn't needed: it steps aside while the stick is on the screen. */
+  :global(html[data-at-stick]) .to-stick {
     opacity: 0;
     visibility: hidden;
     transition:
@@ -366,8 +371,6 @@ const moving = "(prefers-reduced-motion: no-preference)";
   }
 
   .title {
-    font-size: var(--size-title);
-    line-height: 1.3;
     text-wrap: balance;
   }
 
@@ -410,8 +413,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
       transition: opacity 400ms ease-out;
     }
 
-  [data-ready][data-state="idle"] .caption,
-    [data-ready][data-state="ended"] .caption {
+    [data-ready]:is([data-state="idle"], [data-state="ended"]) .caption {
       opacity: 1;
     }
 
@@ -421,8 +423,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
 
     /* The film's last shot is its end card, with her words at the centre of the picture.
        It holds, and only then the tower comes back, with the title and the play button. */
-    [data-ready][data-state="ended"] .caption,
-    [data-ready][data-state="ended"] .big-play {
+    [data-ready][data-state="ended"] :is(.caption, .big-play) {
       transition-delay: 1.5s;
     }
 
@@ -431,9 +432,6 @@ const moving = "(prefers-reduced-motion: no-preference)";
     .or-scroll {
       grid-area: 2 / 1;
       place-self: center;
-      margin: 0;
-      color: var(--shawl-light);
-      font-size: var(--size-small);
       line-height: 1.3;
       pointer-events: none;
       transition: opacity 400ms ease-out;
@@ -485,7 +483,6 @@ const moving = "(prefers-reduced-motion: no-preference)";
      allows (site.ts); the camera moves this, with the lights on it. */
   .film[data-live] .tower {
     inset: auto;
-    transform-origin: 50.1% 49.1%;
     will-change: transform;
   }
 
@@ -493,10 +490,6 @@ const moving = "(prefers-reduced-motion: no-preference)";
     position: absolute;
     inset: 0;
     display: none;
-  }
-
-  .film[data-live]:not([data-seen]) .lights {
-    display: block;
   }
 
   /* A light going out: the room dimmed, multiplied by the ink, so it stays faintly there as
@@ -554,13 +547,17 @@ const moving = "(prefers-reduced-motion: no-preference)";
     transition: opacity 1200ms ease-in-out 1.5s;
   }
 
-  .hit {
-    display: grid;
-    place-items: center;
+  .hit,
+  .controls button {
     padding: 0;
     border: 0;
     background: none;
     cursor: pointer;
+  }
+
+  .hit {
+    display: grid;
+    place-items: center;
   }
 
   /* So no one misses that this is a film: a large play button at the centre of the
@@ -592,9 +589,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
     background: color-mix(in srgb, var(--night) 80%, transparent);
   }
 
-  [data-state="playing"] .big-play,
-  [data-state="paused"] .big-play,
-  .film[data-left] .big-play {
+  :is([data-state="playing"], [data-state="paused"], .film[data-left]) .big-play {
     opacity: 0;
   }
 
@@ -650,8 +645,7 @@ const moving = "(prefers-reduced-motion: no-preference)";
   /* Before the film plays and after it ends, the play button on the picture is the only
      one. The row below waits in its place, unseen, and shows when the keyboard reaches
      it: then only the film's length, ▶ 2:15. */
-  [data-state="idle"] .controls:not(:focus-within),
-  [data-state="ended"] .controls:not(:focus-within) {
+  :is([data-state="idle"], [data-state="ended"]) .controls:not(:focus-within) {
     opacity: 0;
     pointer-events: none;
   }
@@ -666,13 +660,9 @@ const moving = "(prefers-reduced-motion: no-preference)";
     justify-content: center;
     min-inline-size: 44px;
     block-size: 44px;
-    padding: 0;
-    border: 0;
-    background: none;
     color: inherit;
     font: inherit;
     font-size: var(--size-small);
-    cursor: pointer;
   }
 
   .controls button:hover,
@@ -783,20 +773,15 @@ const moving = "(prefers-reduced-motion: no-preference)";
     box-sizing: border-box;
     padding-inline: var(--gutter);
     background: var(--night);
-  }
 
-  .cinema:fullscreen .controls {
-    inline-size: var(--picture);
-  }
+    & .screen {
+      aspect-ratio: 16 / 9;
+      block-size: auto;
+    }
 
-  .cinema:fullscreen .screen {
-    inline-size: var(--picture);
-    aspect-ratio: 16 / 9;
-    block-size: auto;
-  }
-
-  .cinema:fullscreen .caption {
-    display: none;
+    & .caption {
+      display: none;
+    }
   }
 
   video::cue {

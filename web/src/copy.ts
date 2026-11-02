@@ -23,7 +23,8 @@ export const copy = {
   },
 
   film: {
-    /** The player's name for screen readers: the film's title (GUIDELINES.md). */
+    /** The film's title (GUIDELINES.md), on the picture and as the player's name for screen
+     * readers. */
     label: "Prompting is not thinking, writing is.",
     /** The small label over the film's title: what it is and how long (the cut is
      * 2:15), never "promo". */
@@ -172,15 +173,73 @@ export const copy = {
   /** The page that isn't there. */
   notFound: "This page was never written.",
 
-  /** The page's end: her last line, where the visitor writes next (drafted 2026-10-30 for
-   * the author's review). */
-  close: {
-    /** Names for screen readers. */
-    label: "Your turn",
-    line: "Your own words",
-    /** What the name means, which the page says nowhere else. */
-    name: "Bismillah means in the name of God. It is what you say before you begin.",
-    /** Both are true: the page has no storage and sends nothing (public/_headers). */
-    begin: "Begin here, if you like. Nothing you write on this page is kept or sent.",
+  /** What the page leaves open, each answer folded under its question (the author,
+   * 2026-10-31, in place of the line a visitor could write on). Drafted for the author's
+   * review, in the plain voice of ia.net: the answer, and only what the asker wants to know
+   * (the author: "user doesn't bother" with the details). The details stay where someone
+   * goes for them: os/README.md and PRIVACY.md. None explains the name or the Islamic
+   * foundations, which the site expects its readers to know. "Nothing that writes" comes
+   * last, so it leads to her last line. */
+  questions: {
+    heading: "Questions",
+    items: [
+      {
+        /** os/README.md, "Tested laptops": best effort beyond the few tried. */
+        q: "Will it start on my laptop?",
+        a: "It should, on most PC laptops, though it hasn't been tried on many. Try it.",
+      },
+      {
+        /** os/PLAN.md, Hardware. */
+        q: "And on a Mac?",
+        a: "No. A Mac can make the stick, but can't start from it.",
+      },
+      {
+        /** README.md, Status. */
+        q: "Can I use it without the stick?",
+        a: "Not yet.",
+      },
+      {
+        /** os/README.md, "Getting a stick without building one". */
+        q: "Is it safe to paste that command?",
+        a: "It writes only to the stick you choose, and only after you type its name back.",
+      },
+      {
+        /** os/README.md, tested: it never mounts or writes to the laptop's disks. The question
+         * asks about files, as one boot does change firmware variables (disclosed there). */
+        q: "Will it touch my files?",
+        a: "No. It never opens the laptop's disks.",
+      },
+      {
+        /** os/README.md, encrypted at rest; its limits are under "Not protected". */
+        q: "Someone finds my stick. Can they read it?",
+        a: "Not without your passphrase.",
+      },
+      {
+        /** os/README.md: "There is no recovery". */
+        q: "What if I forget my passphrase?",
+        a: "Your texts are gone. There is no reset.",
+      },
+      {
+        /** No backup exists; one is only listed under os/PLAN.md, "Later". */
+        q: "What if I lose the stick?",
+        a: "Same. It holds the only copy.",
+      },
+      {
+        /** os/PLAN.md, "Out of scope"; docs/guide.md. */
+        q: "How do I get my writing off the stick?",
+        a: "Not easily. The stick can't send or print anything. That's on purpose.",
+      },
+      {
+        /** README.md. */
+        q: "What does it cost?",
+        a: "Nothing, apart from the USB stick.",
+      },
+      {
+        /** PRIVACY.md, "What bismillah never does", which also names the grammar checker's
+         * small model. */
+        q: "Is there AI in it?",
+        a: "Nothing that writes. Spelling and grammar checks only suggest, and you accept each change.",
+      },
+    ],
   },
 } as const;

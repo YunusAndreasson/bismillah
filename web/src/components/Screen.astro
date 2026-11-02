@@ -10,32 +10,25 @@
 import { Picture } from "astro:assets";
 import room from "../assets/stills/02-her-window.jpg";
 import still from "../assets/stills/03-her-screen.jpg";
+
+const picture = {
+  formats: ["avif", "webp"],
+  widths: [640, 960, 1280, 1920],
+  sizes: "100vw",
+  quality: 80,
+  alt: "",
+  class: "still",
+};
 ---
 
 <section class="her-screen night" aria-hidden="true" data-push>
   <div class="stage">
     <div class="camera" data-camera>
-      <Picture
-        src={still}
-        formats={["avif", "webp"]}
-        widths={[640, 960, 1280, 1920]}
-        sizes="100vw"
-        quality={80}
-        alt=""
-        class="still"
-      />
+      <Picture src={still} {...picture} />
       <div class="light" data-light></div>
     </div>
     <div class="camera in-the-room" data-room>
-      <Picture
-        src={room}
-        formats={["avif", "webp"]}
-        widths={[640, 960, 1280, 1920]}
-        sizes="100vw"
-        quality={80}
-        alt=""
-        class="still"
-      />
+      <Picture src={room} {...picture} />
     </div>
     <div class="veil" data-veil></div>
   </div>
@@ -55,15 +48,11 @@ import still from "../assets/stills/03-her-screen.jpg";
   .camera {
     position: absolute;
     inset: 0;
-    /* The centre of her laptop's screen in the still, so the camera pushes into it. */
-    transform-origin: 74.4% 58.3%;
   }
 
   /* The wide shot of her room comes before it, and only with the script, which moves it. */
   .in-the-room {
     display: none;
-    /* Her laptop on the table, a little towards her, so a phone's crop keeps both. */
-    transform-origin: 46% 59%;
     opacity: 0;
   }
 
@@ -79,25 +68,22 @@ import still from "../assets/stills/03-her-screen.jpg";
     object-position: 74.4% 58.3%;
   }
 
-  /* Her laptop's screen, corner for corner (x 1120–1738, y 408–852 of the 1920 × 1080
-     still). Its light rises to the page's as the camera arrives. */
+  /* Her laptop's screen, corner for corner, in the box site.ts gives it. */
   .light {
-    position: absolute;
-    inset-inline-start: 58.33%;
-    inset-block-start: 37.78%;
-    inline-size: 32.19%;
-    block-size: 41.11%;
     clip-path: polygon(11% 0, 100% 5.6%, 93% 100%, 0 82.7%);
-    background: var(--page);
-    opacity: 0;
   }
 
   .veil {
-    position: absolute;
     inset: 0;
+    pointer-events: none;
+  }
+
+  /* The light of her screen, and that light become the page. */
+  .light,
+  .veil {
+    position: absolute;
     background: var(--page);
     opacity: 0;
-    pointer-events: none;
   }
 
   /* With the script and motion allowed, the stage holds while the camera moves. It starts
@@ -112,12 +98,6 @@ import still from "../assets/stills/03-her-screen.jpg";
 
     :global(.film[data-seen]) + [data-live].her-screen {
       margin-block-start: 0;
-    }
-
-    [data-live] .stage {
-      position: sticky;
-      inset-block-start: 0;
-      block-size: 100svh;
     }
 
     [data-live] .camera {

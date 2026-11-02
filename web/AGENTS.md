@@ -25,14 +25,13 @@ Then her laptop with the app's real screens under the README's line that names i
 answer to her page's first question (scrolling changes what it shows, the laptop held
 still), and the close: the stick, which is the call to action (three numbered steps, side by
 side on a wide screen, each with a picture: a USB stick, one command that puts bismillah on
-it, the laptop started from it), and last the page's one ending: "These words are mine." in
-the editor's type with its caret after it, on a page of its own, and the caret is real: the
-visitor can write there (click, or just start typing), left to right or right to left, and
-nothing is kept or sent. Two quiet lines say what the name means and that, and go at the first
-word, so the page's last words are the visitor's. No footer. (2026-10-29: the story, then what
-it is, then how to get it; the same day the close moved after the stick, so nothing dark
-stands between seeing the editor and getting it, and the dawn loop, then the boy's notebook,
-left the ending, as both needed the film to mean anything.)
+it, the laptop started from it), the questions that leaves open, each answer folded under its
+question (the browser's own `<details>`; the author, 2026-10-31, in place of a line the visitor
+could write on), and last the page's one ending: "These words are mine." in the editor's type
+with its caret after it. No footer. (2026-10-29: the story, then what it is, then how to get
+it; the same day the close moved after the stick, so nothing dark stands between seeing the
+editor and getting it, and the dawn loop, then the boy's notebook, left the ending, as both
+needed the film to mean anything.)
 "Get the bismillah app" stays pinned in the top corner over every scene (the
 author's request, 2026-10-28), so the way to the stick is always in reach, and steps
 aside while the stick itself is on the screen.
@@ -58,8 +57,8 @@ aside while the stick itself is on the screen.
   decision: say why first.
 - `.astro` first. Client JavaScript only where a page truly needs it: today one module,
   `src/scripts/site.ts` (the player, the opening shot, the push, her page written as it is
-  read, Zuhd mode, the caret, the visitor's line, the corner button's ground, and the
-  commands' copy buttons and the choice of the visitor's own).
+  read, Zuhd mode, the caret, the corner button's ground, and the commands' copy buttons
+  and the choice of the visitor's own).
   Everything reads and plays without it.
 - **Every other word lives in `src/copy.ts`**, each line with its source when it has
   one, so the author can review and change the words in one place.
@@ -72,12 +71,19 @@ aside while the stick itself is on the screen.
 - Colours come from the tokens in `src/layouts/Base.astro`, which hold the colours of
   the palette in GUIDELINES.md that the site uses (add one there when a scene needs
   it). Never a literal colour in a component. The sizes are tokens too: the writing
-  size, the title step (`--size-title`) and one line of writing (`--L`), the unit of
-  every vertical space.
+  size, the title step (`--size-title`), one line of writing (`--L`), the unit of
+  every vertical space, the editor's measure (`--measure`), and the close's one column
+  (`--column`).
 - Shared pieces live once in `Base.astro`: the two worlds (`.night`, `.page`, which
-  sets the writing size), the editor's caret on any `[data-caret]` text and, at rest,
-  after the name (`[data-wordmark]`, the logo), and a `[hidden]` that wins over a
-  component's `display`.
+  sets the writing size), the title step's type (`.title-step`), a scene that holds still
+  while the page scrolls (`[data-live] .stage`), the editor's caret on any `[data-caret]`
+  text and, at rest, after the name (`[data-wordmark]`, the logo), and a `[hidden]` that
+  wins over a component's `display`.
+- Write modern CSS and let Lightning CSS lower it for the browsers below: `:is()` and
+  nesting where a selector would repeat. In `site.ts`, a scene's scrolling goes through
+  `follow` and `scrolled`, and what is measured in a still lives once, as a fraction of its
+  frame: the camera's turning point and an overlay's box are set from it (`cover`, `lay`),
+  so CSS repeats it only where the page needs it without the script (`object-position`).
 - Prefer retrieval over memory for Astro and Cloudflare APIs, because both move fast
   (the `docs-lookup` skill and the `astro-docs` MCP; the global `wrangler` and
   `cloudflare` skills).
@@ -89,7 +95,8 @@ aside while the stick itself is on the screen.
 - `src/pages/index.astro`: the page, built from `src/components/`: `Film` (the player),
   `Screen` (her screen), `Document` and `Basmallah` (a document as the editor sets it),
   `Screens` (her laptop with the editor's real screens, one screen after another as
-  the page scrolls), `Close` (the stick, and her last line with the caret; no footer) and
+  the page scrolls), `Close` (the stick, the questions, and her last line with the caret; no
+  footer), `Questions` (each answer folded under its question) and
   `Stick` (the three steps) with `Commands` (the install command, inside step 2 when the
   steps stand one under another, and on one line under all three when they stand side
   by side). `404.astro` is served with status 404 for any unknown path.
@@ -98,8 +105,7 @@ aside while the stick itself is on the screen.
   place of the site's 256-word cut of `../MANIFESTO.md` on 2026-10-29 (in git history);
   the full text stays in `../MANIFESTO.md`. Markdown is rendered by Sätteri with smart
   punctuation off, so it shows exactly as typed.
-- `src/assets/`: the stills (Astro makes AVIF and WebP), the fonts (`scripts/fonts.sh`;
-  Amiri only for Arabic a visitor writes, fetched when such a character is drawn)
+- `src/assets/`: the stills (Astro makes AVIF and WebP), the fonts (`scripts/fonts.sh`)
   and the Basmallah outline (`scripts/basmallah.sh`, copied from the app).
   `src/assets/screens/`: the stick's real screens, taken in a VM by `../os/scripts/shots.ts`
   (her page, `src/content/her-page.md`, is the document they show first; the manifesto,

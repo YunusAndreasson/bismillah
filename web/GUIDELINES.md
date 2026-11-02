@@ -76,10 +76,11 @@ No gradients, glows or neon. Light in the film always comes from a real source: 
 
 - **Bismillah Duo** (in [`../fonts/build/`](../fonts/build/)) for everything that is writing: the questions, the answers, the lines
   from the film. It is the editor's own typeface, so the site and the app speak in one voice.
-- **Amiri** (in [`../fonts/source/amiri/`](../fonts/source/amiri/)) for the basmala and any Arabic.
+- **Amiri** (in [`../fonts/source/amiri/`](../fonts/source/amiri/)) for the basmala, which the site draws
+  as an outline, so it loads no Arabic font.
 - The name is always lowercase: **bismillah**, as on the film's end card. In running text it is set
   plain, like any other word: no bold, italics or capitals (only where it is the phrase is it
-  _Bismillah_: the boy's notebook, the link preview, and the close's line that says what it means).
+  _Bismillah_: the boy's notebook and the link preview).
 - The scale grows from the writing size (20px, 17px on a phone). Titles are one step, 1.4 times it: the
   film's title, her last line and the stick's heading. The steps' titles are the editor's
   third heading size, and only the steps' numbers are larger than the titles. The name in the
@@ -117,6 +118,11 @@ No gradients, glows or neon. Light in the film always comes from a real source: 
   still remember. The word processor won for attention but we still attend. How will we think?_)
   stay in MANIFESTO.md.
 - Short sentences. No marketing voice, no superlatives, no "revolutionary", no "AI-powered".
+- Words must not read as machine-made (the author, 2026-10-31); [ia.net](https://ia.net/writer) is the
+  model. The answer, often in a word or two, and only what the reader wants to know: technical detail
+  stays in the README and PRIVACY.md (the author, 2026-10-31: "user doesn't bother"). Never the author's
+  own equipment or anything else personal. Say no flatly, and let a dry line stand. Leave out lists of
+  three, "it isn't X, it's Y", sentences built alike one after another, and reassurance nobody asked for.
 - In what a visitor reads, bismillah is an **app**, never "the editor" (2026-10-29): a writer
   reads an editor as a person who changes their text, and the README calls it a writing app.
   "The editor" stays in the code and these notes.
@@ -156,14 +162,15 @@ No gradients, glows or neon. Light in the film always comes from a real source: 
 - The film carries a hymn of male voices. Never play sound on its own; let the visitor choose it.
 - Silence is better than a bad sound.
 
-## The visitor's line
+## The questions
 
-The intention above is a wish to write something themselves, so the page ends by letting them
-(the author kept it, 2026-10-30; it had been left open since 2026-10-28). The caret after
-_These words are mine._ is real, on a page of its own, in the app's type and measure, either
-direction, Arabic in Amiri. Nothing is kept, sent, spell-checked or suggested to, and the page says
-so. It is not a demo, has no save or share, and asks for nothing back. If it ever keeps a word, or
-sends one, it breaks the promise it is there to show.
+After the stick, the page answers what it leaves open, each answer folded under its question, so
+someone with no questions passes a quiet list (the author, 2026-10-31, in place of a line the
+visitor could write on, which made no sense there). The answers are short, and still true: where a
+full answer would take a paragraph, the question asks only what can be answered honestly in a line.
+
+The site expects its readers to know what bismillah means and its Islamic foundations (the author,
+2026-10-31). It never explains them, here or anywhere else.
 
 ## What the site must never do
 
@@ -194,9 +201,9 @@ The site should keep the promises the editor keeps:
   writing app, beside the name; the README's _A typewriter, with only the best of the
   computer_ over the laptop, answering her page's _How will we think?_, and opening the
   link preview, before _Nothing writes for you._; and the stick said as what it does: the
-  laptop started from it becomes that typewriter. The page ends on the page, after the stick:
-  _These words are mine._ in the editor's type with its caret after it, and no picture and no
-  footer below (the author, 2026-10-29), the visitor's own words being the last (2026-10-30). The dawn loop and then the
+  laptop started from it becomes that typewriter. The page ends on the page, after the stick and
+  its questions: _These words are mine._ in the editor's type with its caret after it, and no
+  picture and no footer below (the author, 2026-10-29). The dawn loop and then the
   boy's notebook were tried there first; both needed the film to mean anything, and the site never
   introduces the boy.
 - ~~A short, honest note that the film's pictures, voices and sound were made with AI tools.~~ Decided

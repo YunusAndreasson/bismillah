@@ -64,20 +64,6 @@ const previewUrl = new URL(preview.src, Astro.site).href;
     font-display: swap;
   }
 
-  /* Arabic, wherever a visitor writes it (Close.astro), in the app's Arabic face. Only
-     then: a browser fetches this file when a character in its range has to be drawn. */
-  @font-face {
-    font-family: "Amiri";
-    src: url("../assets/fonts/Amiri-Regular.woff2") format("woff2");
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-    /* Amiri's letters are small on their body: this is the size at which they sit with
-       the writing beside them. */
-    size-adjust: 125%;
-    unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
-  }
-
   /* The colours of the palette in GUIDELINES.md that the site uses. Each has one place in
      the story, so use it there and nowhere else. The night and the page are the story's
      two worlds, not a theme: the site ignores the system's light or dark preference. */
@@ -106,7 +92,8 @@ const previewUrl = new URL(preview.src, Astro.site).href;
     --page-secondary: #62625e;
     --page-faint: #9e9d99;
 
-    --font: "Bismillah Duo", ui-monospace, monospace;
+    --mono: ui-monospace, monospace;
+    --font: "Bismillah Duo", var(--mono);
 
     /* Sizes, all of them. The page's size steps with the screen; the rest never move. */
     --size-small: 15px;
@@ -118,6 +105,10 @@ const previewUrl = new URL(preview.src, Astro.site).href;
     --size-title: calc(1.4 * var(--size-page));
     /* One line of writing: the unit of the page's vertical rhythm. */
     --L: calc(1.6 * var(--size-page));
+    /* The editor's measure (DESIGN.md §8). */
+    --measure: 66ch;
+    /* The close's one column: the stick, the questions and her last line start on its edge. */
+    --column: 1120px;
 
     background: var(--night);
   }
@@ -168,6 +159,25 @@ const previewUrl = new URL(preview.src, Astro.site).href;
 
   a {
     color: inherit;
+  }
+
+  /* The title step of the type scale (GUIDELINES.md, Type). */
+  .title-step {
+    font-size: var(--size-title);
+    line-height: 1.3;
+  }
+
+  /* A document's column, on the editor's measure. */
+  .sheet {
+    max-inline-size: var(--measure);
+    margin-inline: auto;
+  }
+
+  /* A scene that holds still, a window high, while the page scrolls through it. */
+  [data-live] .stage {
+    position: sticky;
+    inset-block-start: 0;
+    block-size: 100svh;
   }
 
   :focus-visible {

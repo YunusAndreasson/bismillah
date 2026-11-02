@@ -15,10 +15,15 @@ const { where } = Astro.props;
 const s = copy.stick;
 const site = Astro.site;
 if (!site) throw new Error("Commands.astro: the commands need `site` in astro.config.mjs");
-const commands = [
-  { os: "unix", ...s.commands.unix, text: `curl -fsSL ${new URL("install.sh", site)} | sh` },
-  { os: "windows", ...s.commands.windows, text: `irm ${new URL("install.ps1", site)} | iex` },
-].map((c) => ({ ...c, parts: c.text.split(/(?<=\/)(?!\/)/) }));
+const lines = {
+  unix: `curl -fsSL ${new URL("install.sh", site)} | sh`,
+  windows: `irm ${new URL("install.ps1", site)} | iex`,
+};
+const commands = (["unix", "windows"] as const).map((os) => ({
+  os,
+  ...s.commands[os],
+  parts: lines[os].split(/(?<=\/)(?!\/)/),
+}));
 ---
 
 <div class="commands">
@@ -54,10 +59,14 @@ const commands = [
     margin-block-start: calc(0.75 * var(--L));
   }
 
-  .label {
-    margin: 0 0 calc(0.25 * var(--L));
+  .label,
+  .details {
     color: var(--page-secondary);
     font-size: var(--size-small);
+  }
+
+  .label {
+    margin: 0 0 calc(0.25 * var(--L));
   }
 
   /* The command, in the machine's dark: what to paste into the terminal. One click
@@ -108,8 +117,6 @@ const commands = [
 
   .details {
     margin: calc(0.25 * var(--L)) 0 0;
-    color: var(--page-secondary);
-    font-size: var(--size-small);
   }
 
   .for + .details {

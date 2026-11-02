@@ -2,8 +2,7 @@
 // browser's own controls, her screen is a still, the page is all in ink, and the stick's
 // command is selected with one click. With it, the film gets the quiet player, the
 // camera pushes into her screen, her page is written as it is read and Zuhd mode follows
-// the reader, the caret wakes when it comes into view, the visitor can write after her
-// last line, and the command has a copy button.
+// the reader, the caret wakes when it comes into view, and the command has a copy button.
 // ARIA is set as attributes: Firefox reflects it as properties only from 119.
 
 import { HER_WINDOW, TOWER_COLUMNS, TOWER_RATIO, TOWER_ROWS } from "../assets/tower";
@@ -31,24 +30,88 @@ const perFrame = (paint: () => void) => {
   };
 };
 
-/** The typewriter line: 42% from the top, where the editor keeps the caret. */
-const TYPEWRITER_LINE = "-42% 0px -57% 0px";
+/** Hermite easing, for the camera: it starts and arrives gently. */
+const ease = (p: number) => p * p * (3 - 2 * p);
 
-/** A document's paragraphs and headings, in order. */
-const blocksOf = (article: HTMLElement) => [...article.querySelectorAll<HTMLElement>(".text > *")];
+/** How far through `from`–`to` the progress `p` is, from 0 to 1. */
+const within = (p: number, from: number, to: number) => clamp((p - from) / (to - from), 0, 1);
+
+/** How far the page has scrolled through a scene that holds still in a window of this height. */
+const scrolled = (scene: Element, windowHeight = window.innerHeight) => {
+  const { top, height } = scene.getBoundingClientRect();
+  const room = height - windowHeight;
+  return room > 0 ? clamp(-top / room, 0, 1) : 0;
+};
+
+/** Tells `change` whether the element is in view, whenever that changes. */
+function watchView(
+  element: Element,
+  change: (inView: boolean) => void,
+  options?: IntersectionObserverInit,
+): IntersectionObserver {
+  const observer = new IntersectionObserver(([entry]) => {
+    change(entry?.isIntersecting ?? false);
+  }, options);
+  observer.observe(element);
+  return observer;
+}
 
 /** Runs `wake` once, when the element is well into view. */
 function onceInView(element: Element, wake: () => void): void {
-  const observer = new IntersectionObserver(
-    ([entry]) => {
-      if (!entry?.isIntersecting) return;
+  const observer = watchView(
+    element,
+    (inView) => {
+      if (!inView) return;
       observer.disconnect();
       wake();
     },
     { threshold: 0.6 },
   );
-  observer.observe(element);
 }
+
+/**
+ * Keeps a scene in step with the page. `measure` runs now and when the window changes;
+ * `update` runs now, and in the next frame after a change of window or, while the scene is
+ * near the screen, any scrolling.
+ */
+function follow(scene: Element, update: () => void, measure?: () => void): void {
+  const queue = perFrame(update);
+  measure?.();
+  update();
+  window.addEventListener("resize", () => {
+    measure?.();
+    queue();
+  });
+  watchView(
+    scene,
+    (near) => {
+      if (near) window.addEventListener("scroll", queue, { passive: true });
+      else window.removeEventListener("scroll", queue);
+      queue();
+    },
+    { rootMargin: "50% 0px" },
+  );
+}
+
+/** Lays an element over its parent, in fractions of it. Through the CSSOM, which the CSP
+ * allows (a style attribute it refuses). */
+function lay(element: HTMLElement, left: number, top: number, width: number, height: number): void {
+  element.style.left = `${left * 100}%`;
+  element.style.top = `${top * 100}%`;
+  element.style.width = `${width * 100}%`;
+  element.style.height = `${height * 100}%`;
+}
+
+/** Names a button for screen readers, from one of the labels the page gave it. */
+function setLabel(button: HTMLElement, label?: string): void {
+  if (label) button.setAttribute("aria-label", label);
+}
+
+/** The typewriter line: 42% from the top, where the editor keeps the caret. */
+const TYPEWRITER_LINE = "-42% 0px -57% 0px";
+
+/** A document's paragraphs and headings, in order. */
+const blocksOf = (article: HTMLElement) => [...article.querySelectorAll<HTMLElement>(".text > *")];
 
 function film(root: HTMLElement): void {
   const video = root.querySelector<HTMLVideoElement>("[data-video]");
@@ -68,10 +131,9 @@ function film(root: HTMLElement): void {
   hit.hidden = false;
   root.toggleAttribute("data-ready", true);
 
-  const state = (name: "idle" | "playing" | "paused" | "ended") => {
-    root.dataset.state = name;
-    const label = name === "playing" ? play.dataset.labelPause : play.dataset.labelPlay;
-    if (label) play.setAttribute("aria-label", label);
+  const state = (next: "idle" | "playing" | "paused" | "ended") => {
+    root.dataset.state = next;
+    setLabel(play, next === "playing" ? play.dataset.labelPause : play.dataset.labelPlay);
   };
 
   // The playhead moves every frame while the film plays, so the caret glides.
@@ -158,8 +220,7 @@ function film(root: HTMLElement): void {
   mute.addEventListener("click", () => {
     video.muted = !video.muted;
     root.toggleAttribute("data-muted", video.muted);
-    const label = video.muted ? mute.dataset.labelUnmute : mute.dataset.labelMute;
-    if (label) mute.setAttribute("aria-label", label);
+    setLabel(mute, video.muted ? mute.dataset.labelUnmute : mute.dataset.labelMute);
   });
 
   full.addEventListener("click", () => {
@@ -178,19 +239,16 @@ function film(root: HTMLElement): void {
   root.addEventListener("pointermove", wake);
   root.addEventListener("focusin", wake);
   root.addEventListener("keydown", (event) => {
-    const target = event.target as HTMLElement;
-    const onButton = target instanceof HTMLButtonElement;
-    const onRange = target === position;
     switch (event.key) {
       case " ":
       case "k":
-        if (onButton && event.key === " ") return;
+        if (event.target instanceof HTMLButtonElement && event.key === " ") return;
         event.preventDefault();
         toggle();
         break;
       case "ArrowLeft":
       case "ArrowRight":
-        if (onRange) return;
+        if (event.target === position) return;
         event.preventDefault();
         video.currentTime = clamp(
           video.currentTime + (event.key === "ArrowLeft" ? -5 : 5),
@@ -211,49 +269,42 @@ function film(root: HTMLElement): void {
   });
 }
 
-/** Hermite easing, for the camera: it starts and arrives gently. */
-const ease = (p: number) => p * p * (3 - 2 * p);
+/** A point in a still, as fractions of its frame. */
+type Point = { x: number; y: number };
 
-/** How far through `from`–`to` the progress `p` is, from 0 to 1. */
-const within = (p: number, from: number, to: number) => clamp((p - from) / (to - from), 0, 1);
+/** Where the camera ends a move: how far it has travelled, and how close it has come. */
+type Move = Point & { scale: number };
+
+/** The camera `e` of the way through a move. */
+const shot = ({ x, y, scale }: Move, e: number) =>
+  `translate(${x * e}px, ${y * e}px) scale(${1 + (scale - 1) * e})`;
 
 /**
- * Sizes a 16:9 picture's own frame to cover `width` × `height` with the point (x, y) as near
- * the centre as the frame allows, and says how far the camera must still move to centre it.
+ * Sizes a 16:9 picture's own frame to cover `width` × `height` with `point` as near the
+ * centre as the frame allows, turns the camera on that point, and says how far the camera
+ * must still move to centre it.
  */
 function cover(
   element: HTMLElement,
   width: number,
   height: number,
-  x: number,
-  y: number,
-): { x: number; y: number; frameWidth: number; frameHeight: number } {
+  point: Point,
+): Point & { frameWidth: number; frameHeight: number } {
   const frameWidth = Math.max(width, height * TOWER_RATIO);
   const frameHeight = frameWidth / TOWER_RATIO;
-  const left = clamp(width / 2 - x * frameWidth, width - frameWidth, 0);
-  const top = clamp(height / 2 - y * frameHeight, height - frameHeight, 0);
+  const left = clamp(width / 2 - point.x * frameWidth, width - frameWidth, 0);
+  const top = clamp(height / 2 - point.y * frameHeight, height - frameHeight, 0);
   element.style.inlineSize = `${frameWidth}px`;
   element.style.blockSize = `${frameHeight}px`;
   element.style.insetInlineStart = `${left}px`;
   element.style.insetBlockStart = `${top}px`;
+  element.style.transformOrigin = `${point.x * 100}% ${point.y * 100}%`;
   return {
-    x: width / 2 - (left + x * frameWidth),
-    y: height / 2 - (top + y * frameHeight),
+    x: width / 2 - (left + point.x * frameWidth),
+    y: height / 2 - (top + point.y * frameHeight),
     frameWidth,
     frameHeight,
   };
-}
-
-/** Runs `queue` on scrolling, but only while `section` is near the screen. */
-function whileNear(section: Element, queue: () => void): void {
-  new IntersectionObserver(
-    ([entry]) => {
-      if (entry?.isIntersecting) window.addEventListener("scroll", queue, { passive: true });
-      else window.removeEventListener("scroll", queue);
-      queue();
-    },
-    { rootMargin: "50% 0px" },
-  ).observe(section);
 }
 
 /**
@@ -270,51 +321,47 @@ function tower(scene: HTMLElement): void {
   const video = scene.querySelector<HTMLVideoElement>("[data-video]");
   if (!screen || !layer || !lights || !dusk || !video || reduceMotion.matches) return;
 
+  const pane = (left: number, top: number, width: number, height: number) => {
+    const element = document.createElement("span");
+    lay(element, left, top, width, height);
+    return element;
+  };
+
   // One dark pane to a bay, in the order they go out: furthest from her first, a little
   // unevenly, as people go to bed. A fixed scatter, so the shot is the same every time.
   const panes = TOWER_ROWS.flatMap(([top, bottom], row) =>
     TOWER_COLUMNS.flatMap(([left, right], column) => {
       if (row === HER_WINDOW.row && column === HER_WINDOW.column) return [];
-      const pane = document.createElement("span");
-      pane.style.left = `${left * 100}%`;
-      pane.style.top = `${top * 100}%`;
-      pane.style.width = `${(right - left) * 100}%`;
-      pane.style.height = `${(bottom - top) * 100}%`;
       const away = Math.hypot(column - HER_WINDOW.column, (row - HER_WINDOW.row) * 1.4);
-      return [{ pane, order: away + ((column * 7 + row * 13) % 5) * 0.9 }];
+      return [
+        {
+          element: pane(left, top, right - left, bottom - top),
+          order: away + ((column * 7 + row * 13) % 5) * 0.9,
+        },
+      ];
     }),
   )
     .sort((a, b) => b.order - a.order)
-    .map(({ pane }) => pane);
+    .map(({ element }) => element);
   // The rest of the front: all of the picture around her window, in four panes.
-  const her = {
-    left: TOWER_COLUMNS[HER_WINDOW.column]?.[0] ?? 0,
-    right: TOWER_COLUMNS[HER_WINDOW.column]?.[1] ?? 1,
-    top: TOWER_ROWS[HER_WINDOW.row]?.[0] ?? 0,
-    bottom: TOWER_ROWS[HER_WINDOW.row]?.[1] ?? 1,
-  };
-  for (const [left, top, width, height] of [
-    [0, 0, 1, her.top],
-    [0, her.bottom, 1, 1 - her.bottom],
-    [0, her.top, her.left, her.bottom - her.top],
-    [her.right, her.top, 1 - her.right, her.bottom - her.top],
-  ] as const) {
-    const pane = document.createElement("span");
-    pane.className = "rest";
-    pane.style.left = `${left * 100}%`;
-    pane.style.top = `${top * 100}%`;
-    pane.style.width = `${width * 100}%`;
-    pane.style.height = `${height * 100}%`;
-    panes.push(pane);
-  }
+  const [herLeft = 0, herRight = 1] = TOWER_COLUMNS[HER_WINDOW.column] ?? [];
+  const [herTop = 0, herBottom = 1] = TOWER_ROWS[HER_WINDOW.row] ?? [];
+  const rest = [
+    pane(0, 0, 1, herTop),
+    pane(0, herBottom, 1, 1 - herBottom),
+    pane(0, herTop, herLeft, herBottom - herTop),
+    pane(herRight, herTop, 1 - herRight, herBottom - herTop),
+  ];
+  for (const element of rest) element.className = "rest";
+  panes.push(...rest);
   lights.replaceChildren(...panes);
 
   scene.toggleAttribute("data-live", true);
 
-  let move = { x: 0, y: 0, scale: 1 };
+  let move: Move = { x: 0, y: 0, scale: 1 };
   const measure = () => {
     const { width, height } = screen.getBoundingClientRect();
-    const placed = cover(layer, width, height, HER_WINDOW.x, HER_WINDOW.y);
+    const placed = cover(layer, width, height, HER_WINDOW);
     // Her window takes about a third of the screen, the frame's pixels allowing.
     const scale = clamp((0.36 * width) / (HER_WINDOW.width * placed.frameWidth), 1.6, 4);
     move = { x: placed.x, y: placed.y, scale };
@@ -322,18 +369,14 @@ function tower(scene: HTMLElement): void {
 
   const update = () => {
     if (scene.hasAttribute("data-seen")) return;
-    const box = scene.getBoundingClientRect();
-    const travel = box.height - window.innerHeight;
-    const p = travel > 0 ? clamp(-box.top / travel, 0, 1) : 0;
+    const p = scrolled(scene);
     scene.toggleAttribute("data-left", p > 0.015);
     scene.toggleAttribute("data-done", p >= 1);
     const out = within(p, 0.05, 0.62) * panes.length;
     for (const [i, pane] of panes.entries()) pane.toggleAttribute("data-out", i < out);
-    const e = ease(within(p, 0.62, 1));
-    layer.style.transform = `translate(${move.x * e}px, ${move.y * e}px) scale(${1 + (move.scale - 1) * e})`;
+    layer.style.transform = shot(move, ease(within(p, 0.62, 1)));
     dusk.style.opacity = String(within(p, 0.86, 1));
   };
-  const queue = perFrame(update);
 
   // Once it has played it is a film like any other, and the page just scrolls past it.
   video.addEventListener("play", () => {
@@ -346,17 +389,12 @@ function tower(scene: HTMLElement): void {
     window.scrollTo(0, 0);
   });
 
-  measure();
-  update();
-  window.addEventListener("resize", () => {
-    measure();
-    queue();
-  });
-  whileNear(scene, queue);
+  follow(scene, update, measure);
 }
 
-/** Her laptop's screen in still 03, as fractions of the frame: its centre and size. */
-const SCREEN = { x: 0.744, y: 0.583, width: 0.3219, height: 0.4111 };
+/** Her laptop's screen in still 03 (x 1120–1738, y 408–852 of 1920 × 1080): its centre and
+ * size, as fractions of the frame. */
+const SCREEN = { x: 1429 / 1920, y: 630 / 1080, width: 618 / 1920, height: 444 / 1080 };
 /** Her laptop on the table in still 02, a little towards her. */
 const ROOM = { x: 0.46, y: 0.59, scale: 1.2 };
 
@@ -370,16 +408,24 @@ function push(section: HTMLElement): void {
   const veil = section.querySelector<HTMLElement>("[data-veil]");
   if (!camera || !room || !light || !veil || reduceMotion.matches) return;
   section.toggleAttribute("data-live", true);
+  // Her laptop's screen, whose light rises to the page's as the camera arrives.
+  lay(
+    light,
+    SCREEN.x - SCREEN.width / 2,
+    SCREEN.y - SCREEN.height / 2,
+    SCREEN.width,
+    SCREEN.height,
+  );
 
   // Each camera box is its still's own frame, covering the stage with what it looks at as
   // near the centre as the frame allows; the move ends with her screen centred and larger
   // than the stage.
-  let move = { x: 0, y: 0, scale: 1 };
-  let roomMove = { x: 0, y: 0 };
+  let move: Move = { x: 0, y: 0, scale: 1 };
+  let roomMove: Move = { x: 0, y: 0, scale: ROOM.scale };
   const measure = () => {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const placed = cover(camera, width, height, SCREEN.x, SCREEN.y);
+    const placed = cover(camera, width, height, SCREEN);
     move = {
       x: placed.x,
       y: placed.y,
@@ -390,23 +436,19 @@ function push(section: HTMLElement): void {
           height / (SCREEN.height * placed.frameHeight),
         ),
     };
-    roomMove = cover(room, width, height, ROOM.x, ROOM.y);
+    roomMove = { ...cover(room, width, height, ROOM), scale: ROOM.scale };
   };
 
   const update = () => {
-    const box = section.getBoundingClientRect();
-    const travel = box.height - window.innerHeight;
-    const p = travel > 0 ? clamp(-box.top / travel, 0, 1) : 0;
+    const p = scrolled(section);
     // Her room comes up out of the dark, the camera drifting towards her, then dissolves to
     // her hands, and the camera pushes into her screen.
-    const inRoom = ease(within(p, 0, 0.5));
     room.style.opacity = String(Math.min(within(p, 0, 0.1), 1 - within(p, 0.32, 0.46)));
     // Her hands stay unseen until her room covers them, so the room rises out of the dark.
     camera.style.visibility = p < 0.1 ? "hidden" : "visible";
-    room.style.transform = `translate(${roomMove.x * inRoom}px, ${roomMove.y * inRoom}px) scale(${1 + (ROOM.scale - 1) * inRoom})`;
+    room.style.transform = shot(roomMove, ease(within(p, 0, 0.5)));
     const q = within(p, 0.42, 1);
-    const e = ease(q);
-    camera.style.transform = `translate(${move.x * e}px, ${move.y * e}px) scale(${1 + (move.scale - 1) * e})`;
+    camera.style.transform = shot(move, ease(q));
     light.style.opacity = String(within(q, 0.5, 0.85));
     veil.style.opacity = String(within(q, 0.85, 1));
     if (p < 0.46) {
@@ -428,15 +470,8 @@ function push(section: HTMLElement): void {
       };
     }
   };
-  const queue = perFrame(update);
 
-  measure();
-  update();
-  window.addEventListener("resize", () => {
-    measure();
-    queue();
-  });
-  whileNear(section, queue);
+  follow(section, update, measure);
 }
 
 function zuhd(article: HTMLElement): void {
@@ -462,7 +497,7 @@ function zuhd(article: HTMLElement): void {
 }
 
 /** One thing written at the caret: a line or a sentence, or the machine's offer. */
-type Beat = { block: HTMLElement; piece: HTMLElement } | { block: HTMLElement; offer: HTMLElement };
+type Beat = { block: HTMLElement; words: HTMLElement; offer: boolean };
 
 /**
  * Rewrites a block's words as pieces, one for each sentence (or, for the line the machine
@@ -483,7 +518,7 @@ function beatsOf(block: HTMLElement, after?: string, words?: string): Beat[] {
     piece.className = "piece";
     piece.textContent = part;
     nodes.push(piece);
-    beats.push({ block, piece });
+    beats.push({ block, words: piece, offer: false });
     if (offered && i === 0) {
       const offer = document.createElement("span");
       offer.className = "offer";
@@ -491,7 +526,7 @@ function beatsOf(block: HTMLElement, after?: string, words?: string): Beat[] {
       offer.hidden = true;
       offer.setAttribute("aria-hidden", "true");
       nodes.push(document.createTextNode(" "), offer);
-      beats.push({ block, offer });
+      beats.push({ block, words: offer, offer: true });
     }
   }
   block.replaceChildren(...nodes);
@@ -513,90 +548,69 @@ function written(article: HTMLElement): boolean {
 
   const { offerAfter, offerWords } = article.dataset;
   const beats = blocks.flatMap((block) => beatsOf(block, offerAfter, offerWords));
-  const offers = beats.flatMap((beat) => ("offer" in beat ? [beat.offer] : []));
 
   // Each beat is a stretch of scrolling, and the hinge of the page gets more: the machine's
   // offer has to be read, even at a steady roll of the wheel, and her answer has to land.
   // One more at the end: the last line holds a while before the page moves on.
-  const lengths = beats.map((beat, i) => {
-    if ("offer" in beat) return 3;
-    const before = beats[i - 1];
-    return before && "offer" in before ? 2 : 1;
+  let scrolling = 0;
+  const ends = beats.map((beat, i) => {
+    scrolling += beat.offer ? 3 : beats[i - 1]?.offer ? 2 : 1;
+    return scrolling;
   });
-  const total = lengths.reduce((sum, length) => sum + length, 0) + 1;
+  const total = scrolling + 1;
   article.style.setProperty("--beats", String(total));
   article.toggleAttribute("data-live", true);
   article.toggleAttribute("data-writing", true);
   article.toggleAttribute("data-zuhd-on", true);
 
+  // The tops are the page without the offer, which only ever pushes down what is unseen.
   let tops = new Map<HTMLElement, number>();
-  const measure = () => {
-    tops = new Map(blocks.map((block) => [block, block.offsetTop]));
-  };
-
   let shown = -1;
-  const show = (at: number) => {
-    if (at === shown) return;
-    shown = at;
-    const beat = beats[at];
-    if (!beat) return;
-    for (const [i, each] of beats.entries()) {
-      if ("piece" in each) each.piece.classList.toggle("written", i <= at);
-      else each.offer.hidden = i !== at;
-    }
-    // The caret stays after the last thing she wrote, even while the machine offers more.
-    const lastPiece = beats
-      .slice(0, at + 1)
-      .flatMap((each) => ("piece" in each ? [each.piece] : []))
-      .at(-1);
-    for (const each of beats) {
-      if ("piece" in each) each.piece.classList.toggle("end", each.piece === lastPiece);
-    }
-    for (const block of blocks) {
-      block.classList.toggle("current", block === beat.block);
-      block.classList.toggle("end", block === beat.block);
-    }
-    article.toggleAttribute("data-awake", at === beats.length - 1);
-    place();
-  };
 
-  const place = () => {
+  const hold = () => {
     const beat = beats[shown];
     if (!beat) return;
     const y = stage.clientHeight * 0.42 - (tops.get(beat.block) ?? 0);
     sheet.style.transform = `translateY(${Math.round(y)}px)`;
   };
 
-  const follow = () => {
-    const box = article.getBoundingClientRect();
-    const room = box.height - stage.clientHeight;
-    article.toggleAttribute("data-arrived", box.top <= 1);
-    const done = room > 0 ? clamp(-box.top / room, 0, 1) : 0;
-    let left = done * total;
-    let at = 0;
-    while (at < beats.length - 1 && left >= (lengths[at] ?? 1)) {
-      left -= lengths[at] ?? 1;
-      at += 1;
-    }
-    show(at);
+  const measure = () => {
+    tops = new Map(blocks.map((block) => [block, block.offsetTop]));
+    hold();
   };
-  const queue = perFrame(follow);
 
-  // The tops are the page without the offer, which only ever pushes down what is unseen.
-  for (const offer of offers) offer.hidden = true;
-  measure();
-  follow();
-  place();
-  void document.fonts?.ready.then(() => {
-    measure();
-    place();
-  });
-  window.addEventListener("resize", () => {
-    measure();
-    place();
-    queue();
-  });
-  whileNear(article, queue);
+  const show = (at: number) => {
+    if (at === shown) return;
+    shown = at;
+    const beat = beats[at];
+    if (!beat) return;
+    // The caret stays after the last thing she wrote, even while the machine offers more.
+    const last = beats.slice(0, at + 1).findLast((each) => !each.offer);
+    for (const [i, each] of beats.entries()) {
+      if (each.offer) {
+        each.words.hidden = i !== at;
+      } else {
+        each.words.classList.toggle("written", i <= at);
+        each.words.classList.toggle("end", each === last);
+      }
+    }
+    for (const block of blocks) {
+      block.classList.toggle("current", block === beat.block);
+      block.classList.toggle("end", block === beat.block);
+    }
+    article.toggleAttribute("data-awake", at === beats.length - 1);
+    hold();
+  };
+
+  const update = () => {
+    article.toggleAttribute("data-arrived", article.getBoundingClientRect().top <= 1);
+    const place = scrolled(article, stage.clientHeight) * total;
+    const at = ends.findIndex((end) => place < end);
+    show(at === -1 ? beats.length - 1 : at);
+  };
+
+  follow(article, update, measure);
+  void document.fonts.ready.then(measure);
   return true;
 }
 
@@ -626,73 +640,14 @@ function screens(section: HTMLElement): void {
     for (const [i, state] of states.entries()) state.toggleAttribute("data-current", i === next);
     for (const [i, line] of lines.entries()) line.toggleAttribute("data-current", i === next);
   };
-  const follow = () => {
-    const box = track.getBoundingClientRect();
-    const room = box.height - window.innerHeight;
-    const done = room > 0 ? clamp(-box.top / room, 0, 1) : 0;
-    show(Math.min(states.length - 1, Math.floor(done * states.length)));
-  };
 
   // Set through the CSSOM, which the CSP allows (a style attribute it refuses).
   track.style.setProperty("--n", String(states.length));
   section.toggleAttribute("data-live", true);
   marks.hidden = false;
-  const queue = perFrame(follow);
-  follow();
-  window.addEventListener("scroll", queue, { passive: true });
-  window.addEventListener("resize", queue);
-}
-
-/**
- * The caret after her last line is a real one. The visitor can write here, in the app's type
- * and on its measure, in either direction: click, or just start typing while it is on
- * the screen. Nothing is kept or sent, and the words saying so go at the first word, so
- * the page ends on the visitor's own.
- */
-function yourLine(close: HTMLElement): void {
-  const line = close.querySelector<HTMLTextAreaElement>("textarea");
-  const hint = close.querySelector<HTMLElement>("[data-hint]");
-  if (!line || !hint) return;
-  const root = document.documentElement;
-
-  const fit = () => {
-    line.style.blockSize = "auto";
-    line.style.blockSize = `${line.scrollHeight}px`;
-  };
-  line.addEventListener("input", () => {
-    fit();
-    const empty = line.value === "";
-    hint.hidden = !empty;
-    close.toggleAttribute("data-words", !empty);
+  follow(section, () => {
+    show(Math.min(states.length - 1, Math.floor(scrolled(track) * states.length)));
   });
-  // The corner button steps aside for someone writing here, and only here: scrolled back up
-  // with the words still in focus, the way to the stick is in reach again.
-  let inView = false;
-  const writer = () => {
-    root.toggleAttribute("data-writer", inView && document.activeElement === line);
-  };
-  line.addEventListener("focus", writer);
-  line.addEventListener("blur", writer);
-  close.addEventListener("click", (event) => {
-    if (!(event.target instanceof HTMLAnchorElement)) line.focus();
-  });
-
-  // On the screen's middle line, however long the visitor's text has grown.
-  new IntersectionObserver(
-    ([entry]) => {
-      inView = entry?.isIntersecting ?? false;
-      writer();
-    },
-    { rootMargin: "-50% 0px" },
-  ).observe(close);
-  // Space still scrolls: it isn't a word yet.
-  document.addEventListener("keydown", (event) => {
-    if (!inView || event.key.length !== 1 || event.key === " ") return;
-    if (event.ctrlKey || event.metaKey || event.altKey) return;
-    if (document.activeElement && document.activeElement !== document.body) return;
-    line.focus();
-  });
-  fit();
 }
 
 /** Each of the stick's commands: one press copies it, and the button says so for two seconds. */
@@ -706,21 +661,21 @@ function command(box: HTMLElement): void {
   button.hidden = false;
 
   let rest = 0;
-  button.addEventListener("click", () => {
-    navigator.clipboard.writeText((code.textContent ?? "").trim()).then(
-      () => {
-        button.textContent = copied;
-        status.textContent = copied;
-        clearTimeout(rest);
-        rest = window.setTimeout(() => {
-          button.textContent = label;
-          status.textContent = "";
-        }, 2000);
-      },
+  button.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText((code.textContent ?? "").trim());
+    } catch {
       // Refused (no permission, or the page lost focus): the command is still there to
       // select by hand, and one click on it selects all of it.
-      () => {},
-    );
+      return;
+    }
+    button.textContent = copied;
+    status.textContent = copied;
+    clearTimeout(rest);
+    rest = window.setTimeout(() => {
+      button.textContent = label;
+      status.textContent = "";
+    }, 2000);
   });
 }
 
@@ -746,19 +701,14 @@ function ownCommand(stick: HTMLElement): void {
   const own = computer();
   const boxes = [...stick.querySelectorAll<HTMLElement>("[data-os]")];
   if (!own || !boxes.some((box) => box.dataset.os === own)) return;
-  for (const box of boxes) {
-    if (box.dataset.os !== own) box.hidden = true;
-    else {
-      const label = box.querySelector<HTMLElement>(".label");
-      if (label) label.hidden = true;
-    }
-  }
+  for (const box of boxes) box.hidden = box.dataset.os !== own;
+  for (const label of stick.querySelectorAll<HTMLElement>(".label")) label.hidden = true;
 }
 
 /** The corner button takes the ground of the world it is over, the night or the page, so
  * its quiet words read on both; and it leads to the stick, so while the stick is on the
  * screen it steps aside. */
-function corner(button: HTMLElement, stick: Element | null): void {
+function corner(button: HTMLElement): void {
   const root = document.documentElement;
   const mark = () => {
     const box = button.getBoundingClientRect();
@@ -790,27 +740,29 @@ function corner(button: HTMLElement, stick: Element | null): void {
   window.addEventListener("scroll", queue, { passive: true });
   window.addEventListener("resize", queue);
 
-  if (stick) {
-    new IntersectionObserver(([entry]) => {
-      root.toggleAttribute("data-at-stick", entry?.isIntersecting ?? false);
-    }).observe(stick);
-  }
+  const stick = document.querySelector("#stick");
+  if (stick) watchView(stick, (inView) => root.toggleAttribute("data-at-stick", inView));
 }
 
-const all = (selector: string) => document.querySelectorAll<HTMLElement>(selector);
-
-for (const root of all("[data-film]")) film(root);
-for (const scene of all("[data-tower]")) tower(scene);
-for (const section of all("[data-push]")) push(section);
-for (const article of all("[data-zuhd]")) {
-  if (!(article.hasAttribute("data-written") && written(article))) zuhd(article);
+const scenes: [string, (element: HTMLElement) => void][] = [
+  ["[data-film]", film],
+  ["[data-tower]", tower],
+  ["[data-push]", push],
+  [
+    "[data-zuhd]",
+    (article) => {
+      if (!(article.hasAttribute("data-written") && written(article))) zuhd(article);
+    },
+  ],
+  ["[data-caret]", caret],
+  ["[data-screens]", screens],
+  ["[data-command]", command],
+  ["#stick", ownCommand],
+  [".to-stick", corner],
+];
+for (const [selector, start] of scenes) {
+  for (const element of document.querySelectorAll<HTMLElement>(selector)) start(element);
 }
-for (const text of all("[data-caret]")) caret(text);
-for (const section of all("[data-screens]")) screens(section);
-for (const close of all("[data-close]")) yourLine(close);
-for (const box of all("[data-command]")) command(box);
-for (const stick of all("#stick")) ownCommand(stick);
-for (const button of all(".to-stick")) corner(button, document.querySelector("#stick"));
 
 // The scenes above make the page longer, so a link to a later scene lands where it points.
 if (location.hash) document.querySelector(location.hash)?.scrollIntoView();

@@ -1,101 +1,36 @@
 ---
 // The close. How to get the editor first, which comes on a USB stick (Stick.astro),
-// straight after what it is, so nothing dark stands between seeing it and getting it.
-// Then the page ends on the page: her line, the film's last words, in the editor's
-// type with its caret after them, and the caret is a real one: the visitor writes here,
-// the wish the film leaves (GUIDELINES.md, The intention). Nothing is kept or sent, and
-// the two quiet lines saying what the name means and that go at the first word, so the
-// page's last words are the visitor's. Nothing comes after it: no footer.
-import { copy } from "../copy";
-import Basmallah from "./Basmallah.astro";
+// straight after what it is, so nothing dark stands between seeing it and getting it; then
+// what that leaves open (Questions.astro). Then the page ends on the page: her line, the
+// film's last words, in the editor's type with its caret after them. Nothing comes after
+// it: no footer.
+import Questions from "./Questions.astro";
 import Stick from "./Stick.astro";
-
-const c = copy.close;
 ---
 
 <Stick />
+<Questions />
 
-<section class="close page" lang="en" aria-label={c.label} data-caret data-close>
-  <div class="sheet">
-    <Basmallah />
-    <div class="text">
-      <p class="mine">These words are mine.</p>
-    </div>
-    <!-- Not spell-checked or suggested to: a browser's own help can leave the machine, and
-         nothing writes for you here either. -->
-    <textarea
-      rows="1"
-      dir="auto"
-      aria-label={c.line}
-      spellcheck="false"
-      autocomplete="off"
-      autocapitalize="sentences"
-      autocorrect="off"
-      data-gramm="false"
-      {...{ writingsuggestions: "false" }}></textarea>
-    <div class="hint" data-hint>
-      <p>{c.name}</p>
-      <p>{c.begin}</p>
-    </div>
+<section class="close page" data-caret>
+  <div class="text">
+    <p class="mine title-step">These words are mine.</p>
   </div>
 </section>
 
 <style>
-  /* A page of its own, as a new document is in the app: the Basmallah, and the writing on
-     the typewriter line. Room below it, so whoever writes on isn't pushed to the edge. */
   .close {
-    box-sizing: border-box;
-    min-block-size: 100svh;
-    padding: calc(42svh - 5 * var(--L)) var(--gutter) 40svh;
-    cursor: text;
+    padding: 0 var(--gutter) calc(6 * var(--L));
   }
 
-  .sheet {
-    max-inline-size: 66ch;
+  /* The column the stick and the questions start in. */
+  .text {
+    max-inline-size: var(--column);
     margin-inline: auto;
   }
 
-  /* A title, in ink, as her last words, with the editor's caret after them (Base.astro),
-     until the caret is the visitor's. */
+  /* A title, in ink, as her last words, with the editor's caret after them (Base.astro). */
   .mine {
-    margin: 0 0 calc(0.5 * var(--L));
-    font-size: var(--size-title);
-    line-height: 1.3;
+    margin: 0;
     text-wrap: balance;
-  }
-
-  .close:focus-within .mine::after,
-  [data-words] .mine::after {
-    display: none;
-  }
-
-  /* The visitor's words, set as the app sets writing. The caret shows where the focus is. */
-  textarea {
-    display: block;
-    box-sizing: border-box;
-    inline-size: 100%;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    border: 0;
-    outline: 0;
-    background: none;
-    color: var(--ink);
-    caret-color: var(--caret);
-    font: inherit;
-    font-family: "Bismillah Duo", "Amiri", ui-monospace, monospace;
-    line-height: 1.6;
-    resize: none;
-    font-variant-ligatures: common-ligatures contextual;
-  }
-
-  .hint {
-    margin-block-start: var(--L);
-    color: var(--page-secondary);
-    font-size: var(--size-small);
-  }
-
-  .hint p {
-    margin: 0;
   }
 </style>

@@ -1,0 +1,97 @@
+---
+// What the page leaves open, after how to get it: each answer folded under its question, so
+// the section reads as a list of questions and asks nothing of whoever has none. Folding is
+// the browser's own, so it needs no script, and the keyboard and find-in-page work with it.
+// Any number stay open, as closing one above would move the one just opened.
+import { copy } from "../copy";
+
+const q = copy.questions;
+---
+
+<section class="questions page" aria-labelledby="questions-heading">
+  <div class="column">
+    <h2 id="questions-heading" class="title-step">{q.heading}</h2>
+    {
+      q.items.map((item) => (
+        <details>
+          <summary>{item.q}</summary>
+          <p class="answer">{item.a}</p>
+        </details>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  /* The stick's own bottom space stands between them: three blank lines. */
+  .questions {
+    --row: 8px;
+    --indent: 1.25em;
+    padding: 0 var(--gutter) calc(3 * var(--L));
+  }
+
+  /* The stick's column, so the words start where its words do; text keeps the measure. */
+  .column {
+    max-inline-size: var(--column);
+    margin-inline: auto;
+  }
+
+  .column > * {
+    max-inline-size: var(--measure);
+  }
+
+  h2 {
+    margin: 0 0 calc(0.5 * var(--L));
+    font-weight: 700;
+  }
+
+  /* The whole row is the target, at least 44px, with the question hanging beside its mark. */
+  summary {
+    position: relative;
+    box-sizing: border-box;
+    min-block-size: 44px;
+    padding: var(--row) 0 var(--row) var(--indent);
+    list-style: none;
+    cursor: pointer;
+  }
+
+  /* Safari before 18.4 keeps its own triangle through list-style. */
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* A small chevron in the quiet tone, at the first line's middle: to the side when folded,
+     down when open. It turns at once, as nothing in the app's panels moves. */
+  summary::before {
+    content: "";
+    position: absolute;
+    inset-block-start: calc(var(--row) + 0.55em);
+    inset-inline-start: 0.1em;
+    inline-size: 0.4em;
+    block-size: 0.4em;
+    border-block-end: 2px solid var(--page-secondary);
+    border-inline-end: 2px solid var(--page-secondary);
+    transform: rotate(-45deg);
+  }
+
+  details[open] > summary::before {
+    transform: rotate(45deg);
+  }
+
+  /* Only with a real pointer: on a phone, hover would stay on the question just tapped. */
+  @media (hover: hover) {
+    summary:hover {
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 0.2em;
+    }
+  }
+
+  /* Quiet beside the questions, and under each one's words, not its mark. */
+  .answer {
+    margin: 0;
+    padding-inline-start: var(--indent);
+    padding-block-end: calc(0.75 * var(--L));
+    color: var(--page-secondary);
+  }
+</style>

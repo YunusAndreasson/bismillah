@@ -24,20 +24,18 @@ const s = copy.screens;
 const image = (src: ImageMetadata, widths: number[]) =>
   getImage({ src, format: "webp", quality: 88, widths });
 const states = await Promise.all(
-  s.states.map(async (state) => {
-    return {
-      ...state,
-      laptop: await image(picture(state.picture), [960, 1440, 2160, 3072]),
-      crop: await image(picture(`${state.picture}-phone`), [480, 720, 1040]),
-    };
-  }),
+  s.states.map(async (state) => ({
+    ...state,
+    laptop: await image(picture(state.picture), [960, 1440, 2160, 3072]),
+    crop: await image(picture(`${state.picture}-phone`), [480, 720, 1040]),
+  })),
 );
 ---
 
 <section class="screens page" aria-labelledby="screens-heading" data-screens>
   <!-- Her page asks how we will think; this line answers it, and the laptop shows the
        answer. -->
-  <h2 id="screens-heading" class="heading">{s.heading}</h2>
+  <h2 id="screens-heading" class="heading title-step">{s.heading}</h2>
   <div class="track" data-track>
     <div class="stage">
       <div class="stack">
@@ -90,15 +88,17 @@ const states = await Promise.all(
 
   /* What the editor is, in the titles' size: the answer to her page's question,
      one blank line above the laptop. */
-  .heading {
-    max-inline-size: 66ch;
-    margin: 0 auto var(--L);
+  .heading,
+  figcaption {
+    max-inline-size: var(--measure);
     padding-inline: var(--gutter);
-    font-size: var(--size-title);
-    line-height: 1.3;
-    font-weight: 700;
     text-align: center;
     text-wrap: balance;
+  }
+
+  .heading {
+    margin: 0 auto var(--L);
+    font-weight: 700;
   }
 
   /* The heading, the laptop, its line and the words fit one window together, so what
@@ -119,12 +119,8 @@ const states = await Promise.all(
   }
 
   figcaption {
-    max-inline-size: 66ch;
     margin: calc(0.5 * var(--L)) auto 0;
-    padding-inline: var(--gutter);
     color: var(--page-secondary);
-    text-align: center;
-    text-wrap: balance;
   }
 
   .name {
@@ -144,10 +140,7 @@ const states = await Promise.all(
   }
 
   [data-live] .stage {
-    position: sticky;
-    inset-block-start: 0;
     box-sizing: border-box;
-    block-size: 100svh;
     display: grid;
     align-content: center;
     /* Clear of the corner button above. */
