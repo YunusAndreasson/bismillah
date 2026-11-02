@@ -2,9 +2,10 @@
   import { Dialog } from "bits-ui";
   import { tick, untrack } from "svelte";
   import { COMMANDS, type Command, type CommandContext, type CommandId } from "../core/commands.ts";
-  import { copy } from "../core/copy.ts";
+  import { copy, type KeyHint } from "../core/copy.ts";
   import type { SaveError } from "../core/ipc.ts";
   import { shortcuts } from "../core/keybindings.svelte.ts";
+  import { matchRanges } from "../core/fuzzy.ts";
   import { keyOf, normalise } from "../core/keys.ts";
   import type { LibraryStore } from "../core/library.svelte.ts";
   import {
@@ -121,13 +122,16 @@
 
   // What Search offers when the library has nothing to list.
   const offers = $derived.by((): Item[] => {
-    if (!findsFiles || searching) return [];
     const action = (id: string, label: string, run: () => void): Item => ({
       kind: "action",
       value: `action:${id}`,
       label,
       run,
     });
+    // Narrowed and nothing found: the way out, with the query kept.
+    if (searching && kind !== null && kind !== "all" && listed.length === 0)
+      return [action("everything", t.searchEverything, () => switchTo("all"))];
+    if (!findsFiles || searching) return [];
     const view = library.view;
     const openFolder = () => choose(() => actions.runCommand("library.openFolder"), false);
     if (view.kind === "none") return [action("open", copy.library.openFolder, openFolder)];
@@ -185,13 +189,38 @@
     });
   });
 
-  // The highlighted row stays in view.
+  // The highlighted row stays in view, with its heading when it is the first under one.
   $effect(() => {
     const index = currentIndex;
     if (index < 0) return;
-    void tick().then(() =>
-      document.getElementById(`panel-row-${String(index)}`)?.scrollIntoView({ block: "nearest" }),
-    );
+    void tick().then(() => {
+      const row = document.getElementById(`panel-row-${String(index)}`);
+      const before = row?.previousElementSibling;
+      if (before?.classList.contains("panel-group")) before.scrollIntoView({ block: "nearest" });
+      row?.scrollIntoView({ block: "nearest" });
+    });
+  });
+
+  // What matched, painted over the text: splitting a name into spans could disturb
+  // Arabic letters and their marks (ADR-0011, ADR-0020).
+  $effect(() => {
+    const word = kind === null ? "" : splitQuery(query).rest;
+    void listed;
+    void tick().then(() => {
+      const ranges: Range[] = [];
+      if (word.trim() !== "")
+        for (const el of document.querySelectorAll(".panel-list [data-match]")) {
+          const node = el.firstChild;
+          if (!(node instanceof Text)) continue;
+          for (const [start, end] of matchRanges(word, node.data)) {
+            const range = new Range();
+            range.setStart(node, start);
+            range.setEnd(node, end);
+            ranges.push(range);
+          }
+        }
+      CSS.highlights.set("panel-match", new Highlight(...ranges));
+    });
   });
 
   function focusField() {
@@ -378,6 +407,9 @@
         ".stepper, input, select:not(:disabled), button:not(:disabled)",
       );
     control?.focus();
+    // All of it, not only its row: the footer would cut off its controls.
+    box?.scrollIntoView({ block: "nearest" });
+    box?.previousElementSibling?.scrollIntoView({ block: "nearest" });
   }
 
   function closeRow() {
@@ -430,11 +462,9 @@
     return match ? [name.slice(0, match.index), match[0]] : [name, ""];
   }
 
-  /** What the highlighted row is: a file's or folder's folder, a command's description,
-   * a setting's hint or a note's text. */
+  /** What the highlighted row is: a command's description, a setting's hint or a note's
+   * text. A file's or folder's folder is on its row already. */
   function describe(item: Item): string | null {
-    if (item.kind === "file" || item.kind === "folder")
-      return t.inFolder(parentOf(item.path) || (library.name ?? ""));
     if (item.kind === "command") return item.command.description ?? null;
     if (item.kind !== "setting") return null;
     const e = item.entry;
@@ -445,10 +475,10 @@
   }
 
   /** What the keys do now, for the key line. */
-  const keys = $derived.by((): string => {
+  const keys = $derived.by((): readonly KeyHint[] => {
     const k = t.keys;
     const item = current;
-    if (!item) return "";
+    if (!item) return [];
     if (opened !== null) {
       const open = items.find((i) => i.value === opened);
       if (open?.kind !== "setting") return k.openedOther;
@@ -469,12 +499,10 @@
         const rename = shortcuts.label("file.rename");
         const trash = shortcuts.label("file.trash");
         return [
-          item.kind === "file" ? k.open : k.show,
-          rename ? k.rename(rename) : "",
-          trash ? k.trash(trash) : "",
-        ]
-          .filter(Boolean)
-          .join(SEP);
+          ...(item.kind === "file" ? k.open : k.show),
+          ...(rename ? [k.rename(rename)] : []),
+          ...(trash ? [k.trash(trash)] : []),
+        ];
       }
       case "command":
         return item.command.toggle ? k.toggle : k.run;
@@ -491,18 +519,19 @@
           case "fontName":
             return k.type;
           case "library":
-            return settingsContext.stick ? "" : k.library;
+            return settingsContext.stick ? [] : k.library;
           case "about":
             return k.about;
           case "note":
-            return "";
+            return [];
           default:
             return k.read;
         }
     }
   });
 
-  /** The highlighted row's description, in its own line above the keys, so no row
+  /** The highlighted row's description: in Settings, where a hint can run long and says
+   * what a change does, in its own lines above the keys; elsewhere along its row. No row
    * changes height as the highlight moves. */
   const about = $derived(current ? describe(current) : null);
 
@@ -511,6 +540,23 @@
     kind === null ? "" : searching && items.length === 0 ? t.empty[kind] : t.names[kind],
   );
 </script>
+
+{#snippet keyHints(hints: readonly KeyHint[])}
+  {#each hints as [key, action], i (i)}
+    <span class="hint"><kbd>{key}</kbd> {action}</span>{i < hints.length - 1 ? " " : ""}
+  {/each}
+{/snippet}
+
+{#snippet inlineAbout(isCurrent: boolean)}
+  <!-- Screen readers get it as the row's description, not in its name. -->
+  <span class="inline" use:fullText={isCurrent ? (about ?? "") : ""}
+    >{#if isCurrent && about && kind !== "settings"}<span
+        id="panel-about"
+        class="panel-about-inline"
+        aria-hidden="true">{about}</span
+      >{/if}</span
+  >
+{/snippet}
 
 <Dialog.Root
   open={kind !== null}
@@ -574,6 +620,10 @@
         </div>
       {/if}
       <div class="panel-field">
+        <svg class="panel-glass" viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="7" cy="7" r="4.5" />
+          <path d="m10.5 10.5 3.5 3.5" />
+        </svg>
         {#if kind && kind !== "all"}
           <!-- Narrowed: the scope, which a click (or Backspace in an empty field) widens to
                everything. Focus stays in the field. -->
@@ -662,20 +712,25 @@
                     class="primary"
                     class:active={item.path === library.active}
                     use:fullText={item.name}
-                    ><bdi>{stem}</bdi>{#if ext}<span class="quiet">{ext}</span>{/if}</span
+                    ><bdi data-match>{stem}</bdi>{#if ext}<span class="quiet">{ext}</span
+                      >{/if}</span
                   >
-                  <span class="value" use:fullText={parentOf(item.path)}
-                    ><bdi>{parentOf(item.path)}</bdi></span
+                  <span class="inline" use:fullText={parentOf(item.path)}
+                    ><bdi data-match>{parentOf(item.path)}</bdi></span
                   >
                 {:else if item.kind === "folder"}
                   <span class="primary" use:fullText={item.path}
-                    ><bdi>{item.name}</bdi><span class="quiet">/</span></span
+                    ><bdi data-match>{item.name}</bdi><span class="quiet">/</span></span
                   >
-                  <span class="value"><bdi>{parentOf(item.path)}</bdi></span>
+                  <span class="inline" use:fullText={parentOf(item.path)}
+                    ><bdi data-match>{parentOf(item.path)}</bdi></span
+                  >
                 {:else if item.kind === "command"}
                   {@const on = item.command.toggle?.(context)}
-                  <span class="primary" use:fullText={item.command.label}>{item.command.label}</span
+                  <span class="primary" use:fullText={item.command.label}
+                    ><span data-match>{item.command.label}</span></span
                   >
+                  {@render inlineAbout(isCurrent)}
                   {@const key = shortcut(item.command)}
                   <span class="value"
                     >{#if on !== undefined}<span class="state">{on ? t.on : t.off}</span
@@ -685,8 +740,9 @@
                   <span
                     class="primary"
                     id="panel-label-{item.entry.id}"
-                    use:fullText={item.entry.label}>{item.entry.label}</span
+                    use:fullText={item.entry.label}><span data-match>{item.entry.label}</span></span
                   >
+                  {@render inlineAbout(isCurrent)}
                   <!-- An opened choice or size shows its value in its control. -->
                   <span class="value" class:repeated={isOpen && adjustable(item.entry)}
                     ><bdi>{shownValue(item.entry, values, settingsContext)}</bdi></span
@@ -721,8 +777,10 @@
         {/each}
         {#if offers.length > 0}
           <div role="group">
-            <p class="panel-note" role="presentation">
-              {#if library.view.kind === "none"}
+            <p class="panel-note" class:none={searching} role="presentation">
+              {#if searching}
+                {kind ? t.empty[kind] : ""}
+              {:else if library.view.kind === "none"}
                 {copy.library.none}
               {:else if library.view.kind === "unavailable"}
                 {copy.library.unavailable(library.view.name)}
@@ -735,6 +793,7 @@
               <div
                 id="panel-row-{index}"
                 class="panel-row"
+                class:centred={searching}
                 class:current={item.value === selected}
                 data-value={item.value}
                 role="option"
@@ -750,9 +809,9 @@
             {/each}
           </div>
         {:else if items.length === 0}
-          <p class="panel-note" role="presentation">{kind ? t.empty[kind] : ""}</p>
+          <p class="panel-note none" role="presentation">{kind ? t.empty[kind] : ""}</p>
         {/if}
-        {#if findsFiles && prefix && fileCount === 0 && items.length > 0}
+        {#if findsFiles && prefix && fileCount === 0 && listed.length > 0}
           <p class="panel-note" role="presentation">{t.emptyFolder(prefix)}</p>
         {/if}
         {#if kind === "files" && !searching && library.files.length > ALL_FILES}
@@ -762,11 +821,15 @@
           <p class="panel-note" role="presentation">{copy.library.truncated}</p>
         {/if}
       </div>
-      <!-- Always two lines tall, so nothing moves as the highlight does. -->
-      <p class="panel-about" id="panel-about">{about ?? ""}</p>
+      {#if kind === "settings"}
+        <!-- Always two lines tall, so nothing moves as the highlight does. -->
+        <p class="panel-about" id="panel-about">{about ?? ""}</p>
+      {/if}
       <p class="panel-keys">
-        <span class="now">{keys}</span>
-        {#if kind}<span class="always">{t.keys.next(t.scopes[adjacent(kind, 1)])}</span>{/if}
+        <span class="now">{@render keyHints(keys)}</span>
+        {#if kind}<span class="always"
+            >{@render keyHints(t.keys.next(t.scopes[adjacent(kind, 1)]))}</span
+          >{/if}
       </p>
       <p class="visually-hidden" role="status">{announced}</p>
     </Dialog.Content>
@@ -779,12 +842,14 @@
     position: fixed;
     z-index: var(--layer-popover);
     inset: 0;
-    background: color-mix(in srgb, var(--surface-editor) 60%, transparent);
+    background: var(--scrim);
   }
   /* Centred near the top, and always the same size whatever it lists, so neither the
      field nor the footer moves as the results change. */
   :global(.panel) {
     --panel-top: clamp(var(--space-2), 12vh, 6rem);
+    /* Where text starts: the list's inset and a row's own padding. */
+    --panel-edge: calc(var(--space-2) + var(--space-3));
     position: fixed;
     z-index: var(--layer-popover);
     inset-block-start: var(--panel-top);
@@ -798,9 +863,9 @@
     container-type: size;
     background: var(--surface-editor);
     color: var(--text-primary);
-    border: 1px solid var(--border-control);
-    border-radius: 8px;
-    box-shadow: 0 8px 32px color-mix(in srgb, var(--text-primary) 14%, transparent);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    box-shadow: var(--shadow-overlay);
     overflow: hidden;
     outline: none;
   }
@@ -816,11 +881,21 @@
     gap: var(--space-2);
     /* The field's padding sits here: an Arabic query turns the input's own padding
        round, which would open a gap beside the scope. */
-    padding-inline: var(--space-6);
-    border-block-end: 1px solid var(--border-control);
+    padding-inline: var(--panel-edge);
+    border-block-end: 1px solid var(--border-subtle);
   }
-  .panel-field:focus-within {
+  /* Focus never leaves the field, and the caret shows it (ADR-0020). */
+  :global([data-contrast="high"]) .panel-field:focus-within {
     box-shadow: inset 0 -2px 0 var(--focus-ring);
+  }
+  .panel-glass {
+    flex-shrink: 0;
+    inline-size: 16px;
+    block-size: 16px;
+    fill: none;
+    stroke: var(--text-secondary);
+    stroke-width: 1.5;
+    stroke-linecap: round;
   }
   /* The scope Search is narrowed to; a click widens it to everything. */
   .panel-scope {
@@ -831,9 +906,9 @@
     font-size: 0.9em;
     color: var(--text-primary);
     background: var(--surface-panel);
-    border: 1px solid var(--border-control);
-    border-radius: 4px;
-    padding: 0 var(--space-2);
+    border: none;
+    border-radius: 6px;
+    padding: 1px var(--space-2);
     cursor: pointer;
   }
   .panel-input {
@@ -844,7 +919,7 @@
     color: var(--text-primary);
     background: transparent;
     border: none;
-    padding: var(--space-4) 0;
+    padding: calc(var(--space-3) + 2px) 0;
     outline: none;
     /* Arabic keeps its own order but stays beside the scope, at the interface's start. */
     text-align: left;
@@ -859,7 +934,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2) var(--space-3);
-    margin: var(--space-3) var(--space-6) 0;
+    margin: var(--space-3) var(--panel-edge) 0;
     padding-inline-start: var(--space-3);
     border-inline-start: 3px solid var(--status-error);
     color: var(--status-error);
@@ -889,7 +964,9 @@
     flex: 1;
     min-height: 0;
     overflow: auto;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-2);
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-subtle) transparent;
   }
   .panel-more {
     cursor: pointer;
@@ -898,27 +975,35 @@
     color: var(--text-primary);
   }
   .panel-group {
-    padding: var(--space-4) var(--space-3) var(--space-1);
+    padding: var(--space-3) var(--space-3) var(--space-1);
     color: var(--text-secondary);
-    font-size: 0.85em;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 500;
+    scroll-margin-block: var(--space-2);
   }
   [role="group"]:first-child .panel-group {
     padding-block-start: var(--space-2);
   }
   .panel-row {
     display: grid;
-    /* A deep folder never squeezes the name: the value takes at most 40%. */
-    grid-template-columns: minmax(0, 1fr) fit-content(40%);
-    column-gap: var(--space-6);
+    /* The name first, what is beside it in what is left (cut before the name is), and
+       the value at the end, at most 40%. */
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr) fit-content(40%);
+    column-gap: var(--space-3);
     align-items: baseline;
     /* Less the edge, so the text shares the field's and the headings' start. */
-    padding: var(--space-2) var(--space-3);
+    padding: calc(var(--space-2) - 1px) var(--space-3);
     padding-inline-start: calc(var(--space-3) - 3px);
     border-inline-start: 3px solid transparent;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: default;
     outline: none;
+    scroll-margin-block: var(--space-2);
+  }
+  /* The way out of a narrowed search that found nothing, under its note. */
+  .panel-row.centred {
+    display: block;
+    text-align: center;
   }
   /* A row that depends on the one above it (Zuhd mode's, Another font's). */
   .panel-row.sub .primary {
@@ -928,13 +1013,36 @@
     padding-inline-start: calc(var(--space-3) - 3px + var(--space-4));
   }
   .panel-row.current {
-    background: var(--surface-panel);
+    background: var(--surface-selected);
+  }
+  /* The fill alone falls short of 3:1 (DESIGN.md §9.4, ADR-0020); where the writer asked
+     for contrast, or the system paints the fills away, an edge says it too. */
+  :global([data-contrast="high"]) .panel-row.current,
+  :global([data-contrast="high"]) .panel-opened {
     border-inline-start-color: var(--accent);
+  }
+  @media (forced-colors: active) {
+    .panel-row {
+      border-inline-start-color: Canvas;
+    }
+    .panel-row.current,
+    .panel-opened {
+      border-inline-start-color: Highlight;
+    }
   }
   .primary {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  /* A file's folder on every row; a description only on the highlighted one. */
+  .inline {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    font-size: 13px;
   }
   /* The open document, as the tree marked it. */
   .primary.active {
@@ -973,14 +1081,20 @@
     margin-block-end: var(--space-2);
     padding: var(--space-1) var(--space-3) var(--space-4);
     padding-inline-start: calc(var(--space-3) - 3px);
-    background: var(--surface-panel);
-    border-inline-start: 3px solid var(--accent);
-    border-end-start-radius: 4px;
-    border-end-end-radius: 4px;
+    background: var(--surface-selected);
+    border-inline-start: 3px solid transparent;
+    border-end-start-radius: 6px;
+    border-end-end-radius: 6px;
+    scroll-margin-block: var(--space-2);
   }
   .panel-note {
     margin: var(--space-2) var(--space-3);
     color: var(--text-secondary);
+  }
+  /* Nothing found. */
+  .panel-note.none {
+    margin-block: var(--space-8) var(--space-3);
+    text-align: center;
   }
   /* Two lines tall always, so nothing below the list moves. */
   .panel-about {
@@ -988,8 +1102,9 @@
     box-sizing: border-box;
     block-size: calc(2 * 1.4em + 2 * var(--space-3));
     margin: 0;
-    padding: var(--space-3) var(--space-6);
-    border-block-start: 1px solid var(--border-control);
+    padding: var(--space-3) var(--panel-edge);
+    border-block-start: 1px solid var(--border-subtle);
+    font-size: 13px;
     line-height: 1.4;
     color: var(--text-secondary);
     overflow: hidden;
@@ -999,7 +1114,7 @@
     line-clamp: 2;
     overflow-wrap: anywhere;
   }
-  /* A short palette keeps rows for the list: one line, and the key line's own keys. */
+  /* A short palette keeps rows for the list: one line. */
   @container (max-height: 24rem) {
     .panel-about {
       block-size: calc(1.4em + 2 * var(--space-2));
@@ -1008,7 +1123,8 @@
       line-clamp: 1;
     }
   }
-  @container (max-height: 24rem) or (max-width: 30rem) {
+  /* A narrow one keeps the key line's own keys. */
+  @container (max-width: 30rem) {
     .panel-keys .always {
       display: none;
     }
@@ -1023,10 +1139,17 @@
     justify-content: space-between;
     gap: var(--space-1) var(--space-4);
     margin: 0;
-    padding: var(--space-2) var(--space-6);
-    border-block-start: 1px solid var(--border-control);
+    padding: var(--space-2) var(--panel-edge);
+    border-block-start: 1px solid var(--border-subtle);
     color: var(--text-secondary);
-    font-size: 0.9em;
+    font-size: 12px;
+  }
+  .hint + .hint {
+    margin-inline-start: var(--space-2);
+  }
+  .panel-keys kbd {
+    margin-inline-end: 2px;
+    color: var(--text-primary);
   }
   .panel-keys .now {
     min-width: 0;

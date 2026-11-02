@@ -399,7 +399,7 @@
   border-radius: 6px;
   background: var(--surface-editor);
   color: var(--text-primary);
-  box-shadow: 0 6px 20px color-mix(in srgb, var(--text-primary) 14%, transparent);
+  box-shadow: var(--shadow-popover);
 }
 .cm-editor .cm-tooltip.cm-tooltip-hover .cm-address {
   max-inline-size: min(36rem, 80vw);

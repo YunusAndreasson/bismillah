@@ -113,7 +113,7 @@
     position: fixed;
     z-index: var(--layer-popover);
     inset: 0;
-    background: color-mix(in srgb, var(--surface-editor) 60%, transparent);
+    background: var(--scrim);
   }
   :global(.prompt) {
     position: fixed;
@@ -132,7 +132,7 @@
     color: var(--text-primary);
     border: 1px solid var(--border-control);
     border-radius: 8px;
-    box-shadow: 0 8px 32px color-mix(in srgb, var(--text-primary) 14%, transparent);
+    box-shadow: var(--shadow-overlay);
   }
   :global(.prompt-title) {
     margin: 0 0 var(--space-4);

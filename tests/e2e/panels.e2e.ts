@@ -189,7 +189,7 @@ describe("The panels", () => {
     await frames();
     expect((await panel())?.rows[0]?.text).toMatch(/Standard/);
     await search("chapter 10", "file:Chapter 10.md");
-    expect((await panel())?.description).toContain("In");
+    expect((await panel())?.description).toBe("");
     await browser.keys("F2");
     await browser.waitUntil(async () =>
       Boolean(await browser.execute(() => window.__bismillah?.prompt()?.ready)),
@@ -319,11 +319,11 @@ describe("The panels", () => {
     await browser.keys(["Control", ","]);
     await browser.keys(["Control"]);
     await search("text size", "setting:size");
-    expect((await panel())?.keys).toBe("← → change · Enter open");
+    expect((await panel())?.keys).toBe("← → change Enter open");
     await browser.keys("Enter");
     await browser.waitUntil(async () => (await panel())?.opened === "setting:size");
     await browser.waitUntil(async () => (await panel())?.focus === "opened");
-    expect((await panel())?.keys).toBe("← → change · Backspace reset · Enter or Esc done");
+    expect((await panel())?.keys).toBe("← → change Backspace reset Enter or Esc done");
     // The stepper shows the size; the row's end doesn't repeat it.
     expect(
       await browser.execute(() => {
@@ -347,7 +347,7 @@ describe("The panels", () => {
   it("says what an opened choice's keys do, and opens only rows that hold something", async () => {
     await browser.execute(() => window.__bismillah?.openSettings({ row: "measure", open: true }));
     await browser.waitUntil(async () => (await panel())?.opened === "setting:measure");
-    expect((await panel())?.keys).toBe("← → change · Enter or Esc done");
+    expect((await panel())?.keys).toBe("← → change Enter or Esc done");
     await browser.keys("Escape");
     await browser.waitUntil(async () => (await panel())?.opened === null);
     await browser.keys("Escape");
@@ -417,6 +417,85 @@ describe("The panels", () => {
     await button.click();
     await browser.waitUntil(async () => (await panel())?.kind === "all");
     expect(await activeIs(".panel-input")).toBe(true);
+  });
+
+  it("keeps a row's height and the palette's as the highlight reaches a description", async () => {
+    await browser.execute(async () => window.__bismillah?.openPanel("all", "spelling"));
+    await browser.waitUntil(async () => (await panel())?.description !== "");
+    const heights = () =>
+      browser.execute(() => ({
+        row: document.querySelector(".panel-row:not(.current)")?.getBoundingClientRect().height,
+        current: document.querySelector(".panel-row.current")?.getBoundingClientRect().height,
+        panel: document.querySelector(".panel")?.getBoundingClientRect().height,
+      }));
+    const before = await heights();
+    expect(before.current).toBe(before.row);
+    await browser.keys("ArrowDown");
+    await frames();
+    expect(await heights()).toEqual(before);
+    // Described to screen readers, but not part of the row's name.
+    const linked = await browser.execute(() => {
+      const row = document.querySelector(".panel-row.current");
+      const about = document.getElementById(row?.getAttribute("aria-describedby") ?? "");
+      return about ? about.getAttribute("aria-hidden") : null;
+    });
+    expect(linked).toBe("true");
+  });
+
+  it("marks what matched, without splitting the name", async () => {
+    await browser.execute(async () => window.__bismillah?.openPanel("files", "سلام"));
+    await frames();
+    const marks = await browser.execute(() =>
+      [...(CSS.highlights.get("panel-match") ?? [])].map((r) => ({
+        text: (r as Range).toString(),
+        whole: r.startContainer === r.endContainer,
+      })),
+    );
+    expect(marks).toEqual([{ text: "سلام", whole: true }]);
+    await browser.execute(async () => window.__bismillah?.openPanel("all"));
+    await frames();
+    const left = await browser.execute(() => CSS.highlights.get("panel-match")?.size ?? 0);
+    expect(left).toBe(0);
+  });
+
+  it("offers everything when a narrowed search finds nothing, with the query kept", async () => {
+    await browser.execute(async () => window.__bismillah?.openPanel("files", "zzzz"));
+    await browser.waitUntil(async () => (await selected()) === "action:everything");
+    await browser.keys("Enter");
+    await browser.waitUntil(async () => (await panel())?.kind === "all");
+    expect((await panel())?.query).toBe("zzzz");
+    expect(await activeIs(".panel-input")).toBe(true);
+    expect((await panel())?.rows).toEqual([]);
+  });
+
+  it("shows all of an opened setting, clear of the footer", async () => {
+    await browser.execute(async () => {
+      window.__bismillah?.openSettings({ row: "measure", open: true });
+      await window.__bismillah?.settle();
+    });
+    await browser.$(".panel-opened").waitForDisplayed();
+    await frames();
+    const clear = await browser.execute(() => {
+      const list = document.querySelector(".panel-list")?.getBoundingClientRect();
+      const box = document.querySelector(".panel-opened")?.getBoundingClientRect();
+      return list !== undefined && box !== undefined && box.bottom <= list.bottom;
+    });
+    expect(clear).toBe(true);
+  });
+
+  it("brings a group's heading into view with its first row", async () => {
+    await browser.execute(async () => window.__bismillah?.openPanel("commands"));
+    await browser.waitUntil(async () => ((await panel())?.rows.length ?? 0) > 10);
+    await browser.keys("ArrowUp");
+    await frames();
+    await browser.keys("ArrowDown");
+    await frames();
+    const seen = await browser.execute(() => {
+      const list = document.querySelector(".panel-list")?.getBoundingClientRect();
+      const heading = document.querySelector(".panel-group")?.getBoundingClientRect();
+      return list !== undefined && heading !== undefined && heading.top >= list.top;
+    });
+    expect(seen).toBe(true);
   });
 
   it("fits a 480 by 360 window", async () => {

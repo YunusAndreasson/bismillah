@@ -36,7 +36,7 @@ body {
   color: var(--text-primary);
   border: 1px solid var(--border-control);
   border-radius: 6px;
-  box-shadow: 0 6px 20px color-mix(in srgb, var(--text-primary) 14%, transparent);
+  box-shadow: var(--shadow-popover);
   font: var(--ui-size) / var(--ui-line) var(--ui-font);
   outline: none;
 }
@@ -74,4 +74,10 @@ body {
     transition-duration: 0s !important;
     animation-duration: 0s !important;
   }
+}
+
+/* What matched in Search's rows (Panel.svelte), painted over the text so that Arabic
+   letters and their marks stay one run. */
+::highlight(panel-match) {
+  background-color: var(--surface-match);
 }

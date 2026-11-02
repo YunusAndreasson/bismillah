@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-29 (the author's decision)
 - **Supersedes:** [0016](0016-three-panels.md)'s three panels, their tabs and their place at the bottom left
+- **Amended by:** [0020](0020-search-refined.md): the description line, only in Settings now, and the highlighted row
 
 ## Context
 ADR-0016 split *Find anything* into three panels, Files, Commands and Settings, each rising from the status line's bottom-left names with the three names repeated as tabs. The author found the three tabs non-standard and asked for one palette on `Ctrl+K`, as in Notion, Linear, Raycast and VS Code, with `Ctrl+P`, `Ctrl+Shift+P` and `Ctrl+,` kept as ways into it. *Find anything*, three days earlier, had been too crowded (tree, recent files, commands, settings, four scope buttons and a long hint at once), and the author has asked that no row change height as the highlight moves. The new palette must be one place without either.

@@ -158,7 +158,7 @@ export interface PanelProbe {
   groups: string[];
   /** The scope shown in the field ("Files"), or null for everything. */
   chip: string | null;
-  /** The line under the list: the highlighted row's description. */
+  /** The highlighted row's description: under the list in Settings, else along its row. */
   description: string;
   keys: string;
 }
@@ -355,7 +355,7 @@ export function installTestHooks(editor: Editor, workspace: Workspace): void {
             : "other",
         groups: [...box.querySelectorAll(".panel-group")].map(text),
         chip: chip ? text(chip).replace(/\s*×$/u, "") : null,
-        description: text(box.querySelector(".panel-about")),
+        description: text(box.querySelector(".panel-about, .panel-about-inline")),
         keys: text(box.querySelector(".panel-keys .now")),
       };
     },

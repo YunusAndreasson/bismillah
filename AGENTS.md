@@ -160,7 +160,11 @@ file-age, legacy-entry and pruning regressions live in `src-tauri/src/recovery.r
 The formatting bar (ADR-0019) writes only Markdown, checked with the app's own parser
 before each mark: `src/editor/format.test.ts`, `src/editor/formatBar.test.ts`,
 `tests/e2e/format-bar.e2e.ts` and `tests/visual/format-bar.visual.ts`.
-The current gate covers 584 frontend and 257 Rust tests, all 34
+Search's lighter look, measured against Notion (ADR-0020), keeps its description band
+only in Settings and marks matches with `matchRanges` and the CSS Custom Highlight API,
+never spans: `src/core/fuzzy.test.ts`, `tests/e2e/panels.e2e.ts` and
+[the Search polish audit](docs/audits/2026-10-30-search-polish.md).
+The current gate covers 594 frontend and 257 Rust tests, all 34
 real-app suites and 25 visual checks.
 
 - Tests added or updated, and all suites, clippy, fmt, check and lint pass.

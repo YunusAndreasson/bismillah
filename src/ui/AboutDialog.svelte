@@ -72,7 +72,7 @@
     position: fixed;
     z-index: var(--layer-popover);
     inset: 0;
-    background: color-mix(in srgb, var(--surface-editor) 70%, transparent);
+    background: var(--scrim);
   }
   :global(.about-dialog) {
     position: fixed;
@@ -91,7 +91,7 @@
     color: var(--text-primary);
     border: 1px solid var(--border-control);
     border-radius: 8px;
-    box-shadow: 0 8px 32px color-mix(in srgb, var(--text-primary) 14%, transparent);
+    box-shadow: var(--shadow-overlay);
   }
   :global(.about-title) {
     margin: 0;

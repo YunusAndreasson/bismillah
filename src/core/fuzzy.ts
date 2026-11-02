@@ -58,6 +58,48 @@ function tokens(query: string): string[] {
   return fold(query).split(/\s+/u).filter(Boolean);
 }
 
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+/**
+ * What to mark in `text` for `query`: for each word, its best place as a run of letters
+ * (the start of a word first), as offsets into `text` as written. An offset never falls
+ * inside a letter with its marks, and words found only as scattered letters mark nothing.
+ */
+export function matchRanges(query: string, text: string): [number, number][] {
+  const words = tokens(query);
+  if (words.length === 0) return [];
+  // Each unit of the folded text, and the letter (with its marks) it came from.
+  let folded = "";
+  const from: [number, number][] = [];
+  for (const { segment, index } of graphemes.segment(text)) {
+    const part = fold(segment);
+    folded += part;
+    for (let i = 0; i < part.length; i++) from.push([index, index + segment.length]);
+  }
+  const ranges: [number, number][] = [];
+  for (const word of words) {
+    let at = folded.indexOf(word);
+    if (at < 0) continue;
+    for (let next = at; next > 0; next = folded.indexOf(word, next + 1)) {
+      if (BOUNDARY.test(folded[next - 1] ?? "")) {
+        at = next;
+        break;
+      }
+    }
+    const first = from[at];
+    const last = from[at + word.length - 1];
+    if (first && last) ranges.push([first[0], last[1]]);
+  }
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  for (const range of ranges) {
+    const end = merged.at(-1);
+    if (end && range[0] <= end[1]) end[1] = Math.max(end[1], range[1]);
+    else merged.push(range);
+  }
+  return merged;
+}
+
 export interface FileCandidate {
   path: string;
   name: string;

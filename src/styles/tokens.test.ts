@@ -124,6 +124,19 @@ describe.each(Object.entries(THEMES))("%s theme contrast", (_name, token) => {
     expect(ratio).toBeLessThan(contrast(token("text-secondary"), token("surface-editor")));
   });
 
+  it("keeps text readable on Search's highlighted row and on what matched in it", () => {
+    // tokens.css: text-primary 9% into the page; high contrast uses surface-panel. A match
+    // lays text-primary at 16% over the row.
+    const high = _name.startsWith("high");
+    const row = high
+      ? token("surface-panel")
+      : over(`${token("text-primary")}17`, token("surface-editor"));
+    for (const fg of ["text-primary", "text-secondary"])
+      expect(contrast(token(fg), row)).toBeGreaterThanOrEqual(4.5);
+    const match = over(`${token("text-primary")}29`, row);
+    expect(contrast(token("text-primary"), match)).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("keeps faint text visible, but fainter than text-secondary", () => {
     // tokens.css: text-faint is text-secondary 40% of the way toward the page. It is drawn
     // on the editor surface only (the status line, the Basmallah).

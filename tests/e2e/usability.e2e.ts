@@ -95,7 +95,11 @@ describe("usability: feedback, discovery and escape routes", () => {
       await browser.waitUntil(
         async () => (await browser.$(".panel-note").getText()) === "No file or folder matches.",
       );
-      expect(await browser.$(".panel-row").isExisting()).toBe(false);
+      // Only the way out of the narrowed search: no file row, and no offer to make one.
+      const rows = await browser.execute(() =>
+        window.__bismillah?.panel()?.rows.map((r) => r.text),
+      );
+      expect(rows).toEqual(["Search everything"]);
       await browser.keys("Escape");
     } finally {
       await open(folder.file("back.md", "بِسْمِ scatter"));

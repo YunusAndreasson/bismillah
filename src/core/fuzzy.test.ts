@@ -7,6 +7,7 @@ import {
   rankCommands,
   rankFiles,
   score,
+  matchRanges,
 } from "./fuzzy.ts";
 
 const files = [
@@ -166,5 +167,38 @@ describe("match tiers, which compare files with commands and settings", () => {
     expect(countFiles("notes", files)).toBe(2);
     expect(countFiles("nts", files, 1)).toBe(0);
     expect(countFiles("nts", files, 0)).toBe(2);
+  });
+});
+
+describe("matchRanges", () => {
+  const marked = (query: string, text: string) =>
+    matchRanges(query, text).map(([a, b]) => text.slice(a, b));
+
+  it("marks a run of letters, ignoring case and Latin diacritics", () => {
+    expect(marked("hadith", "Notes on Ḥadīth")).toEqual(["Ḥadīth"]);
+  });
+  it("carries ʿ inside a run, and leaves it out before one", () => {
+    expect(marked("ilm", "ʿIlm and adab")).toEqual(["Ilm"]);
+    expect(marked("sar", "saʿr")).toEqual(["saʿr"]);
+  });
+  it("marks whole Arabic letters with their marks, as written", () => {
+    expect(marked("سلام", "سَلَام")).toEqual(["سَلَام"]);
+    expect(marked("الله", "بِسْمِ ٱللَّهِ")).toEqual(["ٱللَّهِ"]);
+    // Never between a letter and its marks.
+    expect(marked("س", "سَلَام")).toEqual(["سَ"]);
+  });
+  it("prefers the start of a word to the middle of one", () => {
+    expect(matchRanges("let", "Bullet letter")).toEqual([[7, 10]]);
+    expect(matchRanges("let", "Bullet")).toEqual([[3, 6]]);
+  });
+  it("marks each word and joins what overlaps", () => {
+    expect(marked("chapter 10", "Chapter 10")).toEqual(["Chapter", "10"]);
+    expect(matchRanges("cha hap", "Chapter")).toEqual([[0, 4]]);
+  });
+  it("marks nothing for scattered letters, aliases or no query", () => {
+    expect(matchRanges("chr", "Chapter")).toEqual([]);
+    expect(matchRanges("focus", "Zuhd mode")).toEqual([]);
+    expect(matchRanges("  ", "Chapter")).toEqual([]);
+    expect(matchRanges("a", "")).toEqual([]);
   });
 });

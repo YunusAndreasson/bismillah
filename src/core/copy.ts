@@ -19,6 +19,9 @@ import { commandById, shortcutLabel, type CommandId } from "./commands.ts";
 
 const quote = (name: string) => `“${name}”`;
 
+/** A key and what it does now, for Search's key line. */
+export type KeyHint = readonly [key: string, action: string];
+
 const SAVE_REASONS: Record<SaveError["kind"], string> = {
   disk_full: "the disk is full",
   read_only_volume: "the disk is read-only",
@@ -295,12 +298,12 @@ export const copy = {
       commands: "Commands",
       settings: "Settings",
     },
-    /** A file's or folder's place, under the list. */
-    inFolder: (folder: string) => `In ${quote(folder)}`,
     sections: { File: "File", Edit: "Edit", Format: "Format", View: "View", Help: "Help" },
     on: "On",
     off: "Off",
     noneYet: "None yet",
+    /** Offered when a narrowed Search finds nothing. */
+    searchEverything: "Search everything",
     allFiles: (n: number) => `The first ${String(n)} files are listed. Type to find the others.`,
     emptyFolder: (name: string) => `No Markdown files in ${quote(name)} yet.`,
     shortcuts: {
@@ -309,26 +312,45 @@ export const copy = {
       changed: (n: number) => (n === 0 ? "Not changed" : `${String(n)} changed`),
       problems: (n: number) => (n === 1 ? "1 line not used" : `${String(n)} lines not used`),
     },
-    /** The line above the tabs: each key, then what it does now. */
+    /** The key line: each key, then what it does now. */
     keys: {
-      open: "Enter open",
-      show: "Enter look inside",
-      run: "Enter run",
-      toggle: "Enter on or off",
-      choose: "← → change · Enter all choices",
-      step: "← → change · Enter open",
-      type: "Enter type a name",
-      read: "Enter show",
-      library: "Enter open another folder",
-      about: "Enter open",
+      open: [["Enter", "open"]] as KeyHint[],
+      show: [["Enter", "look inside"]] as KeyHint[],
+      run: [["Enter", "run"]] as KeyHint[],
+      toggle: [["Enter", "on or off"]] as KeyHint[],
+      choose: [
+        ["← →", "change"],
+        ["Enter", "all choices"],
+      ] as KeyHint[],
+      step: [
+        ["← →", "change"],
+        ["Enter", "open"],
+      ] as KeyHint[],
+      type: [["Enter", "type a name"]] as KeyHint[],
+      read: [["Enter", "show"]] as KeyHint[],
+      library: [["Enter", "open another folder"]] as KeyHint[],
+      about: [["Enter", "open"]] as KeyHint[],
       /** An opened row's own keys. */
-      openedChoice: "← → change · Enter or Esc done",
-      openedStep: "← → change · Backspace reset · Enter or Esc done",
-      openedName: "Enter use this name · Esc done",
-      openedOther: "Esc done",
-      rename: (key: string) => `${key} rename`,
-      trash: (key: string) => `${key} move to the trash`,
-      next: (scope: string) => `Tab ${scope} · Esc close`,
+      openedChoice: [
+        ["← →", "change"],
+        ["Enter or Esc", "done"],
+      ] as KeyHint[],
+      openedStep: [
+        ["← →", "change"],
+        ["Backspace", "reset"],
+        ["Enter or Esc", "done"],
+      ] as KeyHint[],
+      openedName: [
+        ["Enter", "use this name"],
+        ["Esc", "done"],
+      ] as KeyHint[],
+      openedOther: [["Esc", "done"]] as KeyHint[],
+      rename: (key: string): KeyHint => [key, "rename"],
+      trash: (key: string): KeyHint => [key, "move to the trash"],
+      next: (scope: string): KeyHint[] => [
+        ["Tab", scope],
+        ["Esc", "close"],
+      ],
     },
   },
   search: {

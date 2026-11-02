@@ -134,7 +134,7 @@ bismillah checks English and Arabic spelling and suggests English grammar correc
 - `Ctrl+P` opens Search for files only, `Ctrl+Shift+P` for commands and `Ctrl+,` for settings. The kind shows at the start of the field; click it, or press `Backspace` in an empty field, to search everything again. Pressed again, the same key closes Search.
 - `Tab` moves to the next kind (everything, files, commands, settings) and `Shift+Tab` back, **keeping what you typed**.
 - Tap `Shift` twice to open Search, and twice again to close it. Typing a capital never opens it, nor does `Shift` with `Ctrl` or `Alt` held, so switching keyboard layouts is safe.
-- `↑` and `↓` move the highlight (`Page Up` and `Page Down` a page at a time); `Enter` acts on it. The line under the list says what the highlighted row is, and the line below it what the keys do.
+- `↑` and `↓` move the highlight (`Page Up` and `Page Down` a page at a time); `Enter` acts on it. The highlighted row says what it is, in Settings in the lines under the list, and the bottom line says what the keys do.
 - `Esc` closes Search, as does a click outside it.
 - Matching ignores case, diacritics and vocalisation, so “hadith” finds “ḥadīth.md”.
 
