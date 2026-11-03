@@ -1,0 +1,466 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		055C6BFABC1F842DB5CC8287 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E6F923CC802163393DE443AA /* Metal.framework */; };
+		2EB670B23E2D72CC5778D71D /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B647EF445AF5C3EE60B4884E /* QuartzCore.framework */; };
+		3B1444AE7E236EB8B3A5B00A /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = F86FAAFE274A46367DB9B3D4 /* LaunchScreen.storyboard */; };
+		6EC8C88A97DA7CC87F5881A8 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = AB466F61EBE8A297F0359414 /* main.mm */; };
+		715B169AEDDD9531B0081692 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FCBDA68C2E3197BBA4A2ADF7 /* libapp.a */; };
+		7A024AEF18FEFC6D7C2CB79A /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9F6A1F775AB2D4C467897871 /* UIKit.framework */; };
+		92133D50C2A6E2C5781AF576 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50ECF6693922553CD08FB4CF /* WebKit.framework */; };
+		9C22B6F6F5EA6E8AF3795781 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = F633C1CBEF23CA51295B6BB0 /* assets */; };
+		A361CAD888A4687A7897C20C /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 93AD369BF72A6E9DB990AD27 /* Security.framework */; };
+		A550D702C5F43762EC18E2EE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 595BB9080E63480720E62333 /* Assets.xcassets */; };
+		D64C265FFA403185C1006138 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C466E9273F3FF4A1CE2EF0E3 /* CoreGraphics.framework */; };
+		EE854784C3395FE9F9821049 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 78DC287C8AEFF747EE04719D /* MetalKit.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		50ECF6693922553CD08FB4CF /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		595BB9080E63480720E62333 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		61A870DDAC30908A78E81B12 /* bismillah-mobile_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "bismillah-mobile_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		70F5C561E6A217A74AA5ABB9 /* settings.rs */ = {isa = PBXFileReference; path = settings.rs; sourceTree = "<group>"; };
+		78DC287C8AEFF747EE04719D /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		93AD369BF72A6E9DB990AD27 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		9B9FE916EA58F18044CCC2C1 /* key.rs */ = {isa = PBXFileReference; path = key.rs; sourceTree = "<group>"; };
+		9EBD5CE63CA17D1BCB6E2F67 /* bismillah-mobile_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "bismillah-mobile_iOS.entitlements"; sourceTree = "<group>"; };
+		9F6A1F775AB2D4C467897871 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		A17FD8C6F1AAC877ABB0E1A9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A5020D450B160C7A219339B1 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
+		AB466F61EBE8A297F0359414 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		ADD0A044B014641C97D4A5D6 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
+		B647EF445AF5C3EE60B4884E /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		C466E9273F3FF4A1CE2EF0E3 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		E49EBC61142EAA2AE38987FD /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
+		E6F923CC802163393DE443AA /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		F633C1CBEF23CA51295B6BB0 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
+		F7426B37FA13E62002808C9C /* store.rs */ = {isa = PBXFileReference; path = store.rs; sourceTree = "<group>"; };
+		F86FAAFE274A46367DB9B3D4 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		FCBDA68C2E3197BBA4A2ADF7 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		EEB00BC71134619F3C82C07B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				715B169AEDDD9531B0081692 /* libapp.a in Frameworks */,
+				D64C265FFA403185C1006138 /* CoreGraphics.framework in Frameworks */,
+				055C6BFABC1F842DB5CC8287 /* Metal.framework in Frameworks */,
+				EE854784C3395FE9F9821049 /* MetalKit.framework in Frameworks */,
+				2EB670B23E2D72CC5778D71D /* QuartzCore.framework in Frameworks */,
+				A361CAD888A4687A7897C20C /* Security.framework in Frameworks */,
+				7A024AEF18FEFC6D7C2CB79A /* UIKit.framework in Frameworks */,
+				92133D50C2A6E2C5781AF576 /* WebKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		43F48B10D3C1C999855E50FF /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				9850591A88D65469EFAF9315 /* bismillah-mobile */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		6A3CF5A55E2202C3F623904A /* Externals */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Externals;
+			sourceTree = "<group>";
+		};
+		6D8B4837EC937E2B1A960CA3 = {
+			isa = PBXGroup;
+			children = (
+				F633C1CBEF23CA51295B6BB0 /* assets */,
+				595BB9080E63480720E62333 /* Assets.xcassets */,
+				F86FAAFE274A46367DB9B3D4 /* LaunchScreen.storyboard */,
+				FE37F35CF87369DD9036C108 /* bismillah-mobile_iOS */,
+				6A3CF5A55E2202C3F623904A /* Externals */,
+				43F48B10D3C1C999855E50FF /* Sources */,
+				B4311E8F0F912E33BA8BEE87 /* src */,
+				A3A546A9E949CD27C4A9F0BC /* Frameworks */,
+				FCE5E546D8E3C18578D9C440 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9850591A88D65469EFAF9315 /* bismillah-mobile */ = {
+			isa = PBXGroup;
+			children = (
+				AB466F61EBE8A297F0359414 /* main.mm */,
+				BB85C53280AE43D50F6868C3 /* bindings */,
+			);
+			path = "bismillah-mobile";
+			sourceTree = "<group>";
+		};
+		A3A546A9E949CD27C4A9F0BC /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C466E9273F3FF4A1CE2EF0E3 /* CoreGraphics.framework */,
+				FCBDA68C2E3197BBA4A2ADF7 /* libapp.a */,
+				E6F923CC802163393DE443AA /* Metal.framework */,
+				78DC287C8AEFF747EE04719D /* MetalKit.framework */,
+				B647EF445AF5C3EE60B4884E /* QuartzCore.framework */,
+				93AD369BF72A6E9DB990AD27 /* Security.framework */,
+				9F6A1F775AB2D4C467897871 /* UIKit.framework */,
+				50ECF6693922553CD08FB4CF /* WebKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		B4311E8F0F912E33BA8BEE87 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				9B9FE916EA58F18044CCC2C1 /* key.rs */,
+				ADD0A044B014641C97D4A5D6 /* lib.rs */,
+				E49EBC61142EAA2AE38987FD /* main.rs */,
+				70F5C561E6A217A74AA5ABB9 /* settings.rs */,
+				F7426B37FA13E62002808C9C /* store.rs */,
+			);
+			name = src;
+			path = ../../src;
+			sourceTree = "<group>";
+		};
+		BB85C53280AE43D50F6868C3 /* bindings */ = {
+			isa = PBXGroup;
+			children = (
+				A5020D450B160C7A219339B1 /* bindings.h */,
+			);
+			path = bindings;
+			sourceTree = "<group>";
+		};
+		FCE5E546D8E3C18578D9C440 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				61A870DDAC30908A78E81B12 /* bismillah-mobile_iOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FE37F35CF87369DD9036C108 /* bismillah-mobile_iOS */ = {
+			isa = PBXGroup;
+			children = (
+				9EBD5CE63CA17D1BCB6E2F67 /* bismillah-mobile_iOS.entitlements */,
+				A17FD8C6F1AAC877ABB0E1A9 /* Info.plist */,
+			);
+			path = "bismillah-mobile_iOS";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		957225E066323AA1245A9B9C /* bismillah-mobile_iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 52D6B0B89C7A20C5E97002BF /* Build configuration list for PBXNativeTarget "bismillah-mobile_iOS" */;
+			buildPhases = (
+				17A810278E7310F224542123 /* Build Rust Code */,
+				311874459C22C8B0A3CCAC0D /* Sources */,
+				3A774098F0962AC11DF6812E /* Resources */,
+				EEB00BC71134619F3C82C07B /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "bismillah-mobile_iOS";
+			packageProductDependencies = (
+			);
+			productName = "bismillah-mobile_iOS";
+			productReference = 61A870DDAC30908A78E81B12 /* bismillah-mobile_iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BBC8F8E10986E2ACF38432E1 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 28A239C25E21CFA6440287A6 /* Build configuration list for PBXProject "bismillah-mobile" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 6D8B4837EC937E2B1A960CA3;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = FCE5E546D8E3C18578D9C440 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				957225E066323AA1245A9B9C /* bismillah-mobile_iOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		3A774098F0962AC11DF6812E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A550D702C5F43762EC18E2EE /* Assets.xcassets in Resources */,
+				3B1444AE7E236EB8B3A5B00A /* LaunchScreen.storyboard in Resources */,
+				9C22B6F6F5EA6E8AF3795781 /* assets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		17A810278E7310F224542123 /* Build Rust Code */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Rust Code";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a",
+				"$(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "node tauri ios xcode-script -v --platform \"${PLATFORM_DISPLAY_NAME:?}\" --sdk-root \"${SDKROOT:?}\" --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration \"${CONFIGURATION:?}\" ${FORCE_COLOR} ${ARCHS:?}\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		311874459C22C8B0A3CCAC0D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6EC8C88A97DA7CC87F5881A8 /* main.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		21A79E47F0AC5C1EC5DEC288 /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = debug;
+		};
+		43BB656501C5C65AE2A21BBD /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "bismillah-mobile_iOS/bismillah-mobile_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "bismillah-mobile_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = org.bismillah.reader;
+				PRODUCT_NAME = "bismillah";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = release;
+		};
+		B0DF004B4B07969A05C16B02 /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = release;
+		};
+		F6174D6212E91F2AA17BADBC /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "bismillah-mobile_iOS/bismillah-mobile_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "bismillah-mobile_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = org.bismillah.reader;
+				PRODUCT_NAME = "bismillah";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		28A239C25E21CFA6440287A6 /* Build configuration list for PBXProject "bismillah-mobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				21A79E47F0AC5C1EC5DEC288 /* debug */,
+				B0DF004B4B07969A05C16B02 /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+		52D6B0B89C7A20C5E97002BF /* Build configuration list for PBXNativeTarget "bismillah-mobile_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F6174D6212E91F2AA17BADBC /* debug */,
+				43BB656501C5C65AE2A21BBD /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = BBC8F8E10986E2ACF38432E1 /* Project object */;
+}

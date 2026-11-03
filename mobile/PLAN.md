@@ -1,6 +1,6 @@
 # The bismillah phone app — plan
 
-An app that reads the stick's animated QR codes and feels like the stick's editor, because it shares the editor's code. It's built with Tauri 2 for Android first, then iOS (ADR-0022). Development goes on against the Android emulator. The only real phone is the author's iPhone, and an iPhone build comes later.
+An app that reads the stick's animated QR codes and feels like the stick's editor, because it shares the editor's code. It's built with Tauri 2 for Android first, then iOS (ADR-0022). Android development goes on against the emulator on the Linux machine, and iOS development on the author's Mac. The only real phone is the author's iPhone.
 
 *Written 2026-10-31. Each milestone stops at its acceptance check for the author's review.*
 
@@ -8,11 +8,13 @@ An app that reads the stick's animated QR codes and feels like the stick's edito
 
 **M4 is built, and it's the last milestone the emulator can do (2026-11-01). It waits for the author's review of ADR-0023, and M3 for a look at the sheet.** Next is M6, which needs the author's Apple credentials. The phone work was committed on 2026-11-01, so a VM run can now do M4's early-boot check. M1 is built, and the author moved on from it on 2026-10-31. The iPhone build can wait (the author, 2026-10-31), and it's the only route to a real phone, so everything that needs one waits with it. The order is now **M1, M3, M4, then M6, M2, M5, M7**. The numbers stay as they were, because other documents cite them.
 
+**The Mac is ready for M6 (2026-11-03).** `tauri ios init` made `gen/apple`, and the app's Rust library builds for the iPhone and the simulator. The simulator app itself waits for the iOS 27.2 simulator runtime (see *What the Mac has*).
+
 Keep this section current as milestones finish.
 
-**Running it:** `pnpm mobile:show` opens the installed app in an emulator with a window, `pnpm mobile:dev` builds and installs a debug build, `pnpm mobile:build` makes the release APK, and `pnpm mobile:shot <dir> <pages>` takes screenshots, and `pnpm mobile:test [shots-dir]` runs the suite for M1, M3 and M4 on the emulator. The emulator is driven with `adb` through `mobile/run.sh`, which finds the `bismillah` AVD by name because other sessions may have their own running.
+**Running it:** `pnpm mobile:show` opens the installed app in an emulator with a window, `pnpm mobile:dev` builds and installs a debug build, `pnpm mobile:build` makes the release APK, and `pnpm mobile:shot <dir> <pages>` takes screenshots, and `pnpm mobile:test [shots-dir]` runs the suite for M1, M3 and M4 on the emulator. The emulator is driven with `adb` through `mobile/run.sh`, which finds the `bismillah` AVD by name because other sessions may have their own running. These commands are for Android on the Linux machine: `mobile/env.sh` points at its SDK and private Rust. On the Mac, iOS runs through the Tauri CLI from `mobile/`, as in `../node_modules/.bin/tauri ios build --debug --target aarch64-sim`.
 
-## What this machine has (checked 2026-10-31)
+## What the Linux machine has (checked 2026-10-31)
 
 | Need | State |
 |---|---|
@@ -25,13 +27,26 @@ Keep this section current as milestones finish.
 | `@tauri-apps/cli` | 2.12.3 in the repo |
 | Xcode | None, so nothing for iOS can be built here |
 
+## What the Mac has (checked 2026-11-03)
+
+An Apple-silicon Mac (arm64). Here Rust comes from rustup in `~/.cargo`, so no private toolchain is needed.
+
+| Need | State |
+|---|---|
+| Xcode | 27.2 (27B52), with the iOS 27.2 SDKs |
+| iOS simulator runtimes | 18.1, 18.2 and 26.5. **27.2 is missing**, so `tauri ios build --target aarch64-sim` stops with "Xcode Simulator SDK 27.2 is not installed". Install it with `xcodebuild -downloadPlatform iOS`, or from Xcode › Settings › Components |
+| Rust | 1.99.0, as on the Linux machine, with `aarch64-apple-ios` and `aarch64-apple-ios-sim` |
+| `xcodegen`, CocoaPods, `libimobiledevice`, `ios-deploy` | Present through Homebrew. `tauri ios init` installed `libimobiledevice` itself |
+| Node, pnpm | 24.16.0 and 11.2.2 |
+| Signing | No `APPLE_DEVELOPMENT_TEAM` yet, so only simulator builds work for now |
+
 ## Layout
 
 ```
 mobile/
   PLAN.md
   index.html, vite.config.ts   the phone app's frontend entry
-  src-tauri/                   crate bismillah-mobile; gen/android, later gen/apple
+  src-tauri/                   crate bismillah-mobile; gen/android, gen/apple
   plugins/camera/              Kotlin, later Swift
 tests/mobile/                  the suite that drives the debug app on the emulator
 src/mobile/                    phone screens; imports src/editor, src/styles
@@ -202,12 +217,12 @@ A touch design with the same writing page, and editing on the phone, marked *Edi
 
 *Later, when the author chooses. Its steps are ready. Question: does the app install on the author's iPhone, and is the specimen right in WKWebView?*
 
-This machine can't build it, since every Tauri iOS command needs macOS, so each build runs on a Mac or a hosted macOS runner, and every fix waits for a build.
+Every Tauri iOS command needs macOS, so iOS builds run on the author's Mac (see *What the Mac has*), not on the Linux machine.
 
 1. **Commit the phone work.** Done on 2026-11-01. A runner builds a committed ref, so anything since needs committing before a build sees it.
 2. **Repeat the network check on the iOS binary.** On Android a missing permission refuses network access whatever the code does. iOS has no such switch, so *no network code* has to be true of the build itself. Android's release library passed (see *Network crates* under M0), and the iOS one needs the same inspection.
 3. **The Apple side, in the author's hands:** the author has an active Developer Program membership. They create the App Store Connect record for `org.bismillah.reader` and an API key with Admin access, and add the issuer, key ID, `.p8` and team ID as repository secrets. Tauri's automatic signing then needs `APPLE_API_ISSUER`, `APPLE_API_KEY`, `APPLE_API_KEY_PATH` and `APPLE_DEVELOPMENT_TEAM`.
-4. **The build,** on a GitHub macOS runner (the author's choice). `tauri ios init` creates `gen/apple` on macOS. A manual workflow then runs `tauri ios build --export-method app-store-connect` and uploads to TestFlight. This is M7's iOS half, brought forward. AGENTS.md's "no hosted CI" must then change: the workflow only builds this app and never runs on a writer's text.
+4. **The build,** on the author's Mac. `gen/apple` was made there on 2026-11-03. `tauri ios build --export-method app-store-connect` builds the upload for TestFlight. The author chose a GitHub macOS runner when there was no Mac. Whether the upload now runs from the Mac or on a runner is open (*Open decisions*), and AGENTS.md's "no hosted CI" changes only if it's the runner.
 5. **The specimen,** compared with the desktop's and the Android emulator's screenshots, using photos or screenshots from the iPhone.
 
 **Accepted when:**
@@ -216,7 +231,7 @@ This machine can't build it, since every Tauri iOS command needs macOS, so each 
 - The iOS and WebKit versions are recorded, along with how the specimen differs from WebKitGTK. WebKit's Arabic mark bug (ADR-0011) needs a specific look, since WKWebView shares that engine.
 - The build is shown to hold no network code, or the difference is reported to the author before anything else is built on it.
 
-Then the macOS desktop app becomes cheap to try, on the same runner.
+The macOS desktop app is built on the same Mac (ARCHITECTURE.md §12.3).
 
 ### M7 — Publishing
 
@@ -251,4 +266,5 @@ The app makes fewer promises than the stick, and it says which:
 | Whether the stick's frame rate changes | Wait for M2's bench results | M2 |
 | HPKE or age for sealing (ADR-0023) | HPKE, as built | Before any sealed print is relied on |
 | The app's display name | *bismillah*, while the print dialog says "bismillah Reader". The bundle ID is settled: `org.bismillah.reader` | Before release |
+| Where the TestFlight upload runs | From the author's Mac. A GitHub macOS runner was chosen before there was a Mac | M6 |
 | Which Android phone to test on | None for now: Android stays on the emulator, and M5's keyboard check waits for a real phone | Before Android ships |
