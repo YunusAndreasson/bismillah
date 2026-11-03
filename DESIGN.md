@@ -155,13 +155,13 @@ Layout responds to the **available content width in CSS pixels** (zoom included)
 
 ### App icon
 
-The letter bāʾ (ب), the first letter of the Basmallah, from Amiri Bold, in the light page colour (`#F7F6F2`) on the accent green (`#1E6B4A`), on a rounded tile (author's choice, 2026-10-19: "keep it as clean as possible"). The letter's ink is 60% of the tile wide and set a little low, so the bowl and its dot sit at the optical centre; it stays legible at 16 px. `fonts/tools/build_icon.py` draws `src-tauri/icons/source.svg`, the scalable icon the package installs; the bitmaps are made from it.
+A single text cursor, centred, in the light page colour (`#F7F6F2`) on the accent green (`#1E6B4A`), on a rounded tile (author's choice, 2026-11-03: "very clean like the single cursor centered inside the icon", replacing the bāʾ of 2026-10-19 everywhere). The cursor is 46% of the tile tall and 6.8% wide, with round ends, so it stays visible at 16 px. `fonts/tools/build_icon.py` draws `src-tauri/icons/source.svg`, the full tile Linux installs and the source of the PNG and ICO sizes, and `src-tauri/icons/macos.svg`, the same tile on Apple's icon grid (824 px in 1024) for `icon.icns`.
 
 ### Window decorations
 
 - The default is the platform's normal window behaviour: obvious move, resize and close (native decorations on Linux, which tiling window managers such as Hyprland may hide anyway).
 - Complete visual minimalism is reserved for fullscreen (`F11`) and Zuhd mode.
-- macOS later: overlay titlebar with the traffic lights. Windows later: native caption buttons.
+- macOS: an overlay title bar with the traffic lights. The page runs up under it in its own colour, and its 28 px strip holds nothing but the lights and drags the window (a double-click zooms). The lights follow the writer's theme, and the window is the page's colour from its first frame, so neither launch nor resize flashes another. The close button's dot shows while changes aren't on disk, and stays while a save is failing. Fullscreen is macOS's own (*Enter Full Screen* in the View menu), without the strip. Windows later: native caption buttons.
 
 ## 8. Typography
 

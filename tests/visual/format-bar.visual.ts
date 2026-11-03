@@ -21,9 +21,15 @@ describe("formatting bar screenshots", () => {
     }, word);
     await browser.$(".format-bar").waitForExist();
     await settle(browser);
-    // Changing the theme flashes WebKit's overlay scrollbar, which then fades on its own.
+    // Changing the theme flashes WebKit's overlay scrollbar, which then fades on its own,
+    // later on a slower machine (an emulated one): look again until it has gone.
     await browser.pause(1500);
-    expect(compareWithBaseline(name, await browser.takeScreenshot())).toBeLessThan(TOLERANCE);
+    let changed: number;
+    for (const deadline = Date.now() + 6000; ; await browser.pause(500)) {
+      changed = compareWithBaseline(name, await browser.takeScreenshot());
+      if (changed < TOLERANCE || Date.now() > deadline) break;
+    }
+    expect(changed).toBeLessThan(TOLERANCE);
   }
 
   before(async () => {

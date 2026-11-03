@@ -45,6 +45,9 @@ zeroize = "1.9"
 zxcvbn = { version = "3.1", default-features = false }
 # Already in the tree: the socket peer's uid (SO_PEERCRED) and the systemd socket.
 libc = "0.2"
+
+# Linux only, like the stick: macOS has no libdbus, and the app there needs only the library.
+[target.'cfg(target_os = "linux")'.dependencies]
 # Already in the tree (tao): logind's sleep signal and delay inhibitor, for the lock
 # before sleep. D-Bus over the system bus's Unix socket; libdbus is in the image.
 dbus = { version = "0.9", default-features = false }

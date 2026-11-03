@@ -7,6 +7,10 @@
 #   pnpm verify --online   also require fresh Rust advisories and a pnpm audit
 #                         (can be combined with --fast)
 #
+# On macOS the checks run here, the app is bundled, and then the whole gate runs again
+# on Linux, in a container (scripts/linux.sh): the real-app suites need WebKitGTK's
+# WebDriver, and the Linux code paths are checked where they run. --fast stays on the Mac.
+#
 # cargo-deny refreshes its advisory database when the network is available and falls
 # back to the cached copy when it isn't, so the gate also works offline.
 set -euo pipefail
@@ -49,7 +53,14 @@ if $online; then
   step pnpm audit
 fi
 
-if ! $fast; then
+if ! $fast && [[ "$(uname -s)" == Darwin ]]; then
+  step pnpm app:mac
+  if $online; then
+    step scripts/linux.sh pnpm verify --online
+  else
+    step scripts/linux.sh pnpm verify
+  fi
+elif ! $fast; then
   step pnpm app:build
   step pnpm test:e2e
   step pnpm test:visual

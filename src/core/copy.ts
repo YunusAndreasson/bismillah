@@ -639,7 +639,7 @@ function shortcutProblem(p: ShortcutProblem): string {
     case "unknown_command":
       return `${quote(p.command)} isn't a command.`;
     case "not_text":
-      return `the shortcut for ${label(p.command)} needs quotes, like "Ctrl+D".`;
+      return `the shortcut for ${label(p.command)} needs quotes, like "${shortcutLabel("Mod-d")}".`;
     case "unreadable":
       return `${quote(p.shortcut)} isn't a shortcut bismillah can read.`;
     case "kept":

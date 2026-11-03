@@ -378,6 +378,7 @@ export interface MenuState {
 
 export const menuReveal = () => invoke<null>("menu_reveal");
 export const menuHide = () => invoke<null>("menu_hide");
+export const windowEdited = (edited: boolean) => invoke<null>("window_edited", { edited });
 export const menuState = () => invoke<MenuState>("menu_state");
 
 // The bismillah stick (os/PLAN.md, src-tauri/src/appliance.rs, crates/bismillah-appliance).

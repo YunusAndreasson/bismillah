@@ -814,8 +814,11 @@ mod tests {
     #[test]
     fn cleans_short_temporary_names_for_long_files_without_touching_other_files() {
         let scratch = Scratch::new();
-        let path = scratch.file(&format!("{}.md", "W".repeat(252)), b"original\n");
-        let other = scratch.file("other.md", b"other\n");
+        // `open` names temporaries from the canonical path, and macOS's temp dir is a link.
+        let path =
+            fs::canonicalize(scratch.file(&format!("{}.md", "W".repeat(252)), b"original\n"))
+                .unwrap();
+        let other = fs::canonicalize(scratch.file("other.md", b"other\n")).unwrap();
         let stale = format!("{}4242-0", temp_prefix(&path));
         let untouched = format!("{}4242-0", temp_prefix(&other));
         let malformed = format!("{}-1", temp_prefix(&path));

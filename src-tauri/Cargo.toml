@@ -26,7 +26,6 @@ thiserror = "2"
 notify = "8.2"
 # Already in Tauri's tree (URL handling); NFD for the library's sort order, on a copy.
 icu_normalizer = "2"
-trash = "5.2"
 
 # Spelling and grammar (ADR-0004); the workspace crate, free of Tauri.
 bismillah-lint = { path = "../crates/bismillah-lint", version = "1.0.0" }
@@ -36,6 +35,18 @@ bismillah-appliance = { path = "../crates/bismillah-appliance", version = "1.0.0
 # Print to Phone (ADR-0021); only debug builds use it until the phone app exists, so it
 # isn't linked into a release or the stick.
 bismillah-print = { path = "../crates/bismillah-print", version = "1.0.0" }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+# The system trash (platform.rs); macOS uses NSFileManager directly instead.
+trash = "5.2"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# Already in the tree (trash, wry): NSFileManager moves to the Trash and says where, so
+# Undo can put it back, and asks no permission (platform.rs, `macos`).
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSError", "NSFileManager", "NSString", "NSURL"] }
+# Already in the tree (tao, wry): the close button's dot for unsaved changes, which Tauri
+# doesn't offer (platform.rs, `show_edited`).
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSResponder", "NSWindow"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Already in Tauri's dependency tree; used only to focus the native menu bar (platform.rs).

@@ -1,5 +1,6 @@
 import type { Theme } from "./appearance.ts";
 import { themesList, type ColourTheme, type ThemeVariant } from "./ipc.ts";
+import { matchWindow } from "./nativeWindow.ts";
 
 /**
  * Colour themes (ARCHITECTURE.md §8, ADR-0005). Rust reads and checks the theme files
@@ -52,12 +53,14 @@ export function applyColours(
   const root = document.documentElement.style;
   for (const name of applied) root.removeProperty(`--${name}`);
   applied = [];
-  if (choice.high_contrast || !theme) return;
-  const tokens = theme[variantShown(choice.theme)] ?? {};
-  for (const [name, value] of Object.entries(tokens)) {
-    root.setProperty(`--${name}`, value);
-    applied.push(name);
+  if (!choice.high_contrast && theme) {
+    const tokens = theme[variantShown(choice.theme)] ?? {};
+    for (const [name, value] of Object.entries(tokens)) {
+      root.setProperty(`--${name}`, value);
+      applied.push(name);
+    }
   }
+  matchWindow(choice.theme);
 }
 
 /** Calls `changed` when the system switches between light and dark. */

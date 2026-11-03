@@ -14,6 +14,59 @@ pub fn configure_main_window(window: &tauri::WebviewWindow) {
     let _ = window;
 }
 
+/// The page under the light and dark themes (`--paper-50`, `--charcoal-950` in tokens.css):
+/// the window's own colour before the page paints, so it never flashes another one.
+#[cfg(any(target_os = "macos", test))]
+const PAGE: [(u8, u8, u8); 2] = [(0xf7, 0xf6, 0xf2), (0x15, 0x15, 0x15)];
+
+/// macOS: the title bar's traffic lights follow the writer's theme, and the window is the
+/// page's colour from its first frame (DESIGN.md §7). The page keeps it current after
+/// that, also for colour themes (`nativeWindow.ts`).
+pub fn match_page(window: &tauri::WebviewWindow, theme: &str) {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::Theme;
+        let chosen = match theme {
+            "light" => Some(Theme::Light),
+            "dark" => Some(Theme::Dark),
+            _ => None,
+        };
+        let _ = window.set_theme(chosen);
+        let dark = chosen.or_else(|| window.theme().ok()) == Some(Theme::Dark);
+        let (r, g, b) = PAGE[usize::from(dark)];
+        let _ = window.set_background_color(Some(tauri::window::Color(r, g, b, 255)));
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (window, theme);
+}
+
+/// macOS's dot in the close button: changes that aren't on disk yet. Runs on the main
+/// thread, as AppKit requires.
+pub fn show_edited(window: &tauri::WebviewWindow, edited: bool) {
+    #[cfg(target_os = "macos")]
+    if let Ok(ns) = window.ns_window() {
+        // SAFETY: Tauri hands over the window's own NSWindow, which lives as long as
+        // `window`; the caller runs this on the main thread, and the reference ends here.
+        let ns = unsafe { &*ns.cast::<objc2_app_kit::NSWindow>() };
+        ns.setDocumentEdited(edited);
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (window, edited);
+}
+
+/// The file (or else the folder) Finder asks the app to open: Open, a double-click, or a
+/// drop on the Dock icon. macOS sends these as events, never as a second launch.
+pub fn opened_file(event: &tauri::RunEvent) -> Option<std::path::PathBuf> {
+    #[cfg(target_os = "macos")]
+    if let tauri::RunEvent::Opened { urls } = event {
+        let paths: Vec<_> = urls.iter().filter_map(|u| u.to_file_path().ok()).collect();
+        let file = paths.iter().find(|p| p.is_file());
+        return file.or_else(|| paths.iter().find(|p| p.is_dir())).cloned();
+    }
+    let _ = event;
+    None
+}
+
 /// Shows the menu bar and puts keyboard focus on its first menu (Alt / F10 on Linux and
 /// Windows). It hides itself again when it closes.
 pub fn reveal_menu(window: &tauri::WebviewWindow) -> tauri::Result<()> {
@@ -64,6 +117,37 @@ pub fn font_installed(family: &str) -> Option<bool> {
         let _ = family;
         None
     }
+}
+
+/// The guide as this keyboard reads it. Its shortcuts are written as on Linux
+/// (`Ctrl+S`, kept in step with the commands by `guide.test.ts`); on macOS Ctrl reads Cmd
+/// and Alt reads Option, as the menus and Search show them there. In the guide both
+/// words only ever name keys.
+pub fn guide(text: &str) -> std::borrow::Cow<'_, str> {
+    #[cfg(target_os = "macos")]
+    return std::borrow::Cow::Owned(mac_keys(text));
+    #[cfg(not(target_os = "macos"))]
+    std::borrow::Cow::Borrowed(text)
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn mac_keys(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut word = String::new();
+    for c in text.chars().map(Some).chain(std::iter::once(None)) {
+        if let Some(c) = c.filter(|c| c.is_alphanumeric()) {
+            word.push(c);
+            continue;
+        }
+        out.push_str(match word.as_str() {
+            "Ctrl" => "Cmd",
+            "Alt" => "Option",
+            word => word,
+        });
+        word.clear();
+        out.extend(c);
+    }
+    out
 }
 
 /// Makes a rename in `dir` durable (ARCHITECTURE.md §5.2, step 5). Filesystems that
@@ -146,12 +230,16 @@ fn same_file(a: &Path, b: &Path) -> bool {
     }
 }
 
-/// The system trash (freedesktop.org trash on Linux), through the `trash` crate.
-/// Moving to the trash is the only way bismillah removes anything (ARCHITECTURE.md §5.8).
+/// The system trash: freedesktop.org's on Linux through the `trash` crate, and the Trash
+/// through `NSFileManager` on macOS (`macos`). Moving to the trash is the only way
+/// bismillah removes anything (ARCHITECTURE.md §5.8).
 pub struct SystemTrash;
 
+#[cfg(not(target_os = "macos"))]
 fn trash_error(e: trash::Error) -> LibraryError {
     match e {
+        // Only the freedesktop backend has this variant; macOS reports `Unknown` or `Os`.
+        #[cfg(all(unix, not(target_os = "macos")))]
         trash::Error::FileSystem { source, .. } => LibraryError::from_io(&source),
         trash::Error::RestoreCollision { .. } => LibraryError::Exists,
         trash::Error::CouldNotAccess { .. } => LibraryError::PermissionDenied,
@@ -169,6 +257,9 @@ fn trash_error(e: trash::Error) -> LibraryError {
 
 impl Trash for SystemTrash {
     fn trash(&self, path: &Path) -> Result<(), LibraryError> {
+        #[cfg(target_os = "macos")]
+        return macos::trash(path);
+        #[cfg(not(target_os = "macos"))]
         trash::delete(path).map_err(trash_error)
     }
 
@@ -183,9 +274,10 @@ impl Trash for SystemTrash {
                 .ok_or(LibraryError::NotFound)?;
             trash::os_limited::restore_all([newest]).map_err(trash_error)
         }
-        #[cfg(not(any(windows, all(unix, not(target_os = "macos")))))]
+        #[cfg(target_os = "macos")]
+        return macos::restore(path, since_s);
+        #[cfg(not(any(windows, unix)))]
         {
-            // macOS builds come later (ARCHITECTURE.md §12.3); its trash has no listing API.
             let _ = (path, since_s);
             Err(LibraryError::Other {
                 detail: "trash: restore unsupported".into(),
@@ -272,9 +364,30 @@ pub struct InstanceListener;
 /// The largest command line a later launch may hand over.
 const MAX_INSTANCE_MESSAGE: u64 = 64 * 1024;
 
+/// Where a later launch finds the running app: a socket in a directory only this user
+/// may enter. `None` leaves each launch on its own.
 #[cfg(unix)]
 pub fn instance_socket() -> Option<std::path::PathBuf> {
-    let dir = std::env::var_os("XDG_RUNTIME_DIR")?;
+    socket_in(
+        std::env::var_os("XDG_RUNTIME_DIR"),
+        std::env::var_os("TMPDIR"),
+    )
+}
+
+/// macOS has no `XDG_RUNTIME_DIR`. Its `TMPDIR` is the user's own (`/var/folders/…`,
+/// mode 0700), unlike the shared `/tmp` elsewhere, so only macOS falls back to it.
+#[cfg(unix)]
+fn socket_in(
+    runtime: Option<std::ffi::OsString>,
+    temp: Option<std::ffi::OsString>,
+) -> Option<std::path::PathBuf> {
+    #[cfg(target_os = "macos")]
+    let dir = runtime.or(temp)?;
+    #[cfg(not(target_os = "macos"))]
+    let dir = {
+        let _ = temp;
+        runtime?
+    };
     Some(Path::new(&dir).join("bismillah.sock"))
 }
 
@@ -315,8 +428,7 @@ pub fn instance_socket() -> Option<std::path::PathBuf> {
 
 #[cfg(not(unix))]
 pub fn claim_instance(_socket: Option<&Path>, _message: &[u8]) -> Instance {
-    // Windows and macOS builds come later (ARCHITECTURE.md §12.3); they will use a
-    // named pipe and the system's open-file events.
+    // Windows builds come later (ARCHITECTURE.md §12.3); it will use a named pipe.
     Instance::Primary(None)
 }
 
@@ -404,6 +516,77 @@ pub fn watch_keyboard(window: &tauri::WebviewWindow, changed: impl Fn(KeyState) 
     linux::watch_keyboard(window, changed);
     #[cfg(not(target_os = "linux"))]
     let _ = (window, changed);
+}
+
+/// The Trash through `NSFileManager`, which moves at once and asks nothing. The `trash`
+/// crate's default asks Finder by AppleScript, so macOS first asks whether the app may
+/// control Finder, and nothing moves until the writer answers. macOS has no API to list
+/// the Trash, so Undo puts back what this run moved, from where `NSFileManager` put it.
+#[cfg(target_os = "macos")]
+mod macos {
+    use std::path::{Path, PathBuf};
+    use std::sync::Mutex;
+
+    use objc2_foundation::{NSError, NSFileManager, NSString, NSURL};
+
+    use crate::library::LibraryError;
+
+    struct Trashed {
+        from: PathBuf,
+        to: PathBuf,
+        at_s: i64,
+    }
+
+    static TRASHED: Mutex<Vec<Trashed>> = Mutex::new(Vec::new());
+
+    pub fn trash(path: &Path) -> Result<(), LibraryError> {
+        // APFS and HFS+ names are UTF-8, so a path that isn't can't name a file here.
+        let text = path.to_str().ok_or(LibraryError::InvalidPath)?;
+        let url = NSURL::fileURLWithPath(&NSString::from_str(text));
+        let mut landed = None;
+        NSFileManager::defaultManager()
+            .trashItemAtURL_resultingItemURL_error(&url, Some(&mut landed))
+            .map_err(|e| error(&e))?;
+        if let Some(to) = landed.and_then(|url| url.path()) {
+            let at_s = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX));
+            lock().push(Trashed {
+                from: path.to_path_buf(),
+                to: PathBuf::from(to.to_string()),
+                at_s,
+            });
+        }
+        Ok(())
+    }
+
+    pub fn restore(path: &Path, since_s: i64) -> Result<(), LibraryError> {
+        let mut trashed = lock();
+        let i = trashed
+            .iter()
+            .rposition(|t| t.from == path && t.at_s >= since_s)
+            .ok_or(LibraryError::NotFound)?;
+        super::rename_no_replace(&trashed[i].to, path).map_err(|e| LibraryError::from_io(&e))?;
+        trashed.remove(i);
+        Ok(())
+    }
+
+    fn lock() -> std::sync::MutexGuard<'static, Vec<Trashed>> {
+        TRASHED.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// Foundation's file error codes (`NSFileNoSuchFileError` and its neighbours). Its
+    /// descriptions name paths, so only the code is kept.
+    pub(super) fn error(e: &NSError) -> LibraryError {
+        match e.code() {
+            4 | 260 => LibraryError::NotFound,
+            257 | 513 => LibraryError::PermissionDenied,
+            516 => LibraryError::Exists,
+            code => LibraryError::Other {
+                detail: format!("trash: Cocoa error {code}"),
+            },
+        }
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -506,6 +689,7 @@ mod linux {
 mod tests {
     use super::*;
     use crate::testing::Scratch;
+    use std::path::PathBuf;
     use std::sync::mpsc;
     use std::time::Duration;
 
@@ -573,5 +757,99 @@ mod tests {
             claim_instance(Some(&socket), b"x"),
             Instance::Primary(Some(_))
         ));
+    }
+
+    #[test]
+    fn paints_the_window_in_the_pages_own_colours() {
+        let tokens = include_str!("../../src/styles/tokens.css");
+        for ((r, g, b), token) in PAGE.iter().zip(["--paper-50", "--charcoal-950"]) {
+            assert!(
+                tokens.contains(&format!("{token}: #{r:02x}{g:02x}{b:02x};")),
+                "{token}"
+            );
+        }
+    }
+
+    #[test]
+    fn reads_the_guides_shortcuts_with_macos_key_names() {
+        assert_eq!(
+            mac_keys("Save (`Ctrl+S`), go (`Ctrl+Alt+G`), `Ctrl`+`Q`; Alternatively, Control."),
+            "Save (`Cmd+S`), go (`Cmd+Option+G`), `Cmd`+`Q`; Alternatively, Control."
+        );
+        assert_eq!(
+            mac_keys("| `` ` `` | ʿ |\n\"a\" = \"Ctrl+Shift+D\""),
+            "| `` ` `` | ʿ |\n\"a\" = \"Cmd+Shift+D\""
+        );
+        let guide = include_str!("../../docs/guide.md");
+        let mac = mac_keys(guide);
+        assert!(!mac.contains("Ctrl"));
+        assert_eq!(mac.replace("Cmd", "Ctrl").replace("Option", "Alt"), guide);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn finds_the_running_app_in_a_directory_of_the_users_own() {
+        let runtime = Some("/run/user/1000".into());
+        let temp = Some("/var/folders/ab/T/".into());
+        assert_eq!(
+            socket_in(runtime.clone(), temp.clone()),
+            Some(PathBuf::from("/run/user/1000/bismillah.sock"))
+        );
+        assert_eq!(socket_in(None, None), None);
+        #[cfg(target_os = "macos")]
+        assert_eq!(
+            socket_in(None, temp),
+            Some(PathBuf::from("/var/folders/ab/T/bismillah.sock"))
+        );
+        // /tmp is shared there, so another user could answer for the app.
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(socket_in(None, temp), None);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn explains_macos_trash_failures_without_touching_the_trash() {
+        use objc2_foundation::{NSCocoaErrorDomain, NSError};
+        // SAFETY: Foundation's constant, initialised before any code of ours runs.
+        let domain = unsafe { NSCocoaErrorDomain };
+        let cocoa = |code| macos::error(&NSError::new(code, domain));
+        assert_eq!(cocoa(4), LibraryError::NotFound);
+        assert_eq!(cocoa(513), LibraryError::PermissionDenied);
+        assert_eq!(cocoa(516), LibraryError::Exists);
+        assert_eq!(
+            cocoa(640),
+            LibraryError::Other {
+                detail: "trash: Cocoa error 640".into()
+            }
+        );
+        let scratch = Scratch::new();
+        let never = scratch.path().join("never-trashed.md");
+        assert_eq!(SystemTrash.restore(&never, 0), Err(LibraryError::NotFound));
+        assert_eq!(SystemTrash.trash(&never), Err(LibraryError::NotFound));
+    }
+
+    /// Uses the writer's real Trash (ARCHITECTURE.md §13 keeps unit tests off it), and
+    /// leaves it as it was: `cargo test -- --ignored` on a Mac.
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "uses the real Trash"]
+    fn trashes_and_puts_back_on_macos_without_replacing_a_new_file() {
+        let scratch = Scratch::new();
+        let path = std::fs::canonicalize(scratch.file("gone.md", b"words\n")).unwrap();
+        SystemTrash.trash(&path).unwrap();
+        assert!(!path.exists());
+        SystemTrash.restore(&path, 0).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"words\n");
+
+        SystemTrash.trash(&path).unwrap();
+        fs::write(&path, b"a new file").unwrap();
+        assert_eq!(SystemTrash.restore(&path, 0), Err(LibraryError::Exists));
+        assert_eq!(fs::read(&path).unwrap(), b"a new file");
+        // Out of the way, the first one comes back, so the test leaves the Trash as it was.
+        fs::remove_file(&path).unwrap();
+        SystemTrash.restore(&path, 0).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"words\n");
+
+        assert_eq!(SystemTrash.restore(&path, 0), Err(LibraryError::NotFound));
     }
 }

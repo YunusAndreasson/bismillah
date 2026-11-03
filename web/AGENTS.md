@@ -125,7 +125,7 @@ aside while the stick itself is on the screen.
 - `public/media/`: the film as HLS and one AV1 file, the loops, and the captions, in
   versioned folders (`scripts/media.sh`). Encoded from the director project's master;
   committed, so a build needs nothing outside `web/`.
-- `public/favicon.svg`: the app's bāʾ icon, copied from `../src-tauri/icons/source.svg`.
+- `public/favicon.svg`: the app's icon (a single cursor), copied from `../src-tauri/icons/source.svg`.
   Copy it again when the icon changes.
 - `public/install.sh`, `public/install.ps1`: the stick's install commands (macOS and
   Linux; Windows), served as text and run by `curl … | sh` and `irm … | iex`

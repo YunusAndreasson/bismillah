@@ -9,6 +9,10 @@
 //! - `bismillah-helper status` prints home's state (the debug image's console).
 //!
 //! Nothing it prints names a passphrase or a text.
+//!
+//! It runs only on the stick, which is Linux. Elsewhere it builds so that the workspace
+//! does, without the sleep watch, and it trusts no peer.
+#![cfg_attr(not(target_os = "linux"), allow(dead_code))]
 
 mod disk;
 mod display;
@@ -16,6 +20,7 @@ mod home;
 mod keyboard;
 mod lid;
 mod session;
+#[cfg(target_os = "linux")]
 mod sleep;
 mod tools;
 mod vt;
@@ -136,7 +141,11 @@ fn serve() {
     // fd 3, and nothing else in this process owns or closes that descriptor.
     let listener = unsafe { UnixListener::from_raw_fd(LISTEN_FD) };
     let session = Session::new();
-    for watch in [sleep::watch, lid::watch] {
+    #[cfg(target_os = "linux")]
+    let watches = [sleep::watch, lid::watch];
+    #[cfg(not(target_os = "linux"))]
+    let watches = [lid::watch];
+    for watch in watches {
         let session = Arc::clone(&session);
         std::thread::spawn(move || watch(session));
     }
@@ -149,6 +158,12 @@ fn serve() {
     }
 }
 
+#[cfg(not(target_os = "linux"))]
+fn peer_uid(_stream: &UnixStream) -> Option<u32> {
+    None
+}
+
+#[cfg(target_os = "linux")]
 fn peer_uid(stream: &UnixStream) -> Option<u32> {
     use std::os::fd::AsRawFd;
     let mut credentials = libc::ucred {

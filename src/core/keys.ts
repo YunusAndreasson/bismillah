@@ -26,8 +26,11 @@ function base(event: KeyboardEvent): string {
   return named[code] ?? key;
 }
 
+/** Whether the app runs on macOS, where Mod is Cmd and the menu bar is app-wide. */
+export const onMac = (): boolean => /Mac/.test(navigator.platform);
+
 /** The event in CodeMirror key notation ("Mod-Shift-t"); Mod is Ctrl, or Cmd on macOS. */
-export function keyOf(event: KeyboardEvent, mac = /Mac/.test(navigator.platform)): string {
+export function keyOf(event: KeyboardEvent, mac = onMac()): string {
   const mod = mac ? event.metaKey : event.ctrlKey;
   const parts: string[] = [];
   if (mod) parts.push("Mod");

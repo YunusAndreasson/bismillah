@@ -101,6 +101,12 @@ export const SOFTWARE: readonly Credit[] = [
   { name: "notify", role: "noticing changed files", licence: "CC0 1.0", packages: ["notify"] },
   { name: "trash", role: "Move to trash", licence: "MIT", packages: ["trash"] },
   {
+    name: "objc2",
+    role: "Move to trash and the unsaved-changes dot on macOS",
+    licence: "MIT",
+    packages: ["objc2-foundation", "objc2-app-kit"],
+  },
+  {
     name: "ICU4X",
     role: "the library's sort order",
     licence: "Unicode 3.0",

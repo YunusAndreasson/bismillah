@@ -49,6 +49,15 @@ fn menu_reveal(window: tauri::WebviewWindow) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Whether the document has changes that aren't on disk: macOS's dot in the close button.
+#[tauri::command]
+fn window_edited(window: tauri::WebviewWindow, edited: bool) -> Result<(), String> {
+    let target = window.clone();
+    window
+        .run_on_main_thread(move || platform::show_edited(&target, edited))
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn menu_hide(window: tauri::WebviewWindow) -> Result<(), String> {
     window.hide_menu().map_err(|e| e.to_string())
@@ -120,6 +129,7 @@ fn is_app_origin(url: &tauri::Url) -> bool {
 /// Restores the remembered window size, then shows the window (it starts hidden so it
 /// never visibly jumps from the default size).
 fn restore_window(window: &tauri::WebviewWindow, state: &AppState) {
+    platform::match_page(window, &state.theme());
     if let Some(saved) = state.memory().window {
         let size = tauri::LogicalSize::new(saved.width.max(480.0), saved.height.max(360.0));
         let _ = window.set_size(size);
@@ -213,6 +223,9 @@ pub fn run() {
     let appliance = appliance::enabled(&launch.args);
     appliance::set_active(appliance);
     let startup = app::cli_path(&launch.args, &launch.cwd);
+    // A file Finder asks to open before the app has its state: it opens first instead.
+    let finder = std::sync::Arc::new(std::sync::Mutex::new(None::<std::path::PathBuf>));
+    let finder_first = std::sync::Arc::clone(&finder);
 
     let navigation_guard = tauri::plugin::Builder::<tauri::Wry>::new("navigation-guard")
         .on_navigation(|_webview, url| is_app_origin(url))
@@ -278,6 +291,7 @@ pub fn run() {
             app::print_pair,
             menu_reveal,
             menu_hide,
+            window_edited,
             menu_state,
             appliance::appliance_gate,
             appliance::appliance_open,
@@ -310,7 +324,9 @@ pub fn run() {
                     app::dirs(app).map_err(|e| e.to_string())?
                 };
                 // On the stick the library is always ~/Texts.
-                let startup = startup.or_else(|| appliance.then(appliance::library).flatten());
+                let startup = startup
+                    .or_else(|| finder_first.lock().ok().and_then(|mut f| f.take()))
+                    .or_else(|| appliance.then(appliance::library).flatten());
                 let state = AppState::new(app.clone(), &config_dir, &data_dir, startup);
                 if let Some(window) = app.get_webview_window("main") {
                     // cage keeps the stick's window fullscreen: no size to restore.
@@ -379,7 +395,24 @@ pub fn run() {
             eprintln!("bismillah could not start: {e}");
             std::process::exit(1);
         })
-        .run(move |_app, event| {
+        .run(move |app, event| {
+            // Finder's Open, a double-click or a file dropped on the Dock icon (macOS).
+            if let Some(path) = platform::opened_file(&event) {
+                match app.try_state::<AppState>() {
+                    Some(state) => {
+                        state.request_open(app, path);
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    None => {
+                        if let Ok(mut first) = finder.lock() {
+                            *first = Some(path);
+                        }
+                    }
+                }
+            }
             if let tauri::RunEvent::Exit = event
                 && let Some(socket) = &socket
             {

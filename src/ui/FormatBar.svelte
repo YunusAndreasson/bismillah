@@ -2,6 +2,7 @@
   import type { EditorView } from "@codemirror/view";
   import { DropdownMenu } from "bits-ui";
   import {
+    ariaShortcut,
     runCommand,
     shortcutLabel,
     type CommandContext,
@@ -124,7 +125,7 @@
       disabled={!format.enabled[mark]}
       aria-pressed={format.active[mark]}
       aria-label={t.marks[mark]}
-      aria-keyshortcuts={shortcuts.keyFor(id) ? shortcut(id) : undefined}
+      aria-keyshortcuts={shortcuts.keyFor(id) ? ariaShortcut(shortcut(id)) : undefined}
       title={title(t.marks[mark], id)}
       onclick={() => {
         runCommand(id, "ui", context);

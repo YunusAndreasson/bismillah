@@ -17,6 +17,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "app:build": "tauri build --debug --no-bundle -- --locked",
+    "app:mac": "tauri build --debug --bundles app -- --locked",
     "app:shot": "scripts/headless.sh node scripts/app-shot.ts",
     "test:e2e": "scripts/headless.sh wdio run tests/wdio.conf.ts --suite e2e",
     "test:visual": "scripts/headless.sh wdio run tests/wdio.conf.ts --suite visual",

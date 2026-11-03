@@ -174,6 +174,14 @@ impl AppState {
     }
 
     /// Queues a file to open and tells the frontend, which saves first and then asks.
+    /// The writer's theme setting ("system", "light" or "dark").
+    pub fn theme(&self) -> String {
+        lock(&self.settings).snapshot().values["theme"]
+            .as_str()
+            .unwrap_or("system")
+            .to_owned()
+    }
+
     pub fn request_open(&self, app: &AppHandle, path: PathBuf) {
         let name = documents::display_name(&path);
         *lock(&self.requested) = Some(path);
@@ -406,7 +414,7 @@ fn dialog_dir(state: &AppState) -> Option<PathBuf> {
 pub fn doc_open_guide(state: State<'_, AppState>) -> Opened {
     state.install(
         Source::Sample("guide.md"),
-        documents::decode(GUIDE.as_bytes()),
+        documents::decode(platform::guide(GUIDE).as_bytes()),
     )
 }
 

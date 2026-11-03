@@ -2,7 +2,7 @@
 
 **bismillah** is a free, offline, minimal Markdown editor in the spirit of the original iA Writer, built with Tauri 2, Svelte 5, CodeMirror 6 and a Rust core. It has two features beyond typing (spelling in English and Arabic, grammar suggestions in English), so the quality of its typography, interaction and reliability *is* the product.
 
-**Status:** Phase 6 (personal 1.0) was built on 2026-10-19 and waits for the author's acceptance check ([PLAN.md](PLAN.md)): version 1.0.0, the polished local package (`packaging/check.sh`), the guide inside the app (Help › Guide, `F1`), the bāʾ icon, the accessibility audit (`pnpm a11y`), the measured performance budgets (`pnpm perf`), and the 1.0 audit (docs/audits/2026-10-19-personal-1.0.md). Phases 4 and 5 were built the same day and the author moved on; Phases 2 and 3 were accepted on 2026-10-18; Phase 1 was built that day and the author moved on; the earlier phases' manual checks are still listed in PLAN.md. Phase 0's spikes were accepted on 2026-10-18 ([docs/spikes/](docs/spikes/README.md)). Keep this file accurate as commands and layout change. bismillah is private and runs only on the author's Linux machine for now. The repo is a private GitHub repo (YunusAndreasson/bismillah), and the app has no hosted CI, so `pnpm verify` is its gate. The website that promotes the app lives in `web/`, with its own guide ([web/AGENTS.md](web/AGENTS.md)), tools, CI and deploy.
+**Status:** Phase 6 (personal 1.0) was built on 2026-10-19 and waits for the author's acceptance check ([PLAN.md](PLAN.md)): version 1.0.0, the polished local package (`packaging/check.sh`), the guide inside the app (Help › Guide, `F1`), the bāʾ icon, the accessibility audit (`pnpm a11y`), the measured performance budgets (`pnpm perf`), and the 1.0 audit (docs/audits/2026-10-19-personal-1.0.md). Phases 4 and 5 were built the same day and the author moved on; Phases 2 and 3 were accepted on 2026-10-18; Phase 1 was built that day and the author moved on; the earlier phases' manual checks are still listed in PLAN.md. Phase 0's spikes were accepted on 2026-10-18 ([docs/spikes/](docs/spikes/README.md)). Keep this file accurate as commands and layout change. bismillah is private and installed only on the author's Linux machine for now. macOS and iOS development started on the author's Mac on 2026-11-03 (ARCHITECTURE.md §12.3, mobile/PLAN.md). There `pnpm verify` runs the checks natively, bundles the app, and then runs the whole gate again on Linux in a container (`scripts/linux.sh`, Docker Desktop with at least 6 CPUs and 8 GB), so commits can be made from either machine. The repo is a private GitHub repo (YunusAndreasson/bismillah), and the app has no hosted CI, so `pnpm verify` is its gate. The website that promotes the app lives in `web/`, with its own guide ([web/AGENTS.md](web/AGENTS.md)), tools, CI and deploy.
 
 **The phone app** (ADR-0022) reads the stick's animated QR codes: [mobile/PLAN.md](mobile/PLAN.md) says what's next, under *Where we are*. Read it first when asked to continue that work.
 
@@ -51,6 +51,7 @@ pnpm test                        # vitest
 pnpm test:e2e                    # tauri-driver against the real app
 pnpm test:visual                 # screenshot regression in the real app (UPDATE_BASELINES=1 to rewrite)
 pnpm app:build                   # debug build with the frontend embedded (needed by the real-app commands)
+pnpm app:mac                     # macOS: debug bismillah.app in target/debug/bundle/macos (icon, .md associations)
 pnpm app:shot                    # specimen screenshots at 640/1280/1920/2560; --open files|commands|settings[:row]|about (see run-app skill)
 pnpm test:offline                # e2e suite with no network, under strace
 pnpm a11y                        # the accessibility tree (AT-SPI, as Orca reads it) in every screen
@@ -61,6 +62,7 @@ cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check
 cargo deny check                 # banned crates, licences, advisories
 pnpm verify                      # all checks incl. build, e2e and visual; the gate before every commit (--fast skips the real-app suites)
 pnpm verify --online             # also require fresh Rust advisories + pnpm audit; accepts --fast
+scripts/linux.sh [command]       # on a Mac: a command (default pnpm verify) on Linux, in a container; visual diffs in target/linux/visual
 pnpm os:fetch && pnpm os:verify  # the bismillah stick (os/PLAN.md): fetch inputs once, then build offline and test in VMs
 pnpm os:perf                     # the stick's boot stages, sizes and RAM against os/perf-baseline.json (--sizes, --update)
 pnpm os:shots                    # the stick's real screens from a VM (2880×1800 at 2×) into os/out/shots, for the website (web/scripts/screens.sh)

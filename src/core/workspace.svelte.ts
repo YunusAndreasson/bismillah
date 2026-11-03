@@ -35,6 +35,7 @@ import { DoubleShift } from "./doubleShift.ts";
 import { keyOf, normalise } from "./keys.ts";
 import type { Scope } from "./panels.ts";
 import { applyColours, colourThemes, DEFAULT_THEME, onSystemScheme } from "./themes.svelte.ts";
+import { watchFullscreen } from "./nativeWindow.ts";
 import { Checking } from "./checking.svelte.ts";
 import { GUIDE_NAME, GUIDE_WORDS } from "./guide.ts";
 import { LibraryStore } from "./library.svelte.ts";
@@ -367,6 +368,11 @@ export class Workspace {
     const fonts = loadFonts(settings.values.writing_profile);
     await this.#checkFont(settings.values.custom_font);
     onSystemScheme(() => applyColours(settings.values));
+    watchFullscreen((fullscreen) => {
+      if (this.fullscreen === fullscreen) return;
+      this.fullscreen = fullscreen;
+      void this.#menu?.sync();
+    });
     // Before startup, which may change the library (a folder on the command line).
     await listen<ipc.LibraryView>("library-changed", ({ payload }) => this.library.apply(payload));
     const first = await ipc.startup();

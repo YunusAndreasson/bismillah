@@ -484,6 +484,7 @@ recovery audit.
 - Author acceptance of the bounded caret blink in the rebuilt app.
 
 - Publishing: a GitHub repo on the author's personal account, CI on Linux, macOS and Windows, public packages (AppImage, .deb, .rpm, AUR, Flathub without network permission), and macOS and Windows releases.
+- The macOS desktop app. Development started on the author's Mac on 2026-11-03, and it builds there (ARCHITECTURE.md §12.3).
 - Print / PDF and HTML export.
 - Jump to heading (palette list of headings, `Alt-↑/↓`).
 - Executable plugins, only after an ADR settles isolation (ADR-0005).

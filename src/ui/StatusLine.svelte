@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ariaShortcut } from "../core/commands.ts";
   import { copy } from "../core/copy.ts";
   import { GUIDE_NAME } from "../core/guide.ts";
   import type { Battery } from "../core/ipc.ts";
@@ -79,7 +80,7 @@
       aria-label={copy.panels.names.all}
       aria-haspopup="dialog"
       aria-expanded={panel !== null}
-      aria-keyshortcuts={key.replaceAll("Ctrl+", "Control+") || undefined}
+      aria-keyshortcuts={ariaShortcut(key).replaceAll("Ctrl+", "Control+") || undefined}
       onclick={openSearch}
       >{copy.panels.names.all}{#if key}<span class="key" aria-hidden="true">{key}</span
         >{/if}</button

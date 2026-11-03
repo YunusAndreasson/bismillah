@@ -5,6 +5,7 @@ import { focusFormatBar } from "../editor/formatBar.ts";
 import { openGoToLine } from "../editor/goToLine.ts";
 import { openReplace } from "../editor/search.ts";
 import type { EditorView } from "@codemirror/view";
+import { onMac } from "./keys.ts";
 
 /**
  * The command registry (DESIGN.md §13): one ID, one label and one shortcut per action,
@@ -776,16 +777,25 @@ export function accelerator(key: string): string {
     .join("+");
 }
 
-/** The shortcut as the writer reads it on Linux ("Ctrl+Shift+T", "Ctrl+="). */
-export function shortcutLabel(key: string | undefined): string {
+/**
+ * The shortcut as the writer reads it: "Ctrl+Shift+T" and "Alt+F" on Linux, "Cmd+Shift+T"
+ * and "Option+F" on macOS. keybindings.toml reads both spellings back.
+ */
+export function shortcutLabel(key: string | undefined, mac = onMac()): string {
   if (!key) return "";
   return parts(key)
     .map((part) => {
-      if (part === "Mod") return "Ctrl";
+      if (part === "Mod") return mac ? "Cmd" : "Ctrl";
+      if (part === "Alt" && mac) return "Option";
       if (part.startsWith("Arrow")) return part.slice(5);
       return part.length === 1 ? part.toUpperCase() : part;
     })
     .join("+");
+}
+
+/** A label's macOS key names as `aria-keyshortcuts` spells them ("Cmd+B" → "Meta+B"). */
+export function ariaShortcut(label: string): string {
+  return label.replaceAll("Cmd+", "Meta+").replaceAll("Option+", "Alt+");
 }
 
 export const commandById = (id: CommandId): Command | undefined =>

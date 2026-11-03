@@ -4,6 +4,8 @@
   import { runCommand, type CommandId } from "./core/commands.ts";
   import * as ipc from "./core/ipc.ts";
   import { installMenu } from "./core/menu.ts";
+  import { onMac } from "./core/keys.ts";
+  import { showEdited } from "./core/nativeWindow.ts";
   import { settings, type Settings } from "./core/settings.svelte.ts";
   import { installTestHooks } from "./core/testHooks.ts";
   import type { Scope } from "./core/panels.ts";
@@ -60,6 +62,13 @@
   });
 
   const session = $derived(workspace.session);
+  // macOS: the dot in the close button while changes aren't on disk yet.
+  $effect(() => {
+    const kind = session?.state.kind;
+    showEdited(kind === "saving" || kind === "failed");
+  });
+  // macOS: the page runs up under the traffic lights; fullscreen hides them.
+  const titlebar = $derived(onMac() && !workspace.fullscreen);
   const library = workspace.library;
   const run = (id: CommandId) => runCommand(id, "ui", workspace.context);
 
@@ -167,7 +176,10 @@
 {#if farewell.action}
   <div class="appliance-gate farewell"><Farewell action={farewell.action} /></div>
 {/if}
-<div class="window" inert={workspace.shut}>
+{#if titlebar}
+  <div class="titlebar" data-tauri-drag-region></div>
+{/if}
+<div class="window" class:under-titlebar={titlebar} inert={workspace.shut}>
   <div class="notices-row"><Notices notices={workspace.notices} /></div>
   <div class="middle">
     <main class="writing" class:hidden={workspace.welcome} bind:this={host}>
@@ -237,6 +249,18 @@
   }
   .farewell {
     z-index: 101;
+  }
+  /* The overlay title bar's height (DESIGN.md §7): the traffic lights sit in it, and it
+     drags the window. Nothing else may use it. */
+  .titlebar {
+    position: fixed;
+    inset: 0 0 auto;
+    block-size: 28px;
+    z-index: var(--layer-dock);
+  }
+  .window.under-titlebar {
+    box-sizing: border-box;
+    padding-block-start: 28px;
   }
   .window {
     height: 100%;

@@ -1,62 +1,65 @@
 #!/usr/bin/env python3
-"""Draw bismillah's icon: the letter bāʾ (ب), the first letter of the Basmallah.
+"""Draw bismillah's icon: a single text cursor, centred on the tile.
 
-The bāʾ is Amiri Bold's own outline (SIL OFL 1.1, the font bismillah sets Arabic in),
-in the light page colour (`surface-editor`, #F7F6F2) on the accent green (#1E6B4A),
-on the rounded tile of the earlier icon. Its ink box is 60% of the tile wide, centred,
-and set a little low so the bowl and its dot sit at the tile's optical centre.
+The cursor is the editor's own caret, drawn bold enough to read at 16 px, in the light
+page colour (`surface-editor`, #F7F6F2) on the accent green (#1E6B4A) (DESIGN.md §7,
+author's choice 2026-11-03: "very clean, like the single cursor centered inside the
+icon"). It is upright and symmetrical, so its centre is the tile's centre.
 
-Writes src-tauri/icons/source.svg. Then make the other sizes from it:
+Writes two sources:
+
+- src-tauri/icons/source.svg: the tile filling the square, the scalable icon Linux
+  installs, and the source of the PNG and ICO sizes.
+- src-tauri/icons/macos.svg: the same tile on Apple's icon grid (an 824 px tile with a
+  100 px margin in 1024), so it sits with the other icons in the Dock and Finder.
+
+Then make the other sizes:
 
     pnpm exec tauri icon src-tauri/icons/source.svg -o target/scratch/icons
     cp target/scratch/icons/{32x32,64x64,128x128,128x128@2x,icon}.png \
-       target/scratch/icons/icon.{ico,icns} src-tauri/icons/
+       target/scratch/icons/icon.ico src-tauri/icons/
+    pnpm exec tauri icon src-tauri/icons/macos.svg -o target/scratch/icons-mac
+    cp target/scratch/icons-mac/icon.icns src-tauri/icons/
 
-Run: uv run --with fonttools python -I fonts/tools/build_icon.py
+Run: python3 -I fonts/tools/build_icon.py
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from fontTools.pens.boundsPen import BoundsPen
-from fontTools.pens.svgPathPen import SVGPathPen
-from fontTools.ttLib import TTFont
-
 ROOT = Path(__file__).resolve().parents[2]
-FONT = ROOT / "fonts/source/amiri/Amiri-Bold.ttf"
-OUT = ROOT / "src-tauri/icons/source.svg"
+ICONS = ROOT / "src-tauri/icons"
 
-TILE = 1024
-RADIUS = 224
+CANVAS = 1024
 GREEN = "#1E6B4A"  # accent, light (DESIGN.md §9.2)
 PAPER = "#F7F6F2"  # surface-editor, light
-WIDTH = 0.60  # of the tile, for the letter's ink box
-NUDGE = 10  # px down from the box's centre: the dot is light, the bowl heavy
+# Of the tile: the cursor's height and width. Its ends are round, as the stroke of a pen.
+HEIGHT = 0.46
+WIDTH = 0.068
+
+
+def tile(size: float, radius: float) -> str:
+    offset = (CANVAS - size) / 2
+    bar_w = size * WIDTH
+    bar_h = size * HEIGHT
+    x = (CANVAS - bar_w) / 2
+    y = (CANVAS - bar_h) / 2
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CANVAS} {CANVAS}">\n'
+        "  <!-- bismillah's icon: a single text cursor. fonts/tools/build_icon.py -->\n"
+        f'  <rect x="{offset:g}" y="{offset:g}" width="{size:g}" height="{size:g}" '
+        f'rx="{radius:g}" fill="{GREEN}"/>\n'
+        f'  <rect x="{x:.1f}" y="{y:.1f}" width="{bar_w:.1f}" height="{bar_h:.1f}" '
+        f'rx="{bar_w / 2:.1f}" fill="{PAPER}"/>\n'
+        "</svg>\n"
+    )
 
 
 def main() -> None:
-    font = TTFont(FONT)
-    glyphs = font.getGlyphSet()
-    name = font.getBestCmap()[ord("ب")]
-    pen = SVGPathPen(glyphs)
-    glyphs[name].draw(pen)
-    bounds = BoundsPen(glyphs)
-    glyphs[name].draw(bounds)
-    x0, y0, x1, y1 = bounds.bounds
-    scale = TILE * WIDTH / (x1 - x0)
-    tx = TILE / 2 - (x0 + x1) / 2 * scale
-    ty = TILE / 2 + (y0 + y1) / 2 * scale + NUDGE
-    OUT.write_text(
-        f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {TILE} {TILE}">
-  <!-- bismillah's icon: the bāʾ (ب) from Amiri Bold (SIL OFL 1.1). fonts/tools/build_icon.py -->
-  <rect width="{TILE}" height="{TILE}" rx="{RADIUS}" fill="{GREEN}"/>
-  <path transform="translate({tx:.1f} {ty:.1f}) scale({scale:.4f} {-scale:.4f})" fill="{PAPER}" d="{pen.getCommands()}"/>
-</svg>
-""",
-        encoding="utf-8",
-    )
-    print(f"wrote {OUT.relative_to(ROOT)}")
+    (ICONS / "source.svg").write_text(tile(CANVAS, 224), encoding="utf-8")
+    # Apple's grid: 824 in 1024, corner radius about 22.5% of the tile.
+    (ICONS / "macos.svg").write_text(tile(824, 185.4), encoding="utf-8")
 
 
 if __name__ == "__main__":
