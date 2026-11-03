@@ -1,0 +1,138 @@
+src-tauri/src/lib.rs
+  s_22568b58fd39ef::t_a9dc11077e3fd5 52-60,132,226-228,294,327-329,398-415
+src/core/themes.svelte.ts
+  s_22568b58fd39ef::t_7d037262cfd68f 3,56-61,63
+src-tauri/icons/source.svg
+  s_22568b58fd39ef::t_836a86dbe557a8 2-4
+src/App.svelte
+  s_22568b58fd39ef::t_0863e2e91e87fb 7-8,65-71,179-182,253-264
+scripts/verify.sh
+  s_22568b58fd39ef::t_6e87449c3d1526 10-13,56-63
+src/core/commands.ts
+  s_22568b58fd39ef::t_2d5d424a802ef9 8,780-784,788-789
+  s_22568b58fd39ef::t_2f74425338af77 796-798
+  s_22568b58fd39ef::t_6016364d1152e2 799-800
+src-tauri/src/app.rs
+  s_22568b58fd39ef::t_a9dc11077e3fd5 177-184
+  s_22568b58fd39ef::t_5d225cac7b688f 417
+src/core/ipc.ts
+  s_22568b58fd39ef::t_69d03c1daa3de6 381
+src/core/about.ts
+  s_22568b58fd39ef::t_3fafd15c72f2af 104-105,107
+  s_22568b58fd39ef::t_a740a676d1ca36 106,108
+  s_22568b58fd39ef::t_6435e41da0b9e9 103
+crates/bismillah-appliance/src/helper/main.rs
+  s_22568b58fd39ef::t_823aadb50a71ee 12-15
+  s_22568b58fd39ef::t_7ba33152140608 161-166
+  s_22568b58fd39ef::t_02940837a02726 23
+  s_22568b58fd39ef::t_5e048f1a116127 144-148
+src/core/copy.ts
+  s_22568b58fd39ef::t_2d5d424a802ef9 642
+src/core/nativeWindow.test.ts
+  s_22568b58fd39ef::t_3fafd15c72f2af 1-10
+src-tauri/icons/macos.svg
+  s_22568b58fd39ef::t_836a86dbe557a8 1-5
+crates/bismillah-appliance/Cargo.toml
+  s_22568b58fd39ef::t_dab026c8a2fbf2 48-50
+tests/visual/format-bar.visual.ts
+  s_22568b58fd39ef::t_d7468cd38ffa64 27
+  s_22568b58fd39ef::t_bf27830b7f9f1b 24-25,28-32
+PLAN.md
+  s_22568b58fd39ef::t_67ef6912adbf97 487
+web/AGENTS.md
+  s_22568b58fd39ef::t_94ae9a68ed49a7 128
+src-tauri/src/documents.rs
+  s_22568b58fd39ef::t_778f3e4827f4f3 817,821
+  s_22568b58fd39ef::t_ec15fe3bbc69d3 818-820
+src/ui/StatusLine.svelte
+  s_22568b58fd39ef::t_2f74425338af77 83
+  s_22568b58fd39ef::t_cad5dca88b3c5a 2
+src/core/workspace.svelte.ts
+  s_22568b58fd39ef::t_7d037262cfd68f 38,371-375
+src/core/menu.test.ts
+  s_22568b58fd39ef::t_8cbcb33ac6611e 52
+  s_22568b58fd39ef::t_3fafd15c72f2af 71-75
+  s_22568b58fd39ef::t_6f27e9c1c00398 1-51,53-70,76-85
+fonts/tools/build_icon.py
+  s_22568b58fd39ef::t_45d1d4221a7663 2,4-7,9-16,20-22,24,32,34,37-39,42-55,57-62
+src/ui/FormatBar.svelte
+  s_22568b58fd39ef::t_2f74425338af77 128
+  s_22568b58fd39ef::t_cad5dca88b3c5a 5
+src/core/shortcuts.ts
+  s_22568b58fd39ef::t_2d5d424a802ef9 198-199
+package.json
+  s_22568b58fd39ef::t_35af3b9b6ec846 20
+web/public/favicon.svg
+  s_22568b58fd39ef::t_94ae9a68ed49a7 2-4
+src/core/nativeWindow.ts
+  s_22568b58fd39ef::t_69d03c1daa3de6 1-38,43-45,58
+  s_22568b58fd39ef::t_89763c93dde980 40-41,51
+  s_22568b58fd39ef::t_17c26ed943469c 39,42,46,57
+  s_22568b58fd39ef::t_128e01f783b10d 47-50,52-56
+AGENTS.md
+  s_22568b58fd39ef::t_c875b09d7f5c63 54
+  s_22568b58fd39ef::t_51b10fc115f56b 5,65
+src/core/menu.ts
+  s_22568b58fd39ef::t_f04269bb844ee1 68-73
+  s_22568b58fd39ef::t_924b2a1d2124b3 1-10,16,23,29-32,40-55,59-67,74-79,85-87,92-115,117,128-139,154-159,185-187
+  s_22568b58fd39ef::t_7d037262cfd68f 56-58,80-84
+  s_22568b58fd39ef::t_8cbcb33ac6611e 88-91
+src-tauri/src/platform.rs
+  s_22568b58fd39ef::t_bdab3862d035f1 151,367-368,371-390,431,590
+  s_22568b58fd39ef::t_7bc2903272dc59 580,811-812,816-827,829-835,854
+  s_22568b58fd39ef::t_5d225cac7b688f 122-123,126-134,771-775,778-779,782-783
+  s_22568b58fd39ef::t_1cfa55a4f6e43a 17-69,761-770
+  s_22568b58fd39ef::t_42acccd1201ba0 692,787-810,836-853
+  s_22568b58fd39ef::t_628edfe62d2255 233-235,238,260-262,277-279,521-579,581-589
+  s_22568b58fd39ef::t_8c554f3dab1309 241-242
+  s_22568b58fd39ef::t_13b606e81559af 124-125,135-150,776-777,780-781,784-786
+  s_22568b58fd39ef::t_51167a19a77531 813-815,828
+  s_22568b58fd39ef::t_df012828052b29 152,591
+src-tauri/tauri.macos.conf.json
+  s_22568b58fd39ef::t_35af3b9b6ec846 1-32
+src-tauri/Cargo.toml
+  s_22568b58fd39ef::t_628edfe62d2255 39-46
+  s_22568b58fd39ef::t_1cfa55a4f6e43a 47-49
+  s_22568b58fd39ef::t_0fca1b48bd5368 50
+src/core/keys.ts
+  s_22568b58fd39ef::t_f04269bb844ee1 29-31,33
+scripts/linux.sh
+  s_22568b58fd39ef::t_9e8fb0635172fd 29-31,33
+  s_22568b58fd39ef::t_edc939bdcfdf8f 1-28,32,34-45
+ARCHITECTURE.md
+  s_22568b58fd39ef::t_c875b09d7f5c63 43,385,395
+  s_22568b58fd39ef::t_4d1ff42ae5f05e 417
+  s_22568b58fd39ef::t_51b10fc115f56b 418
+  s_22568b58fd39ef::t_71bd9b57b719cd 419,421
+  s_22568b58fd39ef::t_fc7a3ba8c0e1d3 420,422
+  s_22568b58fd39ef::t_8413896618da85 416
+  s_22568b58fd39ef::t_15668a45bade0a 42,44,245,386,396,506
+src-tauri/capabilities/macos.json
+  s_22568b58fd39ef::t_35af3b9b6ec846 1-3,5-11,13-14
+  s_22568b58fd39ef::t_89763c93dde980 4,12
+scripts/linux/Dockerfile
+  s_22568b58fd39ef::t_547060b7c9316b 1-6,11-12,14,17-29
+  s_22568b58fd39ef::t_a0f9b5556d8864 8-9,15
+  s_22568b58fd39ef::t_1b28f28987258f 13
+  s_22568b58fd39ef::t_296153eaba61af 7,10,16
+DESIGN.md
+  s_22568b58fd39ef::t_c875b09d7f5c63 158,164
+Cargo.lock
+  s_22568b58fd39ef::t_369b7a5ec710f7 298-299
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2255df467dfacfbbc56d2a2859a9cc5e211a5ec8",
+  "prompts": {},
+  "sessions": {
+    "s_22568b58fd39ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee30f02c-58ee-4f5d-b0ef-bdbb5fcfc573",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Yunus Andreasson <yunus@edenmind.com>"
+    }
+  }
+}
