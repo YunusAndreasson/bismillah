@@ -8,15 +8,16 @@ input=$(cat)
 tool=$(jq -r '.tool_name // empty' <<<"$input")
 root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
-npm_banned=(
+banned=(
   axios node-fetch got ky superagent undici
   @tauri-apps/plugin-http @tauri-apps/plugin-updater
   @tauri-apps/plugin-websocket @tauri-apps/plugin-upload
   @sentry/browser @sentry/svelte posthog-js @vercel/analytics
 )
-rust_banned=()
+# Plain bash 3.2 and perl, not mapfile or grep -P, so the guard also runs on macOS.
 if [[ -f "$root/deny.toml" ]]; then
-  mapfile -t rust_banned < <(grep -oP '\{\s*crate\s*=\s*"\K[^"]+' "$root/deny.toml")
+  while IFS= read -r name; do banned+=("$name"); done \
+    < <(perl -nle 'print $1 while /\{\s*crate\s*=\s*"([^"]+)/g' "$root/deny.toml")
 fi
 
 block() {
@@ -26,14 +27,14 @@ block() {
 
 # Matches a whole package name: not preceded or followed by a name character.
 contains_name() { # $1 = haystack, $2 = name
-  grep -qP "(?<![A-Za-z0-9_@/.-])$(printf '%s' "$2" | sed 's/[][\.*^$/@+?(){}|-]/\\&/g')(?![A-Za-z0-9_-])" <<<"$1"
+  HAY="$1" NAME="$2" perl -e 'exit($ENV{HAY} =~ m{(?<![A-Za-z0-9_@/.-])\Q$ENV{NAME}\E(?![A-Za-z0-9_-])} ? 0 : 1)'
 }
 
 case "$tool" in
   Bash)
     cmd=$(jq -r '.tool_input.command // empty' <<<"$input")
-    if grep -qP '\b(cargo\s+add|pnpm\s+(add|install|i)\s|npm\s+(install|i|add)\s|yarn\s+add|bun\s+add)' <<<"$cmd"; then
-      for name in "${rust_banned[@]}" "${npm_banned[@]}"; do
+    if CMD="$cmd" perl -e 'exit($ENV{CMD} =~ /\b(cargo\s+add|pnpm\s+(add|install|i)\s|npm\s+(install|i|add)\s|yarn\s+add|bun\s+add)/ ? 0 : 1)'; then
+      for name in "${banned[@]}"; do
         contains_name "$cmd" "$name" && block "$name"
       done
     fi
@@ -43,7 +44,7 @@ case "$tool" in
     case "$(basename "$file")" in
       Cargo.toml|package.json)
         new=$(jq -r '[.tool_input.content, .tool_input.new_string, (.tool_input.edits // [] | .[].new_string)] | map(select(. != null)) | join("\n")' <<<"$input")
-        for name in "${rust_banned[@]}" "${npm_banned[@]}"; do
+        for name in "${banned[@]}"; do
           contains_name "$new" "$name" && block "$name"
         done
         ;;
