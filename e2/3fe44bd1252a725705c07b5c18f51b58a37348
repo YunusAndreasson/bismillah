@@ -1,0 +1,27 @@
+PLAN.md
+  s_22568b58fd39ef::t_80842b33ca55d8 481-492,498
+docs/decisions/README.md
+  s_22568b58fd39ef::t_80842b33ca55d8 35
+ARCHITECTURE.md
+  s_22568b58fd39ef::t_80842b33ca55d8 423
+AGENTS.md
+  s_22568b58fd39ef::t_80842b33ca55d8 5
+docs/decisions/0024-macos-release.md
+  s_22568b58fd39ef::t_2a0d1f2da69bad 1-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e23fe44bd1252a725705c07b5c18f51b58a37348",
+  "prompts": {},
+  "sessions": {
+    "s_22568b58fd39ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee30f02c-58ee-4f5d-b0ef-bdbb5fcfc573",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Yunus Andreasson <yunus@edenmind.com>"
+    }
+  }
+}
