@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "@astrojs/markdown-satteri": "0.4.6",
-    "astro": "7.4.4"
+    "astro": "7.4.4",
+    "hls.js": "1.7.4"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.12",

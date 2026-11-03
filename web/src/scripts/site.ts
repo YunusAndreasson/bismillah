@@ -113,6 +113,55 @@ const TYPEWRITER_LINE = "-42% 0px -57% 0px";
 /** A document's paragraphs and headings, in order. */
 const blocksOf = (article: HTMLElement) => [...article.querySelectorAll<HTMLElement>(".text > *")];
 
+const HLS = "application/vnd.apple.mpegurl";
+/** The film's HLS renditions: H.264 and AAC in fragmented MP4. */
+const HLS_CODECS = 'video/mp4; codecs="avc1.640028,mp4a.40.2"';
+
+/**
+ * Where the browser plays no HLS of its own (Firefox and its forks), plays the film's
+ * HLS through hls.js, and says so; elsewhere returns nothing and the <source>s choose.
+ * Without it Firefox would take the one AV1 file, and that file can't be streamed from
+ * here: Cloudflare's static hosting ignores Range, so when Firefox has read ahead and
+ * lets the connection idle, the edge drops it about 30 s later and Firefox can't resume
+ * (MediaError 2, half a minute in). hls.js fetches the same four-second segments the
+ * other browsers play, each a whole file. The module loads only here and only once,
+ * when the visitor first reaches for the player. Its worker is off: it starts from a
+ * blob: URL, which Trusted Types refuse, and the film plays as well without it. If the
+ * stream fails for good, the <source>s take over (the AV1 file, for browsers without
+ * H.264).
+ */
+function stream(video: HTMLVideoElement): (() => Promise<void>) | undefined {
+  const master = video.querySelector<HTMLSourceElement>(`source[type="${HLS}"]`)?.src;
+  if (!master || video.canPlayType(HLS) || !window.MediaSource?.isTypeSupported(HLS_CODECS)) {
+    return undefined;
+  }
+  let attached: Promise<void> | undefined;
+  return () =>
+    (attached ??= import("hls.js/light").then(({ default: Hls }) => {
+      if (!Hls.isSupported()) return;
+      const hls = new Hls({ enableWorker: false, capLevelToPlayerSize: true });
+      let retries = 0;
+      let recoveries = 0;
+      hls.on(Hls.Events.FRAG_LOADED, () => {
+        retries = 0;
+      });
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (!data.fatal) return;
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && retries++ < 3) {
+          hls.startLoad();
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR && recoveries++ < 2) {
+          hls.recoverMediaError();
+        } else {
+          hls.destroy();
+          video.removeAttribute("src");
+          video.load();
+        }
+      });
+      hls.loadSource(master);
+      hls.attachMedia(video);
+    }));
+}
+
 function film(root: HTMLElement): void {
   const video = root.querySelector<HTMLVideoElement>("[data-video]");
   const loop = root.querySelector<HTMLVideoElement>(".loop");
@@ -142,8 +191,12 @@ function film(root: HTMLElement): void {
   // If no source can play in this browser, say so where the page offers the other way in,
   // rather than leave controls that do nothing. The film never played, so the opening
   // shot is still to come.
+  // Only before the film has played: an error once it has (a dropped segment the
+  // stream is retrying) must never put the poster back over it.
+  let started = false;
   const line = root.querySelector<HTMLElement>(".or-scroll");
   const giveUp = () => {
+    if (started) return;
     cancelAnimationFrame(frame);
     controls.hidden = true;
     hit.hidden = true;
@@ -154,13 +207,23 @@ function film(root: HTMLElement): void {
   video.querySelector("source:last-of-type")?.addEventListener("error", giveUp);
   video.addEventListener("error", giveUp);
 
+  // Fetched as the pointer or focus comes to the player, so the click doesn't wait.
+  const attach = stream(video);
+  if (attach) {
+    const warm = () => void import("hls.js/light");
+    root.addEventListener("pointerover", warm, { once: true });
+    root.addEventListener("focusin", warm, { once: true });
+  }
+
   const toggle = () => {
     if (video.paused || video.ended) {
       loop?.pause();
-      video.play().catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "NotSupportedError") giveUp();
-        else state(video.currentTime > 0 ? "paused" : "idle");
-      });
+      (attach ? attach() : Promise.resolve())
+        .then(() => video.play())
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "NotSupportedError") giveUp();
+          else state(video.currentTime > 0 ? "paused" : "idle");
+        });
     } else {
       video.pause();
     }
@@ -197,6 +260,7 @@ function film(root: HTMLElement): void {
     wake();
   });
   video.addEventListener("playing", () => {
+    started = true;
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(run);
   });

@@ -8,6 +8,9 @@
 # The Content-Security-Policy makes the site's promise mechanical: a page may load
 # nothing from anywhere but this site, run no inline script or style, and be framed by
 # no one. Astro writes every stylesheet and script as a file (astro.config.mjs).
+# `media-src blob:` is the film in Firefox: hls.js plays it through Media Source
+# Extensions, whose blob: URL only the page's own script can make, from files fetched
+# from this site (connect-src 'self').
 # Trusted Types close the DOM's HTML and script sinks (innerHTML, eval and the rest)
 # to strings: the site's script only sets text and attributes, so it needs none.
 /*
@@ -15,7 +18,7 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Cross-Origin-Opener-Policy: same-origin
-  Content-Security-Policy: default-src 'self'; img-src 'self'; media-src 'self'; font-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types 'none'
+  Content-Security-Policy: default-src 'self'; img-src 'self'; media-src 'self' blob:; font-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types 'none'
 
 # Astro content-hashes everything under /_astro/, so a file there never changes.
 /_astro/*

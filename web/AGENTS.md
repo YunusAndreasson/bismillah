@@ -173,8 +173,12 @@ aside while the stick itself is on the screen.
   `current`).
 - **Video and Range:** static assets ignore `Range` and answer 200 with the whole file,
   and Safari won't play an MP4 that way, and no file may exceed 25 MiB. So the film is
-  HLS (Safari, Chrome 142+) with one progressive AV1 file under 24 MiB for Firefox and
-  Zen, and each loop has a one-segment HLS before its MP4s.
+  HLS (Safari and Chrome natively; Firefox and Zen through hls.js), and each loop has a
+  one-segment HLS before its MP4s. The progressive AV1 file under 24 MiB is only the
+  last resort, for a browser without H.264: Firefox reads ahead, lets the connection
+  idle, Cloudflare drops it about 30 s later, and without `Range` Firefox can't resume,
+  so the film stopped half a minute in (found live, 2026-11-03). `media-src` allows
+  `blob:` for hls.js's Media Source.
 - **At launch**, when the address is chosen: remove the `noindex` header, and change
   the URL in `astro.config.mjs` (`site`), `scripts/ship.sh` (`URL`), and `BASE` and
   the usage line in `public/install.sh` and `public/install.ps1` (and in
@@ -216,7 +220,10 @@ pnpm ship           # deploy to production, only when the author asks (see below
   (`minimumReleaseAge`). Exclude a fresh version in `pnpm-workspace.yaml` only when we
   need it now, and remove the entry once it has aged.
 - TypeScript stays on 6.x: `@astrojs/check` (Volar) does not support TypeScript 7 yet.
-- Add a dependency only for a real problem, and say what it is for.
+- Add a dependency only for a real problem, and say what it is for. `hls.js` (its light
+  build, loaded on demand by `site.ts` only where the browser has no HLS of its own)
+  streams the film in Firefox and Zen; see Delivery, Video and Range. Its worker stays
+  off, because Trusted Types refuse its `blob:` script.
 
 ## Skills and tools
 
