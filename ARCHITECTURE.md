@@ -420,6 +420,7 @@ Search feedback extends CodeMirror's existing panel with a polite status region 
   - The `trash` crate isn't built for macOS, where `NSFileManager` moves to the Trash (§5.8), so `trash_error` (`platform.rs`) and its freedesktop-only `FileSystem` variant stay off macOS.
   - The test of stale temporary names canonicalizes its scratch paths, as `open` does: macOS's temp directory, `/var/folders`, is a link into `/private/var`.
   - Driving the app on 2026-11-03 (through the accessibility API) found four more, now fixed: the menu bar was Tauri's default, a second launch started a second app, Move to trash waited for permission to control Finder and Undo couldn't put it back, and shortcuts read Ctrl. Still open: macOS reserves ⌘H for Hide, so *Replace…* (`Mod-h`) has no shortcut there.
+- **A macOS release is planned (ADR-0024, PLAN.md):** a signed, notarized, universal `.dmg` from `pnpm release:mac`. Until it exists, `pnpm app:mac` is a debug bundle for the author, and its gaps from the Linux app's promises (the WKWebView lockdown, the macOS folders in PRIVACY.md) are the release's to close.
 - **Checks run locally.** `pnpm verify` runs every suite: tests, clippy, fmt, check, lint, `cargo deny`. The repo has a private GitHub remote, but hosted CI so far covers only the website (`web/`).
 - All platform code lives in `platform.rs`. Paths go through Tauri and `dirs`. Shortcuts use `Mod-`.
 - Font rendering and CSS support differ between engines, so typography is checked in the real webviews.

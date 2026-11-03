@@ -32,6 +32,7 @@ Short records of decisions with lasting consequences. Each one says what was dec
 | [0021](0021-print-to-phone.md) | Print to Phone: the stick's only way out | Accepted |
 | [0022](0022-phone-app.md) | A phone app on Tauri | Accepted |
 | [0023](0023-sealed-prints.md) | Sealed prints | Proposed |
+| [0024](0024-macos-release.md) | A macOS release: a signed, notarized disk image | Accepted; not built yet |
 
 ## Template
 

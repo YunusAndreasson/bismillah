@@ -478,13 +478,24 @@ retain filesystem timestamp precision too; ambiguous legacy entries remain
 available. Four Rust regressions cover the boundary cases; evidence is in the
 recovery audit.
 
+## macOS release (planned, ADR-0024)
+
+*Decided by the author on 2026-11-03: expected, not built yet.* The desktop app builds and runs on the author's Mac (ARCHITECTURE.md §12.3); this turns it into a download for other Mac writers.
+
+1. **What only the author can do:** a Developer ID Application certificate in the keychain and an App Store Connect API key, given to the build through `APPLE_SIGNING_IDENTITY`, `APPLE_API_ISSUER`, `APPLE_API_KEY` and `APPLE_API_KEY_PATH`.
+2. **`pnpm release:mac`:** a release build for `universal-apple-darwin`, bundled as a `.dmg`, signed with the hardened runtime, notarized and stapled.
+3. **The promises, on macOS:** the binary shown to hold no network code, and no test hooks; WKWebView locked down like WebKitGTK (`platform::configure_main_window`), or PRIVACY.md saying what differs; PRIVACY.md and the guide naming the macOS folders.
+4. **The minimum macOS version**, from the oldest WKWebView that draws the specimen right and supports the CSS Custom Highlight API (ADR-0020), set in `tauri.macos.conf.json`.
+5. **The download** on the website beside the stick's (ADR-0017), live only when the author publishes it.
+
+**Accepted when:** the `.dmg` opens without a warning on a Mac that has never run bismillah; the specimen is right there in both themes (RTL, vocalised Arabic, mixed lines) and passes the design review; the network check on the shipped binary passes; `pnpm verify` passes; and the author publishes it.
+
 ## Later (not scheduled)
 
 - Opening links to other Markdown files in the library from the editor (`[next](chapter-2.md)`).
 - Author acceptance of the bounded caret blink in the rebuilt app.
 
-- Publishing: a GitHub repo on the author's personal account, CI on Linux, macOS and Windows, public packages (AppImage, .deb, .rpm, AUR, Flathub without network permission), and macOS and Windows releases.
-- The macOS desktop app. Development started on the author's Mac on 2026-11-03, and it builds there (ARCHITECTURE.md §12.3).
+- Publishing: a GitHub repo on the author's personal account, CI on Linux, macOS and Windows, public packages (AppImage, .deb, .rpm, AUR, Flathub without network permission), and Windows releases. The macOS release is planned above (ADR-0024).
 - Print / PDF and HTML export.
 - Jump to heading (palette list of headings, `Alt-↑/↓`).
 - Executable plugins, only after an ADR settles isolation (ADR-0005).
