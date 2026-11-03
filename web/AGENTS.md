@@ -1,9 +1,10 @@
 # AGENTS.md: the website
 
 The site that promotes **bismillah**, the editor in the repo root ([../AGENTS.md](../AGENTS.md)).
-It is built with Astro 7, fully static, and served by Cloudflare as the `bismillah` Worker:
-static assets only, no Worker script. Until the site has its own address it lives at
-https://bismillah.jonas-268.workers.dev.
+It is built with Astro 7, fully static, and served by Cloudflare Pages as the `bismillah-app`
+project: static files only, no Functions. Until the site has its own address it lives at
+https://bismillah-app.pages.dev (Pages, not a Worker, since 2026-11-03, so the address
+carries no account name).
 
 **Status:** the design is built (2026-10-28) and waits for the author's review, with
 its words in `src/copy.ts` (drafted 2026-10-29 for the author to review). One page, one
@@ -52,9 +53,9 @@ aside while the stick itself is on the screen.
   exactly. Other words may be drafted, plainly and in the site's voice (GUIDELINES.md,
   Words), for the author to review.
 - The name is always lowercase: **bismillah**.
-- **Static by default.** No adapter, no Worker script, no request-time code. Anything
-  live runs in the browser. Adding `@astrojs/cloudflare` or a `main` script is a
-  decision: say why first.
+- **Static by default.** No adapter, no Pages Functions or Worker script, no
+  request-time code. Anything live runs in the browser. Adding `@astrojs/cloudflare`
+  or a `functions/` folder is a decision: say why first.
 - `.astro` first. Client JavaScript only where a page truly needs it: today one module,
   `src/scripts/site.ts` (the player, the opening shot, the push, her page written as it is
   read, Zuhd mode, the caret, the corner button's ground, and the commands' copy buttons
@@ -147,8 +148,13 @@ aside while the stick itself is on the screen.
 
 - `astro build` writes flat files to `dist/` (`build.format: "file"`, `trailingSlash:
   "never"`), so Cloudflare serves `/about` from `about.html` with no redirect.
-- `wrangler.jsonc`: assets only, `not_found_handling: "404-page"`, workers.dev on,
-  per-version preview URLs off.
+- `wrangler.jsonc`: a Pages project (`bismillah-app`, `pages_build_output_dir: ./dist`),
+  no Functions. Pages serves `404.html` with status 404 for an unknown path. Each deploy
+  also gets its own `<hash>.bismillah-app.pages.dev` address, which Pages can't turn off.
+  A Worker's address would be `<name>.<account>.workers.dev`, which names the account.
+  Wrangler 4.15x moves a new Pages project onto Workers unless created with
+  `wrangler pages project create --force` (done once, 2026-11-03); never recreate it
+  without that flag.
 - **Browsers:** Baseline Widely Available, set as `browsers` in `astro.config.mjs`
   (Chrome and Edge 111, Firefox 114, Safari 16.4), because Astro alone builds for
   `esnext`. Lightning CSS lowers and prefixes the CSS for them, so write standard,
@@ -186,7 +192,7 @@ the app's.
 pnpm install        # pnpm switches itself to the version in packageManager
 pnpm dev            # astro dev
 pnpm build          # astro build → dist/
-pnpm preview        # build, then serve dist/ in workerd with production headers and 404 (port 8787)
+pnpm preview        # build, then serve dist/ with `wrangler pages dev`: production headers and 404 (port 8787)
 pnpm check          # Biome lint + format (pnpm check:fix writes the fixes)
 pnpm typecheck      # astro check
 pnpm verify         # check + typecheck + build: the gate before every commit, the same as CI
@@ -199,10 +205,10 @@ pnpm ship           # deploy to production, only when the author asks (see below
   every pull request that touches `web/`. It never deploys, so no Cloudflare credential
   lives in GitHub.
 - **Deploy**: `pnpm ship` from the author's machine is the only path. It refuses unless
-  `web/` is clean and on main, then runs `pnpm verify`, `wrangler deploy` (the
-  logged-in OAuth session, no API token) with the last site commit as the message, and
-  the smoke test against the live URL. Never run `wrangler deploy` directly, and ship
-  only when the author asks.
+  `web/` is clean and on main, then runs `pnpm verify`, `wrangler pages deploy` to
+  the production branch `main` (the logged-in OAuth session, no API token) with the last
+  site commit as the message, and the smoke test against the live URL. Never run
+  `wrangler pages deploy` directly, and ship only when the author asks.
 
 ## Dependencies
 

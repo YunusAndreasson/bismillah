@@ -1,24 +1,19 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
 
-  // A static site: no Worker script, only assets. Every request is a file from
-  // ./dist, which costs no Worker invocation and has no request-time code to
-  // break. Ship with `pnpm ship`, never a bare `wrangler deploy` (AGENTS.md).
-  "name": "bismillah",
+  // A static site on Cloudflare Pages: no Functions, only the files in ./dist, so no
+  // request runs code and there is no request-time code to break. Ship with
+  // `pnpm ship`, never a bare `wrangler pages deploy` (AGENTS.md).
+  //
+  // Pages, not a Worker, so the address carries no account name: a Worker's address
+  // is <name>.<account>.workers.dev, a Pages project's is <name>.pages.dev
+  // (bismillah.pages.dev belongs to someone else). Pages serves 404.html with status
+  // 404 for an unknown path, and `_headers` the same way the assets layer does.
+  // Every deploy also gets its own <hash>.bismillah-app.pages.dev address, which
+  // Pages cannot turn off.
+  "name": "bismillah-app",
+  "pages_build_output_dir": "./dist",
 
-  // At or before the installed workerd's build date, so `wrangler dev` runs it.
-  "compatibility_date": "2026-10-23",
-
-  "assets": {
-    "directory": "./dist",
-    // Astro writes a real 404.html. This is the static-site mode, NOT
-    // "single-page-application", which would answer 200 to every unknown path.
-    "not_found_handling": "404-page"
-  },
-
-  // workers.dev is the only public URL until the site has its own address.
-  // Per-version preview URLs stay off: nothing uses them, and each would be
-  // another public copy of the site.
-  "workers_dev": true,
-  "preview_urls": false
+  // At or before the installed workerd's build date, so `wrangler pages dev` runs it.
+  "compatibility_date": "2026-10-23"
 }

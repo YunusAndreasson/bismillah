@@ -1,6 +1,6 @@
 # Cloudflare applies these to every static response, which is every response here.
 #
-# X-Robots-Tag keeps the workers.dev address out of search results until the site
+# X-Robots-Tag keeps the pages.dev address out of search results until the site
 # has its own address, so that address is the one that gets indexed. Remove it at
 # launch. Referrer-Policy: the site sends no one its visitors' paths.
 # Cross-Origin-Opener-Policy: a page that opens the site gets no handle on its window.

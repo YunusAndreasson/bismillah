@@ -1,7 +1,7 @@
 # Puts bismillah on a USB stick, or updates a bismillah stick and keeps its texts.
 # On Windows 10 and 11, in PowerShell:
 #
-#   irm https://bismillah.jonas-268.workers.dev/install.ps1 | iex
+#   irm https://bismillah-app.pages.dev/install.ps1 | iex
 #
 # It downloads the stick's image from the same site, checks every part against its
 # sha256, lists the USB disks and asks which one to use. It writes only to a disk that
@@ -17,7 +17,7 @@
 & {
   $ErrorActionPreference = 'Stop'
   $ProgressPreference = 'SilentlyContinue'
-  $Base = 'https://bismillah.jonas-268.workers.dev/stick'
+  $Base = 'https://bismillah-app.pages.dev/stick'
   if ($env:BISMILLAH_STICK_URL) { $Base = $env:BISMILLAH_STICK_URL }
   $Script = ($Base -replace '/stick$', '') + '/install.ps1'
 

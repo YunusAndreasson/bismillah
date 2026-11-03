@@ -15,13 +15,13 @@ while typing. Physical clicks and two-finger scrolling remain available.
 On a Mac or a Linux computer, in a terminal:
 
 ```bash
-curl -fsSL https://bismillah.jonas-268.workers.dev/install.sh | sh
+curl -fsSL https://bismillah-app.pages.dev/install.sh | sh
 ```
 
 On Windows, in PowerShell:
 
 ```powershell
-irm https://bismillah.jonas-268.workers.dev/install.ps1 | iex
+irm https://bismillah-app.pages.dev/install.ps1 | iex
 ```
 
 The command downloads the published image (about 350 MB) and checks each part against its sha256. It then lists the USB disks and asks which one is the stick. It refuses a disk that isn't USB, that holds the computer's own system, or that is too small, and it writes nothing until you type the stick's name back. It asks for your password (on Windows, for permission) only to read and write the stick. On a bismillah stick it offers to update the system and keep the texts, or to erase the stick and start again. Everything it writes is read back. How it works, and why it is trusted: [ADR-0017](../docs/decisions/0017-published-stick.md).

@@ -2,7 +2,7 @@
 # Puts bismillah on a USB stick, or updates a bismillah stick and keeps its texts.
 # On macOS and Linux:
 #
-#   curl -fsSL https://bismillah.jonas-268.workers.dev/install.sh | sh
+#   curl -fsSL https://bismillah-app.pages.dev/install.sh | sh
 #
 # It downloads the stick's image from the same site, checks every part against its
 # sha256, lists the USB disks and asks which one to use. It writes only to a disk
@@ -19,7 +19,7 @@
 # script runs nothing.
 set -eu
 
-BASE=${BISMILLAH_STICK_URL:-https://bismillah.jonas-268.workers.dev/stick}
+BASE=${BISMILLAH_STICK_URL:-https://bismillah-app.pages.dev/stick}
 
 say() { printf '%s\n' "$*"; }
 die() {

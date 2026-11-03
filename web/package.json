@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro build && wrangler dev",
+    "preview": "astro build && wrangler pages dev --port 8787",
     "astro": "astro",
     "check": "biome check .",
     "check:fix": "biome check --write .",
