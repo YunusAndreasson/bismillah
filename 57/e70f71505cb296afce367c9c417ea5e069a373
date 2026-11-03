@@ -1,0 +1,19 @@
+.claude/hooks/guard-offline.sh
+  s_22568b58fd39ef::t_c37139b9770a71 11,17,19-20,30,36-37,47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "57e70f71505cb296afce367c9c417ea5e069a373",
+  "prompts": {},
+  "sessions": {
+    "s_22568b58fd39ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee30f02c-58ee-4f5d-b0ef-bdbb5fcfc573",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Yunus Andreasson <yunus@edenmind.com>"
+    }
+  }
+}
