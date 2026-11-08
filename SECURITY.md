@@ -43,7 +43,7 @@ In scope:
 - the desktop app (`src/`, `src-tauri/`) and its Rust crates (`crates/`)
 - the bismillah stick (`os/`): its boot chain, the encrypted home partition,
   unlocking and the helper, `bismillah-install`, and the install scripts served at
-  https://bismillah-app.pages.dev/install.sh and `/install.ps1`
+  https://bismillah.ink/install.sh and `/install.ps1`
 - Print to Phone, sealed prints and the phone app (`mobile/`)
 - the website (`web/`) and this repository's workflows
 

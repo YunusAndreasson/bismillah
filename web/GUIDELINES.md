@@ -180,7 +180,7 @@ The site should keep the promises the editor keeps:
 
 ## Still to decide
 
-- The web address. Where to get it is decided in shape (the author, 2026-10-28): three numbered steps,
+- Where to get it is decided in shape (the author, 2026-10-28): three numbered steps,
   each with a picture, a USB stick, one command from this site that puts bismillah on it, and the
   laptop started from it, with "Get the bismillah app" always in reach. The section's heading and
   the first and third steps' details come from the stick's README (2026-10-29: _The bismillah

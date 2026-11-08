@@ -1,8 +1,6 @@
 # Cloudflare applies these to every static response, which is every response here.
 #
-# X-Robots-Tag keeps the pages.dev address out of search results until the site
-# has its own address, so that address is the one that gets indexed. Remove it at
-# launch. Referrer-Policy: the site sends no one its visitors' paths.
+# Referrer-Policy: the site sends no one its visitors' paths.
 # Cross-Origin-Opener-Policy: a page that opens the site gets no handle on its window.
 #
 # The Content-Security-Policy makes the site's promise mechanical: a page may load
@@ -14,7 +12,6 @@
 # Trusted Types close the DOM's HTML and script sinks (innerHTML, eval and the rest)
 # to strings: the site's script only sets text and attributes, so it needs none.
 /*
-  X-Robots-Tag: noindex
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Cross-Origin-Opener-Policy: same-origin

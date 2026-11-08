@@ -13,7 +13,7 @@ Work from `web/`. Screenshots go in the session's scratchpad, never the repo.
 
 ```bash
 pnpm verify    # or `pnpm build` when only looking
-WRANGLER_SEND_METRICS=false pnpm exec wrangler pages dev --port 8787 --ip 127.0.0.1   # in the background
+WRANGLER_SEND_METRICS=false pnpm exec wrangler dev --port 8787 --ip 127.0.0.1   # in the background
 ```
 
 Wait until `curl -s -o /dev/null http://127.0.0.1:8787/` succeeds. Then check the
@@ -47,7 +47,7 @@ is wrong.
 
 ## 3. Stop the server
 
-Stop the background `wrangler pages dev` when you are done.
+Stop the background `wrangler dev` when you are done.
 
 ## Limits
 

@@ -11,9 +11,9 @@ import { defineConfig } from "astro/config";
 const browsers = ["chrome111", "edge111", "firefox114", "safari16.4", "ios16.4"];
 
 export default defineConfig({
-  // The pages.dev address until the site's own is chosen (GUIDELINES.md,
-  // "Still to decide"). Canonical URLs and a future sitemap come from it.
-  site: "https://bismillah-app.pages.dev",
+  // The site's own address (wrangler.jsonc). Canonical URLs, the install commands
+  // (Commands.astro) and a future sitemap come from it.
+  site: "https://bismillah.ink",
   // Every page is a flat file (`about.html`, not `about/index.html`), and its URL
   // has no trailing slash. Cloudflare's assets layer serves `/about` from
   // `about.html` directly, so no URL ever answers with a redirect.

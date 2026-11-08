@@ -9,7 +9,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-URL="https://bismillah-app.pages.dev"
+URL="https://bismillah.ink"
 
 if [[ -n "$(git status --porcelain -- .)" ]]; then
   echo "Uncommitted changes in web/: commit or stash them before shipping." >&2
@@ -28,6 +28,6 @@ if git fetch --quiet origin main 2>/dev/null && [[ "$(git rev-parse HEAD)" != "$
 fi
 
 pnpm verify
-pnpm exec wrangler pages deploy --branch main --commit-hash "$(git log -1 --format=%H -- .)" --commit-message "$commit" --commit-dirty=false
+pnpm exec wrangler deploy --message "$commit"
 scripts/smoke-test.sh "$URL"
 echo "Shipped ${commit%% *} to $URL"

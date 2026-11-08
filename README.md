@@ -1,7 +1,7 @@
 <p align="center">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</p>
 
 <p align="center">
-  <a href="https://bismillah-app.pages.dev">
+  <a href="https://bismillah.ink">
     <img src="web/src/assets/stills/22-bismillah.jpg" alt="A child's hand writes Bismillah in pencil at the top of a blank lined notebook page, under a lamp at night: the poster of bismillah's short film." width="760">
   </a>
 </p>
@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="https://bismillah-app.pages.dev"><b>bismillah-app.pages.dev</b></a> ·
+  <a href="https://bismillah.ink"><b>bismillah.ink</b></a> ·
   <a href="#install">Install</a> ·
   <a href="docs/guide.md">Guide</a> ·
   <a href="PRIVACY.md">Privacy</a> ·

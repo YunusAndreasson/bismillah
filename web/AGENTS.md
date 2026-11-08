@@ -1,10 +1,9 @@
 # AGENTS.md: the website
 
 The site that promotes **bismillah**, the editor in the repo root ([../AGENTS.md](../AGENTS.md)).
-It is built with Astro 7, fully static, and served by Cloudflare Pages as the `bismillah-app`
-project: static files only, no Functions. Until the site has its own address it lives at
-https://bismillah-app.pages.dev (Pages, not a Worker, since 2026-11-03, so the address
-carries no account name).
+It is built with Astro 7, fully static, and served by Cloudflare as the `bismillah`
+Worker's static assets: files only, no Worker script. It lives at https://bismillah.ink
+(since 2026-11-08), its only address.
 
 **Status:** the design is built (2026-10-28) and waits for the author's review, with
 its words in `src/copy.ts` (drafted 2026-10-29 for the author to review). One page, one
@@ -148,13 +147,14 @@ aside while the stick itself is on the screen.
 
 - `astro build` writes flat files to `dist/` (`build.format: "file"`, `trailingSlash:
   "never"`), so Cloudflare serves `/about` from `about.html` with no redirect.
-- `wrangler.jsonc`: a Pages project (`bismillah-app`, `pages_build_output_dir: ./dist`),
-  no Functions. Pages serves `404.html` with status 404 for an unknown path. Each deploy
-  also gets its own `<hash>.bismillah-app.pages.dev` address, which Pages can't turn off.
-  A Worker's address would be `<name>.<account>.workers.dev`, which names the account.
-  Wrangler 4.15x moves a new Pages project onto Workers unless created with
-  `wrangler pages project create --force` (done once, 2026-11-03); never recreate it
-  without that flag.
+- `wrangler.jsonc`: the `bismillah` Worker, assets only (`./dist`, no `main`), with
+  `not_found_handling: "404-page"`, so an unknown path gets `404.html` with status 404.
+  `bismillah.ink` is a custom domain in `routes`: `wrangler deploy` makes its DNS record
+  and certificate in the account's zone. `workers_dev` and `preview_urls` are off, so
+  that is the only address: a workers.dev one would be `<name>.<account>.workers.dev`,
+  which names the account. From 2026-11-03 until the domain, the site was the Pages
+  project `bismillah-app` at bismillah-app.pages.dev, for that reason; it was deleted
+  once bismillah.ink served, so the site has one address.
 - **Browsers:** Baseline Widely Available, set as `browsers` in `astro.config.mjs`
   (Chrome and Edge 111, Firefox 114, Safari 16.4), because Astro alone builds for
   `esnext`. Lightning CSS lowers and prefixes the CSS for them, so write standard,
@@ -163,7 +163,7 @@ aside while the stick itself is on the screen.
   refuses, so the fonts are `@font-face` in `Base.astro` and images list their widths.
   The push stays in `site.ts` until Gecko has scroll-driven animations (Firefox 159;
   Zen was on 157 on 2026-10-28).
-- `public/_headers`: `X-Robots-Tag: noindex` until launch, `nosniff`, `no-referrer`,
+- `public/_headers`: `nosniff`, `no-referrer`,
   a `same-origin` opener policy, a same-origin `Content-Security-Policy` (no inline
   script or style, so Astro writes stylesheets as files: `inlineStylesheets: "never"`;
   Trusted Types, so no string reaches `innerHTML`, `eval` or another sink), and
@@ -179,10 +179,10 @@ aside while the stick itself is on the screen.
   idle, Cloudflare drops it about 30 s later, and without `Range` Firefox can't resume,
   so the film stopped half a minute in (found live, 2026-11-03). `media-src` allows
   `blob:` for hls.js's Media Source.
-- **At launch**, when the address is chosen: remove the `noindex` header, and change
-  the URL in `astro.config.mjs` (`site`), `scripts/ship.sh` (`URL`), and `BASE` and
-  the usage line in `public/install.sh` and `public/install.ps1` (and in
-  `../os/README.md`).
+- The site is open to search engines (no `noindex`, since 2026-11-08). If the address
+  ever changes, change it together in `wrangler.jsonc` (`routes`), `astro.config.mjs` (`site`),
+  `scripts/ship.sh` (`URL`), `BASE` and the usage line in `public/install.sh` and
+  `public/install.ps1`, and `../os/README.md`, `../README.md` and `../SECURITY.md`.
 - The site builds from `web/` alone; nothing reads from `../`. If it ever must (the
   editor's fonts in `../fonts/`), copy what it needs in, or widen `ship.sh`'s
   clean-tree check to that path.
@@ -196,7 +196,7 @@ the app's.
 pnpm install        # pnpm switches itself to the version in packageManager
 pnpm dev            # astro dev
 pnpm build          # astro build → dist/
-pnpm preview        # build, then serve dist/ with `wrangler pages dev`: production headers and 404 (port 8787)
+pnpm preview        # build, then serve dist/ with `wrangler dev`: production headers and 404 (port 8787)
 pnpm check          # Biome lint + format (pnpm check:fix writes the fixes)
 pnpm typecheck      # astro check
 pnpm verify         # check + typecheck + build: the gate before every commit, the same as CI
@@ -209,10 +209,10 @@ pnpm ship           # deploy to production, only when the author asks (see below
   every pull request that touches `web/`. It never deploys, so no Cloudflare credential
   lives in GitHub.
 - **Deploy**: `pnpm ship` from the author's machine is the only path. It refuses unless
-  `web/` is clean and on main, then runs `pnpm verify`, `wrangler pages deploy` to
-  the production branch `main` (the logged-in OAuth session, no API token) with the last
-  site commit as the message, and the smoke test against the live URL. Never run
-  `wrangler pages deploy` directly, and ship only when the author asks.
+  `web/` is clean and on main, then runs `pnpm verify`, `wrangler deploy` (the
+  logged-in OAuth session, no API token) with the last site commit as the message, and
+  the smoke test against https://bismillah.ink. Never run `wrangler deploy` directly,
+  and ship only when the author asks.
 
 ## Dependencies
 
