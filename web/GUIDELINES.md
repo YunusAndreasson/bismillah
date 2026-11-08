@@ -8,14 +8,11 @@ Look at `moodboard.jpg` (the film in order) and `palette.jpg` first.
 
 ## The film
 
-**Watch it first:** [the film (cut v22, 2:15)](/home/yunus/Work/director/productions/bismillah/renders/cut-v35.mp4)
+**Watch it first:** [the film (cut v35, 2:15)](public/media/film/cut-v35/film-av1.mp4), the copy the site
+plays.
 
-- [Smaller copy for a quick look or for sharing](/home/yunus/Work/director/productions/bismillah/renders/cut-v35-540p.mp4)
-- [The review room](https://claude.ai/artifact/QNweaFtV1LEx4Me71Gyozw): the film with every scene and decision.
-  It is private; share it from its Share menu.
-
-The film is made in the director project (`/home/yunus/Work/director`), so these links point there, to the
-current cut. If the film is updated, they will be updated here too.
+The film is made in the author's separate film project. When it is updated, the site's copy is encoded
+again from its master (`scripts/media.sh`).
 
 ## The intention
 

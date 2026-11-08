@@ -1,6 +1,6 @@
-# Local package for the author's machine (ARCHITECTURE.md §12.3). bismillah is private
-# for now: this builds the committed HEAD of the local repository, nothing is fetched
-# from a remote except crates and npm packages the lockfiles pin.
+# Local package for the author's machine (ARCHITECTURE.md §12.3). bismillah has no
+# published release yet: this builds the committed HEAD of the local repository,
+# nothing is fetched from a remote except crates and npm packages the lockfiles pin.
 #
 #   cd packaging/arch && makepkg -si
 #
