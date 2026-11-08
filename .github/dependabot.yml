@@ -22,6 +22,10 @@ updates:
     cooldown:
       default-days: 7
     ignore:
+      # typescript-eslint and svelte-check don't support TypeScript 7 (the native
+      # compiler) yet: typescript-eslint/typescript-eslint#10940. Lift this once they do.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
       # patches/@codemirror__view.patch is pinned to this exact version
       # (ARCHITECTURE.md §2); move both together, by hand.
       - dependency-name: "@codemirror/view"
@@ -36,6 +40,11 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    ignore:
+      # astro check doesn't support TypeScript 7 (the native compiler) yet; it
+      # asks for TypeScript 6. Lift this once it does.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
     groups:
       web:
         patterns: ["*"]
