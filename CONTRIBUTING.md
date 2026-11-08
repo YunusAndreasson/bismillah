@@ -16,8 +16,8 @@ wait. A change to a recorded decision gets a new ADR in
 ## Build and check
 
 On Arch Linux (for other distributions, see the
-[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/); on Ubuntu, the
-packages [CI installs](.github/workflows/verify.yml) are enough for `--fast`):
+[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/); the
+[CI workflow](.github/workflows/verify.yml) lists what it installs on Ubuntu):
 
 ```sh
 sudo pacman -S --needed rust nodejs pnpm webkit2gtk-4.1 webkitgtk-6.0 xdotool base-devel hunspell xorg-server-xvfb strace python-gobject at-spi2-core desktop-file-utils
