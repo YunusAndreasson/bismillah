@@ -18,8 +18,8 @@ workspace = true
 # Inflates the published image's gzip parts on every OS (Windows has no gunzip).
 flate2 = "1.1"
 # Checks each downloaded part and the whole image against the manifest.
-sha2 = "0.10"
+sha2 = "0.11"
 # The GPT's CRC32.
 crc32fast = "1.5"
 # Random disk and partition GUIDs, from the OS, on every platform.
-getrandom = "0.3"
+getrandom = "0.4"
