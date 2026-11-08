@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/YunusAndreasson/bismillah/security/advisories/new
+    about: Privately, please, never in a public issue (SECURITY.md).
+  - name: Read the guide
+    url: https://github.com/YunusAndreasson/bismillah/blob/main/docs/guide.md
+    about: Everything bismillah does, also inside the app (Help › Guide, F1).

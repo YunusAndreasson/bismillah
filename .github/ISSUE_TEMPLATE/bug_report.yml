@@ -1,0 +1,55 @@
+name: Bug report
+description: Something in bismillah doesn't work the way it should.
+labels: [bug]
+body:
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - The desktop app
+        - The bismillah stick
+        - The website
+        - The phone app
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what bismillah did instead. If text was lost or changed, say so first.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to reproduce it
+      description: >
+        A short document that shows it helps, especially for Arabic, mixed-script or
+        right-to-left text. Use sample text, never your own writing.
+      placeholder: |
+        1. Open a file containing …
+        2. Press …
+  - type: input
+    id: version
+    attributes:
+      label: bismillah version
+      description: The output of `bismillah --version`, or Help › About bismillah. For the website, the page's address.
+      placeholder: bismillah 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: OS, desktop and how you installed bismillah (Arch package, built from source, the stick). For the stick, the laptop's model; for the website, the browser.
+      placeholder: Arch Linux, Hyprland, the Arch package
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >
+        bismillah writes errors and warnings to standard error, which your desktop
+        session may keep in its journal. They never contain your documents, but
+        read them for file and folder names before you paste.
+      render: text

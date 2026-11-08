@@ -1,64 +1,79 @@
-# Contributing to bismillah
+# Contributing
 
-Thank you for wanting to help. bismillah is small on purpose, so the most valuable contributions make what exists more dependable and more beautiful, rather than adding more.
+Bug reports and pull requests are welcome. bismillah is small on purpose, so the
+most useful work makes what exists more dependable rather than adding more: fixes
+in saving, recovery, bidi and accessibility, Arabic support from people who write
+Arabic, failure-path and mixed-script tests, and clearer copy. For anything bigger
+than a fix, open an issue first, so we can agree on the approach before you write
+the code.
 
-## Before you start
+Read [DESIGN.md](DESIGN.md) before UI, copy or typography work,
+[ARCHITECTURE.md](ARCHITECTURE.md) before touching files, saving, IPC, checking or
+security, and [PLAN.md](PLAN.md) for the current phase; work outside it will likely
+wait. A change to a recorded decision gets a new ADR in
+[docs/decisions/](docs/decisions/) that supersedes the old one.
 
-1. Read [DESIGN.md](DESIGN.md). Section 3 lists what bismillah will never have.
-2. Read [ARCHITECTURE.md](ARCHITECTURE.md) for anything touching files, IPC, linting or security.
-3. Check [PLAN.md](PLAN.md) for the current phase. Work outside it will likely wait.
-4. **For anything bigger than a fix, open an issue first so we can agree on the approach.**
+## Build and check
 
-## What we welcome
+On Arch Linux (for other distributions, see the
+[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/); on Ubuntu, the
+packages [CI installs](.github/workflows/verify.yml) are enough for `--fast`):
 
-- Bug fixes, especially in saving, recovery, bidi and RTL, and accessibility.
-- Typography refinements backed by specimen screenshots from the real app.
-- Improvements to Arabic support from people who write Arabic.
-- Tests, particularly failure-path and mixed-script fixtures.
-- Clearer documentation and interface copy.
-
-## What we will decline
-
-Features from DESIGN.md §3 (accounts, sync, telemetry, AI, networking, engagement mechanics), and features that do not improve the core writing task. A polite no is part of keeping bismillah calm.
-
-## Development
-
-Run `pnpm install`, then `pnpm tauri dev`. Every command, and `pnpm verify` (the gate before each commit), is listed in [AGENTS.md](AGENTS.md#commands).
-
-Use `pnpm install --frozen-lockfile` for a reproducible setup. Run `pnpm verify`
-before committing; `pnpm verify --fast` skips the real-app build and suites while
-iterating. On a connected machine, `pnpm verify --online` also requires fresh Rust
-advisories and an npm audit (including development dependencies). The gate and its
-TypeScript, Svelte and Rust lint policy are described in ARCHITECTURE.md §13.
-
-Linux prerequisites (Arch):
-
-```bash
+```sh
 sudo pacman -S --needed rust nodejs pnpm webkit2gtk-4.1 webkitgtk-6.0 xdotool base-devel hunspell xorg-server-xvfb strace python-gobject at-spi2-core desktop-file-utils
-cargo install --locked --root ~/.local cargo-deny tauri-driver   # ~/.local/bin is on PATH
-uv tool install fonttools --with brotli                           # font subsetting and inspection
+cargo install --locked --root ~/.local cargo-deny tauri-driver
+pnpm install --frozen-lockfile
+pnpm tauri dev
 ```
 
-- `webkitgtk-6.0` provides `WebKitWebDriver`, which `tauri-driver` needs.
-- `xdotool` sends the real X key presses the native-input tests need (menus, accelerators, the clipboard).
-- `python-gobject` and `at-spi2-core` let `pnpm a11y` read the app's accessibility tree; `desktop-file-utils` lets `packaging/check.sh` validate the desktop entry.
-- `hunspell` is used for the Arabic speller benchmark.
-- `xorg-server-xvfb` gives headless test runs that don't touch your desktop; `strace` is used for the offline proof (ARCHITECTURE.md §10).
+`webkitgtk-6.0` provides the `WebKitWebDriver` that `tauri-driver` needs, `xdotool`
+sends the real key presses the native-input tests use, `xorg-server-xvfb` keeps
+test runs off your desktop, `strace` serves the offline proof, `python-gobject` and
+`at-spi2-core` let `pnpm a11y` read the accessibility tree, `desktop-file-utils`
+validates the desktop entry, and `hunspell` is the Arabic speller's benchmark
+oracle. Every other command is listed in [AGENTS.md](AGENTS.md#commands).
 
-See the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for other distributions.
+Before a pull request:
 
-## Pull requests
+- `pnpm verify` passes. It runs svelte-check, ESLint and Prettier, Vitest, rustfmt,
+  Clippy, the Rust tests and cargo-deny, then builds the app and runs the real-app
+  e2e and visual suites headless. `pnpm verify --fast` stops before the build while
+  you iterate; CI runs that much on every push.
+- The [definition of done](AGENTS.md#definition-of-done) applies to people too: a
+  failure-path test for file handling (disk full, read-only, conflict, killed
+  process), and editor or typography changes checked in the real app against
+  [docs/specimen.md](docs/specimen.md), Arabic and mixed lines included.
+- UI changes come with before and after screenshots in both themes, one with Arabic
+  or mixed text, and answers to the design review's five questions (DESIGN.md §18).
+- A new dependency gets a row in ARCHITECTURE.md §2 naming the hard problem it
+  solves.
+- One change per pull request, with commit messages in the repository's style: an
+  imperative summary of at most 72 characters scoped to the area (`editor: hang
+  list markers in RTL`, `os: …`, `docs: …`), and a body that says why.
 
-- Keep each PR focused on one change.
-- Follow the **definition of done** in [AGENTS.md](AGENTS.md#definition-of-done). It applies to humans too.
-- UI changes include before/after screenshots (light and dark, including an Arabic or mixed sample) and answers to the five design-review questions (DESIGN.md §18).
-- A new dependency needs a row in ARCHITECTURE.md §2 explaining the hard problem it solves.
-- If you change a recorded decision, add a superseding ADR in `docs/decisions/`.
+## What bismillah won't do
 
-## Commit messages
+These come from DESIGN.md §3 and the standing decisions in AGENTS.md. Changing one
+needs a strong case and an ADR:
 
-Imperative summary of at most 72 characters, optional scope (`editor: …`, `lint: …`, `docs: …`), and a body that explains *why*.
+- No accounts, sync, telemetry, ads, update checks or remote fonts and images.
+  Network crates are banned in `deny.toml`.
+- No generative AI. Nothing writes, rewrites or summarises the writer's text;
+  grammar checking only flags and suggests.
+- Text is saved exactly as typed: no Unicode normalisation, no stripped diacritics,
+  no rewritten frontmatter.
+- Links never open, and nothing is handed to another app (ADR-0015).
+- No executable plugins. Themes are declarative (ADR-0005).
+- No streaks, nagging goals or badges.
+- The app and the stick are desktop only. The phone app is a separate shell in
+  `mobile/` (ADR-0009, ADR-0022).
 
-## Licence
+## Security issues
 
-By contributing, you agree that your contributions are licensed under [GPL-3.0-or-later](LICENSE).
+Not in issues or pull requests: see [SECURITY.md](SECURITY.md).
+
+## Conduct and license
+
+Everyone here follows the [Code of Conduct](CODE_OF_CONDUCT.md). By contributing,
+you agree your work is released under the
+[GNU General Public License, version 3 or later](LICENSE).
