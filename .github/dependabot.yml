@@ -1,0 +1,48 @@
+# Weekly, grouped so a week's updates arrive as a few pull requests. Each one runs
+# the verify workflow (and the web workflow for web/); merge it when it's green and
+# the definition of done in AGENTS.md holds. A new dependency still needs its row in
+# ARCHITECTURE.md §2, and deny.toml still bans anything that networks.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      tauri:
+        patterns: ["tauri", "tauri-*", "wry", "tao"]
+      rust:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      # patches/@codemirror__view.patch is pinned to this exact version
+      # (ARCHITECTURE.md §2); move both together, by hand.
+      - dependency-name: "@codemirror/view"
+    groups:
+      codemirror:
+        patterns: ["@codemirror/*", "@lezer/*"]
+      app:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      web:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

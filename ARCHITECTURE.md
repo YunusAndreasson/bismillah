@@ -446,7 +446,7 @@ The stick runs this app with `--appliance` under cage, as its only program (os/P
 
 ### Code-quality gate
 
-`pnpm verify` is the local gate (the app has no hosted CI; the repo's one workflow checks the website in `web/`). It fails on
+`pnpm verify` is the local gate (CI runs its checks without the real-app suites, `.github/workflows/verify.yml`; `web.yml` checks the website in `web/`). It fails on
 TypeScript/Svelte diagnostics, formatting differences, ESLint warnings, failing
 unit tests, Rust formatting differences, Clippy warnings, cargo-deny policy violations,
 build failures, and real-app e2e or visual regressions. `--fast` skips only the
