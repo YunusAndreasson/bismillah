@@ -194,7 +194,7 @@ export const copy = {
         a: "No. A Mac can make the stick, but can't start from it.",
       },
       {
-        /** README.md, Status. */
+        /** README.md, Install. */
         q: "Can I use it without the stick?",
         a: "Not yet.",
       },
