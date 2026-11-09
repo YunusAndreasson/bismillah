@@ -45,7 +45,7 @@ These five rules protect the people who write in bismillah. Each one is a promis
 The repository is public. The code and docs are GPL-3.0-or-later; [NOTICE.md](NOTICE.md) lists the film, the site's pictures and the author's writing, which aren't.
 
 - **A new dependency's licence has to be compatible with the GPL.** On the Rust side `cargo deny check` enforces it (`deny.toml`); on the JavaScript side, check it yourself. Fonts and other assets need a redistributable licence and a line in NOTICE.md.
-- **Dependabot opens grouped pull requests weekly.** `.github/dependabot.yml` says what it holds back and why: TypeScript (typescript-eslint, svelte-check and astro check don't support the native compiler yet), hpke (0.15 renamed the API the seal uses, ADR-0023) and `@codemirror/view` (pinned by its patch).
+- **Dependabot opens grouped pull requests weekly.** `.github/dependabot.yml` says what it holds back and why: TypeScript (typescript-eslint, svelte-check and astro check don't support the native compiler yet), hpke (0.15 renamed the API the seal uses, ADR-0023), sha2 (0.11's hashers no longer implement `io::Write`, which the installer streams into) and `@codemirror/view` (pinned by its patch).
 - **The `zip` crate's advisories come through harper-core and candle-core**, not our code. They clear when those move to a fixed zip (9.0.5 or later); bumping zip ourselves can't, since both pin older majors.
 
 ## Commands

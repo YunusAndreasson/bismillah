@@ -15,6 +15,10 @@ updates:
       # 0.15 renamed; moving to it is a code change to review, not a version bump.
       - dependency-name: "hpke"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # sha2 0.11's hashers no longer implement io::Write, which the installer
+      # streams files into (bismillah-install); moving is a code change too.
+      - dependency-name: "sha2"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     groups:
       tauri:
         patterns: ["tauri", "tauri-*", "wry", "tao"]
