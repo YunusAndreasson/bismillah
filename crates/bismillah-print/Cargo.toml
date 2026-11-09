@@ -17,12 +17,12 @@ ur = "0.5.2"
 qrcode = { version = "0.14.1", default-features = false }
 minicbor = { version = "2", features = ["alloc"] }
 flate2 = "1"
-sha2 = "0.10"
+sha2 = "0.11"
 thiserror = "2"
 # Sealing (ADR-0023): RFC 9180 public-key encryption, and a key text whose checksum catches
 # a typing slip. `age` would bring 120 crates, with a translation stack, to do the same.
 hpke = { version = "0.13", default-features = false, features = ["alloc", "x25519"] }
-bech32 = "0.11"
+bech32 = "0.12"
 rand_core = { version = "0.9", default-features = false, features = ["os_rng"] }
 
 [dev-dependencies]
