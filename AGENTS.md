@@ -40,6 +40,14 @@ These five rules protect the people who write in bismillah. Each one is a promis
 - **Add a dependency only for a hard problem**: correctness, accessibility or security work we would otherwise hand-write. Record its job in ARCHITECTURE.md §2.
 - **Style components with semantic tokens** (DESIGN.md §9). Quiet text uses `text-secondary`, never opacity, so contrast stays measurable.
 
+## Open source
+
+The repository is public. The code and docs are GPL-3.0-or-later; [NOTICE.md](NOTICE.md) lists the film, the site's pictures and the author's writing, which aren't.
+
+- **A new dependency's licence has to be compatible with the GPL.** On the Rust side `cargo deny check` enforces it (`deny.toml`); on the JavaScript side, check it yourself. Fonts and other assets need a redistributable licence and a line in NOTICE.md.
+- **Dependabot opens grouped pull requests weekly.** `.github/dependabot.yml` says what it holds back and why: TypeScript (typescript-eslint, svelte-check and astro check don't support the native compiler yet), hpke (0.15 renamed the API the seal uses, ADR-0023) and `@codemirror/view` (pinned by its patch).
+- **The `zip` crate's advisories come through harper-core** (and candle-core). They clear when harper-core moves to zip 9; the editor only opens its own rule packs with it.
+
 ## Commands
 
 All of these exist. Real-app commands need `pnpm app:build` first and run headless through `scripts/headless.sh`.
