@@ -46,7 +46,7 @@ The repository is public. The code and docs are GPL-3.0-or-later; [NOTICE.md](NO
 
 - **A new dependency's licence has to be compatible with the GPL.** On the Rust side `cargo deny check` enforces it (`deny.toml`); on the JavaScript side, check it yourself. Fonts and other assets need a redistributable licence and a line in NOTICE.md.
 - **Dependabot opens grouped pull requests weekly.** `.github/dependabot.yml` says what it holds back and why: TypeScript (typescript-eslint, svelte-check and astro check don't support the native compiler yet), hpke (0.15 renamed the API the seal uses, ADR-0023) and `@codemirror/view` (pinned by its patch).
-- **The `zip` crate's advisories come through harper-core** (and candle-core). They clear when harper-core moves to zip 9; the editor only opens its own rule packs with it.
+- **The `zip` crate's advisories come through harper-core and candle-core**, not our code. They clear when those move to a fixed zip (9.0.5 or later); bumping zip ourselves can't, since both pin older majors.
 
 ## Commands
 
