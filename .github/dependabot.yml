@@ -10,6 +10,11 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    ignore:
+      # The seal (ADR-0023) is written against hpke 0.13's single-shot API, which
+      # 0.15 renamed; moving to it is a code change to review, not a version bump.
+      - dependency-name: "hpke"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     groups:
       tauri:
         patterns: ["tauri", "tauri-*", "wry", "tao"]
