@@ -6,7 +6,7 @@ import { focusedRange, type FocusGranularity } from "./zuhd.ts";
 /** The focused text with the caret at the `|` in `doc`. */
 function focused(doc: string, granularity: FocusGranularity): string | null {
   const caret = doc.indexOf("|");
-  const state = stateOf(doc.replace("|", "")).update({
+  const state = stateOf(doc.replaceAll("|", "")).update({
     selection: EditorSelection.cursor(caret),
   }).state;
   const range = focusedRange(state, granularity);
@@ -39,7 +39,7 @@ describe("Zuhd mode focus", () => {
   it("works for Arabic sentences and paragraphs", () => {
     const arabic = "قال الكاتب: الكتابة أمانة. ثم سك|ت؟ نعم.";
     expect(focused(arabic, "sentence")).toBe("ثم سكت؟");
-    expect(focused(arabic, "paragraph")).toBe(arabic.replace("|", ""));
+    expect(focused(arabic, "paragraph")).toBe(arabic.replaceAll("|", ""));
   });
 
   it("focuses nothing on a blank line", () => {
