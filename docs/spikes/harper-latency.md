@@ -1,6 +1,6 @@
 # Spike: Harper latency
 
-*Phase 0, 2026-10-18. Question (PLAN.md): latency on a 50k-word document, block by block. Accept when a typical batch takes < 50 ms. Code and raw outputs: `spikes/harper-latency/`.*
+*Phase 0, 2026-10-18. Question (PLAN.md): latency on a 50k-word document, block by block. Accept when a typical batch takes < 50 ms. Ongoing measurement: `crates/bismillah-lint/examples/bench.rs`. The spike's code and raw outputs were removed on 2026-11-09 (`git log --all -- spikes/harper-latency` finds them).*
 
 **Result: adjust.** Harper is accurate on real mistakes and fast enough for the ARCHITECTURE.md §14 budget on ordinary prose. But the < 50 ms target holds only at the median and only on plain prose. Phase 3 needs the adjustments below. There is also one decision for the author: Harper now runs a small neural network on every parse.
 

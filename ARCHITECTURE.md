@@ -144,9 +144,8 @@ bismillah/
 ├─ packaging/                 arch/PKGBUILD (local install), linux/bismillah.desktop, check.sh
 ├─ tests/                     e2e/ (incl. spikes/), visual/ (baselines), fixtures/ (bidi, profiles,
 │                             quran, library)
-├─ spikes/                    Phase 0 experiments: arabic-speller, harper-latency, transliteration, webview
-└─ docs/  decisions/ · spikes/ · specimen.md · guide.md (also Help › Guide) · audits/ · reviews/
-          · interviews/
+├─ spikes/                    webview/: Phase 0's native-input and live-preview test tools, still in use
+└─ docs/  decisions/ · spikes/ · specimen.md · guide.md (also Help › Guide) · audits/
 ```
 
 ## 4. IPC surface

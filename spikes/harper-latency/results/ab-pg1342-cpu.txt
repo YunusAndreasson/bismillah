@@ -1,7 +1,0 @@
- 16:08:49 up 1 day, 21:17,  1 user,  load average: 13.02, 12.14, 11.54
-clock: thread CPU time (/proc/thread-self/schedstat)
-[a/b] 150 batches of 1–3 paragraphs (100–400 words), fresh group each, warm globals
-  full curated group (Harper SpellCheck)       n=150   p50= 57.351ms p95=153.106ms p99=247.628ms max= 326.478ms total=  10460.2ms
-  no SpellCheck + membership-only spelling     n=150   p50= 47.521ms p95=115.494ms p99=204.301ms max= 288.762ms total=   8823.4ms
-  unknown words found by the membership pass: 403
- 16:09:33 up 1 day, 21:17,  1 user,  load average: 9.06, 11.21, 11.25

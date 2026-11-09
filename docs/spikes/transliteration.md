@@ -1,6 +1,6 @@
 # Spike: transliteration table (keyboard input, corpus half)
 
-*Phase 0, 2026-10-18.* Question (PLAN.md): does the transliteration table in DESIGN.md §11.3 avoid collisions on English and transliterated prose? **Verdict: adjust.** Macrons change from `a-` to `a=`; dots below keep `.h` with one guard; ʿayn (`` ` ``) and hamza (`''`) stay, with two backtick rules. Code and harness: [spikes/transliteration/](../../spikes/transliteration/).
+*Phase 0, 2026-10-18.* Question (PLAN.md): does the transliteration table in DESIGN.md §11.3 avoid collisions on English and transliterated prose? **Verdict: adjust.** Macrons change from `a-` to `a=`; dots below keep `.h` with one guard; ʿayn (`` ` ``) and hamza (`''`) stay, with two backtick rules. The converter now lives in `src/editor/typingAids.ts`; the spike's code and harness were removed on 2026-11-09 (`git log --all -- spikes/transliteration` finds them).
 
 ## Method
 
@@ -12,7 +12,7 @@
 | Project Gutenberg | 1,553,180 | Austen, Melville, Darwin, the Federalist Papers, Montaigne, Gibbon, Joyce (first 300k words of each) |
 | Wikipedia | 247,524 | 38 Islamic-studies articles, 5,210 IJMES letters |
 
-The downloaded corpora are not committed; `fetch-corpora.sh` reproduces them.
+The downloaded corpora are not committed; the spike's `fetch-corpora.sh` (in history) reproduces them.
 
 ## Results
 

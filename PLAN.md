@@ -2,7 +2,7 @@
 
 What gets built, in what order, and how each phase is accepted. **The how lives elsewhere:** design in [DESIGN.md](DESIGN.md), architecture in [ARCHITECTURE.md](ARCHITECTURE.md), decisions in [docs/decisions/](docs/decisions/).
 
-*Revision 2, 2026-10-18.* Incorporates the [plan review](docs/reviews/2026-10-18-plan-review.md). Main changes from revision 1:
+*Revision 2, 2026-10-18.* Incorporates a review of revision 1, whose outcomes are ADRs 0001, 0005, 0006 and 0007. Main changes from revision 1:
 - Declarative themes first; executable plugins deferred.
 - A file-safety contract with recovery, and `Mod-S` kept.
 - A smaller font set with per-font profiles; stable writing size (no viewport scaling); a corrected contrast floor of 4.5:1.
@@ -386,31 +386,13 @@ unlock styling. Their implementation and real-app evidence are recorded in
 [the daily-polish audit](docs/audits/2026-10-25-daily-polish.md). The existing
 personal 1.0 acceptance remains the author’s check.
 
-## Three panels (2026-10-26)
-
-The author found Find anything too crowded and asked for **Files, Commands and
-Settings** as separate panels opened from the bottom left, with no folder tree
-anywhere (ADR-0016). Built 2026-10-26; evidence in
-[the panels audit](docs/audits/2026-10-26-panels.md).
-
-**Acceptance check (the author):**
-1. Open each panel from the status line, with its shortcut and with `Shift Shift`;
-   its tabs sit over the status line's names.
-2. Type a word, then `Tab` through the three panels: the query stays and each tab
-   counts what it found.
-3. In Files: find a file by its folder, `Enter` on a folder, `F2`, `Delete` and
-   *Undo*, `Ctrl+Shift+N` in a folder.
-4. In Settings: `←` `→` on *Line length* and *Text size*, `Enter` to open a row,
-   `Esc` twice; *Show in Settings* from a broken keybindings.toml.
-5. On the stick: Settings › This stick (keyboard and time zone) by keyboard.
-
 ## One palette: Search (2026-10-29)
 
 The author found the three bottom-left tabs non-standard and asked for one palette on
 `Ctrl+K`, as in Notion, Linear and VS Code, keeping `Ctrl+P`, `Ctrl+Shift+P` and
 `Ctrl+,` as ways into it (ADR-0018, superseding ADR-0016's panels). Built 2026-10-29;
-evidence in [the Search audit](docs/audits/2026-10-29-search.md). This replaces the
-three panels' acceptance check above.
+evidence in [the Search audit](docs/audits/2026-10-29-search.md). This replaced the
+three panels' acceptance check.
 
 **Acceptance check (the author):**
 1. `Ctrl+K`, `Shift Shift` and *Search* in the status line open Search near the top;

@@ -1,6 +1,6 @@
 # Spike: Arabic speller
 
-*Phase 0, 2026-10-18. Question (PLAN.md): `spellbook` or Hunspell with Ayaspell, judged on correctness and suggestions. Code and fixtures: [spikes/arabic-speller/](../../spikes/arabic-speller/).*
+*Phase 0, 2026-10-18. Question (PLAN.md): `spellbook` or Hunspell with Ayaspell, judged on correctness and suggestions. The benchmark lives on as `crates/bismillah-lint/tests/arabic_benchmark.rs`, with the same fixtures in `crates/bismillah-lint/tests/fixtures/`; the spike's own code was removed on 2026-11-09 (`git log --all -- spikes/arabic-speller` finds it).*
 
 **Result: `spellbook` is the default (go, with three adapter requirements).** Both engines accept and reject exactly the same words, so the choice comes down to integration, determinism and speed, where `spellbook` wins. The Hunspell binding is not worth shipping as a fallback.
 

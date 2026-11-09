@@ -1,6 +1,6 @@
 # Phase 0 spikes
 
-Each spike answers one question from PLAN.md with evidence from the real app (WebKitGTK 2.54.1, Tauri 2.12, this machine) and ends with **go**, **adjust** or **no-go**. The short result is recorded in the ADR it informs; the evidence is here. Spike code lives in `spikes/` and `tests/e2e/spikes/`.
+Each spike answers one question from PLAN.md with evidence from the real app (WebKitGTK 2.54.1, Tauri 2.12, this machine) and ends with **go**, **adjust** or **no-go**. The short result is recorded in the ADR it informs; the evidence is here. Spike code lives in `spikes/webview/` and `tests/e2e/spikes/`; the code of the other Phase 0 spikes was removed on 2026-11-09 once its results were in the crates (`git log --all -- spikes/` finds it).
 
 | Spike | Verdict | Report | ADR |
 |---|---|---|---|

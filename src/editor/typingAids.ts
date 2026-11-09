@@ -16,7 +16,7 @@ import type { SyntaxNode } from "@lezer/common";
 
 /**
  * Typing aids (DESIGN.md §11.3, ADR-0010): smart punctuation and IJMES transliteration
- * mode. Ported from the Phase 0 spike (spikes/transliteration/converter.ts), whose table
+ * mode. Ported from the Phase 0 spike's converter (in git history), whose table
  * was chosen on 1.8M words of prose (docs/spikes/transliteration.md).
  *
  * The aids act only on keys the writer has just typed at the caret. The typed key goes in
