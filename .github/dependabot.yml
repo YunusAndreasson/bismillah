@@ -6,6 +6,8 @@ version: 2
 updates:
   - package-ecosystem: cargo
     directory: /
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
     cooldown:
@@ -26,6 +28,8 @@ updates:
         patterns: ["*"]
   - package-ecosystem: npm
     directory: /
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
     cooldown:
@@ -45,6 +49,8 @@ updates:
         patterns: ["*"]
   - package-ecosystem: npm
     directory: /web
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
     cooldown:
@@ -59,6 +65,8 @@ updates:
         patterns: ["*"]
   - package-ecosystem: github-actions
     directory: /
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
     groups:
