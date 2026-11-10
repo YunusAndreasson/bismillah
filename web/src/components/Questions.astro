@@ -15,7 +15,13 @@ const q = copy.questions;
       q.items.map((item) => (
         <details>
           <summary>{item.q}</summary>
-          <p class="answer">{item.a}</p>
+          <p class="answer">
+            {typeof item.a === "string"
+              ? item.a
+              : item.a.map((part) =>
+                  typeof part === "string" ? part : <a href={part.href}>{part.text}</a>,
+                )}
+          </p>
         </details>
       ))
     }
@@ -93,5 +99,12 @@ const q = copy.questions;
     padding-inline-start: var(--indent);
     padding-block-end: calc(0.75 * var(--L));
     color: var(--page-secondary);
+  }
+
+  /* A link in an answer keeps the answer's quiet tone, underlined thinly like the questions. */
+  .answer a {
+    color: inherit;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
   }
 </style>

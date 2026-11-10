@@ -240,6 +240,17 @@ export const copy = {
         q: "Is there AI in it?",
         a: "Nothing that writes. Spelling and grammar checks only suggest, and you accept each change.",
       },
+      {
+        /** contact@ forwards to the maker (Cloudflare Email Routing); the GitHub is his. */
+        q: "Who makes it?",
+        a: [
+          "Yunus Andreasson. Write to ",
+          { text: "contact@bismillah.ink", href: "mailto:contact@bismillah.ink" },
+          ", or find him on ",
+          { text: "GitHub", href: "https://github.com/YunusAndreasson" },
+          ".",
+        ],
+      },
     ],
   },
 } as const;
