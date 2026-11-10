@@ -171,9 +171,12 @@ The site expects its readers to know what bismillah means and its Islamic founda
 
 ## What the site must never do
 
-The site should keep the promises the editor keeps:
+The editor's promises (offline, no telemetry, nothing leaves the machine) are the app's, and the
+site never weakens them. The site keeps its own:
 
-- No trackers, no ads, no pop-ups, no newsletter nagging, no cookie walls.
+- It counts visits with Cloudflare Web Analytics, which sets no cookie, keeps no personal data and
+  follows no one across sites (the author, 2026-11-10). Nothing else: no other analytics, no
+  trackers, no ads, no pop-ups, no newsletter nagging, no cookie walls.
 - No chat assistant or anything that writes for the visitor.
 - Nothing that asks for attention: no countdowns, no "only today", no badges.
 - It should be calm, quick and readable on a phone, and fine to read without the film.

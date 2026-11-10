@@ -45,9 +45,13 @@ aside while the stick itself is on the screen.
 
 ## Rules
 
-- **The site keeps the editor's promises.** No trackers, analytics, ads, pop-ups,
-  cookie walls, chat, or requests to third parties: fonts, images and scripts are
-  served from this site.
+- **The site keeps its own promises, which are not the app's.** The app keeps the
+  writer's: offline, no telemetry, nothing leaves the machine (../PRIVACY.md); this
+  site never speaks for them. The site counts its visits with Cloudflare Web Analytics
+  (the author, 2026-11-10): cookieless, no personal data, no tracking across sites,
+  the beacon in `Base.astro`. Nothing else: no other analytics, no trackers, ads,
+  pop-ups, cookie walls or chat, and no other request to a third party: fonts, images
+  and scripts are served from this site.
 - **The film's lines and the manifesto are fixed.** Reuse the lines in GUIDELINES.md
   exactly. Other words may be drafted, plainly and in the site's voice (GUIDELINES.md,
   Words), for the author to review.
@@ -91,7 +95,9 @@ aside while the stick itself is on the screen.
 ## Layout
 
 - `src/layouts/Base.astro`: the document shell, the palette and size tokens, the fonts
-  and base type, the caret, the reduced-motion rule, and the link preview.
+  and base type, the caret, the reduced-motion rule, the link preview, and the Cloudflare
+  Web Analytics beacon (installed by hand: the site is set to "JS snippet" in Cloudflare,
+  so nothing is injected; its token is public).
 - `src/pages/index.astro`: the page, built from `src/components/`: `Film` (the player),
   `Screen` (her screen), `Document` and `Basmallah` (a document as the editor sets it),
   `Screens` (her laptop with the editor's real screens, one screen after another as
@@ -166,8 +172,11 @@ aside while the stick itself is on the screen.
 - `public/_headers`: `nosniff`, `no-referrer`,
   a `same-origin` opener policy, a same-origin `Content-Security-Policy` (no inline
   script or style, so Astro writes stylesheets as files: `inlineStylesheets: "never"`;
-  Trusted Types, so no string reaches `innerHTML`, `eval` or another sink), and
-  `/_astro/*` and `/media/*` cached for a year, `immutable`. The install scripts and
+  Trusted Types, so no string reaches `innerHTML`, `eval` or another sink) with one
+  exception, Cloudflare Web Analytics: its script from `static.cloudflareinsights.com`
+  and its beacon to `cloudflareinsights.com`. The beacon is a file, not inline, and
+  touches no sink, so `trusted-types` stays `'none'` (checked in Zen and Chromium,
+  2026-11-10). `/_astro/*` and `/media/*` are cached for a year, `immutable`. The install scripts and
   `stick/current` are `text/plain` and `no-cache`; each `/stick/:version/*` folder is
   `immutable` (overlapping rules join their values, so that pattern must not match
   `current`).

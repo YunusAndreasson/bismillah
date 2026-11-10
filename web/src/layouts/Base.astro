@@ -39,6 +39,16 @@ const previewUrl = new URL(preview.src, Astro.site).href;
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
+    <!-- Cloudflare Web Analytics, the site's one third-party request (the author,
+         2026-11-10): it sets no cookie and keeps nothing personal, only page views
+         and load times. Installed by hand, as the site is set to "JS snippet" in
+         Cloudflare, so nothing is injected. The token is public by design.
+         public/_headers allows its script and its beacon's address. -->
+    <script
+      is:inline
+      defer
+      src="https://static.cloudflareinsights.com/beacon.min.js"
+      data-cf-beacon='{"token": "918dd557a0574fe7b229d4513159659a"}'></script>
   </head>
   <body>
     <slot />
