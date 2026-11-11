@@ -21,13 +21,13 @@
   },
   "dependencies": {
     "@astrojs/markdown-satteri": "0.4.6",
-    "astro": "7.4.4",
+    "astro": "7.4.5",
     "hls.js": "1.7.4"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.12",
-    "@biomejs/biome": "2.6.4",
+    "@biomejs/biome": "2.6.5",
     "typescript": "6.0.3",
-    "wrangler": "4.156.1"
+    "wrangler": "4.157.0"
   }
 }
