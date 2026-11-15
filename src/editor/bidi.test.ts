@@ -12,12 +12,7 @@ function dirs(doc: string) {
 
 describe("lineDirection", () => {
   it("uses the first strong character after Markdown marks", () => {
-    expect(dirs("### عنوانٌ عربي\n- عنصرٌ\n> اقتباسٌ\n# Title")).toEqual([
-      "rtl",
-      "rtl",
-      "rtl",
-      "ltr",
-    ]);
+    expect(dirs("### عنوانٌ عربي\n- عنصرٌ\n> اقتباسٌ\n# Title")).toEqual(["rtl", "rtl", "rtl", "ltr"]);
   });
 
   it("ignores inline code, URLs and link destinations when deciding", () => {

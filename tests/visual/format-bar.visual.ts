@@ -46,8 +46,7 @@ describe("formatting bar screenshots", () => {
 
   it("over a Latin line, light", () =>
     shoot("format-bar-latin-light", "plain Markdown", "light", 1280));
-  it("over an Arabic line, dark", () =>
-    shoot("format-bar-arabic-dark", "ٱلرَّحْمَٰنِ", "dark", 1280));
+  it("over an Arabic line, dark", () => shoot("format-bar-arabic-dark", "ٱلرَّحْمَٰنِ", "dark", 1280));
   it("over a mixed line in a narrow window, light", () =>
     shoot("format-bar-mixed-narrow", "أَمَانَةٌ sits", "light", 640));
 });

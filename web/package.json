@@ -20,14 +20,14 @@
     "ship": "scripts/ship.sh"
   },
   "dependencies": {
-    "@astrojs/markdown-satteri": "0.4.6",
-    "astro": "7.4.4",
+    "@astrojs/markdown-satteri": "0.4.10",
+    "astro": "7.4.12",
     "hls.js": "1.7.4"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.12",
-    "@biomejs/biome": "2.6.4",
-    "typescript": "6.0.3",
-    "wrangler": "4.156.1"
+    "@biomejs/biome": "2.6.7",
+    "typescript": "^6.0.3",
+    "wrangler": "4.162.0"
   }
 }

@@ -137,9 +137,7 @@ describe("the rendered look", () => {
 
   it("does the same in Arabic and mixed lines", () => {
     expect(shown("The word **أمانة** means *trust*.")).toBe("The word أمانة means trust.");
-    expect(shown("نستخدم **Markdown** في *مجلدٍ* تختاره.")).toBe(
-      "نستخدم Markdown في مجلدٍ تختاره.",
-    );
+    expect(shown("نستخدم **Markdown** في *مجلدٍ* تختاره.")).toBe("نستخدم Markdown في مجلدٍ تختاره.");
   });
 
   it("shows inline links as their text", () => {

@@ -49,9 +49,7 @@ describe("desktop basics", () => {
   });
 
   it("updates cached word counts after typing, undo and changing files", async () => {
-    await open(
-      folder.file("counts.md", "---\ntitle: Hidden words\n---\nOne two\nبِسْمِ اللَّهِ\n"),
-    );
+    await open(folder.file("counts.md", "---\ntitle: Hidden words\n---\nOne two\nبِسْمِ اللَّهِ\n"));
     const counted = async (count: number) => {
       await browser.waitUntil(async () => (await words()) === count, {
         timeout: 3000,
