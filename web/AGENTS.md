@@ -49,7 +49,7 @@ aside while the stick itself is on the screen.
   writer's: offline, no telemetry, nothing leaves the machine (../PRIVACY.md); this
   site never speaks for them. The site counts its visits with Cloudflare Web Analytics
   (the author, 2026-11-10): cookieless, no personal data, no tracking across sites,
-  the beacon in `Base.astro`. Nothing else: no other analytics, no trackers, ads,
+  the beacon in `Base.astro`, disclosed in one folded question (`src/copy.ts`). Nothing else: no other analytics, no trackers, ads,
   pop-ups, cookie walls or chat, and no other request to a third party: fonts, images
   and scripts are served from this site.
 - **The film's lines and the manifesto are fixed.** Reuse the lines in GUIDELINES.md

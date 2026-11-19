@@ -241,6 +241,12 @@ export const copy = {
         a: "Nothing that writes. Spelling and grammar checks only suggest, and you accept each change.",
       },
       {
+        /** AGENTS.md, Rules: the beacon in Base.astro (the author, 2026-11-10). About this site
+         * only; the site never speaks for the app's promises. Folded, so it stays quiet. */
+        q: "Does this site track me?",
+        a: "No. It counts visits anonymously with Cloudflare Web Analytics, without cookies.",
+      },
+      {
         /** contact@ forwards to the maker (Cloudflare Email Routing); the GitHub is his. */
         q: "Who makes it?",
         a: [
