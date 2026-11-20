@@ -7,7 +7,7 @@ import { paragraphBreak, paragraphs, undoBreak } from "./paragraphs.ts";
 /** A parsed state with the caret at `|` (removed from the text). */
 function at(marked: string): EditorState {
   const caret = marked.indexOf("|");
-  const doc = marked.replace("|", "");
+  const doc = marked.replaceAll("|", "");
   const state = EditorState.create({
     doc,
     selection: EditorSelection.cursor(caret),
@@ -79,7 +79,7 @@ describe("Backspace after a paragraph break", () => {
       expect(back).not.toBeNull();
       if (back) {
         const restored = broken.update(back).state;
-        expect(restored.doc.toString()).toBe(before.replace("|", ""));
+        expect(restored.doc.toString()).toBe(before.replaceAll("|", ""));
         expect(restored.selection.main.head).toBe(before.indexOf("|"));
       }
       // Typing after the break ends it: Backspace is an ordinary Backspace again.

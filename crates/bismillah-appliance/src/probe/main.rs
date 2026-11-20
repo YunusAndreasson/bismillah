@@ -60,7 +60,7 @@ fn become_user(uid: u32) {
             && libc::setresuid(uid, uid, uid) == 0
     };
     if !dropped {
-        eprintln!("bismillah-probe: can't become uid {uid}");
+        eprintln!("bismillah-probe: can't drop privileges");
         std::process::exit(1);
     }
 }
